@@ -8,22 +8,27 @@ import java.math.BigInteger;
  */
 public class Subscription {
     
-    BigInteger value;
-    BigInteger valuePlusOne;
+    private BigInteger matchValue;
+    private BigInteger matchValuePlusOne;
     
-    public Subscription(BigInteger v, BigInteger vPlusOne) {
-        value = v;
-        valuePlusOne = vPlusOne;     
+    private BigInteger coverValue;
+    
+    
+    public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv, BigInteger cvPlusOne) {
+        matchValue = mv;
+        matchValuePlusOne = mvPlusOne;
+        coverValue = cv;
     }
 
-    public BigInteger getValue() {
-        return value;
+    public BigInteger getMatchValue() {
+        return matchValue;
     }
 
-    public BigInteger getValuePlusOne() {
-        return valuePlusOne;
+    public BigInteger getMatchValuePlusOne() {
+        return matchValuePlusOne;
     }
-    
-    
-    
+
+    public BigInteger getCoverValue() {
+        return coverValue;
+    }
 }

@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package naming;
 
 /**
@@ -25,14 +21,24 @@ public class DNSPlus {
         
         Subscription s1 = sub1.generateSubscription("www.google.com");
         
+        // testing match
         Publication p1 = pub1.generatePublication("www.google.com");
-        b1.equalityMatch(p1, s1);   
+        System.out.println(b1.equalityMatch(p1, s1));   
         
         Publication p2 = pub1.generatePublication("www.google.con");
-        b1.equalityMatch(p2, s1);   
+        System.out.println(b1.equalityMatch(p2, s1)); 
         
         Publication p3 = pub1.generatePublication("www.google.col");
-        b1.equalityMatch(p3, s1);   
-    }
-    
+        System.out.println(b1.equalityMatch(p3, s1));   
+        
+        
+        // testing cover
+        Subscription s2 = sub1.generateSubscription("www.google.com");
+        Subscription s3 = sub1.generateSubscription("www.google.col");
+        Subscription s4 = sub1.generateSubscription("www.google.con");
+        
+        System.out.println(b1.cover(s1, s2));
+        System.out.println(b1.cover(s1, s3));
+        System.out.println(b1.cover(s1, s4));
+    } 
 }

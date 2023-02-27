@@ -318,10 +318,6 @@ public class Paillier {
             System.out.println("Value of Subscription 1 (x1) < Value of Subscription 2 (x2)");
             return false;
         }
-        
-        //System.out.println("Raw Difference: " + d);
-        //System.out.println("Difference: " + d.subtract(rv).divide(r));
-        //return d;
     }
     
     

@@ -138,6 +138,7 @@ public class HEPS
     {
         List<BigInteger> params = new ArrayList<>();
         
+        // parameters for match
         BigInteger param1 = shiftedEncryption(r.multiply(BigInteger.valueOf(-1)));
         BigInteger param2 = shiftedEncryption(BigInteger.valueOf(-1));
         BigInteger param3 = g.modPow(t.multiply(BigInteger.valueOf(-1)), nsquare)
@@ -146,6 +147,10 @@ public class HEPS
         params.add(param1);
         params.add(param2);
         params.add(param3);
+        
+        //parameter for cover 
+        BigInteger param4 = g.modPow(t, nsquare).multiply(shiftedEncryption(r));
+        params.add(param4);
         
         return params;
     
