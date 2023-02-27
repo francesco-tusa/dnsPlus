@@ -13,11 +13,21 @@ public class Subscription {
     
     private BigInteger coverValue;
     
+    // for debug only
+    private String serviceName;
+    
     
     public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv) {
         matchValue = mv;
         matchValuePlusOne = mvPlusOne;
         coverValue = cv;
+    }
+    
+     public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv, String serviceName) {
+        matchValue = mv;
+        matchValuePlusOne = mvPlusOne;
+        coverValue = cv;
+        this.serviceName = serviceName;
     }
 
     public BigInteger getMatchValue() {
@@ -30,5 +40,9 @@ public class Subscription {
 
     public BigInteger getCoverValue() {
         return coverValue;
+    }
+
+    public String getServiceName() {
+        return serviceName;
     }
 }

@@ -6,7 +6,7 @@ import java.math.BigInteger;
  *
  * @author f.tusa
  */
-class Publication {
+public class Publication {
     
     BigInteger value;
     

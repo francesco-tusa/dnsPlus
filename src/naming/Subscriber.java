@@ -39,9 +39,14 @@ public class Subscriber extends Entity {
         BigInteger nameAsBigInteger = new BigInteger(name.getBytes());
         BigInteger nameAsBigIntegerPlusOne = nameAsBigInteger.add(BigInteger.ONE);
         
+//        Subscription s = new Subscription(matchBlind(nameAsBigInteger), 
+//                                          matchBlind(nameAsBigIntegerPlusOne),
+//                                          coverBlind(nameAsBigInteger));
+
         Subscription s = new Subscription(matchBlind(nameAsBigInteger), 
                                           matchBlind(nameAsBigIntegerPlusOne),
-                                          coverBlind(nameAsBigInteger));
+                                          coverBlind(nameAsBigInteger), name);
+
         return s;   
     }  
     

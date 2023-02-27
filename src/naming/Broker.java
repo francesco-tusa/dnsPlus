@@ -1,6 +1,8 @@
 package naming;
 
 import java.math.BigInteger;
+import tree.BinaryTree;
+import tree.Node;
 
 /**
  *
@@ -9,9 +11,25 @@ import java.math.BigInteger;
 public class Broker {
     
     private HEPS heps;
+    
+    private BinaryTree table;
 
     public Broker(HEPS heps) {
         this.heps = heps;
+        table = new BinaryTree(this);
+    }
+    
+    
+    public void addSubscription(Subscription s) 
+    {
+        table.addNode(s);
+    }
+    
+    public void matchPublication(Publication p) 
+    {
+        Node node = table.search(table.getRoot(), p);
+        if (node != null)
+            System.out.println("found match: " + node.getSubscription().getServiceName());
     }
     
     
@@ -26,6 +44,35 @@ public class Broker {
         else
             throw new Exception("Error while comparing the values");
         
+    }
+    
+    
+    public Integer match(Publication p, Subscription s) {
+        
+        BigInteger vPub = p.getValue();
+            
+        BigInteger x1Sub = s.getMatchValue();
+        BigInteger x1SubPlusOne = s.getMatchValuePlusOne();
+        
+        try {
+            
+            int c1 = compare(vPub, x1Sub);
+            int c2 = compare(vPub, x1SubPlusOne);
+            
+            if (c1 < 0)
+                if (c2 > 0)
+                    return 0; // equality
+                else
+                    return 1;
+            
+            else
+                return -1;
+                    
+            
+        } catch (Exception ex) {
+            System.err.println(ex.getMessage());
+            return null;
+        }     
     }
     
     
@@ -57,9 +104,7 @@ public class Broker {
         // the value generated for match can be used for the cover too
         BigInteger value2 = s2.getMatchValue(); 
         BigInteger value2PlusOne = s2.getMatchValuePlusOne(); 
-        
-        
-        
+
         try {
             
             int c1 = compare(value1, value2);
