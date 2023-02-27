@@ -41,8 +41,7 @@ public class Subscriber extends Entity {
         
         Subscription s = new Subscription(matchBlind(nameAsBigInteger), 
                                           matchBlind(nameAsBigIntegerPlusOne),
-                                          coverBlind(nameAsBigInteger),
-                                          coverBlind(nameAsBigIntegerPlusOne));
+                                          coverBlind(nameAsBigInteger));
         return s;   
     }  
     

@@ -14,7 +14,7 @@ public class Subscription {
     private BigInteger coverValue;
     
     
-    public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv, BigInteger cvPlusOne) {
+    public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv) {
         matchValue = mv;
         matchValuePlusOne = mvPlusOne;
         coverValue = cv;
