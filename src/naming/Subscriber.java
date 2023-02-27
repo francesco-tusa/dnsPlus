@@ -29,19 +29,8 @@ public class Subscriber extends Entity {
     public BigInteger coverBlind(BigInteger m) 
     {   
         BigInteger rv = (new BigInteger(heps.getRandomRange(), new Random())).mod(heps.getR());
-        BigInteger coverBlind = params.get(3).multiply(params.get(0).modPow(BigInteger.valueOf(1).subtract(m), heps.getNsquare()))
-                .multiply(params.get(1).modPow(rv.multiply(BigInteger.valueOf(-1)), heps.getNsquare()));
-        
-        
-        //List<BigInteger> params2 = heps.generatePubParameters();
-        //BigInteger matchBlind = params2.get(2).multiply(params2.get(0).modPow(m.subtract(BigInteger.valueOf(1)), heps.getNsquare()))
-        //        .multiply(params2.get(1).modPow(rv, heps.getNsquare()));
-        
-        //System.out.println(coverBlind);
-        //System.out.println(matchBlind);
-        
-        
-        return coverBlind;
+        return params.get(3).multiply(params.get(0).modPow(BigInteger.valueOf(1).subtract(m), heps.getNsquare()))
+                            .multiply(params.get(1).modPow(rv.multiply(BigInteger.valueOf(-1)), heps.getNsquare()));
     }
     
     
