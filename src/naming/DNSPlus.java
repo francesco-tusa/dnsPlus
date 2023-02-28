@@ -2,6 +2,8 @@ package naming;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 /**
@@ -49,11 +51,20 @@ public final class DNSPlus
     }
     
     
-    
     public static void main(String[] args) 
     {    
         int iterations = 100;
-        double subscriptions = 0, match1 = 0, match2 = 0, match3 = 0, match4 = 0;
+        double subscriptions = 0;
+        
+        Map<String, Double> matchTimings = new HashMap<>();
+        
+        matchTimings.put("google.com", 0d);
+        matchTimings.put("doesnotexist", 0d);
+        matchTimings.put("allmusic.com", 0d);
+        matchTimings.put("ticketmaster.com", 0d);
+        matchTimings.put("eventbrite.co.uk", 0d);
+        matchTimings.put("facebook.com", 0d);
+             
         long t;
         
         String home = System.getProperty("user.home");
@@ -74,29 +85,25 @@ public final class DNSPlus
         System.out.println("Matching publications");
         for (int i=0; i<iterations; i++) 
         {
-            t = System.nanoTime();
-            dnsPlus.match("google.com");
-            match1 += System.nanoTime() - t;
-            
-            t = System.nanoTime();
-            dnsPlus.match("doesnotexist");
-            match2 += System.nanoTime() - t;
-            
-            t = System.nanoTime();
-            dnsPlus.match("allmusic.com");
-            match3 += System.nanoTime() - t;
-            
-            t = System.nanoTime();
-            dnsPlus.match("ticketmaster.com");
-            match4 += System.nanoTime() - t;
-            
-            
+            double timing;
+            for (String service : matchTimings.keySet())
+            {
+                timing = matchTimings.get(service);
+                
+                t = System.nanoTime();
+                dnsPlus.match(service);
+                timing += System.nanoTime() - t;
+                
+                matchTimings.put(service, timing);
+                
+            }
         }
         
         System.out.println("Subscriptions table generation (ms): " + subscriptions / 1000000);
-        System.out.println("Match 1 [google.com] (ms): " + (match1 / 1000000) / iterations);
-        System.out.println("Match 2 [doesnotexist] (ms): " + (match2 / 1000000) / iterations);
-        System.out.println("Match 3 [allmusic.com] (ms): " + (match3 / 1000000) / iterations);
-        System.out.println("Match 4 [ticketmaster.com] (ms): " + (match4 / 1000000) / iterations);
+        
+        for (String service : matchTimings.keySet()) 
+        {
+         System.out.println("Match [" + service + "] (ms): " + (matchTimings.get(service) / 1000000) / iterations);   
+        }
     } 
 }
