@@ -35,8 +35,9 @@ public class Subscriber extends Entity {
     
     
     public Subscription generateSubscription(String name) 
-    {    
-        BigInteger nameAsBigInteger = new BigInteger(name.getBytes());
+    {   
+        //System.out.println("subscription name lenghth (bits): " + name.getBytes().length * 8);
+        BigInteger nameAsBigInteger = new BigInteger(name.toLowerCase().getBytes());
         BigInteger nameAsBigIntegerPlusOne = nameAsBigInteger.add(BigInteger.ONE);
         
 //        Subscription s = new Subscription(matchBlind(nameAsBigInteger), 
@@ -45,8 +46,21 @@ public class Subscriber extends Entity {
 
         Subscription s = new Subscription(matchBlind(nameAsBigInteger), 
                                           matchBlind(nameAsBigIntegerPlusOne),
-                                          coverBlind(nameAsBigInteger), name);
+                                          coverBlind(nameAsBigInteger), 
+                                          name); // name is for debugging
 
+        return s;   
+    }  
+    
+    public Subscription generateSubscription(BigInteger nameAsBigInteger) 
+    {   
+        //System.out.println("subscription name lenghth (bits): " + name.getBytes().length * 8);
+        BigInteger nameAsBigIntegerPlusOne = nameAsBigInteger.add(BigInteger.ONE);
+        
+        Subscription s = new Subscription(matchBlind(nameAsBigInteger), 
+                                          matchBlind(nameAsBigIntegerPlusOne),
+                                          coverBlind(nameAsBigInteger));
+        
         return s;   
     }  
     

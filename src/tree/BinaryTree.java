@@ -48,18 +48,21 @@ public class BinaryTree
                 if (broker.cover(s, focusNode.subscription) == 0) 
                 {
                     //debug
-                    System.out.println("equals");
-                    System.out.println("s: " + s.getServiceName());
-                    System.out.println("focus: " + focusNode.subscription.getServiceName());
+                    //System.out.println("equals");
+                    //System.out.println("s: " + s.getServiceName());
+                    //System.out.println("focus: " + focusNode.subscription.getServiceName());
+                    //System.out.println("");
+                    
                     return;
                 }
                 
                 else if (broker.cover(s, focusNode.subscription) < 0)
                 {
                     //debug
-                    System.out.println("s < focusNode");
-                    System.out.println("s: " + s.getServiceName());
-                    System.out.println("focus: " + focusNode.subscription.getServiceName());
+                    //System.out.println("s < focusNode");
+                    //System.out.println("s: " + s.getServiceName());
+                    //System.out.println("focus: " + focusNode.subscription.getServiceName());
+                    //System.out.println("");
                     
                     focusNode = focusNode.left;
                     if (focusNode == null) 
@@ -71,9 +74,10 @@ public class BinaryTree
 
                 else 
                 {
-                    System.out.println("s > focusNode");
-                    System.out.println("s: " + s.getServiceName());
-                    System.out.println("focus: " + focusNode.subscription.getServiceName());
+                    //System.out.println("s > focusNode");
+                    //System.out.println("s: " + s.getServiceName());
+                    //System.out.println("focus: " + focusNode.subscription.getServiceName());
+                    //System.out.println("");
                     
                     focusNode = focusNode.right;
                     if (focusNode == null) 
@@ -86,8 +90,7 @@ public class BinaryTree
         }
     }
     
- 
-  
+    
     public Node search(Node root, Publication p)
     {
 	// Base Cases: root is null or key is present at root
@@ -98,12 +101,12 @@ public class BinaryTree
 	// Key is greater than root's key
         if (broker.match(p, root.subscription) > 0) 
         {
-            System.out.println(" p > root: " + root.subscription.getServiceName());
+            //System.out.println("p > root: " + root.subscription.getServiceName());
             return search(root.right, p);
         }
 
-        System.out.println(" p < root: " + root.subscription.getServiceName());
-	// Key is smaller than root's key
+        // Key is smaller than root's key
+        //System.out.println("p < root: " + root.subscription.getServiceName());
 	return search(root.left, p);
     }
    

@@ -98,15 +98,16 @@ public class HEPS
         
         mu = g.modPow(lambda, nsquare).subtract(BigInteger.ONE).divide(n).modInverse(n);
         
-        System.out.println("n: " + n);
-        System.out.println("bitlength: " + bitLength);
+        //System.out.println("n: " + n);
+        //System.out.println("bitlength: " + bitLength);
         
         s = bitLength;
         u = ((s-1) - l)/2;
         
-        System.out.println("s: " + s);
-        System.out.println("u: " + u);
-        System.out.println("l: " + this.l);
+        //System.out.println("s: " + s);
+        //System.out.println("u: " + u);
+        //System.out.println("l: " + this.l);
+        
         r = new BigInteger(u-this.l, new Random());
         t = new BigInteger(u-this.l, new Random());        
     }

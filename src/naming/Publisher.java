@@ -1,7 +1,6 @@
 package naming;
 
 import java.math.BigInteger;
-import java.util.List;
 import java.util.Random;
 
 /**
@@ -29,12 +28,13 @@ public class Publisher extends Entity {
     }
     
     public Publication generatePublication(String name) { 
-        BigInteger nameAsBigInteger = new BigInteger(name.getBytes());        
+        BigInteger nameAsBigInteger = new BigInteger(name.toLowerCase().getBytes());        
         Publication p = new Publication(matchBlind(nameAsBigInteger));
-        return p;
-        
+        return p;  
     }
 
-   
-    
+    public Publication generatePublication(BigInteger nameAsBigInteger) {      
+        Publication p = new Publication(matchBlind(nameAsBigInteger));
+        return p;  
+    }
 }

@@ -1,58 +1,102 @@
 package naming;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.Scanner;
+
 /**
  *
  * @author f.tusa
  */
-public class DNSPlus {
+public final class DNSPlus 
+{
+    // may use a list for each type of entity
+    HEPS heps = new HEPS(2048, 2048/8, 512);
+        
+    Subscriber subscriber = new Subscriber("Subscriber1");
+    Publisher publisher = new Publisher("Publisher1");
+    Broker broker = new Broker("Broker1", heps);
     
-    public static void main(String[] args) {
-        HEPS heps = new HEPS(2048, 2048/8);
+    File serviceNames;
+    
+    public DNSPlus(String file)
+    {
+        serviceNames = new File(file);
         
-        Subscriber sub1 = new Subscriber("Subscriber1");
-        Publisher pub1 = new Publisher("Publisher1");
-        Broker b1 = new Broker(heps);
+        subscriber.setHeps(heps);
+        publisher.setHeps(heps);
         
-        sub1.setHeps(heps);
-        pub1.setHeps(heps);
+        subscriber.getSecurityParameters();
+        publisher.getSecurityParameters();
+    }
+    
+    public void generateSubscriptions() throws FileNotFoundException 
+    {
+        try (Scanner scanner = new Scanner(serviceNames)) {
+            while (scanner.hasNextLine())
+            {
+                String service = scanner.nextLine();
+                //System.out.println(service);
+                broker.addSubscription(subscriber.generateSubscription(service));
+            }
+        }
+    }
+    
+    public boolean match(String service) 
+    {
+      Publication p1 = publisher.generatePublication(service);
+      return broker.matchPublication(p1);
+    }
+    
+    
+    
+    public static void main(String[] args) 
+    {    
+        int iterations = 100;
+        double subscriptions = 0, match1 = 0, match2 = 0, match3 = 0, match4 = 0;
+        long t;
         
-        sub1.getSecurityParameters();
-        pub1.getSecurityParameters();
-        
-        Subscription s1 = sub1.generateSubscription("www.google.com");
-        
-        // testing match
-        Publication p1 = pub1.generatePublication("www.google.com");
-        System.out.println(b1.equalityMatch(p1, s1));   
-        
-        Publication p2 = pub1.generatePublication("www.google.con");
-        System.out.println(b1.equalityMatch(p2, s1)); 
-        
-        Publication p3 = pub1.generatePublication("www.google.col");
-        System.out.println(b1.equalityMatch(p3, s1));   
-        
-        Publication p4 = pub1.generatePublication("www.google.cog");
-        System.out.println(b1.equalityMatch(p4, s1));   
+        String home = System.getProperty("user.home");
+        DNSPlus dnsPlus = new DNSPlus(home + "/websites");
+
+        try {
+            System.out.println("Generating subscriptions table");
+            t = System.nanoTime();
+            dnsPlus.generateSubscriptions(); 
+            subscriptions = System.nanoTime() - t;
+            
+        } catch (FileNotFoundException ex) {
+            System.out.println("Subscription could not be loaded: " + ex.getMessage());
+            System.exit(-1);
+        }
         
         
-        // testing cover
-        Subscription s2 = sub1.generateSubscription("www.google.com");
-        Subscription s3 = sub1.generateSubscription("www.google.col");
-        Subscription s4 = sub1.generateSubscription("www.google.con");
-        Subscription s5 = sub1.generateSubscription("www.google.cog");
+        System.out.println("Matching publications");
+        for (int i=0; i<iterations; i++) 
+        {
+            t = System.nanoTime();
+            dnsPlus.match("google.com");
+            match1 += System.nanoTime() - t;
+            
+            t = System.nanoTime();
+            dnsPlus.match("doesnotexist");
+            match2 += System.nanoTime() - t;
+            
+            t = System.nanoTime();
+            dnsPlus.match("allmusic.com");
+            match3 += System.nanoTime() - t;
+            
+            t = System.nanoTime();
+            dnsPlus.match("ticketmaster.com");
+            match4 += System.nanoTime() - t;
+            
+            
+        }
         
-        
-        b1.addSubscription(s1);
-        b1.addSubscription(s2);
-        b1.addSubscription(s3);
-        b1.addSubscription(s4);
-        b1.addSubscription(s5);
-        
-        b1.matchPublication(p4);
-        
-        
-        System.out.println(b1.cover(s1, s2));
-        System.out.println(b1.cover(s1, s3));
-        System.out.println(b1.cover(s1, s4));
+        System.out.println("Subscriptions table generation (ms): " + subscriptions / 1000000);
+        System.out.println("Match 1 [google.com] (ms): " + (match1 / 1000000) / iterations);
+        System.out.println("Match 2 [doesnotexist] (ms): " + (match2 / 1000000) / iterations);
+        System.out.println("Match 3 [allmusic.com] (ms): " + (match3 / 1000000) / iterations);
+        System.out.println("Match 4 [ticketmaster.com] (ms): " + (match4 / 1000000) / iterations);
     } 
 }

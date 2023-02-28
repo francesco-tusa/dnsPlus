@@ -23,11 +23,11 @@ public class Subscription {
         coverValue = cv;
     }
     
-     public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv, String serviceName) {
+     public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv, String name) {
         matchValue = mv;
         matchValuePlusOne = mvPlusOne;
         coverValue = cv;
-        this.serviceName = serviceName;
+        serviceName = name; // used for debug
     }
 
     public BigInteger getMatchValue() {
