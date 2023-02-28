@@ -85,7 +85,7 @@ public class HEPS
         n = p.multiply(q);
         nsquare = n.multiply(n);
         
-        g = BigInteger.TWO;
+        g = BigInteger.valueOf(2);
         
         lambda = p.subtract(BigInteger.ONE).multiply(q.subtract(BigInteger.ONE))
                 .divide(p.subtract(BigInteger.ONE).gcd(q.subtract(BigInteger.ONE)));
