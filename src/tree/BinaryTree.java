@@ -26,7 +26,7 @@ public class BinaryTree
  
     
     
-    
+
     public void addNode(Subscription s) 
     {
         Node newNode = new Node(s);
@@ -109,6 +109,4 @@ public class BinaryTree
         //System.out.println("p < root: " + root.subscription.getServiceName());
 	return search(root.left, p);
     }
-   
-    
 }

@@ -17,9 +17,15 @@ public final class DNSPlus
         
     Subscriber subscriber = new Subscriber("Subscriber1");
     Publisher publisher = new Publisher("Publisher1");
-    Broker broker = new Broker("Broker1", heps);
+    AbstractBroker broker = new BrokerWithBalancedTree("Broker1", heps);
+    //AbstractBroker broker = new Broker("Broker1", heps);
     
     File serviceNames;
+    
+    double addSubscriptions = 0;
+    Map<String, Double> matchTimings = new HashMap<>();
+        
+       
     
     public DNSPlus(String file)
     {
@@ -30,40 +36,54 @@ public final class DNSPlus
         
         subscriber.getSecurityParameters();
         publisher.getSecurityParameters();
-    }
-    
-    public void generateSubscriptions() throws FileNotFoundException 
-    {
-        try (Scanner scanner = new Scanner(serviceNames)) {
-            while (scanner.hasNextLine())
-            {
-                String service = scanner.nextLine();
-                //System.out.println(service);
-                broker.addSubscription(subscriber.generateSubscription(service));
-            }
-        }
-    }
-    
-    public boolean match(String service) 
-    {
-      Publication p1 = publisher.generatePublication(service);
-      return broker.matchPublication(p1);
-    }
-    
-    
-    public static void main(String[] args) 
-    {    
-        int iterations = 100;
-        double subscriptions = 0;
         
-        Map<String, Double> matchTimings = new HashMap<>();
-        
+        setParameters();
+    }
+    
+    private void setParameters() 
+    {
         matchTimings.put("google.com", 0d);
         matchTimings.put("doesnotexist", 0d);
         matchTimings.put("allmusic.com", 0d);
         matchTimings.put("ticketmaster.com", 0d);
         matchTimings.put("eventbrite.co.uk", 0d);
         matchTimings.put("facebook.com", 0d);
+    }
+    
+    public void generateSubscriptions() throws FileNotFoundException 
+    {
+        long t;
+        
+        try (Scanner scanner = new Scanner(serviceNames)) {
+            while (scanner.hasNextLine())
+            {
+                String service = scanner.nextLine();
+                //System.out.println(service);
+                Subscription s = subscriber.generateSubscription(service);
+                t = System.nanoTime();
+                broker.addSubscription(s);
+                addSubscriptions += (System.nanoTime() - t);
+            }
+        }
+    }
+    
+    public boolean match(String service, Publication p) 
+    {
+        double timing = matchTimings.get(service);
+        
+        long t = System.nanoTime();
+        boolean matchResult = broker.matchPublication(p);
+        timing += (System.nanoTime() - t);
+        
+        matchTimings.put(service, timing);
+        return matchResult;
+    }
+    
+    
+    public static void main(String[] args) 
+    {    
+        int iterations = 1000;
+        double subscriptions = 0;
              
         long t;
         
@@ -83,27 +103,24 @@ public final class DNSPlus
         
         
         System.out.println("Matching publications");
-        for (int i=0; i<iterations; i++) 
+
+        for (String service : dnsPlus.matchTimings.keySet())
         {
-            double timing;
-            for (String service : matchTimings.keySet())
+            Publication publication = dnsPlus.publisher.generatePublication(service);
+
+            for (int i=0; i<iterations; i++) 
             {
-                timing = matchTimings.get(service);
-                
-                t = System.nanoTime();
-                dnsPlus.match(service);
-                timing += System.nanoTime() - t;
-                
-                matchTimings.put(service, timing);
-                
+                dnsPlus.match(service, publication);
             }
         }
         
-        System.out.println("Subscriptions table generation (ms): " + subscriptions / 1000000);
         
-        for (String service : matchTimings.keySet()) 
+        System.out.println("Total Subscriptions table generation (ms) [includes subscriptions generation]: " + subscriptions / 1000000);
+        System.out.println("Subscriptions table generation (ms) [actual time to add subscriptions to the table]: " + dnsPlus.addSubscriptions / 1000000);
+        
+        for (String service : dnsPlus.matchTimings.keySet()) 
         {
-         System.out.println("Match [" + service + "] (ms): " + (matchTimings.get(service) / 1000000) / iterations);   
+         System.out.println("Match [" + service + "] (ms): " + (dnsPlus.matchTimings.get(service) / 1000000) / iterations);   
         }
     } 
 }

@@ -23,11 +23,17 @@ public class Subscription {
         coverValue = cv;
     }
     
-     public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv, String name) {
+    public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv, String name) {
         matchValue = mv;
         matchValuePlusOne = mvPlusOne;
         coverValue = cv;
         serviceName = name; // used for debug
+    }
+    
+    // this should only be used to create a fake subscription for publication 
+    // match in the BalancedBinaryTree
+    public Subscription(BigInteger cv) {
+        coverValue = cv;
     }
 
     public BigInteger getMatchValue() {

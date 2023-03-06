@@ -109,8 +109,10 @@ public final class RandomTest
     public static void main(String[] args) 
     {
         int iterations = 1000;
-        int[] keys = {512, 1024, 2048};
-        int[] lArray = {64, 128, 256, 512};
+        //int[] keys = {512, 1024, 2048};
+        int[] keys = {3072};
+        //int[] lArray = {64, 128, 256, 512};
+        int[] lArray = {256};
         
         RandomTest test;
         
