@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.Scanner;
 
 /**
@@ -21,6 +22,7 @@ public final class DNSPlus
     //AbstractBroker broker = new Broker("Broker1", heps);
     
     File serviceNames;
+    String[] services;
     
     double addSubscriptions = 0;
     Map<String, Double> matchTimings = new HashMap<>();
@@ -30,17 +32,16 @@ public final class DNSPlus
     public DNSPlus(String file)
     {
         serviceNames = new File(file);
+        services = new String[1000];
         
         subscriber.setHeps(heps);
         publisher.setHeps(heps);
         
         subscriber.getSecurityParameters();
         publisher.getSecurityParameters();
-        
-        setParameters();
     }
     
-    private void setParameters() 
+    private void setExperimentParameters() 
     {
         matchTimings.put("google.com", 0d);
         matchTimings.put("doesnotexist", 0d);
@@ -50,21 +51,38 @@ public final class DNSPlus
         matchTimings.put("facebook.com", 0d);
     }
     
+    private void setRandomExperimentParameters() 
+    {
+        Random n = new Random();
+        int randomIndex;
+        
+        for (int i = 0; i < 900; i += 99) {
+            randomIndex = n.nextInt(i, i+99);
+            System.out.println("Index: " + randomIndex + " service: " + services[randomIndex]);
+            matchTimings.put(services[randomIndex], 0d);
+        }
+        
+        matchTimings.put("doesnotexist", 0d);
+    }
+    
     public void generateSubscriptions() throws FileNotFoundException 
     {
         long t;
+        int i = 0;
         
         try (Scanner scanner = new Scanner(serviceNames)) {
             while (scanner.hasNextLine())
             {
                 String service = scanner.nextLine();
-                //System.out.println(service);
+                services[i++] = service;
                 Subscription s = subscriber.generateSubscription(service);
                 t = System.nanoTime();
                 broker.addSubscription(s);
                 addSubscriptions += (System.nanoTime() - t);
             }
         }
+        
+        setRandomExperimentParameters();
     }
     
     public boolean match(String service, Publication p) 
@@ -82,7 +100,7 @@ public final class DNSPlus
     
     public static void main(String[] args) 
     {    
-        int iterations = 1000;
+        int iterations = 100;
         double subscriptions = 0;
              
         long t;
@@ -118,9 +136,14 @@ public final class DNSPlus
         System.out.println("Total Subscriptions table generation (ms) [includes subscriptions generation]: " + subscriptions / 1000000);
         System.out.println("Subscriptions table generation (ms) [actual time to add subscriptions to the table]: " + dnsPlus.addSubscriptions / 1000000);
         
+        double timingSum = 0;
         for (String service : dnsPlus.matchTimings.keySet()) 
         {
-         System.out.println("Match [" + service + "] (ms): " + (dnsPlus.matchTimings.get(service) / 1000000) / iterations);   
+            double timing = (dnsPlus.matchTimings.get(service) / 1000000) / iterations;
+            System.out.println("Match [" + service + "] (ms): " + String.format("%.2f", timing));
+            timingSum += timing;
         }
+        
+        System.out.println("Average match time (ms): " + timingSum / dnsPlus.matchTimings.size());
     } 
 }
