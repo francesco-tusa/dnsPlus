@@ -82,7 +82,8 @@ public final class DNSPlus
             }
         }
         
-        setRandomExperimentParameters();
+        //setRandomExperimentParameters();
+        setExperimentParameters();
     }
     
     public boolean match(String service, Publication p) 
@@ -100,7 +101,7 @@ public final class DNSPlus
     
     public static void main(String[] args) 
     {    
-        int iterations = 100;
+        int iterations = 1000;
         double subscriptions = 0;
              
         long t;
