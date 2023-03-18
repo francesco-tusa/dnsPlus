@@ -1,13 +1,13 @@
 # DNS++: Dynamic Name Resolution with Homomorphic Encryption Based Privacy
-*DNS++* is a re-design of the Internet's name resolution system that addresses dynamic information via a *pub/sub*, and and *privacy* through the usage of *homomorphic encryption*.
+*DNS++* is a re-design of the Internet's name resolution system that addresses dynamic information distribution via a *pub/sub*, and provides *privacy* to users interacting with the system through the usage of *homomorphic encryption*.
 
 ## Build
-Change the current directory to the one containing the project source and run the command
+Change the current directory to the one containing the project's source and run the command
 ```console
 $ ant jar
 ```
 ## Run
-Two experiments can currently be executed with *DNS++*. 
+Two experiments can be executed with the current *DNS++* code. 
 
 ### Experiment 1 
 This experiment produces both subscriptions and publications based on randomly generated content for the service names. Different settings can be used for the HEPS parameters, in order to evaluate the impact of both the key length ```n``` and the number of bits ```l``` utilised to represent the service name information.
