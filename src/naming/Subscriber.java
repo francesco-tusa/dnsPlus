@@ -1,5 +1,6 @@
 package naming;
 
+import heps.Entity;
 import java.math.BigInteger;
 import java.util.Random;
 
@@ -23,14 +24,14 @@ public class Subscriber extends Entity {
     @Override
     public BigInteger matchBlind(BigInteger m) 
     {        
-        return params.get(2).multiply(params.get(0).modPow(m.subtract(BigInteger.valueOf(1)), heps.getNsquare()));
+        return params.get(2).multiply(params.get(0).modPow(m.subtract(BigInteger.valueOf(1)), heps.getNsquare())).mod(heps.getNsquare());
     }
     
     public BigInteger coverBlind(BigInteger m) 
     {   
         BigInteger rv = (new BigInteger(heps.getRandomRange(), new Random())).mod(heps.getR());
         return params.get(3).multiply(params.get(0).modPow(BigInteger.valueOf(1).subtract(m), heps.getNsquare()))
-                            .multiply(params.get(1).modPow(rv.multiply(BigInteger.valueOf(-1)), heps.getNsquare()));
+                            .multiply(params.get(1).modPow(rv.multiply(BigInteger.valueOf(-1)), heps.getNsquare())).mod(heps.getNsquare());
     }
     
     

@@ -1,5 +1,6 @@
 package naming;
 
+import heps.Entity;
 import java.math.BigInteger;
 import java.util.Random;
 
@@ -14,6 +15,7 @@ public class Publisher extends Entity {
         this.name = name;
     }
     
+    @Override
     public void getSecurityParameters() 
     {
         params = heps.generatePubParameters();
@@ -24,7 +26,7 @@ public class Publisher extends Entity {
         BigInteger rv = (new BigInteger(heps.getRandomRange(), new Random())).mod(heps.getR());
         
         return params.get(2).multiply(params.get(0).modPow(m.subtract(BigInteger.valueOf(1)), heps.getNsquare()))
-                     .multiply(params.get(1).modPow(rv, heps.getNsquare()));
+                     .multiply(params.get(1).modPow(rv, heps.getNsquare())).mod(heps.getNsquare());
     }
     
     public Publication generatePublication(String name) { 

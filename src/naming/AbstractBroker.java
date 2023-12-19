@@ -1,5 +1,6 @@
 package naming;
 
+import heps.HEPS;
 import java.math.BigInteger;
 
 /**
@@ -19,6 +20,14 @@ public abstract class AbstractBroker {
     public abstract boolean matchPublication(Publication p);
 
     protected int checkDifference(BigInteger value1, BigInteger value2) throws Exception {
+        
+        //System.out.println("value1 count: " + value1.bitCount());
+        //System.out.println("value2 count: " + value2.bitCount());
+        
+        System.out.println("value1 length: " + value1.bitLength());
+        System.out.println("value2 length: " + value2.bitLength());
+        
+        
         BigInteger d = heps.shiftedDecryption(value1.multiply(value2));
         int result = d.compareTo(heps.getN().divide(BigInteger.valueOf(2)));
         if (!d.equals(0)) {
@@ -82,5 +91,38 @@ public abstract class AbstractBroker {
 //            return null;
 //        }
 //    }
+    
+    
+    
+    public static void main(String[] args) {
+        HEPS heps = new HEPS(2048, 2048 / 8, 512);
+
+        Subscriber subscriber = new Subscriber("Subscriber1");
+        Publisher publisher = new Publisher("Publisher1");
+        AbstractBroker broker = new BrokerWithBalancedTree("Broker1", heps);
+        
+        subscriber.setHeps(heps);
+        publisher.setHeps(heps);
+        
+        subscriber.getSecurityParameters();
+        publisher.getSecurityParameters();
+        
+        for (int i = 0; i < 1; i++) {
+            java.util.Random rand = new java.util.Random();
+            BigInteger bi1 = new BigInteger(1024, rand);
+            BigInteger bi2 = new BigInteger(1024, rand);
+
+            Publication p = publisher.generatePublication(bi1);
+            Subscription s = subscriber.generateSubscription(bi1);
+
+            Integer match = broker.match(p, s);
+
+            System.out.println("match?" + match);
+        }
+        
+        
+        
+    }
+    
     
 }

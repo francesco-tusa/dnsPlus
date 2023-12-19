@@ -1,5 +1,6 @@
 package naming;
 
+import heps.HEPS;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.HashMap;
@@ -129,7 +130,7 @@ public final class DNSPlus
 
             for (int i=0; i<iterations; i++) 
             {
-                dnsPlus.match(service, publication);
+                System.out.println(service + ": " + dnsPlus.match(service, publication));
             }
         }
         

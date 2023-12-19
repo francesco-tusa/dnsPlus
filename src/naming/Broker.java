@@ -1,5 +1,6 @@
 package naming;
 
+import heps.HEPS;
 import tree.BinaryTree;
 import tree.Node;
 

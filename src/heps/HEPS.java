@@ -1,4 +1,4 @@
-package naming;
+package heps;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -20,12 +20,12 @@ public class HEPS
     /**
      * n = p*q, where p and q are two large primes.
      */
-    public BigInteger n;
+    private BigInteger n;
     
     /**
      * nsquare = n*n
      */
-    public BigInteger nsquare;
+    private BigInteger nsquare;
     
     /**
      * a random integer in Z*_{n^2} where gcd (L(g^lambda mod n^2), n) = 1.
@@ -109,7 +109,16 @@ public class HEPS
         //System.out.println("l: " + this.l);
         
         r = new BigInteger(u-this.l, new Random());
-        t = new BigInteger(u-this.l, new Random());        
+        t = new BigInteger(u-this.l, new Random());       
+        
+        //System.out.println("n count: " + n.bitCount());
+        //System.out.println("n length: " + n.bitLength());
+        
+        //System.out.println("nn count: " + nsquare.bitCount());
+        //System.out.println("nn length: " + nsquare.bitLength());
+        
+        //System.out.println("mu count: " + mu.bitCount());
+        //System.out.println("mu length: " + mu.bitLength());
     }
     
     
@@ -131,6 +140,9 @@ public class HEPS
     
     
     public BigInteger shiftedDecryption(BigInteger c) {
+        //System.out.println("c count: " + c.bitCount());
+        System.out.println("c length: " + c.bitLength());
+        
         return (c.mod(nsquare).subtract(BigInteger.ONE)).divide(n).multiply(mu).mod(n);
     }
     
