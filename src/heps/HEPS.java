@@ -141,7 +141,7 @@ public class HEPS
     
     public BigInteger shiftedDecryption(BigInteger c) {
         //System.out.println("c count: " + c.bitCount());
-        System.out.println("c length: " + c.bitLength());
+        //System.out.println("c length: " + c.bitLength());
         
         return (c.mod(nsquare).subtract(BigInteger.ONE)).divide(n).multiply(mu).mod(n);
     }

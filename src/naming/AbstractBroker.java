@@ -24,8 +24,8 @@ public abstract class AbstractBroker {
         //System.out.println("value1 count: " + value1.bitCount());
         //System.out.println("value2 count: " + value2.bitCount());
         
-        System.out.println("value1 length: " + value1.bitLength());
-        System.out.println("value2 length: " + value2.bitLength());
+        //System.out.println("value1 length: " + value1.bitLength());
+        //System.out.println("value2 length: " + value2.bitLength());
         
         
         BigInteger d = heps.shiftedDecryption(value1.multiply(value2));
