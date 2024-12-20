@@ -1,4 +1,4 @@
-package naming;
+package subscribing;
 
 import java.math.BigInteger;
 

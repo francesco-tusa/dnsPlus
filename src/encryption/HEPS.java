@@ -1,4 +1,4 @@
-package heps;
+package encryption;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -104,10 +104,6 @@ public class HEPS
         s = bitLength;
         u = ((s-1) - l)/2;
         
-        //System.out.println("s: " + s);
-        //System.out.println("u: " + u);
-        //System.out.println("l: " + this.l);
-        
         r = new BigInteger(u-this.l, new Random());
         t = new BigInteger(u-this.l, new Random());       
         
@@ -156,17 +152,15 @@ public class HEPS
         BigInteger param2 = shiftedEncryption(BigInteger.valueOf(-1));
         BigInteger param3 = g.modPow(t.multiply(BigInteger.valueOf(-1)), nsquare)
                              .multiply(shiftedEncryption(r.multiply(BigInteger.valueOf(-1))));
+        //parameter for cover 
+        BigInteger param4 = g.modPow(t, nsquare).multiply(shiftedEncryption(r));
         
         params.add(param1);
         params.add(param2);
         params.add(param3);
-        
-        //parameter for cover 
-        BigInteger param4 = g.modPow(t, nsquare).multiply(shiftedEncryption(r));
         params.add(param4);
         
         return params;
-    
     }
     
     
@@ -177,13 +171,15 @@ public class HEPS
         BigInteger param1 = shiftedEncryption(r);
         BigInteger param2 = shiftedEncryption(BigInteger.valueOf(1));
         BigInteger param3 = g.modPow(t, nsquare).multiply(shiftedEncryption(r));
-        
+        //parameter for publication cover
+        BigInteger param4 = g.modPow(t.multiply(BigInteger.valueOf(-1)), nsquare)
+                             .multiply(shiftedEncryption(r.multiply(BigInteger.valueOf(-1))));
         params.add(param1);
         params.add(param2);
         params.add(param3);
+        params.add(param4);
         
         return params;
-    
     }
 
     public BigInteger getN() {

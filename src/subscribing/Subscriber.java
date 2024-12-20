@@ -1,8 +1,9 @@
-package naming;
+package subscribing;
 
-import heps.Entity;
+import encryption.Entity;
 import java.math.BigInteger;
 import java.util.Random;
+import utils.NameEncoding;
 
 /**
  *
@@ -27,6 +28,7 @@ public class Subscriber extends Entity {
         return params.get(2).multiply(params.get(0).modPow(m.subtract(BigInteger.valueOf(1)), heps.getNsquare())).mod(heps.getNsquare());
     }
     
+    @Override
     public BigInteger coverBlind(BigInteger m) 
     {   
         BigInteger rv = (new BigInteger(heps.getRandomRange(), new Random())).mod(heps.getR());
@@ -37,32 +39,21 @@ public class Subscriber extends Entity {
     
     public Subscription generateSubscription(String name) 
     {   
-        //System.out.println("subscription name lenghth (bits): " + name.getBytes().length * 8);
-        BigInteger nameAsBigInteger = new BigInteger(name.toLowerCase().getBytes());
+        BigInteger nameAsBigInteger = NameEncoding.stringToBigInteger(name);
         BigInteger nameAsBigIntegerPlusOne = nameAsBigInteger.add(BigInteger.ONE);
         
-//        Subscription s = new Subscription(matchBlind(nameAsBigInteger), 
-//                                          matchBlind(nameAsBigIntegerPlusOne),
-//                                          coverBlind(nameAsBigInteger));
-
-        Subscription s = new Subscription(matchBlind(nameAsBigInteger), 
+        return new Subscription(matchBlind(nameAsBigInteger), 
                                           matchBlind(nameAsBigIntegerPlusOne),
                                           coverBlind(nameAsBigInteger), 
-                                          name); // name is for debugging
-
-        return s;   
+                                          name); // name is for debugging  
     }  
     
     public Subscription generateSubscription(BigInteger nameAsBigInteger) 
-    {   
-        //System.out.println("subscription name lenghth (bits): " + name.getBytes().length * 8);
+    {  
         BigInteger nameAsBigIntegerPlusOne = nameAsBigInteger.add(BigInteger.ONE);
         
-        Subscription s = new Subscription(matchBlind(nameAsBigInteger), 
+        return new Subscription(matchBlind(nameAsBigInteger), 
                                           matchBlind(nameAsBigIntegerPlusOne),
-                                          coverBlind(nameAsBigInteger));
-        
-        return s;   
+                                          coverBlind(nameAsBigInteger));  
     }  
-    
 }

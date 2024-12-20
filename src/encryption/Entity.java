@@ -1,4 +1,4 @@
-package heps;
+package encryption;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -31,5 +31,7 @@ public abstract class Entity {
     public abstract void getSecurityParameters();
     
     public abstract BigInteger matchBlind(BigInteger m);
+    
+    public abstract BigInteger coverBlind(BigInteger m);
     
 }

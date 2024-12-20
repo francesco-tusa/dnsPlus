@@ -1,8 +1,8 @@
-package tree;
+package broker.binarytree;
 
-import naming.Broker;
-import naming.Subscription;
-import naming.Publication;
+import broker.Broker;
+import subscribing.Subscription;
+import publishing.Publication;
 
 /**
  *
@@ -45,7 +45,7 @@ public class BinaryTree
             {
                 parent = focusNode;
                 
-                if (broker.cover(s, focusNode.subscription) == 0) 
+                if (broker.match(s, focusNode.subscription) == 0) 
                 {
                     //debug
                     //System.out.println("equals");
@@ -56,7 +56,7 @@ public class BinaryTree
                     return;
                 }
                 
-                else if (broker.cover(s, focusNode.subscription) < 0)
+                else if (broker.match(s, focusNode.subscription) < 0)
                 {
                     //debug
                     //System.out.println("s < focusNode");

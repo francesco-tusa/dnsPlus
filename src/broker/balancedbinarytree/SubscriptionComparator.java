@@ -1,8 +1,8 @@
-package tree;
+package broker.balancedbinarytree;
 
 import java.util.Comparator;
-import naming.AbstractBroker;
-import naming.Subscription;
+import broker.AbstractBroker;
+import subscribing.Subscription;
 
 /**
  *
@@ -19,7 +19,6 @@ public class SubscriptionComparator implements Comparator<Subscription> {
     @Override
     public int compare(Subscription s1, Subscription s2) 
     {    
-        return broker.cover(s1, s2);   
+        return broker.match(s1, s2);   
     }
-    
 }

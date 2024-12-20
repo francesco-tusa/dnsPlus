@@ -1,7 +1,9 @@
-package naming;
+package broker;
 
-import heps.HEPS;
-import tree.BalancedBinaryTree;
+import subscribing.Subscription;
+import publishing.Publication;
+import encryption.HEPS;
+import broker.balancedbinarytree.BalancedBinaryTree;
 
 /**
  *
@@ -20,16 +22,16 @@ public class BrokerWithBalancedTree extends AbstractBroker {
     }
     
     
+    @Override
     public void addSubscription(Subscription s) 
     {
         table.addNode(s);
     }
     
+    @Override
     public boolean matchPublication(Publication p) 
     {   
         Boolean found = table.search(p);
-        //if (found)
-        //    System.out.println("match found");
         return found;
         
     }

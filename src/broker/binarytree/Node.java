@@ -1,6 +1,6 @@
-package tree;
+package broker.binarytree;
 
-import naming.Subscription;
+import subscribing.Subscription;
 
 /**
  *

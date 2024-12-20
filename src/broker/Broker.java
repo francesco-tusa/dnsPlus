@@ -1,8 +1,10 @@
-package naming;
+package broker;
 
-import heps.HEPS;
-import tree.BinaryTree;
-import tree.Node;
+import subscribing.Subscription;
+import publishing.Publication;
+import encryption.HEPS;
+import broker.binarytree.BinaryTree;
+import broker.binarytree.Node;
 
 /**
  *

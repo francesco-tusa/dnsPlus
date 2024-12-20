@@ -1,8 +1,13 @@
-package naming;
+package experiments;
 
-import heps.HEPS;
+import encryption.HEPS;
 import java.math.BigInteger;
 import java.util.Random;
+import broker.Broker;
+import publishing.Publication;
+import publishing.Publisher;
+import subscribing.Subscriber;
+import subscribing.Subscription;
 
 /**
  *
@@ -90,7 +95,7 @@ public final class RandomTest
             Subscription s2 = subscriber.generateSubscription(m);
             
             t = System.nanoTime();
-            broker.cover(s, s2);
+            broker.match(s, s2);
             cover += System.nanoTime() - t;    
         }
         

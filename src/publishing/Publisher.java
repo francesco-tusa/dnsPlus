@@ -1,8 +1,9 @@
-package naming;
+package publishing;
 
-import heps.Entity;
+import encryption.Entity;
 import java.math.BigInteger;
 import java.util.Random;
+import utils.NameEncoding;
 
 /**
  *
@@ -28,15 +29,23 @@ public class Publisher extends Entity {
         return params.get(2).multiply(params.get(0).modPow(m.subtract(BigInteger.valueOf(1)), heps.getNsquare()))
                      .multiply(params.get(1).modPow(rv, heps.getNsquare())).mod(heps.getNsquare());
     }
+
+    @Override
+    public BigInteger coverBlind(BigInteger m) {
+        return params.get(3).multiply(params.get(0).modPow(BigInteger.ONE.subtract(m), 
+                            heps.getNsquare())).mod(heps.getNsquare());
+    }
     
     public Publication generatePublication(String name) { 
-        BigInteger nameAsBigInteger = new BigInteger(name.toLowerCase().getBytes());        
-        Publication p = new Publication(matchBlind(nameAsBigInteger));
-        return p;  
+        BigInteger nameAsBigInteger = NameEncoding.stringToBigInteger(name);        
+        return generatePublication(nameAsBigInteger);
     }
 
     public Publication generatePublication(BigInteger nameAsBigInteger) {      
-        Publication p = new Publication(matchBlind(nameAsBigInteger));
-        return p;  
+        BigInteger nameAsBigIntegerPlusOne = nameAsBigInteger.add(BigInteger.ONE);
+        
+        return new Publication(matchBlind(nameAsBigInteger), 
+                                          coverBlind(nameAsBigInteger),
+                                          coverBlind(nameAsBigIntegerPlusOne));
     }
 }

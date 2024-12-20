@@ -1,10 +1,10 @@
-package tree;
+package broker.balancedbinarytree;
 
 import java.util.Map;
 import java.util.TreeMap;
-import naming.AbstractBroker;
-import naming.Publication;
-import naming.Subscription;
+import broker.AbstractBroker;
+import publishing.Publication;
+import subscribing.Subscription;
 
 /**
  *
@@ -30,10 +30,7 @@ public class BalancedBinaryTree
     
     public Boolean search(Publication p)
     {
-        // this is a fake subscription used only for searching
-        // inside the map
-        Subscription s = new Subscription(p.getValue());
-        
-        return tree.containsKey(s);
+        // a subscription is created from the publication for searching        
+        return tree.containsKey(new Subscription(p.getMatchValue()));
     }
 }

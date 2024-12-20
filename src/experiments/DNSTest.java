@@ -1,18 +1,24 @@
-package naming;
+package experiments;
 
-import heps.HEPS;
+import encryption.HEPS;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
+import broker.AbstractBroker;
+import broker.BrokerWithBalancedTree;
+import publishing.Publication;
+import publishing.Publisher;
+import subscribing.Subscriber;
+import subscribing.Subscription;
 
 /**
  *
  * @author f.tusa
  */
-public final class DNSPlus 
+public final class DNSTest 
 {
     // may use a list for each type of entity
     HEPS heps = new HEPS(2048, 2048/8, 512);
@@ -30,7 +36,7 @@ public final class DNSPlus
         
        
     
-    public DNSPlus(String file)
+    public DNSTest(String file)
     {
         serviceNames = new File(file);
         services = new String[1000];
@@ -50,6 +56,7 @@ public final class DNSPlus
         matchTimings.put("ticketmaster.com", 0d);
         matchTimings.put("eventbrite.co.uk", 0d);
         matchTimings.put("facebook.com", 0d);
+        matchTimings.put("myfakedomain.com", 0d);
     }
     
     private void setRandomExperimentParameters() 
@@ -102,13 +109,13 @@ public final class DNSPlus
     
     public static void main(String[] args) 
     {    
-        int iterations = 1000;
+        int iterations = 1;
         double subscriptions = 0;
              
         long t;
         
         String home = System.getProperty("user.home");
-        DNSPlus dnsPlus = new DNSPlus(home + "/websites");
+        DNSTest dnsPlus = new DNSTest(home + "/websites.txt");
 
         try {
             System.out.println("Generating subscriptions table");
