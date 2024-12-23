@@ -1,4 +1,4 @@
-package broker.subscriptions.balancedbinarytree;
+package broker.balancedbinarytree;
 
 import java.util.Comparator;
 import broker.AbstractBroker;

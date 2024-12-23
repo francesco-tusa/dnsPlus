@@ -1,6 +1,6 @@
 package broker;
 
-import broker.publications.balancedbinarytree.PublicationBalancedBinaryTree;
+import broker.balancedbinarytree.PublicationBalancedBinaryTree;
 import encryption.HEPS;
 import publishing.Publication;
 import subscribing.Subscription;

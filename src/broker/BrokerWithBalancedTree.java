@@ -3,7 +3,7 @@ package broker;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
-import broker.subscriptions.balancedbinarytree.SubscriptionBalancedBinaryTree;
+import broker.balancedbinarytree.SubscriptionBalancedBinaryTree;
 
 /**
  *
