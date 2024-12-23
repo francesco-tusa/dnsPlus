@@ -35,7 +35,7 @@ public abstract class AbstractBroker {
 
     public abstract void addSubscription(Subscription s);
 
-    public abstract boolean matchPublication(Publication p);
+    public abstract Subscription matchPublication(Publication p);
 
     
     private int checkDifference(BigInteger value1, BigInteger value2) throws Exception {

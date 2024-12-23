@@ -6,7 +6,7 @@ import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-import broker.BrokerWithBalancedTreeAndCache;
+import broker.tree.binarybalanced.BrokerWithBalancedTreeAndCache;
 import publishing.Publication;
 import publishing.Publisher;
 import subscribing.Subscriber;

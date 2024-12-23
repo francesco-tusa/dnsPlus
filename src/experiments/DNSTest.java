@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 import broker.AbstractBroker;
-import broker.BrokerWithBalancedTree;
+import broker.tree.binarybalanced.BrokerWithBalancedTree;
 import publishing.Publication;
 import publishing.Publisher;
 import subscribing.Subscriber;
@@ -26,7 +26,7 @@ public final class DNSTest
     Subscriber subscriber = new Subscriber("Subscriber1");
     Publisher publisher = new Publisher("Publisher1");
     AbstractBroker broker = new BrokerWithBalancedTree("Broker1", heps);
-    //AbstractBroker broker = new Broker("Broker1", heps);
+    //AbstractBroker broker = new BrokerWithBinaryTree("Broker1", heps);
     
     File serviceNames;
     String[] services;
@@ -51,10 +51,10 @@ public final class DNSTest
     private void setExperimentParameters() 
     {
         matchTimings.put("google.com", 0d);
-        matchTimings.put("doesnotexist", 0d);
+        matchTimings.put("doesnotexist.co.uk", 0d);
         matchTimings.put("allmusic.com", 0d);
         matchTimings.put("ticketmaster.com", 0d);
-        matchTimings.put("eventbrite.co.uk", 0d);
+        matchTimings.put("eventbrite.com", 0d);
         matchTimings.put("facebook.com", 0d);
         matchTimings.put("myfakedomain.com", 0d);
     }
@@ -94,16 +94,15 @@ public final class DNSTest
         setExperimentParameters();
     }
     
-    public boolean match(String service, Publication p) 
+    public void match(String service, Publication p) 
     {
         double timing = matchTimings.get(service);
         
         long t = System.nanoTime();
-        boolean matchResult = broker.matchPublication(p);
+        Subscription matchResult = broker.matchPublication(p); // not used
         timing += (System.nanoTime() - t);
         
         matchTimings.put(service, timing);
-        return matchResult;
     }
     
     
@@ -137,7 +136,7 @@ public final class DNSTest
 
             for (int i=0; i<iterations; i++) 
             {
-                System.out.println(service + ": " + dnsPlus.match(service, publication));
+                dnsPlus.match(service, publication);
             }
         }
         

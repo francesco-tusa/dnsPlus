@@ -1,9 +1,10 @@
-package broker;
+package broker.tree.binarybalanced;
 
+import broker.AbstractBroker;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
-import broker.balancedbinarytree.SubscriptionBalancedBinaryTree;
+import broker.tree.binarybalanced.SubscriptionBalancedBinaryTree;
 
 /**
  *
@@ -32,12 +33,10 @@ public class BrokerWithBalancedTree extends AbstractBroker {
     }
     
     @Override
-    public boolean matchPublication(Publication p) 
+    public Subscription matchPublication(Publication p) 
     {   
-        Boolean found = table.search(p);
-        System.out.println("Found " + p.getServiceName() + " in the sub table: " + found);
+        Subscription found = table.search(p);
+        System.out.println(p.getServiceName() + (found==null? " not found" : " found") + " in the sub table");
         return found;
-        
     }
-
 }

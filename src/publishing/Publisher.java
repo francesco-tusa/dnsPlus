@@ -45,8 +45,8 @@ public class Publisher extends Entity {
         BigInteger nameAsBigIntegerPlusOne = nameAsBigInteger.add(BigInteger.ONE);
         
         return new Publication(matchBlind(nameAsBigInteger), 
-                                          coverBlind(nameAsBigInteger),
-                                          coverBlind(nameAsBigIntegerPlusOne),
-                                          name); // for debugging
+                               coverBlind(nameAsBigInteger),
+                               coverBlind(nameAsBigIntegerPlusOne),
+                               name); // for debugging
     }
 }

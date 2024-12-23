@@ -1,8 +1,9 @@
-package broker.balancedbinarytree;
+package broker.tree.binarybalanced;
 
 import java.util.Map;
 import java.util.TreeMap;
 import broker.AbstractBroker;
+import broker.tree.SubscriptionTree;
 import publishing.Publication;
 import subscribing.Subscription;
 
@@ -10,7 +11,7 @@ import subscribing.Subscription;
  *
  * @author uceeftu
  */
-public class SubscriptionBalancedBinaryTree 
+public class SubscriptionBalancedBinaryTree implements SubscriptionTree 
 {    
     AbstractBroker broker;
 
@@ -22,15 +23,17 @@ public class SubscriptionBalancedBinaryTree
         tree = new TreeMap<>(new SubscriptionComparator(broker));
     }    
     
+    @Override
     public Subscription addNode(Subscription s) 
     {
         return tree.putIfAbsent(s, s);
     }
     
     
-    public Boolean search(Publication p)
+    @Override
+    public Subscription search(Publication p)
     {
         // a subscription is created from the publication for searching        
-        return tree.containsKey(new Subscription(p.getMatchValue(), p.getServiceName()));
+        return tree.get(new Subscription(p.getMatchValue(), p.getServiceName()));
     }
 }

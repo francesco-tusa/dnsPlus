@@ -3,7 +3,7 @@ package experiments;
 import encryption.HEPS;
 import java.math.BigInteger;
 import java.util.Random;
-import broker.Broker;
+import broker.tree.binary.BrokerWithBinaryTree;
 import publishing.Publication;
 import publishing.Publisher;
 import subscribing.Subscriber;
@@ -19,7 +19,7 @@ public final class RandomTest
         
     Subscriber subscriber;
     Publisher publisher;
-    Broker broker;
+    BrokerWithBinaryTree broker;
     
     int iterations;
     int keySize;
@@ -35,7 +35,7 @@ public final class RandomTest
         heps = new HEPS(keySize, keySize/8, l);
         subscriber = new Subscriber("Subscriber1");
         publisher = new Publisher("Publisher1");
-        broker = new Broker("Broker1", heps);
+        broker = new BrokerWithBinaryTree("Broker1", heps);
         
         subscriber.setHeps(heps);
         publisher.setHeps(heps);

@@ -1,6 +1,6 @@
-package broker.binarytree;
+package broker.tree.binary;
 
-import broker.Broker;
+import broker.tree.SubscriptionTree;
 import subscribing.Subscription;
 import publishing.Publication;
 
@@ -10,12 +10,12 @@ import publishing.Publication;
  */
 
  
-public class SubscriptionBinaryTree 
+public class SubscriptionBinaryTree implements SubscriptionTree 
 {    
     private SubscriptionBinaryTreeNode root;
-    private Broker broker;
+    private BrokerWithBinaryTree broker;
     
-    public SubscriptionBinaryTree(Broker b)
+    public SubscriptionBinaryTree(BrokerWithBinaryTree b)
     {
         broker = b;
     }
@@ -25,15 +25,15 @@ public class SubscriptionBinaryTree
     }
  
     
-    
-
-    public void addNode(Subscription s) 
+    @Override
+    public Subscription addNode(Subscription s) 
     {
         SubscriptionBinaryTreeNode newNode = new SubscriptionBinaryTreeNode(s);
  
         if (root == null) 
         {
             root = newNode;
+            return null;
         } 
     
         else 
@@ -53,7 +53,7 @@ public class SubscriptionBinaryTree
                     //System.out.println("focus: " + focusNode.subscription.getServiceName());
                     //System.out.println("");
                     
-                    return;
+                    return focusNode.subscription;
                 }
                 
                 else if (broker.match(s, focusNode.subscription) < 0)
@@ -68,7 +68,7 @@ public class SubscriptionBinaryTree
                     if (focusNode == null) 
                     {
                         parent.left = newNode;
-                        return;
+                        return null;
                     }
                 } 
 
@@ -83,7 +83,7 @@ public class SubscriptionBinaryTree
                     if (focusNode == null) 
                     {
                         parent.right = newNode;
-                        return;
+                        return null;
                     }
                 }
             }
@@ -91,22 +91,27 @@ public class SubscriptionBinaryTree
     }
     
     
-    public SubscriptionBinaryTreeNode search(SubscriptionBinaryTreeNode root, Publication p)
-    {
-	// Base Cases: root is null or key is present at root
-	if (root == null || broker.match(p, root.subscription) == 0) {
-            return root;
-        }
-            
-	// Key is greater than root's key
-        if (broker.match(p, root.subscription) > 0) 
-        {
-            //System.out.println("p > root: " + root.subscription.getServiceName());
-            return search(root.right, p);
+    @Override
+    public Subscription search(Publication p) {
+        return searchRecursive(root, p);
+    }
+
+    private Subscription searchRecursive(SubscriptionBinaryTreeNode node, Publication p) {
+        // Base Cases: node is null or key is present at node
+        if (node == null) {
+            return null;
         }
 
-        // Key is smaller than root's key
-        //System.out.println("p < root: " + root.subscription.getServiceName());
-	return search(root.left, p);
+        if (broker.match(p, node.subscription) == 0) {
+            return node.getSubscription();
+        }
+
+        // Key is greater than node's key
+        if (broker.match(p, node.subscription) > 0) {
+            return searchRecursive(node.right, p);
+        }
+
+        // Key is smaller than node's key
+        return searchRecursive(node.left, p);
     }
 }

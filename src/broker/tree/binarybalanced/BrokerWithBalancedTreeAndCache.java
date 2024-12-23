@@ -1,11 +1,11 @@
-package broker;
+package broker.tree.binarybalanced;
 
-import broker.balancedbinarytree.PublicationBalancedBinaryTree;
+import broker.CachingBroker;
 import encryption.HEPS;
 import publishing.Publication;
 import subscribing.Subscription;
 
-public class BrokerWithBalancedTreeAndCache extends BrokerWithBalancedTree {// implements CachingBroker {
+public class BrokerWithBalancedTreeAndCache extends BrokerWithBalancedTree implements CachingBroker {
     
     private PublicationBalancedBinaryTree cache;
         
@@ -13,17 +13,12 @@ public class BrokerWithBalancedTreeAndCache extends BrokerWithBalancedTree {// i
         super(name, heps);
         cache = new PublicationBalancedBinaryTree(this);
     }
+
     
-//    @Override
-//    public void cachePublication(Publication p) 
-//    {
-//        cache.addNode(p);
-//    }
-
     @Override
-    public boolean matchPublication(Publication p) {
+    public Subscription matchPublication(Publication p) {
 
-        boolean matched = super.matchPublication(p);
+        Subscription matched = super.matchPublication(p);
         
         // we should check whether there is a cached publication
         // for the same name that needs to be updated
@@ -37,20 +32,18 @@ public class BrokerWithBalancedTreeAndCache extends BrokerWithBalancedTree {// i
         } else
             System.out.println("Publication " + p.getServiceName() + " added to the cache");
         
-        
         return matched;
     }
     
-    
-    
-   
+
+    @Override
     public Publication matchSubscription(Subscription s) 
     {   
         // add the subscription to the sub table
         super.addSubscription(s);
         
         //check the cache and return a publication if found
-        Publication cacheFound = cache.searchAndGetPublication(s);
+        Publication cacheFound = cache.search(s);
         if (cacheFound == null) {
             System.out.println("No entry for " + s.getServiceName() + " found in the cache");
         } else {

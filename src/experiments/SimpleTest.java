@@ -2,7 +2,7 @@ package experiments;
 
 import encryption.HEPS;
 import broker.AbstractBroker;
-import broker.Broker;
+import broker.tree.binary.BrokerWithBinaryTree;
 import publishing.Publication;
 import publishing.Publisher;
 import subscribing.Subscriber;
@@ -18,7 +18,7 @@ public class SimpleTest {
 
         Subscriber subscriber = new Subscriber("Subscriber1");
         Publisher publisher = new Publisher("Publisher1");
-        AbstractBroker broker = new Broker("Broker1", heps);
+        AbstractBroker broker = new BrokerWithBinaryTree("Broker1", heps);
 
         subscriber.setHeps(heps);
         publisher.setHeps(heps);
