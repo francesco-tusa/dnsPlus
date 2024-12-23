@@ -3,7 +3,7 @@ package broker;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
-import broker.balancedbinarytree.BalancedBinaryTree;
+import broker.subscriptions.balancedbinarytree.SubscriptionBalancedBinaryTree;
 
 /**
  *
@@ -11,27 +11,31 @@ import broker.balancedbinarytree.BalancedBinaryTree;
  */
 public class BrokerWithBalancedTree extends AbstractBroker {
     
-    private BalancedBinaryTree table;
+    private SubscriptionBalancedBinaryTree table;
 
-    public BrokerWithBalancedTree(String n, HEPS heps) 
+    public BrokerWithBalancedTree(String name, HEPS heps) 
     {
-        this.name = n;
+        this.name = name;
         this.heps = heps;
     
-        table = new BalancedBinaryTree(this);
+        table = new SubscriptionBalancedBinaryTree(this);
     }
     
     
     @Override
     public void addSubscription(Subscription s) 
     {
-        table.addNode(s);
+        if (table.addNode(s) != null)
+            System.out.println("Subscription " + s.getServiceName() + " already in the table");
+        else
+            System.out.println("Subscription " + s.getServiceName() + " added to the table");
     }
     
     @Override
     public boolean matchPublication(Publication p) 
     {   
         Boolean found = table.search(p);
+        System.out.println("Found " + p.getServiceName() + " in the sub table: " + found);
         return found;
         
     }

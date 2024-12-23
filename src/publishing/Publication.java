@@ -26,6 +26,19 @@ public class Publication {
         this(mv, cv, cvPlusOne);
         serviceName = name; // used for debug
     }
+    
+    // used for creating publications for matching subscriptions
+    // in the publication table
+    public Publication(BigInteger cv, BigInteger cvPlusOne, String name) {
+        coverValue = cv;
+        coverValuePlusOne = cvPlusOne;
+        serviceName = name;
+    }
+    
+    public Publication(BigInteger mv, String name) {
+        matchValue = mv;
+        serviceName = name;
+    }
 
     public BigInteger getMatchValue() {
         return matchValue;

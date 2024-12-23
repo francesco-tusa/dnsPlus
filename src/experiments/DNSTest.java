@@ -118,7 +118,7 @@ public final class DNSTest
         DNSTest dnsPlus = new DNSTest(home + "/websites.txt");
 
         try {
-            System.out.println("Generating subscriptions table");
+            System.out.println("*** Generating subscriptions table ***");
             t = System.nanoTime();
             dnsPlus.generateSubscriptions(); 
             subscriptions = System.nanoTime() - t;
@@ -128,8 +128,8 @@ public final class DNSTest
             System.exit(-1);
         }
         
-        
-        System.out.println("Matching publications");
+        System.out.println();
+        System.out.println("*** Matching publications ***");
 
         for (String service : dnsPlus.matchTimings.keySet())
         {
@@ -141,10 +141,10 @@ public final class DNSTest
             }
         }
         
-        
+        System.out.println();
         System.out.println("Total Subscriptions table generation (ms) [includes subscriptions generation]: " + subscriptions / 1000000);
         System.out.println("Subscriptions table generation (ms) [actual time to add subscriptions to the table]: " + dnsPlus.addSubscriptions / 1000000);
-        
+        System.out.println();
         double timingSum = 0;
         for (String service : dnsPlus.matchTimings.keySet()) 
         {
@@ -153,6 +153,7 @@ public final class DNSTest
             timingSum += timing;
         }
         
+        System.out.println();
         System.out.println("Average match time (ms): " + timingSum / dnsPlus.matchTimings.size());
     } 
 }

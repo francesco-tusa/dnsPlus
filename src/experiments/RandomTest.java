@@ -78,12 +78,12 @@ public final class RandomTest
             avgBitCount += m.bitCount();
             
             t = System.nanoTime();
-            Publication p = publisher.generatePublication(m);
+            Publication p = publisher.generatePublication(m, m.toString());
             pub += System.nanoTime() - t;
             
             m = generateBigInteger(l);
             t = System.nanoTime();
-            Subscription s = subscriber.generateSubscription(m);
+            Subscription s = subscriber.generateSubscription(m, m.toString());
             sub += System.nanoTime()- t;
             
             t = System.nanoTime();
@@ -92,7 +92,7 @@ public final class RandomTest
             
             // generating new random subscription for cover
             m = generateBigInteger(l);
-            Subscription s2 = subscriber.generateSubscription(m);
+            Subscription s2 = subscriber.generateSubscription(m, m.toString());
             
             t = System.nanoTime();
             broker.match(s, s2);

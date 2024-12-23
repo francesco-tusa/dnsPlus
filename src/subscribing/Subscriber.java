@@ -40,20 +40,15 @@ public class Subscriber extends Entity {
     public Subscription generateSubscription(String name) 
     {   
         BigInteger nameAsBigInteger = NameEncoding.stringToBigInteger(name);
-        BigInteger nameAsBigIntegerPlusOne = nameAsBigInteger.add(BigInteger.ONE);
-        
-        return new Subscription(matchBlind(nameAsBigInteger), 
-                                          matchBlind(nameAsBigIntegerPlusOne),
-                                          coverBlind(nameAsBigInteger), 
-                                          name); // name is for debugging  
+        return generateSubscription(nameAsBigInteger, name);
     }  
     
-    public Subscription generateSubscription(BigInteger nameAsBigInteger) 
-    {  
+    public Subscription generateSubscription(BigInteger nameAsBigInteger, String name) {
         BigInteger nameAsBigIntegerPlusOne = nameAsBigInteger.add(BigInteger.ONE);
-        
-        return new Subscription(matchBlind(nameAsBigInteger), 
-                                          matchBlind(nameAsBigIntegerPlusOne),
-                                          coverBlind(nameAsBigInteger));  
+
+        return new Subscription(matchBlind(nameAsBigInteger),
+                matchBlind(nameAsBigIntegerPlusOne),
+                coverBlind(nameAsBigInteger),
+                name); // name is for debugging   
     }  
 }

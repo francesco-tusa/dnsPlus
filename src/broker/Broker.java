@@ -3,8 +3,8 @@ package broker;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
-import broker.binarytree.BinaryTree;
-import broker.binarytree.Node;
+import broker.subscriptions.binarytree.BinaryTree;
+import broker.subscriptions.binarytree.Node;
 
 /**
  *

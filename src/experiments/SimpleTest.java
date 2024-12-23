@@ -67,5 +67,17 @@ public class SimpleTest {
         System.out.println(name2 + " matching " + name1 + " : " + broker.match(p1, s1));
         System.out.println(name2 + " matching " + name2 + " : " + broker.match(p1, s2));
         System.out.println(name2 + " matching " + name3 + " : " + broker.match(p1, s3));
+        
+        System.out.println("*** Publication Match ***");
+        Publication p2 = publisher.generatePublication(name1);
+        
+        Publication p3 = publisher.generatePublication(name2);
+        
+        System.out.println(name2 + " " + name1 + " : " + broker.match(p1, p2));
+        System.out.println(name1 + " " + name2 + " : " + broker.match(p2, p1));
+        
+        System.out.println(name2 + " " + name2 + " : " + broker.match(p1, p3));
+        System.out.println(name2 + " " + name2 + " : " + broker.match(p3, p1));
+        
     }
 }

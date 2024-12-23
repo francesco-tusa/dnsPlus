@@ -32,8 +32,9 @@ public class Subscription {
     
     // this should only be used to create a fake subscription for publication 
     // match in the BalancedBinaryTree
-    public Subscription(BigInteger cv) {
+    public Subscription(BigInteger cv, String name) {
         coverValue = cv;
+        serviceName = name;
     }
 
     public BigInteger getMatchValue() {

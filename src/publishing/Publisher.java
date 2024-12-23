@@ -38,14 +38,15 @@ public class Publisher extends Entity {
     
     public Publication generatePublication(String name) { 
         BigInteger nameAsBigInteger = NameEncoding.stringToBigInteger(name);        
-        return generatePublication(nameAsBigInteger);
+        return generatePublication(nameAsBigInteger, name);
     }
 
-    public Publication generatePublication(BigInteger nameAsBigInteger) {      
+    public Publication generatePublication(BigInteger nameAsBigInteger, String name) {      
         BigInteger nameAsBigIntegerPlusOne = nameAsBigInteger.add(BigInteger.ONE);
         
         return new Publication(matchBlind(nameAsBigInteger), 
                                           coverBlind(nameAsBigInteger),
-                                          coverBlind(nameAsBigIntegerPlusOne));
+                                          coverBlind(nameAsBigIntegerPlusOne),
+                                          name); // for debugging
     }
 }

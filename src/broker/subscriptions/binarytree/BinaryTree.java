@@ -1,4 +1,4 @@
-package broker.binarytree;
+package broker.subscriptions.binarytree;
 
 import broker.Broker;
 import subscribing.Subscription;
