@@ -3,8 +3,8 @@ package broker;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
-import broker.subscriptions.binarytree.BinaryTree;
-import broker.subscriptions.binarytree.Node;
+import broker.binarytree.SubscriptionBinaryTree;
+import broker.binarytree.SubscriptionBinaryTreeNode;
 
 /**
  *
@@ -13,14 +13,14 @@ import broker.subscriptions.binarytree.Node;
 public class Broker extends AbstractBroker {
     
     
-    private BinaryTree table;
+    private SubscriptionBinaryTree table;
     
 
     public Broker(String n, HEPS heps) 
     {
         this.name = n;
         this.heps = heps;
-        table = new BinaryTree(this);
+        table = new SubscriptionBinaryTree(this);
     }
     
     
@@ -31,7 +31,7 @@ public class Broker extends AbstractBroker {
     
     public boolean matchPublication(Publication p) 
     {
-        Node node = table.search(table.getRoot(), p);
+        SubscriptionBinaryTreeNode node = table.search(table.getRoot(), p);
         if (node != null)
         {
             //System.out.println("found match: " + node.getSubscription().getServiceName());

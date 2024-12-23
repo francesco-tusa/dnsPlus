@@ -1,4 +1,4 @@
-package broker.subscriptions.binarytree;
+package broker.binarytree;
 
 import subscribing.Subscription;
 
@@ -6,13 +6,13 @@ import subscribing.Subscription;
  *
  * @author uceeftu
  */
-public class Node 
+public class SubscriptionBinaryTreeNode 
 {
     Subscription subscription;
-    Node left;
-    Node right;
+    SubscriptionBinaryTreeNode left;
+    SubscriptionBinaryTreeNode right;
  
-    public Node(Subscription s) {
+    public SubscriptionBinaryTreeNode(Subscription s) {
         subscription = s;
     }
 

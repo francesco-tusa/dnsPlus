@@ -1,4 +1,4 @@
-package broker.subscriptions.binarytree;
+package broker.binarytree;
 
 import broker.Broker;
 import subscribing.Subscription;
@@ -10,17 +10,17 @@ import publishing.Publication;
  */
 
  
-public class BinaryTree 
+public class SubscriptionBinaryTree 
 {    
-    private Node root;
+    private SubscriptionBinaryTreeNode root;
     private Broker broker;
     
-    public BinaryTree(Broker b)
+    public SubscriptionBinaryTree(Broker b)
     {
         broker = b;
     }
 
-    public Node getRoot() {
+    public SubscriptionBinaryTreeNode getRoot() {
         return root;
     }
  
@@ -29,7 +29,7 @@ public class BinaryTree
 
     public void addNode(Subscription s) 
     {
-        Node newNode = new Node(s);
+        SubscriptionBinaryTreeNode newNode = new SubscriptionBinaryTreeNode(s);
  
         if (root == null) 
         {
@@ -38,8 +38,8 @@ public class BinaryTree
     
         else 
         {
-            Node focusNode = root;
-            Node parent;
+            SubscriptionBinaryTreeNode focusNode = root;
+            SubscriptionBinaryTreeNode parent;
  
             while (true) 
             {
@@ -91,7 +91,7 @@ public class BinaryTree
     }
     
     
-    public Node search(Node root, Publication p)
+    public SubscriptionBinaryTreeNode search(SubscriptionBinaryTreeNode root, Publication p)
     {
 	// Base Cases: root is null or key is present at root
 	if (root == null || broker.match(p, root.subscription) == 0) {
