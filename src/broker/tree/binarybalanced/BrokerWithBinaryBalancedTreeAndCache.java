@@ -5,13 +5,13 @@ import encryption.HEPS;
 import publishing.Publication;
 import subscribing.Subscription;
 
-public class BrokerWithBalancedTreeAndCache extends BrokerWithBalancedTree implements CachingBroker {
+public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTree implements CachingBroker {
     
-    private PublicationBalancedBinaryTree cache;
+    private BinaryBalancedPublicationTree cache;
         
-    public BrokerWithBalancedTreeAndCache(String name, HEPS heps) {
+    public BrokerWithBinaryBalancedTreeAndCache(String name, HEPS heps) {
         super(name, heps);
-        cache = new PublicationBalancedBinaryTree(this);
+        cache = new BinaryBalancedPublicationTree(this);
     }
 
     

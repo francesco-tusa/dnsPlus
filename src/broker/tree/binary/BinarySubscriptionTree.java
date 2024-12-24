@@ -10,12 +10,12 @@ import publishing.Publication;
  */
 
  
-public class SubscriptionBinaryTree implements SubscriptionTree 
+public class BinarySubscriptionTree implements SubscriptionTree 
 {    
     private SubscriptionBinaryTreeNode root;
     private BrokerWithBinaryTree broker;
     
-    public SubscriptionBinaryTree(BrokerWithBinaryTree b)
+    public BinarySubscriptionTree(BrokerWithBinaryTree b)
     {
         broker = b;
     }

@@ -1,5 +1,6 @@
 package broker.tree.binarybalanced;
 
+import broker.SubscriptionComparator;
 import java.util.Map;
 import java.util.TreeMap;
 import broker.AbstractBroker;
@@ -11,13 +12,13 @@ import subscribing.Subscription;
  *
  * @author uceeftu
  */
-public class SubscriptionBalancedBinaryTree implements SubscriptionTree 
+public class BinaryBalancedSubscriptionTree implements SubscriptionTree 
 {    
     AbstractBroker broker;
 
     Map<Subscription, Subscription> tree;
 
-    public SubscriptionBalancedBinaryTree(AbstractBroker b) 
+    public BinaryBalancedSubscriptionTree(AbstractBroker b) 
     {
         broker = b;
         tree = new TreeMap<>(new SubscriptionComparator(broker));

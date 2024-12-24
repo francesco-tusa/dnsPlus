@@ -1,5 +1,6 @@
 package broker.tree.binarybalanced;
 
+import broker.PublicationComparator;
 import broker.tree.PublicationTree;
 import java.util.Map;
 import java.util.TreeMap;
@@ -11,13 +12,13 @@ import subscribing.Subscription;
  *
  * @author uceeftu
  */
-public class PublicationBalancedBinaryTree implements PublicationTree 
+public class BinaryBalancedPublicationTree implements PublicationTree 
 {    
     AbstractBroker broker;
 
     Map<Publication, Publication> tree;
 
-    public PublicationBalancedBinaryTree(AbstractBroker b) 
+    public BinaryBalancedPublicationTree(AbstractBroker b) 
     {
         broker = b;
         tree = new TreeMap<>(new PublicationComparator(broker));

@@ -6,7 +6,7 @@ import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-import broker.tree.binarybalanced.BrokerWithBalancedTreeAndCache;
+import broker.tree.binarybalanced.BrokerWithBinaryBalancedTreeAndCache;
 import publishing.Publication;
 import publishing.Publisher;
 import subscribing.Subscriber;
@@ -22,7 +22,7 @@ public final class DNSWithCacheTest
         
     Subscriber subscriber = new Subscriber("Subscriber1");
     Publisher publisher = new Publisher("Publisher1");
-    BrokerWithBalancedTreeAndCache broker = new BrokerWithBalancedTreeAndCache("Broker1", heps);
+    BrokerWithBinaryBalancedTreeAndCache broker = new BrokerWithBinaryBalancedTreeAndCache("Broker1", heps);
     
     File serviceNames;
     String[] services;

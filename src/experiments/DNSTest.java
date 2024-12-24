@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 import broker.AbstractBroker;
-import broker.tree.binarybalanced.BrokerWithBalancedTree;
+import broker.tree.binarybalanced.BrokerWithBinaryBalancedTree;
 import publishing.Publication;
 import publishing.Publisher;
 import subscribing.Subscriber;
@@ -25,7 +25,7 @@ public final class DNSTest
         
     Subscriber subscriber = new Subscriber("Subscriber1");
     Publisher publisher = new Publisher("Publisher1");
-    AbstractBroker broker = new BrokerWithBalancedTree("Broker1", heps);
+    AbstractBroker broker = new BrokerWithBinaryBalancedTree("Broker1", heps);
     //AbstractBroker broker = new BrokerWithBinaryTree("Broker1", heps);
     
     File serviceNames;

@@ -1,7 +1,6 @@
-package broker.tree.binarybalanced;
+package broker;
 
 import java.util.Comparator;
-import broker.AbstractBroker;
 import subscribing.Subscription;
 
 /**

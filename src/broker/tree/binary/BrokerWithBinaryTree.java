@@ -4,8 +4,6 @@ import broker.AbstractBroker;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
-import broker.tree.binary.SubscriptionBinaryTree;
-import broker.tree.binary.SubscriptionBinaryTreeNode;
 
 /**
  *
@@ -14,14 +12,14 @@ import broker.tree.binary.SubscriptionBinaryTreeNode;
 public class BrokerWithBinaryTree extends AbstractBroker {
     
     
-    private SubscriptionBinaryTree table;
+    private BinarySubscriptionTree table;
     
 
     public BrokerWithBinaryTree(String n, HEPS heps) 
     {
         this.name = n;
         this.heps = heps;
-        table = new SubscriptionBinaryTree(this);
+        table = new BinarySubscriptionTree(this);
     }
     
     
