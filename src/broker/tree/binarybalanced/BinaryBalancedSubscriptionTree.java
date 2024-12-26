@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import broker.AbstractBroker;
 import broker.tree.SubscriptionTree;
+import java.util.Collections;
 import publishing.Publication;
 import subscribing.Subscription;
 
@@ -21,7 +22,7 @@ public class BinaryBalancedSubscriptionTree implements SubscriptionTree
     public BinaryBalancedSubscriptionTree(AbstractBroker b) 
     {
         broker = b;
-        tree = new TreeMap<>(new SubscriptionComparator(broker));
+        tree = Collections.synchronizedMap(new TreeMap<>(new SubscriptionComparator(broker)));
     }    
     
     @Override
@@ -34,7 +35,8 @@ public class BinaryBalancedSubscriptionTree implements SubscriptionTree
     @Override
     public Subscription search(Publication p)
     {
-        // a subscription is created from the publication for searching        
+        // a subscription is created from the publication for searching
+        // return null if there is no match
         return tree.get(new Subscription(p.getMatchValue(), p.getServiceName()));
     }
 }

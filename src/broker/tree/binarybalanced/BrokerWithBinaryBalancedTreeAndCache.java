@@ -14,6 +14,10 @@ public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalanc
         cache = new BinaryBalancedPublicationTree(this);
     }
 
+    public BinaryBalancedPublicationTree getCache() {
+        return cache;
+    }
+    
     
     @Override
     public Subscription matchPublication(Publication p) {
@@ -32,9 +36,25 @@ public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalanc
         } else
             System.out.println("Publication " + p.getServiceName() + " added to the cache");
         
+        // null if there was not match
         return matched;
     }
     
+    //    private void matchSubscription(Subscription s) {
+//        // add the subscription to the sub table
+//        broker.addSubscription(s);
+//
+//        //check the cache and a publication if found
+//        Publication result = broker.getCache().search(s);
+//
+//        if (result == null) {
+//            System.out.println("No matching publication in cache for: " + s.getServiceName());
+//        } else {
+//            System.out.println("Adding matching publication to the queue: " + result.getServiceName());
+//            // Store the result in the result queue
+//            addMatchResult(result);
+//        }
+//    }
 
     @Override
     public Publication matchSubscription(Subscription s) 

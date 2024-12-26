@@ -5,6 +5,7 @@ import broker.tree.PublicationTree;
 import java.util.Map;
 import java.util.TreeMap;
 import broker.AbstractBroker;
+import java.util.Collections;
 import publishing.Publication;
 import subscribing.Subscription;
 
@@ -21,7 +22,7 @@ public class BinaryBalancedPublicationTree implements PublicationTree
     public BinaryBalancedPublicationTree(AbstractBroker b) 
     {
         broker = b;
-        tree = new TreeMap<>(new PublicationComparator(broker));
+        tree = Collections.synchronizedMap(new TreeMap<>(new PublicationComparator(broker)));
     }    
     
     @Override

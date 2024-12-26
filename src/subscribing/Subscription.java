@@ -16,6 +16,8 @@ public class Subscription {
     // for debug only
     private String serviceName;
     
+    public Subscription() {}
+    
     
     public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv) {
         matchValue = mv;
