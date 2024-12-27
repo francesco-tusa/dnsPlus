@@ -18,7 +18,7 @@ import subscribing.Subscriber;
 public final class DNSWithCacheTest 
 {
     // may use a list for each type of entity
-    HEPS heps = new HEPS(2048, 2048/8, 512);
+    HEPS heps = HEPS.getInstance();
         
     Subscriber subscriber = new Subscriber("Subscriber1");
     Publisher publisher = new Publisher("Publisher1");

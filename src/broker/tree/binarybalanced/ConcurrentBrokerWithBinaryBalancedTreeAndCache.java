@@ -84,36 +84,4 @@ public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends Broker
         return matched; // for debug
 
     }
-    
-    
-    
-//    public Publication getMatchingPublication() {
-//        
-//        // Retrieve the result
-//        Publication p = null;
-//        try {
-//            p = subscriptionProcessor.getMatchResult();
-//        } catch (InterruptedException e) {
-//            System.out.println("Subscription processor thread was interrupted: " + e.getMessage());
-//            subscriptionProcessor.stopProcessing();
-//        }
-//        
-//        if (cacheFound == null) {
-//            System.out.println("No entry for " + s.getServiceName() + " found in the cache");
-//        } else {
-//            System.out.println("Entry for " + s.getServiceName() + " found in the cache: " + cacheFound.getServiceName());
-//        }
-//
-//        return p; 
-//    }
-    
-//    public Subscription getMatchingSubscription() {
-//        try {
-//            return publicationProcessor.getMatchResult();
-//        } catch (InterruptedException e) {
-//            System.out.println("Publication processor thread was interrupted: " + e.getMessage());
-//            publicationProcessor.stopReceiving();
-//            return null;
-//        }   
-//    }
 }

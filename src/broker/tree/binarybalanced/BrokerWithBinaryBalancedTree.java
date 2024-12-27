@@ -35,7 +35,7 @@ public class BrokerWithBinaryBalancedTree extends AbstractBroker {
     public Subscription matchPublication(Publication p) 
     {   
         Subscription found = table.search(p);
-        System.out.println(p.getServiceName() + (found==null? " not found" : " found") + " in the sub table");
+        System.out.println(p.getServiceName() + (found==null? " not found" : " *** found *** ") + " in the sub table");
         return found;
     }
 }

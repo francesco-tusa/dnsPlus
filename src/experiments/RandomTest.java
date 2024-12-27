@@ -32,7 +32,7 @@ public final class RandomTest
         l = ll;
         iterations = i;
         
-        heps = new HEPS(keySize, keySize/8, l);
+        heps = HEPS.getInstance();
         subscriber = new Subscriber("Subscriber1");
         publisher = new Publisher("Publisher1");
         broker = new BrokerWithBinaryTree("Broker1", heps);

@@ -1,207 +1,76 @@
 package experiments;
 
+import broker.AsynchronousCachingBroker;
 import encryption.HEPS;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Scanner;
 import broker.tree.binarybalanced.ConcurrentBrokerWithBinaryBalancedTreeAndCache;
-import publishing.Publication;
-import publishing.Publisher;
-import subscribing.Subscriber;
-import subscribing.Subscription;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import publishing.AsynchronousPublisher;
+import subscribing.AsynchronousSubscriber;
+import utils.FileLoader;
 
 /**
  *
  * @author f.tusa
  */
 public final class ConcurrentDNSWithCacheTest 
-{
-    // may use a list for each type of entity
-    HEPS heps = new HEPS(2048, 2048/8, 512);
-        
-    Subscriber subscriber = new Subscriber("Subscriber1");
-    Publisher publisher = new Publisher("Publisher1");
-    ConcurrentBrokerWithBinaryBalancedTreeAndCache broker = new ConcurrentBrokerWithBinaryBalancedTreeAndCache("Broker1", heps);
+{      
+    private AsynchronousSubscriber subscriber; 
+    private AsynchronousPublisher publisher;
+    private AsynchronousCachingBroker broker = new ConcurrentBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
+   
+    private String fileName;
+    private List<String> serviceNames;
     
-    File serviceNames;
-    String[] services;
     
-    double cachePublications = 0;
-    Map<String, Double> matchTimings = new HashMap<>();
+    public ConcurrentDNSWithCacheTest(String fileName)
+    {
+        broker = new ConcurrentBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
+        subscriber = new AsynchronousSubscriber("Subscriber1", broker);
+        publisher = new AsynchronousPublisher("Publisher1", broker);
+        this.fileName = fileName;
+        serviceNames = new ArrayList<>();
+    }
+    
+    
+    public void initialise() {
+        try {
+            serviceNames = FileLoader.loadNames(fileName);
+        } catch (IOException e) {
+            System.out.println("Error while loading the list of service names from file: " + fileName);
+            Collections.addAll(serviceNames, "youtube.com", "facebook.com", "wikipedia.org", "reddit.com", "instagram.com",
+                                             "tiktok.com", "pinterest.com", "quora.com", "amazon.com", "linkedin.com",
+                                             "twitter.com", "google.com", "ebay.com", "apple.com", "etsy.com");
+        }
         
+        publisher.initialise();
+        subscriber.initialise();
+    }
+    
+    
+    public void start() {
+        Thread publisherThread = new Thread(() -> {
+                                                   publisher.publish(serviceNames, 1000);
+                                                   publisher.publish(serviceNames, 1000);
+                                                   publisher.publish(serviceNames, 1000);
+                                                  });
+        
+        Thread subscriberThread = new Thread(() -> { 
+                                                    subscriber.subscribe(serviceNames, 2000);
+                                                   });
+        publisherThread.start();
+        subscriberThread.start();
+    }
        
-    
-    public ConcurrentDNSWithCacheTest(String file)
-    {
-        serviceNames = new File(file);
-        services = new String[1000];
-        
-        subscriber.setHeps(heps);
-        publisher.setHeps(heps);
-        
-        subscriber.getSecurityParameters();
-        publisher.getSecurityParameters();
-    }
-    
-    
-    public void startPublishing() {
-        Thread publisherThread = new Thread(() -> sendPublications());
-        publisherThread.start(); 
-    }
-    
-    public void startSubscribing() {
-        Thread subscriberThread = new Thread(() -> sendSubscriptions());
-        subscriberThread.start(); 
-    }
-    
-    public void receivePublications() {
-        Thread subscriberReceiverThread = new Thread(() -> receiveMatchingPublications());
-        subscriberReceiverThread.start();
-    }
-    
-    public void receiveSubscriptions() {
-        Thread publisherReceiverThread = new Thread(() -> receiveMatchingSubscriptions());
-        publisherReceiverThread.start();
-    }
-    
-    
-    private void sendSubscriptions() {
-        System.out.println("Subscription facebook");
-        broker.processSubscription(subscriber.generateSubscription("facebook.com"));
-        
-        System.out.println("Subscription facebook");
-        broker.processSubscription(subscriber.generateSubscription("facebook.com")); 
-    }
-    
-    private void sendPublications() {
-        System.out.println("*** Sending Publications ***");
-        System.out.println("Publication: fonts");
-        broker.processPublication(publisher.generatePublication("fonts.googleapis.com"));
-     
-        System.out.println("Publication: facebook");
-        broker.matchPublication(publisher.generatePublication("facebook.com"));
-        
-        System.out.println("Publication: facebook");
-        broker.matchPublication(publisher.generatePublication("facebook.com"));
-        
-        System.out.println("Publication: facebook");
-        broker.matchPublication(publisher.generatePublication("facebook.com"));
-    }
-    
-    
-    private void receiveMatchingPublications() {
-        System.out.println("*** Waiting for results (publications that matched sent subscriptions) ***");
-        while (true) {
-            Publication p = broker.getSubscriptionResult();
-            System.out.println("*** Matching Publication *** -> " + p.getServiceName());
-        }
-    }
-    
-    private void receiveMatchingSubscriptions() {
-        System.out.println("*** Waiting for results (subscriptions that matched sent publications) ***");
-        while (true) {
-            Subscription s = broker.getPublicationResult();
-            System.out.println("*** Matching Subscription *** -> " + s.getServiceName());
-        }
-    }
-    
-    
-    public void generatePublications() throws FileNotFoundException 
-    {
-        long t;
-        int i = 0;
-        
-        try (Scanner scanner = new Scanner(serviceNames)) {
-            while (scanner.hasNextLine())
-            {
-                String service = scanner.nextLine();
-                services[i++] = service;
-                System.out.println("Publication: " + service);
-                Publication p = publisher.generatePublication(service);
-                t = System.nanoTime();
-                broker.matchPublication(p);
-                cachePublications += (System.nanoTime() - t);
-            }
-        }
-    }
-    
-//    public boolean generateSubscriptions(String service, Publication p) 
-//    {
-//        double timing = matchTimings.get(service);
-//        
-//        long t = System.nanoTime();
-//        boolean matchResult = broker.matchSubscription(p);
-//        timing += (System.nanoTime() - t);
-//        
-//        matchTimings.put(service, timing);
-//        return matchResult;
-//    }
-//    
-//    
-//    public static void main(String[] args) 
-//    {    
-//        int iterations = 1;
-//        double subscriptions = 0;
-//             
-//        long t;
-//        
-//        String home = System.getProperty("user.home");
-//        DNSWithCacheTest dnsPlus = new DNSWithCacheTest(home + "/websites.txt");
-//
-//        try {
-//            System.out.println("*** Generating subscriptions table ***");
-//            t = System.nanoTime();
-//            dnsPlus.generateSubscriptions(); 
-//            subscriptions = System.nanoTime() - t;
-//            
-//        } catch (FileNotFoundException ex) {
-//            System.out.println("Subscription could not be loaded: " + ex.getMessage());
-//            System.exit(-1);
-//        }
-//        
-//        System.out.println();
-//        System.out.println("*** Matching publications ***");
-//
-//        for (String service : dnsPlus.matchTimings.keySet())
-//        {
-//            Publication publication = dnsPlus.publisher.generatePublication(service);
-//
-//            for (int i=0; i<iterations; i++) 
-//            {
-//                System.out.println(service + ": " + dnsPlus.match(service, publication));
-//            }
-//        }
-//        
-//        System.out.println();
-//        System.out.println("Total Subscriptions table generation (ms) [includes subscriptions generation]: " + subscriptions / 1000000);
-//        System.out.println("Subscriptions table generation (ms) [actual time to add subscriptions to the table]: " + dnsPlus.cachePublications / 1000000);
-//        System.out.println();
-//        double timingSum = 0;
-//        for (String service : dnsPlus.matchTimings.keySet()) 
-//        {
-//            double timing = (dnsPlus.matchTimings.get(service) / 1000000) / iterations;
-//            System.out.println("Match [" + service + "] (ms): " + String.format("%.2f", timing));
-//            timingSum += timing;
-//        }
-//        
-//        System.out.println();
-//        System.out.println("Average match time (ms): " + timingSum / dnsPlus.matchTimings.size());
-//    } 
-    
     
     public static void main(String[] args) 
     {
         String home = System.getProperty("user.home");
-        ConcurrentDNSWithCacheTest dnsPlus = new ConcurrentDNSWithCacheTest(home + "/websites.txt");
+        ConcurrentDNSWithCacheTest dnsPlus = new ConcurrentDNSWithCacheTest(home + "/websites.txt");     
         
-        dnsPlus.startPublishing();
-        dnsPlus.receiveSubscriptions();
-        
-        dnsPlus.startSubscribing();
-        dnsPlus.receivePublications();
-        
-        
+        dnsPlus.initialise();
+        dnsPlus.start();
     }
 }
