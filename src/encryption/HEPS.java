@@ -4,6 +4,8 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.logging.Level;
+import utils.CustomLogger;
 
 /**
  *
@@ -52,7 +54,7 @@ public final class HEPS {
                 .divide(p.subtract(BigInteger.ONE).gcd(q.subtract(BigInteger.ONE)));
         
         if (g.modPow(lambda, nsquare).subtract(BigInteger.ONE).divide(n).gcd(n).intValue() != 1) {
-            System.out.println("g is not good. Choose g again.");
+            CustomLogger.getLogger(HEPS.class.getName()).log(Level.SEVERE, "g is not good. Choose g again.");
             System.exit(1);
         }
         

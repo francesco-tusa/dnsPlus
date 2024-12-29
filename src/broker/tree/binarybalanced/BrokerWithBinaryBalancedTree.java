@@ -4,6 +4,9 @@ import broker.AbstractBroker;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import utils.CustomLogger;
 
 /**
  *
@@ -11,6 +14,7 @@ import encryption.HEPS;
  */
 public class BrokerWithBinaryBalancedTree extends AbstractBroker {
     
+    private static final Logger logger = CustomLogger.getLogger(BrokerWithBinaryBalancedTree.class.getName());
     private BinaryBalancedSubscriptionTree table;
 
     public BrokerWithBinaryBalancedTree(String name, HEPS heps) 
@@ -26,16 +30,21 @@ public class BrokerWithBinaryBalancedTree extends AbstractBroker {
     public void addSubscription(Subscription s) 
     {
         if (table.addNode(s) != null)
-            System.out.println("Subscription " + s.getServiceName() + " already in the table");
+            logger.log(Level.INFO, "Subscription for {0} already in the table", s.getServiceName());
         else
-            System.out.println("Subscription " + s.getServiceName() + " added to the table");
+            logger.log(Level.FINE, "Subscription {0} added to the table", s.getServiceName());
     }
     
     @Override
     public Subscription matchPublication(Publication p) 
     {   
         Subscription found = table.search(p);
-        System.out.println(p.getServiceName() + (found==null? " not found" : " *** found *** ") + " in the sub table");
+        
+        if (found == null) {
+            logger.log(Level.FINE, "{0} not found in the subscription table", p.getServiceName());
+        } else {
+            logger.log(Level.INFO, "{0} found in the subscription table", p.getServiceName());
+        }
         return found;
     }
 }

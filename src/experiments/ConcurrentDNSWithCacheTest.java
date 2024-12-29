@@ -7,8 +7,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import publishing.AsynchronousPublisher;
 import subscribing.AsynchronousSubscriber;
+import utils.CustomLogger;
 import utils.FileLoader;
 
 /**
@@ -17,6 +20,7 @@ import utils.FileLoader;
  */
 public final class ConcurrentDNSWithCacheTest 
 {      
+    private static final Logger logger = CustomLogger.getLogger(ConcurrentDNSWithCacheTest.class.getName(), Level.INFO);
     private AsynchronousSubscriber subscriber; 
     private AsynchronousPublisher publisher;
     private AsynchronousCachingBroker broker = new ConcurrentBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
@@ -39,7 +43,7 @@ public final class ConcurrentDNSWithCacheTest
         try {
             serviceNames = FileLoader.loadNames(fileName);
         } catch (IOException e) {
-            System.out.println("Error while loading the list of service names from file: " + fileName);
+            logger.log(Level.SEVERE, "Error while loading the list of service names from file: {0}", fileName);
             Collections.addAll(serviceNames, "youtube.com", "facebook.com", "wikipedia.org", "reddit.com", "instagram.com",
                                              "tiktok.com", "pinterest.com", "quora.com", "amazon.com", "linkedin.com",
                                              "twitter.com", "google.com", "ebay.com", "apple.com", "etsy.com");

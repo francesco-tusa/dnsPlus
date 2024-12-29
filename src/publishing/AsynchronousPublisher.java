@@ -7,9 +7,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import subscribing.Subscription;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import utils.CustomLogger;
 
 
 public class AsynchronousPublisher {
+    
+    private static final Logger logger = CustomLogger.getLogger(AsynchronousPublisher.class.getName());
     private Publisher publisher;
     private AsynchronousCachingBroker broker;
     
@@ -41,13 +46,13 @@ public class AsynchronousPublisher {
     }
     
     public void publish(String service) {
-        System.out.println("Publication for service: " + service);
+        logger.log(Level.FINE, "Publication for service: {0}", service);
         Publication p = generatePublication(service);
         broker.processPublication(p);
     }
     
     public void publishAll(List<String> serviceNames) {
-        System.out.println("Generating Publications...");
+        logger.log(Level.INFO, "Generating Publications...");
         for (String service : serviceNames) {
             if (!publications.containsKey(service)) {
                 publications.put(service, publisher.generatePublication(service));
@@ -55,7 +60,7 @@ public class AsynchronousPublisher {
         }
         
         // now sending publications
-        System.out.println("Sending Publications to Broker...");
+        logger.log(Level.INFO, "Sending Publications to Broker...");
         for (String service : serviceNames) {
             broker.processPublication(publications.get(service));
         }
@@ -93,10 +98,10 @@ public class AsynchronousPublisher {
     }
     
     private void listenForSubscriptions() {
-        System.out.println("*** Waiting for results (subscriptions that matched sent publications) ***");
+        logger.log(Level.INFO, "*** Waiting for results (subscriptions that matched sent publications) ***");
         while (true) {
             Subscription s = broker.getPublicationResult();
-            System.out.println("*** Matching Subscription ---->> " + s.getServiceName());
+            logger.log(Level.INFO, "Found Matching Subscription {0}", s.getServiceName());
         }
     }
 }

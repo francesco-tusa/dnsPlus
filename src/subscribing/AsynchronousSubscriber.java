@@ -7,9 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import publishing.Publication;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import utils.CustomLogger;
 
 
 public final class AsynchronousSubscriber {
+    private static final Logger logger = CustomLogger.getLogger(AsynchronousSubscriber.class.getName());
     private Subscriber subscriber;
     private AsynchronousCachingBroker broker;
     
@@ -41,14 +45,14 @@ public final class AsynchronousSubscriber {
     }
     
     public void subscribe(String service) {
-        System.out.println("Subscribing to service: " + service);
+        logger.log(Level.FINE, "Subscribing to service: {0}", service);
         Subscription s = generateSubscription(service);
         broker.processSubscription(s);
     }
     
     
     public void subscribeToAll(List<String> serviceNames) {
-        System.out.println("Generating Subscriptions...");
+        logger.log(Level.INFO, "Generating Subscriptions...");
         for (String service : serviceNames) {
             if (!subscriptions.containsKey(service)) {
                 subscriptions.put(service, subscriber.generateSubscription(service));
@@ -56,7 +60,7 @@ public final class AsynchronousSubscriber {
         }
         
         // now sending subscriptions
-        System.out.println("Sending Subscriptions to Broker...");
+        logger.log(Level.INFO, "Sending Subscriptions to Broker...");
         for (String service : serviceNames) {
             broker.processSubscription(subscriptions.get(service));
         }
@@ -88,10 +92,10 @@ public final class AsynchronousSubscriber {
     
     
     private void listenForPublications() {
-        System.out.println("*** Waiting for results (publications that matched sent subscriptions) ***");
+        logger.log(Level.INFO, "*** Waiting for results (publications that matched sent subscriptions) ***");
         while (true) {
             Publication p = broker.getSubscriptionResult();
-            System.out.println("*** Matching Publication ---->> " + p.getServiceName());
+            logger.log(Level.INFO, "Found Matching Publication {0}", p.getServiceName());
         }
     }
 }

@@ -2,11 +2,15 @@ package broker.tree.binarybalanced;
 
 import broker.CachingBroker;
 import encryption.HEPS;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 import publishing.Publication;
 import subscribing.Subscription;
+import utils.CustomLogger;
 
 public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTree implements CachingBroker {
     
+    private static final Logger logger = CustomLogger.getLogger(BrokerWithBinaryBalancedTreeAndCache.class.getName());
     private BinaryBalancedPublicationTree cache;
         
     public BrokerWithBinaryBalancedTreeAndCache(String name, HEPS heps) {
@@ -32,7 +36,11 @@ public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalanc
         //}
         
         Publication cacheFound = cache.addNode(p);
-        System.out.println("Publication " + p.getServiceName() + (cacheFound==null? " added to " : " *** already in *** ") + "the cache");
+        if (cacheFound == null) {
+            logger.log(Level.FINE, "Publication {0} was added to the cache", p.getServiceName());
+        } else {
+            logger.log(Level.INFO, "Publication {0} was found in the cache", p.getServiceName());
+        }
         
         // null if there was not match
         return matched;
@@ -47,7 +55,12 @@ public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalanc
         
         //check the cache and return a publication if found
         Publication cacheFound = cache.search(s);
-        System.out.println(s.getServiceName() + (cacheFound==null? " not found " : " *** found *** ") + "in the cache");
+        if (cacheFound == null) {
+            logger.log(Level.FINE, "A publication for {0} was not found in the cache", s.getServiceName());
+        } else {
+            logger.log(Level.INFO, "A publication for {0} was found in the cache", s.getServiceName());
+        }
+        
         return cacheFound;
     }
 }

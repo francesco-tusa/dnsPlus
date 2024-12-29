@@ -3,7 +3,10 @@ package broker;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.math.BigInteger;
+import utils.CustomLogger;
 
 /**
  *
@@ -11,20 +14,21 @@ import java.math.BigInteger;
  */
 public abstract class AbstractBroker {
 
+    private static final Logger logger = CustomLogger.getLogger(AbstractBroker.class.getName());
     protected String name;
     protected HEPS heps;
 
     public AbstractBroker() {}
 
     public Integer match(Subscription s1, Subscription s2) {
-        System.out.println("matching: " + s1.getServiceName() + " with " + s2.getServiceName());
+        logger.log(Level.FINE, "Matching Subscriptions: {0} with {1}", new Object[]{s1.getServiceName(), s2.getServiceName()});
         return compare(s1.getCoverValue(), s2.getMatchValue(), s2.getMatchValuePlusOne());
     }
     
+    // like match(p, s) but uses the values calculated for cover within the publication
     public Integer match(Publication p1, Publication p2) {
-        // like match(p, s) but uses the values calculated for cover within the publication
         // swapped argument because of balanced tree, required changing sign: -
-        //return compare(p1.getMatchValue(), p2.getCoverValue(), p2.getCoverValuePlusOne());
+        logger.log(Level.FINE, "Matching Publications: {0} with {1}", new Object[]{p1.getServiceName(), p2.getServiceName()});
         return -compare(p2.getMatchValue(), p1.getCoverValue(), p1.getCoverValuePlusOne());
     }
     
@@ -60,7 +64,7 @@ public abstract class AbstractBroker {
                 return -1;
             }
         } catch (Exception ex) {
-            System.err.println(ex.getMessage());
+            logger.log(Level.SEVERE, ex.getMessage());
             return null;
         }
     }

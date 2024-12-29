@@ -4,9 +4,13 @@ import encryption.HEPS;
 import publishing.Publication;
 import subscribing.Subscription;
 import broker.AsynchronousCachingBroker;
+import java.util.logging.Logger;
+import java.util.logging.Level;
+import utils.CustomLogger;
 
 public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTreeAndCache implements AsynchronousCachingBroker {
     
+    private static final Logger logger = CustomLogger.getLogger(ConcurrentBrokerWithBinaryBalancedTreeAndCache.class.getName());
     private SubscriptionProcessor subscriptionProcessor;
     private PublicationProcessor publicationProcessor;
         
@@ -32,7 +36,7 @@ public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends Broker
         try {
             return subscriptionProcessor.getMatchResult();
         } catch (InterruptedException e) {
-            System.out.println("Subscription processor thread was interrupted: " + e.getMessage());
+            logger.log(Level.WARNING, "Subscription processor thread was interrupted: {0}", e.getMessage());
             subscriptionProcessor.stopProcessing();
             return null;
         }
@@ -48,7 +52,7 @@ public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends Broker
         try {
             return publicationProcessor.getMatchResult();
         } catch (InterruptedException e) {
-            System.out.println("Publication processor thread was interrupted: " + e.getMessage());
+            logger.log(Level.WARNING, "Publication processor thread was interrupted: {0}", e.getMessage());
             publicationProcessor.stopReceiving();
             return null;
         }   
@@ -61,9 +65,9 @@ public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends Broker
         Subscription matched  = super.matchPublication(p);
         
         if (matched != null) {
-            System.out.println("Adding matching subscription to the queue: " + matched.getServiceName());
+            logger.log(Level.FINER, "Adding matching subscription to the queue: {0}", matched.getServiceName());
             publicationProcessor.addMatchResult(matched);
-            System.out.println("Adding corresponding publication to the subscription processor's results queue: " + p.getServiceName());
+            logger.log(Level.FINER, "Adding corresponding publication to the subscription processor''s results queue: {0}", p.getServiceName());
             subscriptionProcessor.addMatchResult(p);
         }
         
@@ -77,11 +81,10 @@ public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends Broker
         Publication matched = super.matchSubscription(s);
         
         if (matched != null) {
-            System.out.println("Adding matching publication cache entry to the subscription processor's results queue: " + s.getServiceName());
+            logger.log(Level.FINER, "Adding matching publication from cache to the subscription processor''s results queue: {0}", s.getServiceName());
             subscriptionProcessor.addMatchResult(matched);
         }
         
         return matched; // for debug
-
     }
 }
