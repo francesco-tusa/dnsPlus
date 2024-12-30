@@ -5,7 +5,6 @@ import encryption.HEPS;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import publishing.Publication;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -67,22 +66,22 @@ public final class AsynchronousSubscriber {
     }
     
     
-    // randomly subscribe to n services from the list serviceNames
-    public void subscribe(List<String> serviceNames, int n) {
-        int[] randomIndexes = new int[n];
-        
-        for (int i=0; i<n; i++) {
-            randomIndexes[i] = (new Random()).nextInt(0, serviceNames.size());
-            generateSubscription(serviceNames.get(randomIndexes[i]));
-        }
-        
-        long t = System.nanoTime();
-        for (int i=0; i<n; i++) {
-            String serviceName = serviceNames.get(randomIndexes[i]);
-            broker.processSubscription(subscriptions.get(serviceName));
-        }
-        System.err.println("********** It took " + (System.nanoTime() - t)/1000000 + " msec to process " + n + " subscriptions on a broker **********");
-    }
+//    // randomly subscribe to n services from the list serviceNames
+//    public void subscribe(List<String> serviceNames, int n) {
+//        int[] randomIndexes = new int[n];
+//        
+//        for (int i=0; i<n; i++) {
+//            randomIndexes[i] = (new Random()).nextInt(0, serviceNames.size());
+//            generateSubscription(serviceNames.get(randomIndexes[i]));
+//        }
+//        
+//        long t = System.nanoTime();
+//        for (int i=0; i<n; i++) {
+//            String serviceName = serviceNames.get(randomIndexes[i]);
+//            broker.processSubscription(subscriptions.get(serviceName));
+//        }
+//        System.err.println("********** It took " + (System.nanoTime() - t)/1000000 + " msec to process " + n + " subscriptions on a broker **********");
+//    }
     
     
     private void receivePublications() {

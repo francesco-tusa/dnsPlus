@@ -3,16 +3,13 @@ package experiments;
 import broker.AsynchronousCachingBroker;
 import encryption.HEPS;
 import broker.tree.binarybalanced.ConcurrentBrokerWithBinaryBalancedTreeAndCache;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import experiments.inputdata.DBFactory;
+import experiments.inputdata.DomainDB;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import publishing.AsynchronousPublisher;
 import subscribing.AsynchronousSubscriber;
 import utils.CustomLogger;
-import utils.FileLoader;
 
 /**
  *
@@ -24,9 +21,8 @@ public final class ConcurrentDNSWithCacheTest
     private AsynchronousSubscriber subscriber; 
     private AsynchronousPublisher publisher;
     private AsynchronousCachingBroker broker = new ConcurrentBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
-   
-    private String fileName;
-    private List<String> serviceNames;
+
+    private DomainDB domainDB;
     
     
     public ConcurrentDNSWithCacheTest(String fileName)
@@ -34,21 +30,11 @@ public final class ConcurrentDNSWithCacheTest
         broker = new ConcurrentBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
         subscriber = new AsynchronousSubscriber("Subscriber1", broker);
         publisher = new AsynchronousPublisher("Publisher1", broker);
-        this.fileName = fileName;
-        serviceNames = new ArrayList<>();
+        domainDB = DBFactory.getDomainDB(fileName);
     }
     
     
     public void initialise() {
-        try {
-            serviceNames = FileLoader.loadNames(fileName);
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, "Error while loading the list of service names from file: {0}", fileName);
-            Collections.addAll(serviceNames, "youtube.com", "facebook.com", "wikipedia.org", "reddit.com", "instagram.com",
-                                             "tiktok.com", "pinterest.com", "quora.com", "amazon.com", "linkedin.com",
-                                             "twitter.com", "google.com", "ebay.com", "apple.com", "etsy.com");
-        }
-        
         publisher.initialise();
         subscriber.initialise();
     }
@@ -56,13 +42,13 @@ public final class ConcurrentDNSWithCacheTest
     
     public void start() {
         Thread publisherThread = new Thread(() -> {
-                                                   publisher.publish(serviceNames, 1000);
-                                                   publisher.publish(serviceNames, 1000);
-                                                   publisher.publish(serviceNames, 1000);
+                                                   publisher.publishAll(domainDB.getRandomEntries(1000));
+                                                   publisher.publishAll(domainDB.getRandomEntries(1000));
+                                                   publisher.publishAll(domainDB.getRandomEntries(1000));
                                                   });
         
         Thread subscriberThread = new Thread(() -> { 
-                                                    subscriber.subscribe(serviceNames, 2000);
+                                                    subscriber.subscribeToAll(domainDB.getRandomEntries(2000));
                                                    });
         publisherThread.start();
         subscriberThread.start();
