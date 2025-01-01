@@ -38,7 +38,7 @@ public class Subscription {
         coverValue = cv;
         serviceName = name;
     }
-
+    
     public BigInteger getMatchValue() {
         return matchValue;
     }

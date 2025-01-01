@@ -56,10 +56,10 @@ public final class DNSWithCacheTest
         broker.matchPublication(publisher.generatePublication("facebook.com"));
         
         System.out.println("Subscription facebook");
-        broker.matchSubscription(subscriber.generateSubscription("facebook.com"));
+        broker.cacheLookUp(subscriber.generateSubscription("facebook.com"));
         
         System.out.println("Subscription facebook");
-        broker.matchSubscription(subscriber.generateSubscription("facebook.com")); 
+        broker.cacheLookUp(subscriber.generateSubscription("facebook.com")); 
         
         System.out.println("Publication: facebook");
         broker.matchPublication(publisher.generatePublication("facebook.com"));
@@ -89,7 +89,7 @@ public final class DNSWithCacheTest
 //        double timing = matchTimings.get(service);
 //        
 //        long t = System.nanoTime();
-//        boolean matchResult = broker.matchSubscription(p);
+//        boolean matchResult = broker.cacheLookUp(p);
 //        timing += (System.nanoTime() - t);
 //        
 //        matchTimings.put(service, timing);

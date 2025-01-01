@@ -16,19 +16,19 @@ public class DBFactory {
   
     private DBFactory () {}
     
-    public static DomainDB getDomainDB(String fileName) {
+    public static DomainDB getDomainsDB(String fileName) {
         DomainDB DB;
         try {
             
             if (DBMap.containsKey(fileName)) {
                 return DBMap.get(fileName);
             } else {
-                DomainFileLoader loader = new DomainFileLoader(fileName);
-                loader.loadDomainInfo();
+                DomainsFileLoader loader = new DomainsFileLoader(fileName);
+                loader.loadDomainsInfo();
                 if (loader.hasNamesOnly()) {
-                    DB = new NamesDB(loader.getDomainList());
+                    DB = new NamesDB(loader.getDomains());
                 } else
-                    DB = new NamesAndFrequenciesDB(loader.getDomainList());
+                    DB = new NamesAndFrequenciesDB(loader.getDomains());
             } 
         } catch (FileNotFoundException ex) {
             CustomLogger.getLogger(DBFactory.class.getName()).log(Level.WARNING, "Input data not found, using a default list of domain names");

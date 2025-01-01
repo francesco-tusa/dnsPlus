@@ -1,40 +1,45 @@
 package broker.tree.binarybalanced;
 
+import experiments.measurement.AsynchronousMeasurementProducer;
+import experiments.measurement.TaskDurationMeasurementListener;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import publishing.PoisonPillPublication;
 import publishing.Publication;
+import subscribing.PoisonPillSubscription;
 import subscribing.Subscription;
 import utils.CustomLogger;
+import utils.ExecutionTimeLogger;
 
 /**
  *
  * @author uceeftu
  */
-public class SubscriptionProcessor implements Runnable {
+public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementProducer {
     
     private static final Logger logger = CustomLogger.getLogger(SubscriptionProcessor.class.getName());
     private ConcurrentBrokerWithBinaryBalancedTreeAndCache broker;
     private BlockingQueue<Subscription> subscriptionQueue;
     private BlockingQueue<Publication> resultQueue;
-    private boolean threadRunning;
+    
+    private List<TaskDurationMeasurementListener> measurementListeners;
+    
     
     public SubscriptionProcessor(ConcurrentBrokerWithBinaryBalancedTreeAndCache b) {
         broker = b;
         subscriptionQueue = new LinkedBlockingQueue<>();
         resultQueue = new LinkedBlockingQueue<>();
-        threadRunning = false;
+        measurementListeners = new ArrayList<>();
     }
     
     public void startProcessing() {
-        threadRunning = true;
         Thread subscriptionProcessor = new Thread(this, "subscriptionProcessor");
         subscriptionProcessor.start();
-    }
-    
-    public void stopProcessing() {
-        threadRunning = false;
     }
     
     public void addSubscription(Subscription s) {
@@ -55,19 +60,51 @@ public class SubscriptionProcessor implements Runnable {
     }
 
     @Override
+    public void addMeasurementListener(TaskDurationMeasurementListener l) {
+        measurementListeners.add(l);
+    }
+    
+
+    @Override
     public void run() {
-        while (threadRunning) {
+        
+        Duration duration = Duration.ZERO;
+        
+        while (true) {
             try {
                 logger.log(Level.FINER, "Taking a subscription off the queue");
                 Subscription s = subscriptionQueue.take();
                 if (s != null) {
+                    if (s instanceof PoisonPillSubscription) {
+                        logger.log(Level.WARNING, "Thread {0} is being stopped", Thread.currentThread().getName());
+                        resultQueue.offer(new PoisonPillPublication());
+                        break;
+                    }
                     logger.log(Level.FINE, "Subscription for {0} taken off the queue", s.getServiceName());
-                    broker.matchSubscription(s); 
+
+                    ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
+                            -> {
+                        broker.cacheLookUp(s);
+                        return null;
+                    });
+                    
+                    duration = duration.plus(result.getDuration());
+
                 }
             } catch (InterruptedException e) {
                 logger.log(Level.WARNING, "Thread {0} was interrupted",  Thread.currentThread().getName());
                 Thread.currentThread().interrupt();
             }
         }
+        
+        // sending duration to listeners
+        sendMeasurement(duration);
+    }
+    
+    private void sendMeasurement(Duration d) {
+        logger.log(Level.WARNING, "Sending Measurement to listeners");
+        for (TaskDurationMeasurementListener l : measurementListeners) {
+            l.measurementPerformed(d);
+        } 
     }
 }

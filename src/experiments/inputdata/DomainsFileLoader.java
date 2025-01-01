@@ -13,19 +13,19 @@ import utils.CustomLogger;
  *
  * @author uceeftu
  */
-public class DomainFileLoader {
+public class DomainsFileLoader {
 
-    private static Logger logger = CustomLogger.getLogger(DomainFileLoader.class.getName());
+    private static Logger logger = CustomLogger.getLogger(DomainsFileLoader.class.getName());
 
     private File serviceNames;
-    List<DomainEntry> domainList;
+    List<DomainEntry> domains;
 
-    public DomainFileLoader(String fileName) {
+    public DomainsFileLoader(String fileName) {
         serviceNames = new File(fileName);
-        domainList = new ArrayList<>();
+        domains = new ArrayList<>();
     }
 
-    public void loadDomainInfo() throws FileNotFoundException {
+    public void loadDomainsInfo() throws FileNotFoundException {
         
         boolean hasNamesOnly = hasNamesOnly();
         
@@ -34,14 +34,14 @@ public class DomainFileLoader {
                 while (scanner.hasNextLine()) {
                     String domainName = scanner.nextLine();
                     DomainEntry domain = new DomainEntry(domainName);
-                    domainList.add(domain);
+                    domains.add(domain);
                 }
                 logger.log(Level.WARNING, "Loaded domain names information only");
             } else {
                 while (scanner.hasNextLine()) {
                     String domainInfo = scanner.nextLine();
                     DomainEntry domain = parseInfo(domainInfo);
-                    domainList.add(domain);
+                    domains.add(domain);
                 }
                 logger.log(Level.INFO, "Loaded domain names and frequencies information");
             }
@@ -62,8 +62,8 @@ public class DomainFileLoader {
         }
     }
 
-    public List<DomainEntry> getDomainList() {
-        return domainList;
+    public List<DomainEntry> getDomains() {
+        return domains;
     }
 
 

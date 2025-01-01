@@ -4,6 +4,7 @@ import publishing.Publication;
 import subscribing.Subscription;
 
 public interface CachingBroker {
-    // match a subscription with the publication cache content
-    Publication matchSubscription(Subscription s); 
+    // look up for a publication that matches the given subscription
+    // inside the cache
+    Publication cacheLookUp(Subscription s); 
 }

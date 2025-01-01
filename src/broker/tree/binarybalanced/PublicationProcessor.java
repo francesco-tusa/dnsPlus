@@ -1,40 +1,45 @@
 package broker.tree.binarybalanced;
 
+import experiments.measurement.AsynchronousMeasurementProducer;
+import experiments.measurement.TaskDurationMeasurementListener;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import publishing.Publication;
 import subscribing.Subscription;
 import java.util.logging.Logger;
 import java.util.logging.Level;
+import publishing.PoisonPillPublication;
+import subscribing.PoisonPillSubscription;
 import utils.CustomLogger;
+import utils.ExecutionTimeLogger;
 
 /**
  *
  * @author uceeftu
  */
-public class PublicationProcessor implements Runnable {
+public class PublicationProcessor implements Runnable, AsynchronousMeasurementProducer{
     
     private static final Logger logger = CustomLogger.getLogger(PublicationProcessor.class.getName());
     private ConcurrentBrokerWithBinaryBalancedTreeAndCache broker;
     private BlockingQueue<Publication> publicationQueue;
     private BlockingQueue<Subscription> resultQueue;
-    private boolean threadRunning;
+    
+    private List<TaskDurationMeasurementListener> measurementListeners;
+    
     
     public PublicationProcessor(ConcurrentBrokerWithBinaryBalancedTreeAndCache b) {
         broker = b;
         publicationQueue = new LinkedBlockingQueue<>();
         resultQueue = new LinkedBlockingQueue<>();
-        threadRunning = false;
+        measurementListeners = new ArrayList<>();
     }
     
-    public void startReceiving() {
-        threadRunning = true;
+    public void startProcessing() {
         Thread publicationProcessor = new Thread(this, "publicationProcessor");
         publicationProcessor.start();
-    }
-    
-    public void stopReceiving() {
-        threadRunning = false;
     }
     
     public void addPublication(Publication p) {
@@ -53,21 +58,53 @@ public class PublicationProcessor implements Runnable {
         logger.log(Level.FINE, "Adding matching subscription to the result queue: {0}", s.getServiceName());
         resultQueue.offer(s);
     }
+    
+    @Override
+    public void addMeasurementListener(TaskDurationMeasurementListener l) {
+        measurementListeners.add(l);
+    }
+    
 
     @Override
     public void run() {
-        while (threadRunning) {
+        
+        Duration duration = Duration.ZERO;
+        
+        while (true) {
             try {
                 logger.log(Level.FINER, "Taking a publication off the queue");
                 Publication p = publicationQueue.take();
                 if (p != null) {
+                    if (p instanceof PoisonPillPublication) {
+                        logger.log(Level.WARNING, "Thread {0} is being stopped", Thread.currentThread().getName());
+                        resultQueue.offer(new PoisonPillSubscription());
+                        break;
+                    }
                     logger.log(Level.FINE, "Publication for {0} taken off the queue", p.getServiceName());
-                    broker.matchPublication(p);
+                    
+                    ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
+                            -> {
+                        broker.matchPublication(p);
+                        return null;
+                    });
+                    
+                    duration = duration.plus(result.getDuration());
+ 
                 }
             } catch (InterruptedException e) {
                 logger.log(Level.WARNING, "Thread {0} was interrupted",  Thread.currentThread().getName());
                 Thread.currentThread().interrupt();
             }
         }
+        
+        // sending duration to listeners
+        sendMeasurement(duration);
+    }
+    
+    private void sendMeasurement(Duration d) {
+        logger.log(Level.WARNING, "Sending Measurement to listeners");
+        for (TaskDurationMeasurementListener l : measurementListeners) {
+            l.measurementPerformed(d);
+        } 
     }
 }

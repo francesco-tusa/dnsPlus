@@ -48,7 +48,7 @@ public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalanc
     
 
     @Override
-    public Publication matchSubscription(Subscription s) 
+    public Publication cacheLookUp(Subscription s) 
     {   
         // add the subscription to the sub table
         super.addSubscription(s);

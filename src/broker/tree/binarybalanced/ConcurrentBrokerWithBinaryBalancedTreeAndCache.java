@@ -3,12 +3,13 @@ package broker.tree.binarybalanced;
 import encryption.HEPS;
 import publishing.Publication;
 import subscribing.Subscription;
-import broker.AsynchronousCachingBroker;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import utils.CustomLogger;
+import experiments.measurement.MeasurableAsynchronousBroker;
+import experiments.measurement.TaskDurationMeasurementListener;
 
-public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTreeAndCache implements AsynchronousCachingBroker {
+public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTreeAndCache implements MeasurableAsynchronousBroker {
     
     private static final Logger logger = CustomLogger.getLogger(ConcurrentBrokerWithBinaryBalancedTreeAndCache.class.getName());
     private SubscriptionProcessor subscriptionProcessor;
@@ -19,12 +20,31 @@ public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends Broker
         subscriptionProcessor = new SubscriptionProcessor(this);
         publicationProcessor = new PublicationProcessor(this);
         subscriptionProcessor.startProcessing();
-        publicationProcessor.startReceiving();
+        publicationProcessor.startProcessing();
     }
 
     public SubscriptionProcessor getSubscriptionProcessor() {
         return subscriptionProcessor;
     }
+
+    public PublicationProcessor getPublicationProcessor() {
+        return publicationProcessor;
+    }
+
+    public void setPublicationProcessor(PublicationProcessor publicationProcessor) {
+        this.publicationProcessor = publicationProcessor;
+    }
+
+    @Override
+    public void addPublicationMeasurementListener(TaskDurationMeasurementListener listener) {
+        publicationProcessor.addMeasurementListener(listener);
+    }
+
+    @Override
+    public void addSubscriptionMeasurementListener(TaskDurationMeasurementListener listener) {
+        subscriptionProcessor.addMeasurementListener(listener);
+    }
+    
 
     @Override
     public void processSubscription(Subscription s) {
@@ -37,7 +57,6 @@ public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends Broker
             return subscriptionProcessor.getMatchResult();
         } catch (InterruptedException e) {
             logger.log(Level.WARNING, "Subscription processor thread was interrupted: {0}", e.getMessage());
-            subscriptionProcessor.stopProcessing();
             return null;
         }
     }
@@ -52,8 +71,6 @@ public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends Broker
         try {
             return publicationProcessor.getMatchResult();
         } catch (InterruptedException e) {
-            logger.log(Level.WARNING, "Publication processor thread was interrupted: {0}", e.getMessage());
-            publicationProcessor.stopReceiving();
             return null;
         }   
     }
@@ -76,9 +93,9 @@ public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends Broker
     
 
     @Override
-    public Publication matchSubscription(Subscription s) 
+    public Publication cacheLookUp(Subscription s) 
     {   
-        Publication matched = super.matchSubscription(s);
+        Publication matched = super.cacheLookUp(s);
         
         if (matched != null) {
             logger.log(Level.FINER, "Adding matching publication from cache to the subscription processor''s results queue: {0}", s.getServiceName());

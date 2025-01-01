@@ -1,7 +1,7 @@
 package subscribing;
 
-import broker.AsynchronousCachingBroker;
 import encryption.HEPS;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,23 +9,24 @@ import publishing.Publication;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import utils.CustomLogger;
+import broker.AsynchronousBroker;
+import publishing.PoisonPillPublication;
 
 
 public final class AsynchronousSubscriber {
     private static final Logger logger = CustomLogger.getLogger(AsynchronousSubscriber.class.getName());
     private Subscriber subscriber;
-    private AsynchronousCachingBroker broker;
+    private AsynchronousBroker broker;
     
     private Map<String, Subscription> subscriptions;
     
-    
-    public AsynchronousSubscriber(String name, AsynchronousCachingBroker broker) {
+    public AsynchronousSubscriber(String name, AsynchronousBroker broker) {
         this.subscriber = new Subscriber(name);  
         this.broker = broker;
         subscriptions = new HashMap<>();
     }
     
-    public void initialise() {
+    public void init() {
         subscriber.setHeps(HEPS.getInstance());
         subscriber.getSecurityParameters();
         receivePublications();
@@ -43,14 +44,30 @@ public final class AsynchronousSubscriber {
         return s;
     }
     
+    public List<Subscription> generateSubscriptions(List<String> serviceNames) {
+        logger.log(Level.INFO, "Generating Subscriptions...");
+        List<Subscription> subscriptionsList = new ArrayList<>();
+        for (String service : serviceNames) {
+            Subscription s = generateSubscription(service);
+            subscriptions.put(service, s);
+            subscriptionsList.add(s);
+        }
+        return subscriptionsList;
+    }
+    
     public void subscribe(String service) {
         logger.log(Level.FINE, "Subscribing to service: {0}", service);
         Subscription s = generateSubscription(service);
         broker.processSubscription(s);
     }
     
+    public void subscribe(Subscription s) {
+        logger.log(Level.FINE, "Subscribing to service: {0}", s.getServiceName());
+        broker.processSubscription(s);
+    }
     
-    public void subscribeToAll(List<String> serviceNames) {
+    
+    public void generateAndSubscribeToAll(List<String> serviceNames) {
         logger.log(Level.INFO, "Generating Subscriptions...");
         for (String service : serviceNames) {
             if (!subscriptions.containsKey(service)) {
@@ -66,22 +83,13 @@ public final class AsynchronousSubscriber {
     }
     
     
-//    // randomly subscribe to n services from the list serviceNames
-//    public void subscribe(List<String> serviceNames, int n) {
-//        int[] randomIndexes = new int[n];
-//        
-//        for (int i=0; i<n; i++) {
-//            randomIndexes[i] = (new Random()).nextInt(0, serviceNames.size());
-//            generateSubscription(serviceNames.get(randomIndexes[i]));
-//        }
-//        
-//        long t = System.nanoTime();
-//        for (int i=0; i<n; i++) {
-//            String serviceName = serviceNames.get(randomIndexes[i]);
-//            broker.processSubscription(subscriptions.get(serviceName));
-//        }
-//        System.err.println("********** It took " + (System.nanoTime() - t)/1000000 + " msec to process " + n + " subscriptions on a broker **********");
-//    }
+    public void subscribeToAll(List<Subscription> subscriptionsList) {
+        logger.log(Level.INFO, "Sending Subscriptions to Broker...");
+        for (Subscription s : subscriptionsList) {
+            broker.processSubscription(s);
+        }
+    }
+    
     
     
     private void receivePublications() {
@@ -94,7 +102,11 @@ public final class AsynchronousSubscriber {
         logger.log(Level.INFO, "*** Waiting for results (publications that matched sent subscriptions) ***");
         while (true) {
             Publication p = broker.getSubscriptionResult();
+            if (p instanceof PoisonPillPublication) {
+                logger.log(Level.WARNING, "subscriberReceiver thread being stopped");
+                break;
+            }
             logger.log(Level.INFO, "Found Matching Publication {0}", p.getServiceName());
-        }
+        } 
     }
 }
