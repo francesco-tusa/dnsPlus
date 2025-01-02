@@ -1,4 +1,4 @@
-package experiments;
+package experiments.tests;
 
 import encryption.HEPS;
 import java.math.BigInteger;

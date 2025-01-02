@@ -6,7 +6,7 @@ import java.util.List;
  *
  * @author uceeftu
  */
-public class NamesAndFrequenciesDB implements DomainDB {
+public class NamesAndFrequenciesDB implements DomainsDB {
 
     public NamesAndFrequenciesDB(List<DomainEntry> domainList) {
     }

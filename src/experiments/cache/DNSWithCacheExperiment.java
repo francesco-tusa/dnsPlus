@@ -15,7 +15,7 @@ import subscribing.Subscriber;
  *
  * @author f.tusa
  */
-public final class DNSWithCacheTest 
+public final class DNSWithCacheExperiment 
 {
     // may use a list for each type of entity
     HEPS heps = HEPS.getInstance();
@@ -32,7 +32,7 @@ public final class DNSWithCacheTest
         
        
     
-    public DNSWithCacheTest(String file)
+    public DNSWithCacheExperiment(String file)
     {
         serviceNames = new File(file);
         services = new String[1000];
@@ -105,7 +105,7 @@ public final class DNSWithCacheTest
 //        long t;
 //        
 //        String home = System.getProperty("user.home");
-//        DNSWithCacheTest dnsPlus = new DNSWithCacheTest(home + "/websites.txt");
+//        DNSWithCacheExperiment dnsPlus = new DNSWithCacheExperiment(home + "/websites.txt");
 //
 //        try {
 //            System.out.println("*** Generating subscriptions table ***");
@@ -151,7 +151,7 @@ public final class DNSWithCacheTest
     public static void main(String[] args) 
     {
         String home = System.getProperty("user.home");
-        DNSWithCacheTest dnsPlus = new DNSWithCacheTest(home + "/websites.txt");
+        DNSWithCacheExperiment dnsPlus = new DNSWithCacheExperiment(home + "/websites.txt");
         
         dnsPlus.simpleTest();
         

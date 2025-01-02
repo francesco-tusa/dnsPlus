@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-public class NamesDB implements DomainDB {
+public class NamesDB implements DomainsDB {
 
     private List<String> nameEntries;
 

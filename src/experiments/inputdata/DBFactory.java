@@ -12,12 +12,12 @@ import java.util.logging.Level;
  */
 public class DBFactory {
     
-    private static final Map<String, DomainDB> DBMap = new HashMap<>();
+    private static final Map<String, DomainsDB> DBMap = new HashMap<>();
   
     private DBFactory () {}
     
-    public static DomainDB getDomainsDB(String fileName) {
-        DomainDB DB;
+    public static DomainsDB getDomainsDB(String fileName) {
+        DomainsDB DB;
         try {
             
             if (DBMap.containsKey(fileName)) {

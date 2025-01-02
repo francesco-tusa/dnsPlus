@@ -4,7 +4,6 @@ import encryption.HEPS;
 import broker.tree.binarybalanced.cache.asynchronous.AsynchronousBrokerWithBinaryBalancedTreeAndCache;
 import experiments.Task;
 import experiments.inputdata.DBFactory;
-import experiments.inputdata.DomainDB;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,18 +18,19 @@ import subscribing.PoisonPillSubscription;
 import experiments.measurement.AsynchronousMeasurementListener;
 import experiments.measurement.AsynchronousMeasurementProducerBroker;
 import utils.ExecutionTimeLogger;
+import experiments.inputdata.DomainsDB;
 
 /**
  *
  * @author f.tusa
  */
-public final class AsynchronousDNSWithCacheRun implements AsynchronousRun {
+public final class DNSWithCacheAsynchronousRun implements AsynchronousRun {
 
-    private static final Logger logger = CustomLogger.getLogger(AsynchronousDNSWithCacheRun.class.getName(), Level.WARNING);
+    private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousRun.class.getName(), Level.WARNING);
     private AsynchronousSubscriber subscriber;
     private AsynchronousPublisher publisher;
     private AsynchronousMeasurementProducerBroker broker;
-    private DomainDB domainDB;
+    private DomainsDB domainsDB;
     
     private List<AsynchronousTask> tasks;
     private String name;
@@ -38,14 +38,24 @@ public final class AsynchronousDNSWithCacheRun implements AsynchronousRun {
     private CountDownLatch requestsLatch;
     private CountDownLatch repliesLatch;
 
-    public AsynchronousDNSWithCacheRun(String fileName) {
+    
+    public DNSWithCacheAsynchronousRun(DomainsDB db) {
+        this(db, null);
+    }
+
+    public DNSWithCacheAsynchronousRun(String fileName) {
+        this(null, fileName);
+    }
+
+    private DNSWithCacheAsynchronousRun(DomainsDB db, String fileName) {
         broker = new AsynchronousBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
         subscriber = new AsynchronousSubscriber("Subscriber1", broker);
         publisher = new AsynchronousPublisher("Publisher1", broker);
-        domainDB = DBFactory.getDomainsDB(fileName);
+        domainsDB = (db != null) ? db : DBFactory.getDomainsDB(fileName);
         tasks = new ArrayList<>();
         name = this.getClass().getSimpleName();
     }
+    
 
     @Override
     public void setUp() {
@@ -132,7 +142,7 @@ public final class AsynchronousDNSWithCacheRun implements AsynchronousRun {
 
         @Override
         public void run() {
-            List<String> randomEntries = domainDB.getRandomEntries(1000);
+            List<String> randomEntries = domainsDB.getRandomEntries(1000);
             ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
                     -> {
                 publisher.generateAndPublishAll(randomEntries);
@@ -165,7 +175,7 @@ public final class AsynchronousDNSWithCacheRun implements AsynchronousRun {
 
         @Override
         public void run() {
-            List<String> randomEntries = domainDB.getRandomEntries(1000);
+            List<String> randomEntries = domainsDB.getRandomEntries(1000);
             ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
                     -> {
                 subscriber.generateAndSubscribeToAll(randomEntries);
