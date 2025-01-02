@@ -1,6 +1,8 @@
 package broker.tree.binarybalanced;
 
 import broker.AbstractBroker;
+import broker.AbstractBroker;
+import broker.tree.binarybalanced.BinaryBalancedSubscriptionTree;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;

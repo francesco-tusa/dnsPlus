@@ -5,13 +5,20 @@ import java.util.List;
 /**
  *
  * @author uceeftu
+ * @param <T>
  */
-interface ExperimentRun {
+public interface ExperimentRun<T extends ExperimentTask> {
+    
     String getName();
+
     void setUp();
+
     void start();
+
     void cleanUp();
-    void waitForCompletion();
-    void addTask(ExperimentParallelTask t);
-    List<ExperimentParallelTask> getTasks();
+
+    void addTask(T task);
+
+    List<T> getTasks();
+    
 }

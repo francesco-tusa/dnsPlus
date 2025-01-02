@@ -1,6 +1,9 @@
-package broker.tree.binarybalanced;
+package broker.tree.binarybalanced.cache;
 
+import broker.tree.binarybalanced.BrokerWithBinaryBalancedTree;
 import broker.CachingBroker;
+import broker.CachingBroker;
+import broker.tree.binarybalanced.BinaryBalancedPublicationTree;
 import encryption.HEPS;
 import java.util.logging.Logger;
 import java.util.logging.Level;
@@ -34,6 +37,9 @@ public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalanc
         //if (!cache.search(p)) {
         //    cache.addNode(p); 
         //}
+        // this can be implemented by using a different PublicationComparator
+        // passed to BinaryBalancedPublicationTree(this, <custom comparator>);
+        // in the constructor of this class
         
         Publication cacheFound = cache.addNode(p);
         if (cacheFound == null) {

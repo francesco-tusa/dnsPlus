@@ -1,4 +1,4 @@
-package experiments;
+package experiments.cache;
 
 import encryption.HEPS;
 import java.io.File;
@@ -6,7 +6,7 @@ import java.io.FileNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-import broker.tree.binarybalanced.BrokerWithBinaryBalancedTreeAndCache;
+import broker.tree.binarybalanced.cache.BrokerWithBinaryBalancedTreeAndCache;
 import publishing.Publication;
 import publishing.Publisher;
 import subscribing.Subscriber;

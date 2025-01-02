@@ -5,6 +5,8 @@ import subscribing.Subscription;
 
 public interface AsynchronousBroker {
     
+    void startProcessing();
+    
     // async call to process a subscription
     void processSubscription(Subscription s);
     

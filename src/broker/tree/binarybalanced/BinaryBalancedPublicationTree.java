@@ -23,7 +23,13 @@ public class BinaryBalancedPublicationTree implements PublicationTree
     {
         broker = b;
         tree = Collections.synchronizedMap(new TreeMap<>(new PublicationComparator(broker)));
-    }    
+    }
+    
+    public BinaryBalancedPublicationTree(AbstractBroker b, PublicationComparator comparator) 
+    {
+        broker = b;
+        tree = Collections.synchronizedMap(new TreeMap<>(comparator));
+    }
     
     @Override
     public Publication addNode(Publication p) 

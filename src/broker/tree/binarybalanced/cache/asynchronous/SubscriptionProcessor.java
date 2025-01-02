@@ -1,7 +1,6 @@
-package broker.tree.binarybalanced;
+package broker.tree.binarybalanced.cache.asynchronous;
 
 import experiments.measurement.AsynchronousMeasurementProducer;
-import experiments.measurement.TaskDurationMeasurementListener;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +14,7 @@ import subscribing.PoisonPillSubscription;
 import subscribing.Subscription;
 import utils.CustomLogger;
 import utils.ExecutionTimeLogger;
+import experiments.measurement.AsynchronousMeasurementListener;
 
 /**
  *
@@ -23,14 +23,14 @@ import utils.ExecutionTimeLogger;
 public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementProducer {
     
     private static final Logger logger = CustomLogger.getLogger(SubscriptionProcessor.class.getName());
-    private ConcurrentBrokerWithBinaryBalancedTreeAndCache broker;
+    private AsynchronousBrokerWithBinaryBalancedTreeAndCache broker;
     private BlockingQueue<Subscription> subscriptionQueue;
     private BlockingQueue<Publication> resultQueue;
     
-    private List<TaskDurationMeasurementListener> measurementListeners;
+    private List<AsynchronousMeasurementListener> measurementListeners;
     
     
-    public SubscriptionProcessor(ConcurrentBrokerWithBinaryBalancedTreeAndCache b) {
+    public SubscriptionProcessor(AsynchronousBrokerWithBinaryBalancedTreeAndCache b) {
         broker = b;
         subscriptionQueue = new LinkedBlockingQueue<>();
         resultQueue = new LinkedBlockingQueue<>();
@@ -60,7 +60,7 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
     }
 
     @Override
-    public void addMeasurementListener(TaskDurationMeasurementListener l) {
+    public void addMeasurementListener(AsynchronousMeasurementListener l) {
         measurementListeners.add(l);
     }
     
@@ -103,8 +103,8 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
     
     private void sendMeasurement(Duration d) {
         logger.log(Level.WARNING, "Sending Measurement to listeners");
-        for (TaskDurationMeasurementListener l : measurementListeners) {
-            l.measurementPerformed(d);
+        for (AsynchronousMeasurementListener l : measurementListeners) {
+            l.asynchronousMeasurementPerformed(d);
         } 
     }
 }

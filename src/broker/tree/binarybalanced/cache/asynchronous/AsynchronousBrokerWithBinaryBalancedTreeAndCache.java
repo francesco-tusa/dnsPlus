@@ -1,26 +1,25 @@
-package broker.tree.binarybalanced;
+package broker.tree.binarybalanced.cache.asynchronous;
 
+import broker.tree.binarybalanced.cache.BrokerWithBinaryBalancedTreeAndCache;
 import encryption.HEPS;
 import publishing.Publication;
 import subscribing.Subscription;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import utils.CustomLogger;
-import experiments.measurement.MeasurableAsynchronousBroker;
-import experiments.measurement.TaskDurationMeasurementListener;
+import experiments.measurement.AsynchronousMeasurementListener;
+import experiments.measurement.AsynchronousMeasurementProducerBroker;
 
-public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTreeAndCache implements MeasurableAsynchronousBroker {
+public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTreeAndCache implements AsynchronousMeasurementProducerBroker {
     
-    private static final Logger logger = CustomLogger.getLogger(ConcurrentBrokerWithBinaryBalancedTreeAndCache.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(AsynchronousBrokerWithBinaryBalancedTreeAndCache.class.getName());
     private SubscriptionProcessor subscriptionProcessor;
     private PublicationProcessor publicationProcessor;
         
-    public ConcurrentBrokerWithBinaryBalancedTreeAndCache(String name, HEPS heps) {
+    public AsynchronousBrokerWithBinaryBalancedTreeAndCache(String name, HEPS heps) {
         super(name, heps);
         subscriptionProcessor = new SubscriptionProcessor(this);
         publicationProcessor = new PublicationProcessor(this);
-        subscriptionProcessor.startProcessing();
-        publicationProcessor.startProcessing();
     }
 
     public SubscriptionProcessor getSubscriptionProcessor() {
@@ -36,12 +35,18 @@ public final class ConcurrentBrokerWithBinaryBalancedTreeAndCache extends Broker
     }
 
     @Override
-    public void addPublicationMeasurementListener(TaskDurationMeasurementListener listener) {
+    public void startProcessing() {
+        subscriptionProcessor.startProcessing();
+        publicationProcessor.startProcessing();
+    }
+    
+    @Override
+    public void addPublicationMeasurementListener(AsynchronousMeasurementListener listener) {
         publicationProcessor.addMeasurementListener(listener);
     }
 
     @Override
-    public void addSubscriptionMeasurementListener(TaskDurationMeasurementListener listener) {
+    public void addSubscriptionMeasurementListener(AsynchronousMeasurementListener listener) {
         subscriptionProcessor.addMeasurementListener(listener);
     }
     
