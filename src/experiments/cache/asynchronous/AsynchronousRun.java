@@ -1,12 +1,12 @@
 package experiments.cache.asynchronous;
 
-import experiments.ExperimentRun;
+import experiments.Run;
 
 /**
  *
  * @author uceeftu
  */
-public interface AsynchronousExperimentRun extends ExperimentRun<AsynchronousExperimentTask> {
+public interface AsynchronousRun extends Run<AsynchronousTask> {
 
     void waitForRequestsCompletion();
 

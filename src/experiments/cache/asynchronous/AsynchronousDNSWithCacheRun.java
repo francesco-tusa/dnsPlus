@@ -2,7 +2,7 @@ package experiments.cache.asynchronous;
 
 import encryption.HEPS;
 import broker.tree.binarybalanced.cache.asynchronous.AsynchronousBrokerWithBinaryBalancedTreeAndCache;
-import experiments.ExperimentTask;
+import experiments.Task;
 import experiments.inputdata.DBFactory;
 import experiments.inputdata.DomainDB;
 import java.time.Duration;
@@ -24,7 +24,7 @@ import utils.ExecutionTimeLogger;
  *
  * @author f.tusa
  */
-public final class AsynchronousDNSWithCacheRun implements AsynchronousExperimentRun {
+public final class AsynchronousDNSWithCacheRun implements AsynchronousRun {
 
     private static final Logger logger = CustomLogger.getLogger(AsynchronousDNSWithCacheRun.class.getName(), Level.WARNING);
     private AsynchronousSubscriber subscriber;
@@ -32,7 +32,7 @@ public final class AsynchronousDNSWithCacheRun implements AsynchronousExperiment
     private AsynchronousMeasurementProducerBroker broker;
     private DomainDB domainDB;
     
-    private List<AsynchronousExperimentTask> tasks;
+    private List<AsynchronousTask> tasks;
     private String name;
     
     private CountDownLatch requestsLatch;
@@ -55,7 +55,7 @@ public final class AsynchronousDNSWithCacheRun implements AsynchronousExperiment
     }
     
     @Override
-    public void addTask(AsynchronousExperimentTask task) {
+    public void addTask(AsynchronousTask task) {
         tasks.add(task);
     }
 
@@ -63,7 +63,7 @@ public final class AsynchronousDNSWithCacheRun implements AsynchronousExperiment
     public void start() {
         requestsLatch = new CountDownLatch(tasks.size());
         repliesLatch = new CountDownLatch(tasks.size());
-        for (ExperimentTask task : tasks) {
+        for (Task task : tasks) {
             Thread t = new Thread(task, task.getName());
             t.start();
         }       
@@ -103,43 +103,16 @@ public final class AsynchronousDNSWithCacheRun implements AsynchronousExperiment
     }
 
     @Override
-    public List<AsynchronousExperimentTask> getTasks() {
+    public List<AsynchronousTask> getTasks() {
         return tasks;
-    }
-
-
-    public static void main(String[] args) {
-        String home = System.getProperty("user.home");
-        AsynchronousDNSWithCacheRun dnsPlus = new AsynchronousDNSWithCacheRun(home + "/websites.txt");
-
-        dnsPlus.setUp();
-        
-        ConcurrentDNSWithCacheRunPublisherTask publisherTask = dnsPlus.new ConcurrentDNSWithCacheRunPublisherTask();
-        ConcurrentDNSWithCacheRunSubscriberTask subscriberTask = dnsPlus.new ConcurrentDNSWithCacheRunSubscriberTask();
-        
-        dnsPlus.addTask(publisherTask);
-        dnsPlus.addTask(subscriberTask);
-        
-        dnsPlus.start();
-        
-        dnsPlus.waitForRequestsCompletion();
-        
-        dnsPlus.cleanUp();
-        
-        dnsPlus.waitForRepliesCompletion();
-        
-        for (AsynchronousExperimentTask t : dnsPlus.getTasks()) {
-            System.out.println("Task " + t.getName() + " request took " + t.getDuration() + " ms");
-            System.out.println("Task " + t.getName() + " reply took " + t.getReplyDuration() + " ms");
-        }
     }
 
     
 
-    final class ConcurrentDNSWithCacheRunPublisherTask extends AsynchronousExperimentTask implements AsynchronousMeasurementListener {
-        private static final Logger logger = CustomLogger.getLogger(ConcurrentDNSWithCacheRunPublisherTask.class.getName());
+    final class PublisherTask extends AsynchronousTask implements AsynchronousMeasurementListener {
+        private static final Logger logger = CustomLogger.getLogger(PublisherTask.class.getName());
 
-        public ConcurrentDNSWithCacheRunPublisherTask() {
+        public PublisherTask() {
             setName(this.getClass().getSimpleName());
             registerWithMeasurementProducer();
         }
@@ -171,9 +144,9 @@ public final class AsynchronousDNSWithCacheRun implements AsynchronousExperiment
         }
     }
     
-    final class ConcurrentDNSWithCacheRunSubscriberTask extends AsynchronousExperimentTask implements AsynchronousMeasurementListener {
+    final class SubscriberTask extends AsynchronousTask implements AsynchronousMeasurementListener {
 
-        public ConcurrentDNSWithCacheRunSubscriberTask() {
+        public SubscriberTask() {
             setName(this.getClass().getSimpleName());
             registerWithMeasurementProducer();
         }

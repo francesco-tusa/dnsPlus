@@ -6,7 +6,7 @@ import java.time.Duration;
  *
  * @author uceeftu
  */
-public abstract class ExperimentTask implements Runnable {
+public abstract class Task implements Runnable {
     
     private String name;
     private Duration duration;

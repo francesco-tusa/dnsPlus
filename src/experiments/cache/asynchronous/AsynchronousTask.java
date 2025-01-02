@@ -1,13 +1,13 @@
 package experiments.cache.asynchronous;
 
-import experiments.ExperimentTask;
+import experiments.Task;
 import java.time.Duration;
 
 /**
  *
  * @author uceeftu
  */
-public abstract class AsynchronousExperimentTask extends ExperimentTask {
+public abstract class AsynchronousTask extends Task {
     private Duration replyDuration;
 
     public long getReplyDuration() {

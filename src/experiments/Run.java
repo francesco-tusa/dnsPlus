@@ -7,7 +7,7 @@ import java.util.List;
  * @author uceeftu
  * @param <T>
  */
-public interface ExperimentRun<T extends ExperimentTask> {
+public interface Run<T extends Task> {
     
     String getName();
 
