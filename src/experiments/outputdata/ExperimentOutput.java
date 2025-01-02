@@ -1,6 +1,5 @@
 package experiments.outputdata;
 
-import experiments.Run;
 import experiments.Task;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,14 +24,17 @@ public class ExperimentOutput {
     }
 
     public void calculateStats() {
-        long taskDurationSum = 0;
-        long taskDurationSumSquares = 0;
-
+        
         // getting number of tasks in a run (from first run element)
         int numberOfTasks = runsOutput.get(0).getTasks().size();
         
+        TaskOutput taskStats = null;
+        
         for (int i = 0; i < numberOfTasks; i++) {
-            TaskOutput taskStats = null;
+            
+            long taskDurationSum = 0;
+            long taskDurationSumSquares = 0;
+            
             for (RunOutput r : runsOutput) {
                 List<Task> tasks = r.getTasks();
                 Task currentTask = tasks.get(i);
