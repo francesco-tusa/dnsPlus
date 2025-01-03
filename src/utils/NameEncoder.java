@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
  *
  * @author uceeftu
  */
-public class NameEncoding {
+public class NameEncoder {
 
     public static BigInteger stringToBigInteger(String name) {
 

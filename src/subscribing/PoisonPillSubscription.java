@@ -4,6 +4,4 @@ package subscribing;
  *
  * @author uceeftu
  */
-public class PoisonPillSubscription extends Subscription {
-    
-}
+public class PoisonPillSubscription extends Subscription {}

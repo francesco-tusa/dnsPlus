@@ -42,7 +42,7 @@ public class ExperimentTaskStats {
 
     @Override
     public String toString() {
-        return "TaskStats{" + "name=" + name + ", averageDuration=" + averageDuration + ", durationStandardDeviation=" + durationStandardDeviation + '}';
+        return "ExperimentTaskStats{" + "name=" + name + ", averageDuration=" + averageDuration + ", durationStandardDeviation=" + durationStandardDeviation + '}';
     }
     
     

@@ -3,7 +3,7 @@ package subscribing;
 import encryption.Entity;
 import java.math.BigInteger;
 import java.util.Random;
-import utils.NameEncoding;
+import utils.NameEncoder;
 
 /**
  *
@@ -39,7 +39,7 @@ public class Subscriber extends Entity {
     
     public Subscription generateSubscription(String name) 
     {   
-        BigInteger nameAsBigInteger = NameEncoding.stringToBigInteger(name);
+        BigInteger nameAsBigInteger = NameEncoder.stringToBigInteger(name);
         return generateSubscription(nameAsBigInteger, name);
     }  
     

@@ -26,7 +26,7 @@ import experiments.inputdata.DomainsDB;
  */
 public final class DNSWithCacheAsynchronousRun implements AsynchronousTasksRunner {
 
-    private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousRun.class.getName(), Level.WARNING);
+    private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousRun.class.getName());
     private AsynchronousSubscriber subscriber;
     private AsynchronousPublisher publisher;
     private AsynchronousMeasurementProducerBroker broker;
@@ -38,22 +38,27 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousTasksRunne
     private CountDownLatch requestsLatch;
     private CountDownLatch repliesLatch;
 
+    private int numberOfPublications;
+    private int numberOfSubscriptions;
     
-    public DNSWithCacheAsynchronousRun(DomainsDB db) {
-        this(db, null);
+    
+    public DNSWithCacheAsynchronousRun(DomainsDB db, int numberOfPublications, int numberOfSubscriptions) {
+        this(db, null, numberOfPublications, numberOfSubscriptions);
     }
 
-    public DNSWithCacheAsynchronousRun(String fileName) {
-        this(null, fileName);
+    public DNSWithCacheAsynchronousRun(String fileName, int numberOfPublications, int numberOfSubscriptions) {
+        this(null, fileName, numberOfPublications, numberOfSubscriptions);
     }
 
-    private DNSWithCacheAsynchronousRun(DomainsDB db, String fileName) {
+    private DNSWithCacheAsynchronousRun(DomainsDB db, String fileName, int nPublications, int nSubscriptions) {
         broker = new AsynchronousBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
         subscriber = new AsynchronousSubscriber("Subscriber1", broker);
         publisher = new AsynchronousPublisher("Publisher1", broker);
         domainsDB = (db != null) ? db : DBFactory.getDomainsDB(fileName);
         tasks = new ArrayList<>();
         name = this.getClass().getSimpleName();
+        numberOfPublications = nPublications;
+        numberOfSubscriptions = nSubscriptions;
     }
     
 
@@ -121,7 +126,7 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousTasksRunne
 
     final class PublisherTask extends AsynchronousTask implements AsynchronousMeasurementListener {
         private static final Logger logger = CustomLogger.getLogger(PublisherTask.class.getName());
-
+        
         public PublisherTask() {
             setName(this.getClass().getSimpleName());
             registerWithMeasurementProducer();
@@ -134,7 +139,7 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousTasksRunne
 
         @Override
         public void asynchronousMeasurementPerformed(Duration replyDuration) {
-            logger.log(Level.WARNING, "Received measurement {0}", replyDuration.toMillis());
+            logger.log(Level.INFO, "Received measurement {0}", replyDuration.toMillis());
             setReplyDuration(replyDuration);
             repliesLatch.countDown();
         }
@@ -142,20 +147,21 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousTasksRunne
 
         @Override
         public void run() {
-            List<String> randomEntries = domainsDB.getRandomEntries(1000);
+            List<String> randomEntries = domainsDB.getRandomEntries(numberOfPublications);
             ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
                     -> {
                 publisher.generateAndPublishAll(randomEntries);
                 return null;
             });
             setDuration(result.getDuration());
-            logger.log(Level.WARNING, "Publisher task request completed");
+            logger.log(Level.INFO, "Publisher task request completed");
             requestsLatch.countDown();
         }
     }
     
     final class SubscriberTask extends AsynchronousTask implements AsynchronousMeasurementListener {
-
+        private static final Logger logger = CustomLogger.getLogger(SubscriberTask.class.getName());
+        
         public SubscriberTask() {
             setName(this.getClass().getSimpleName());
             registerWithMeasurementProducer();
@@ -168,21 +174,21 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousTasksRunne
         
         @Override
         public void asynchronousMeasurementPerformed(Duration replyDuration) {
-            logger.log(Level.WARNING, "Received measurement {0}", replyDuration.toMillis());
+            logger.log(Level.INFO, "Received measurement {0}", replyDuration.toMillis());
             setReplyDuration(replyDuration);
             repliesLatch.countDown();
         }
 
         @Override
         public void run() {
-            List<String> randomEntries = domainsDB.getRandomEntries(1000);
+            List<String> randomEntries = domainsDB.getRandomEntries(numberOfSubscriptions);
             ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
                     -> {
                 subscriber.generateAndSubscribeToAll(randomEntries);
                 return null;
             });
             setDuration(result.getDuration());
-            logger.log(Level.WARNING, "Subscriber task request completed");
+            logger.log(Level.INFO, "Subscriber task request completed");
             requestsLatch.countDown();
         }
     }

@@ -16,7 +16,9 @@ public class Subscription {
     // for debug only
     private String serviceName;
     
-    public Subscription() {}
+    public Subscription() {
+        serviceName = "POISON_PILL";
+    }
     
     
     public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv) {

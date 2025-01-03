@@ -1,6 +1,5 @@
 package experiments;
 
-import experiments.cache.asynchronous.DNSWithCacheAsynchronousExperiment;
 import experiments.inputdata.DBFactory;
 import experiments.inputdata.DomainsDB;
 import experiments.outputdata.ExperimentStatsCalculator;
@@ -16,7 +15,7 @@ import utils.CustomLogger;
  */
 public abstract class Experiment {
     
-    private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousExperiment.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(Experiment.class.getName());
     private final String name;
     private final String inputFileName;
     private final int numberOfRuns;
@@ -62,7 +61,7 @@ public abstract class Experiment {
     
     public void executeExperiment() {
         for (int i = 0; i < numberOfRuns; i++) {
-            logger.log(Level.WARNING, "Executing run {0} of {1}", new Object[]{i+1, numberOfRuns});
+            logger.log(Level.INFO, "Executing run {0} of {1}", new Object[]{i+1, numberOfRuns});
             executeRun();
         }
     }

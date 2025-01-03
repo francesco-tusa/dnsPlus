@@ -59,13 +59,13 @@ public class AsynchronousPublisher {
     }
     
     public void publish(String service) {
-        logger.log(Level.FINE, "Publication for service: {0}", service);
+        logger.log(Level.INFO, "Publication for service: {0}", service);
         Publication p = generatePublication(service);
         broker.processPublication(p);
     }
     
     public void publish(Publication p) {
-        logger.log(Level.FINE, "Publication for service: {0}", p.getServiceName());
+        logger.log(Level.INFO, "Publication for service: {0}", p.getServiceName());
         broker.processPublication(p);
     }
     
@@ -80,6 +80,7 @@ public class AsynchronousPublisher {
         // now sending publications
         logger.log(Level.INFO, "Sending Publications to Broker...");
         for (String service : serviceNames) {
+            logger.log(Level.INFO, "Publication for service: {0}", service);
             broker.processPublication(publications.get(service));
         }
     }
@@ -87,6 +88,7 @@ public class AsynchronousPublisher {
     public void publishAll(List<Publication> publicationsList) {
         logger.log(Level.INFO, "Sending Publications to Broker...");
         for (Publication p : publicationsList) {
+            logger.log(Level.INFO, "Publication for service: {0}", p.getServiceName());
             broker.processPublication(p);
         }
     }
@@ -106,7 +108,7 @@ public class AsynchronousPublisher {
                 logger.log(Level.WARNING, "publisherReceiver thread being stopped");
                 break;
             }
-            logger.log(Level.INFO, "Found Matching Subscription {0}", s.getServiceName());
+            logger.log(Level.INFO, "The Broker Found a Subscription matching {0}", s.getServiceName());
         }
     }
 }

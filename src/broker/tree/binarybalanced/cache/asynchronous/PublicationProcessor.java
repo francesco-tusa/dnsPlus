@@ -50,12 +50,12 @@ public class PublicationProcessor implements Runnable, AsynchronousMeasurementPr
     }
     
     public Subscription getMatchResult() throws InterruptedException {
-        logger.log(Level.FINER, "Getting result from publicationQueue");
+        logger.log(Level.FINEST, "Getting result from publicationQueue");
         return resultQueue.take();
     }
     
     public void addMatchResult(Subscription s) {
-        logger.log(Level.FINE, "Adding matching subscription to the result queue: {0}", s.getServiceName());
+        logger.log(Level.FINEST, "Adding matching subscription to the result queue: {0}", s.getServiceName());
         resultQueue.offer(s);
     }
     
@@ -72,7 +72,7 @@ public class PublicationProcessor implements Runnable, AsynchronousMeasurementPr
         
         while (true) {
             try {
-                logger.log(Level.FINER, "Taking a publication off the queue");
+                logger.log(Level.FINEST, "Taking a publication off the queue");
                 Publication p = publicationQueue.take();
                 if (p != null) {
                     if (p instanceof PoisonPillPublication) {
@@ -80,7 +80,7 @@ public class PublicationProcessor implements Runnable, AsynchronousMeasurementPr
                         resultQueue.offer(new PoisonPillSubscription());
                         break;
                     }
-                    logger.log(Level.FINE, "Publication for {0} taken off the queue", p.getServiceName());
+                    logger.log(Level.FINEST, "Publication for {0} taken off the queue", p.getServiceName());
                     
                     ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
                             -> {
@@ -102,7 +102,7 @@ public class PublicationProcessor implements Runnable, AsynchronousMeasurementPr
     }
     
     private void sendMeasurement(Duration d) {
-        logger.log(Level.WARNING, "Sending Measurement to listeners");
+        logger.log(Level.FINE, "Sending Measurement to listeners");
         for (AsynchronousMeasurementListener l : measurementListeners) {
             l.asynchronousMeasurementPerformed(d);
         } 

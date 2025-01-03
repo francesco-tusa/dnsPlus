@@ -1,8 +1,6 @@
 package broker.tree.binarybalanced;
 
 import broker.AbstractBroker;
-import broker.AbstractBroker;
-import broker.tree.binarybalanced.BinaryBalancedSubscriptionTree;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
@@ -32,9 +30,9 @@ public class BrokerWithBinaryBalancedTree extends AbstractBroker {
     public void addSubscription(Subscription s) 
     {
         if (table.addNode(s) != null)
-            logger.log(Level.INFO, "Subscription for {0} already in the table", s.getServiceName());
+            logger.log(Level.FINE, "Subscription for {0} already in the table", s.getServiceName());
         else
-            logger.log(Level.FINE, "Subscription {0} added to the table", s.getServiceName());
+            logger.log(Level.FINER, "Subscription {0} added to the table", s.getServiceName());
     }
     
     @Override
@@ -43,9 +41,9 @@ public class BrokerWithBinaryBalancedTree extends AbstractBroker {
         Subscription found = table.search(p);
         
         if (found == null) {
-            logger.log(Level.FINE, "{0} not found in the subscription table", p.getServiceName());
+            logger.log(Level.FINER, "{0} not found in the subscription table", p.getServiceName());
         } else {
-            logger.log(Level.INFO, "{0} found in the subscription table", p.getServiceName());
+            logger.log(Level.FINE, "{0} found in the subscription table", p.getServiceName());
         }
         return found;
     }

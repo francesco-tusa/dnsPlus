@@ -3,7 +3,7 @@ package publishing;
 import encryption.Entity;
 import java.math.BigInteger;
 import java.util.Random;
-import utils.NameEncoding;
+import utils.NameEncoder;
 
 /**
  *
@@ -37,7 +37,7 @@ public class Publisher extends Entity {
     }
     
     public Publication generatePublication(String name) { 
-        BigInteger nameAsBigInteger = NameEncoding.stringToBigInteger(name);        
+        BigInteger nameAsBigInteger = NameEncoder.stringToBigInteger(name);        
         return generatePublication(nameAsBigInteger, name);
     }
 

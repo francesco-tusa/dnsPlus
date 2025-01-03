@@ -43,9 +43,9 @@ public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalanc
         
         Publication cacheFound = cache.addNode(p);
         if (cacheFound == null) {
-            logger.log(Level.FINE, "Publication {0} was added to the cache", p.getServiceName());
+            logger.log(Level.FINER, "Publication {0} was added to the cache", p.getServiceName());
         } else {
-            logger.log(Level.INFO, "Publication {0} was found in the cache", p.getServiceName());
+            logger.log(Level.FINE, "Publication {0} was found in the cache", p.getServiceName());
         }
         
         // null if there was not match
@@ -62,9 +62,9 @@ public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalanc
         //check the cache and return a publication if found
         Publication cacheFound = cache.search(s);
         if (cacheFound == null) {
-            logger.log(Level.FINE, "A publication for {0} was not found in the cache", s.getServiceName());
+            logger.log(Level.FINER, "A publication for {0} was not found in the cache", s.getServiceName());
         } else {
-            logger.log(Level.INFO, "A publication for {0} was found in the cache", s.getServiceName());
+            logger.log(Level.FINE, "A publication for {0} was found in the cache", s.getServiceName());
         }
         
         return cacheFound;

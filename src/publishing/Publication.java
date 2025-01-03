@@ -16,7 +16,9 @@ public class Publication {
      // for debug only
     private String serviceName;
     
-    public Publication() {}
+    public Publication() {
+        serviceName = "POISON_PILL";
+    }
     
     public Publication(BigInteger mv, BigInteger cv, BigInteger cvPlusOne) {
         matchValue = mv;

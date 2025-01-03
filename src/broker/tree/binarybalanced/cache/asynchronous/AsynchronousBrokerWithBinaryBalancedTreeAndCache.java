@@ -87,9 +87,9 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
         Subscription matched  = super.matchPublication(p);
         
         if (matched != null) {
-            logger.log(Level.FINER, "Adding matching subscription to the queue: {0}", matched.getServiceName());
+            logger.log(Level.FINEST, "Adding matching subscription to the queue: {0}", matched.getServiceName());
             publicationProcessor.addMatchResult(matched);
-            logger.log(Level.FINER, "Adding corresponding publication to the subscription processor''s results queue: {0}", p.getServiceName());
+            logger.log(Level.FINEST, "Adding corresponding publication to the subscription processor''s results queue: {0}", p.getServiceName());
             subscriptionProcessor.addMatchResult(p);
         }
         
@@ -103,7 +103,7 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
         Publication matched = super.cacheLookUp(s);
         
         if (matched != null) {
-            logger.log(Level.FINER, "Adding matching publication from cache to the subscription processor''s results queue: {0}", s.getServiceName());
+            logger.log(Level.FINEST, "Adding matching publication from cache to the subscription processor''s results queue: {0}", s.getServiceName());
             subscriptionProcessor.addMatchResult(matched);
         }
         

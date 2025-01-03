@@ -50,12 +50,12 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
     }
     
     public Publication getMatchResult() throws InterruptedException {
-        logger.log(Level.FINER, "Getting result from subscriptionQueue");
+        logger.log(Level.FINEST, "Getting result from subscriptionQueue");
         return resultQueue.take();
     }
     
     public void addMatchResult(Publication p) {
-        logger.log(Level.FINE, "Adding matching publication to the result queue: {0}", p.getServiceName());
+        logger.log(Level.FINEST, "Adding matching publication to the result queue: {0}", p.getServiceName());
         resultQueue.offer(p); // Store the result in the result queue
     }
 
@@ -72,7 +72,7 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
         
         while (true) {
             try {
-                logger.log(Level.FINER, "Taking a subscription off the queue");
+                logger.log(Level.FINEST, "Taking a subscription off the queue");
                 Subscription s = subscriptionQueue.take();
                 if (s != null) {
                     if (s instanceof PoisonPillSubscription) {
@@ -80,7 +80,7 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
                         resultQueue.offer(new PoisonPillPublication());
                         break;
                     }
-                    logger.log(Level.FINE, "Subscription for {0} taken off the queue", s.getServiceName());
+                    logger.log(Level.FINEST, "Subscription for {0} taken off the queue", s.getServiceName());
 
                     ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
                             -> {
@@ -102,7 +102,7 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
     }
     
     private void sendMeasurement(Duration d) {
-        logger.log(Level.WARNING, "Sending Measurement to listeners");
+        logger.log(Level.FINE, "Sending Measurement to listeners");
         for (AsynchronousMeasurementListener l : measurementListeners) {
             l.asynchronousMeasurementPerformed(d);
         } 

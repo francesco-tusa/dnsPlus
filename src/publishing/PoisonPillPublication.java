@@ -4,6 +4,4 @@ package publishing;
  *
  * @author uceeftu
  */
-public class PoisonPillPublication extends Publication {
-    
-}
+public class PoisonPillPublication extends Publication {}

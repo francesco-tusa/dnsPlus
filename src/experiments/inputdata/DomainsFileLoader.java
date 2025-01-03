@@ -15,7 +15,7 @@ import utils.CustomLogger;
  */
 public class DomainsFileLoader {
 
-    private static Logger logger = CustomLogger.getLogger(DomainsFileLoader.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(DomainsFileLoader.class.getName());
 
     private File serviceNames;
     List<DomainEntry> domains;
