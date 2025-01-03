@@ -10,6 +10,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import utils.CustomLogger;
 import broker.AsynchronousBroker;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import publishing.PoisonPillPublication;
 
 
@@ -19,19 +21,29 @@ public final class AsynchronousSubscriber {
     private AsynchronousBroker broker;
     
     private Map<String, Subscription> subscriptions;
+    private BlockingQueue<Publication> publicationsQueue;
     
     public AsynchronousSubscriber(String name, AsynchronousBroker broker) {
-        this.subscriber = new Subscriber(name);  
         this.broker = broker;
+        this.subscriber = new Subscriber(name);  
         subscriptions = new HashMap<>();
+        publicationsQueue = new LinkedBlockingQueue<>();
+    }
+    
+    public String getName() {
+        return subscriber.getName();
     }
     
     public void init() {
         subscriber.setHeps(HEPS.getInstance());
         subscriber.getSecurityParameters();
+        register();
         receivePublications();
     }
     
+    private void register() {
+        broker.register(this);
+    }
     
     private Subscription generateSubscription(String service) {
         Subscription s;
@@ -39,16 +51,18 @@ public final class AsynchronousSubscriber {
             s = subscriptions.get(service);
         } else {
             s = subscriber.generateSubscription(service);
+            s.addSubscriber(getName());
             subscriptions.put(service, s);
         }
         return s;
     }
     
     public List<Subscription> generateSubscriptions(List<String> serviceNames) {
-        logger.log(Level.INFO, "Generating Subscriptions...");
+        logger.log(Level.INFO, "Subscriber {0} is generating Subscriptions...", getName());
         List<Subscription> subscriptionsList = new ArrayList<>();
         for (String service : serviceNames) {
             Subscription s = generateSubscription(service);
+            s.addSubscriber(getName());
             subscriptions.put(service, s);
             subscriptionsList.add(s);
         }
@@ -56,43 +70,49 @@ public final class AsynchronousSubscriber {
     }
     
     public void subscribe(String service) {
-        logger.log(Level.INFO, "Subscribing to service: {0}", service);
+        logger.log(Level.INFO, "Subscriber {0} is subscribing to service: {1}", new Object[]{getName(), service});
         Subscription s = generateSubscription(service);
+        s.addSubscriber(getName());
         broker.processSubscription(s);
     }
     
     public void subscribe(Subscription s) {
-        logger.log(Level.INFO, "Subscribing to service: {0}", s.getServiceName());
+        logger.log(Level.INFO, "Subscriber {0} is subscribing to service: {1}", new Object[]{getName(), s.getServiceName()});
         broker.processSubscription(s);
     }
     
     
     public void generateAndSubscribeToAll(List<String> serviceNames) {
-        logger.log(Level.INFO, "Generating Subscriptions...");
+        logger.log(Level.INFO, "Subscriber {0} is generating Subscriptions...", getName());
         for (String service : serviceNames) {
             if (!subscriptions.containsKey(service)) {
-                subscriptions.put(service, subscriber.generateSubscription(service));
+                Subscription s = subscriber.generateSubscription(service);
+                s.addSubscriber(getName());
+                subscriptions.put(service, s);
             }
         }
         
         // now sending subscriptions
-        logger.log(Level.INFO, "Sending Subscriptions to Broker...");
+        logger.log(Level.INFO, "Subscriber {0} is sending Subscriptions to Broker...", getName());
         for (String service : serviceNames) {
-            logger.log(Level.INFO, "Subscribing to service: {0}", service);
+            logger.log(Level.INFO, "Subscriber {0} is subscribing to service: {1}", new Object[]{getName(), service});
             broker.processSubscription(subscriptions.get(service));
         }
     }
     
     
     public void subscribeToAll(List<Subscription> subscriptionsList) {
-        logger.log(Level.INFO, "Sending Subscriptions to Broker...");
+         logger.log(Level.INFO, "Subscriber {0} is sending Subscriptions to Broker...", getName());
         for (Subscription s : subscriptionsList) {
-            logger.log(Level.INFO, "Subscribing to service: {0}", s.getServiceName());
+            logger.log(Level.INFO, "Subscriber {0} is subscribing to service: {1}", new Object[]{getName(), s.getServiceName()});
             broker.processSubscription(s);
         }
     }
     
-    
+    public void addMatchingPublication(Publication p) {
+        logger.log(Level.WARNING, "Added publication for {0} to the Queue", p.getServiceName());
+        publicationsQueue.offer(p);
+    }
     
     private void receivePublications() {
         Thread subscriberReceiverThread = new Thread(() -> listenForPublications());
@@ -101,14 +121,19 @@ public final class AsynchronousSubscriber {
     
     
     private void listenForPublications() {
-        logger.log(Level.INFO, "*** Waiting for results (publications that matched sent subscriptions) ***");
+        logger.log(Level.INFO, "*** Subscriber {0} is waiting for results (publications that matched their subscriptions) ***", getName());
         while (true) {
-            Publication p = broker.getSubscriptionResult();
-            if (p instanceof PoisonPillPublication) {
-                logger.log(Level.WARNING, "subscriberReceiver thread being stopped");
-                break;
+            try {
+                //Publication p = broker.getSubscriptionResult();
+                Publication p = publicationsQueue.take();
+                if (p instanceof PoisonPillPublication) {
+                    logger.log(Level.WARNING, "subscriberReceiver thread for {0} being stopped", getName());
+                    break;
+                }
+                logger.log(Level.INFO, "The Broker Found and Returned a Matching Publication {0} for {1}", new Object[]{p.getServiceName(), getName()});
+            } catch (InterruptedException ex) {
+                 logger.log(Level.WARNING, "Thread {0} was interrupted",  Thread.currentThread().getName());
             }
-            logger.log(Level.INFO, "The Broker Found and Returned a Matching Publication {0}", p.getServiceName());
         } 
     }
 }

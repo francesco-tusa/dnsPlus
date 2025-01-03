@@ -1,6 +1,8 @@
 package subscribing;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
@@ -12,6 +14,8 @@ public class Subscription {
     private BigInteger matchValuePlusOne;
     
     private BigInteger coverValue;
+    
+    private List<String> subscribers;
     
     // for debug only
     private String serviceName;
@@ -25,12 +29,14 @@ public class Subscription {
         matchValue = mv;
         matchValuePlusOne = mvPlusOne;
         coverValue = cv;
+        subscribers = new ArrayList<>();
     }
     
     public Subscription(BigInteger mv, BigInteger mvPlusOne, BigInteger cv, String name) {
         matchValue = mv;
         matchValuePlusOne = mvPlusOne;
         coverValue = cv;
+        subscribers = new ArrayList<>();
         serviceName = name; // used for debug
     }
     
@@ -56,4 +62,13 @@ public class Subscription {
     public String getServiceName() {
         return serviceName;
     }
+    
+    public void addSubscriber(String subscriberName) {
+        subscribers.add(subscriberName);
+    }
+
+    public List<String> getSubscribers() {
+        return subscribers;
+    }
+    
 }

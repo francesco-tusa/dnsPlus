@@ -2,7 +2,6 @@ package broker.tree.binarybalanced.cache;
 
 import broker.tree.binarybalanced.BrokerWithBinaryBalancedTree;
 import broker.CachingBroker;
-import broker.CachingBroker;
 import broker.tree.binarybalanced.BinaryBalancedPublicationTree;
 import encryption.HEPS;
 import java.util.logging.Logger;

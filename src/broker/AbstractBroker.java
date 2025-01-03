@@ -12,7 +12,7 @@ import utils.CustomLogger;
  *
  * @author uceeftu
  */
-public abstract class AbstractBroker {
+public abstract class AbstractBroker { //implements SynchronousBroker {
 
     private static final Logger logger = CustomLogger.getLogger(AbstractBroker.class.getName());
     protected String name;
@@ -37,6 +37,14 @@ public abstract class AbstractBroker {
         return compare(p.getMatchValue(), s.getMatchValue(), s.getMatchValuePlusOne());
     }
 
+//    @Override
+//    public abstract void processPublication(Publication p);
+//
+//    @Override
+//    public abstract void processSubscription(Subscription s);
+
+    
+    
     public abstract void addSubscription(Subscription s);
 
     public abstract Subscription matchPublication(Publication p);

@@ -13,8 +13,8 @@ public class Main {
     
     
     public static void main(String[] args) {
-        //DNSWithCacheAsynchronousExperiment experiment = new DNSWithCacheAsynchronousExperiment("websites.txt", 1);
-        DNSWithCacheAsynchronousExperiment experiment = new DNSWithCacheAsynchronousExperiment("websites.txt", 1, 1000, 100);
+        DNSWithCacheAsynchronousExperiment experiment = new DNSWithCacheAsynchronousExperiment("websites.txt", 1);
+        //DNSWithCacheAsynchronousExperiment experiment = new DNSWithCacheAsynchronousExperiment("websites.txt", 1, 1000, 100);
         experiment.executeExperiment();
         experiment.calculateStats();
         System.out.println(experiment);

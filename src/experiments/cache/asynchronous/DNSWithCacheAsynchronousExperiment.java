@@ -27,10 +27,14 @@ public final class DNSWithCacheAsynchronousExperiment extends AsynchronousExperi
         DNSWithCacheAsynchronousRun experimentRun = new DNSWithCacheAsynchronousRun(getDomainsDB(), numberOfPublications, numberOfSubscriptions);
         experimentRun.setUp();
         
-        DNSWithCacheAsynchronousRun.PublisherTask publisherTask = experimentRun.new PublisherTask();
-        DNSWithCacheAsynchronousRun.SubscriberTask subscriberTask = experimentRun.new SubscriberTask();
+        DNSWithCacheAsynchronousRun.PublisherTask publisherTask = experimentRun.new PublisherTask("Pub");
+        
+        DNSWithCacheAsynchronousRun.SubscriberTask subscriberTask = experimentRun.new SubscriberTask("Sub1");
+        DNSWithCacheAsynchronousRun.SubscriberTask subscriberTask2 = experimentRun.new SubscriberTask("Sub2");
+        
         experimentRun.addTask(publisherTask);
         experimentRun.addTask(subscriberTask);
+        experimentRun.addTask(subscriberTask2);
         
         experimentRun.start();
         experimentRun.waitForRequestsCompletion();

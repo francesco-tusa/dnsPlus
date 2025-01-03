@@ -3,15 +3,9 @@ package broker;
 import publishing.Publication;
 import subscribing.Subscription;
 
-public interface AsynchronousBroker {
+public interface AsynchronousBroker extends SynchronousBroker {
     
     void startProcessing();
-    
-    // async call to process a subscription
-    void processSubscription(Subscription s);
-    
-     // async call to process a publication
-    void processPublication(Publication p);
     
     //returns the first available subscription processing result
     Publication getSubscriptionResult(); 

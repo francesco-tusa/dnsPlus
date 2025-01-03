@@ -9,17 +9,20 @@ import java.util.logging.Level;
 import utils.CustomLogger;
 import experiments.measurement.AsynchronousMeasurementListener;
 import experiments.measurement.AsynchronousMeasurementProducerBroker;
+import subscribing.AsynchronousSubscriber;
 
 public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTreeAndCache implements AsynchronousMeasurementProducerBroker {
     
     private static final Logger logger = CustomLogger.getLogger(AsynchronousBrokerWithBinaryBalancedTreeAndCache.class.getName());
     private SubscriptionProcessor subscriptionProcessor;
     private PublicationProcessor publicationProcessor;
+    private SubscriptionsDispatcher subscriptionsDispatcher;
         
     public AsynchronousBrokerWithBinaryBalancedTreeAndCache(String name, HEPS heps) {
         super(name, heps);
         subscriptionProcessor = new SubscriptionProcessor(this);
         publicationProcessor = new PublicationProcessor(this);
+        subscriptionsDispatcher = new SubscriptionsDispatcher(subscriptionProcessor);
     }
 
     public SubscriptionProcessor getSubscriptionProcessor() {
@@ -35,9 +38,16 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
     }
 
     @Override
+    public void register(AsynchronousSubscriber subscriber) {
+        subscriptionsDispatcher.addSubscriber(subscriber);
+    }
+
+    
+    @Override
     public void startProcessing() {
         subscriptionProcessor.startProcessing();
         publicationProcessor.startProcessing();
+        subscriptionsDispatcher.startDispatching();
     }
     
     @Override
@@ -89,6 +99,11 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
         if (matched != null) {
             logger.log(Level.FINEST, "Adding matching subscription to the queue: {0}", matched.getServiceName());
             publicationProcessor.addMatchResult(matched);
+            
+            // should find the subscriber(s) from the matching subscription
+            // and add them to the publication for later forwarding
+            p.setRecipients(matched.getSubscribers());
+            
             logger.log(Level.FINEST, "Adding corresponding publication to the subscription processor''s results queue: {0}", p.getServiceName());
             subscriptionProcessor.addMatchResult(p);
         }

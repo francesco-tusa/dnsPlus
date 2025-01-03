@@ -1,6 +1,7 @@
 package publishing;
 
 import java.math.BigInteger;
+import java.util.List;
 
 /**
  *
@@ -12,6 +13,8 @@ public class Publication {
  
     private BigInteger coverValue;
     private BigInteger coverValuePlusOne;
+    
+    List<String> recipients;
     
      // for debug only
     private String serviceName;
@@ -59,4 +62,13 @@ public class Publication {
     public String getServiceName() {
         return serviceName;
     }
+
+    public List<String> getRecipients() {
+        return recipients;
+    }
+
+    public void setRecipients(List<String> recipients) {
+        this.recipients = recipients;
+    }
+
 }

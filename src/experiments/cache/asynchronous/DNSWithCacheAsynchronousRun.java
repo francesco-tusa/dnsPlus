@@ -27,8 +27,8 @@ import experiments.inputdata.DomainsDB;
 public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksExecutor {
 
     private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousRun.class.getName());
-    private AsynchronousSubscriber subscriber;
-    private AsynchronousPublisher publisher;
+    //private AsynchronousSubscriber subscriber;
+    //private AsynchronousPublisher publisher;
     private AsynchronousMeasurementProducerBroker broker;
     private DomainsDB domainsDB;
     
@@ -52,8 +52,8 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
 
     private DNSWithCacheAsynchronousRun(DomainsDB db, String fileName, int nPublications, int nSubscriptions) {
         broker = new AsynchronousBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
-        subscriber = new AsynchronousSubscriber("Subscriber1", broker);
-        publisher = new AsynchronousPublisher("Publisher1", broker);
+        //subscriber = new AsynchronousSubscriber("Subscriber1", broker);
+        //publisher = new AsynchronousPublisher("Publisher1", broker);
         domainsDB = (db != null) ? db : DBFactory.getDomainsDB(fileName);
         tasks = new ArrayList<>();
         name = this.getClass().getSimpleName();
@@ -65,8 +65,8 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
     @Override
     public void setUp() {
         broker.startProcessing();
-        publisher.init();
-        subscriber.init();
+        //publisher.init();
+        //subscriber.init();
     }
     
     @Override
@@ -87,8 +87,8 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
     @Override
     public void cleanUp() {
         logger.log(Level.INFO, "Cleaning Up Run");
-        publisher.publish(new PoisonPillPublication());
-        subscriber.subscribe(new PoisonPillSubscription());
+        //publisher.publish(new PoisonPillPublication());
+        //subscriber.subscribe(new PoisonPillSubscription());
     }
     
     @Override
@@ -126,8 +126,11 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
 
     final class PublisherTask extends AsynchronousTask implements AsynchronousMeasurementListener {
         private static final Logger logger = CustomLogger.getLogger(PublisherTask.class.getName());
+        private AsynchronousPublisher publisher;
         
-        public PublisherTask() {
+        public PublisherTask(String publisherName) {
+            publisher = new AsynchronousPublisher(publisherName, broker);
+            publisher.init();
             setName(this.getClass().getSimpleName());
             registerWithMeasurementProducer();
         }
@@ -155,14 +158,18 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
             });
             setDuration(result.getDuration());
             logger.log(Level.INFO, "Publisher task request completed");
+            //publisher.publish(new PoisonPillPublication());
             requestsLatch.countDown();
         }
     }
     
     final class SubscriberTask extends AsynchronousTask implements AsynchronousMeasurementListener {
         private static final Logger logger = CustomLogger.getLogger(SubscriberTask.class.getName());
+        private AsynchronousSubscriber subscriber;
         
-        public SubscriberTask() {
+        public SubscriberTask(String subscriberName) {
+            subscriber = new AsynchronousSubscriber(subscriberName, broker);
+            subscriber.init();
             setName(this.getClass().getSimpleName());
             registerWithMeasurementProducer();
         }
@@ -188,7 +195,8 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
                 return null;
             });
             setDuration(result.getDuration());
-            logger.log(Level.INFO, "Subscriber task request completed");
+            logger.log(Level.INFO, "Subscriber {0} completed their request task", subscriber.getName());
+            //subscriber.subscribe(new PoisonPillSubscription());
             requestsLatch.countDown();
         }
     }
