@@ -1,18 +1,19 @@
-package experiments.outputdata.asynchronous;
+package experiments.outputdata;
 
-import experiments.outputdata.TaskOutput;
-
-
-public class AsynchronousTaskOutput extends TaskOutput {
+/**
+ *
+ * @author uceeftu
+ */
+public class AsynchronousExperimentTaskStats extends ExperimentTaskStats {
 
     private double averageReplyDuration;
     private double replyDurationStandardDeviation;
     
-    public AsynchronousTaskOutput(String name) {
+    public AsynchronousExperimentTaskStats(String name) {
         super(name);
     }
 
-    public AsynchronousTaskOutput(String name, double averageReplyDuration, double replyDurationStandardDeviation, double averageDuration, double durationStandardDeviation) {
+    public AsynchronousExperimentTaskStats(String name, double averageReplyDuration, double replyDurationStandardDeviation, double averageDuration, double durationStandardDeviation) {
         super(name, averageDuration, durationStandardDeviation);
         this.averageReplyDuration = averageReplyDuration;
         this.replyDurationStandardDeviation = replyDurationStandardDeviation;

@@ -3,6 +3,9 @@ package experiments;
 import experiments.cache.asynchronous.DNSWithCacheAsynchronousExperiment;
 import experiments.inputdata.DBFactory;
 import experiments.inputdata.DomainsDB;
+import experiments.outputdata.ExperimentStatsCalculator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import utils.CustomLogger;
@@ -14,16 +17,23 @@ import utils.CustomLogger;
 public abstract class Experiment {
     
     private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousExperiment.class.getName());
-    private String name;
-    private String inputFileName;
-    private int numberOfRuns;
-    private DomainsDB domainsDB;
+    private final String name;
+    private final String inputFileName;
+    private final int numberOfRuns;
+    private final DomainsDB domainsDB;
+    
+    private final List<RunTasksOutputManager> allRunsTasksOutput;
+    private final ExperimentStatsCalculator experimentStatsCalculator;
 
-    public Experiment(String name, String inputFileName, int numberOfRuns) {
+    public Experiment(String name, String inputFileName, int numberOfRuns, ExperimentStatsCalculator experimentStatsCalculator) {
         this.name = name;
         this.inputFileName = inputFileName;
         this.numberOfRuns = numberOfRuns;
         this.domainsDB = DBFactory.getDomainsDB(System.getProperty("user.home") + "/" + inputFileName);
+        allRunsTasksOutput = new ArrayList<>(numberOfRuns);
+        
+        this.experimentStatsCalculator = experimentStatsCalculator;
+        experimentStatsCalculator.setAllRunsOutput(allRunsTasksOutput);
     }
 
     public String getName() {
@@ -42,6 +52,13 @@ public abstract class Experiment {
         return numberOfRuns;
     }
 
+    protected List<RunTasksOutputManager> getAllRunsTasksOutput() {
+        return allRunsTasksOutput;
+    }
+
+    protected ExperimentStatsCalculator getExperimentStatsCalculator() {
+        return experimentStatsCalculator;
+    }
     
     public void executeExperiment() {
         for (int i = 0; i < numberOfRuns; i++) {
@@ -49,8 +66,16 @@ public abstract class Experiment {
             executeRun();
         }
     }
+    
+    public void calculateStats() {
+        experimentStatsCalculator.calculateStats();
+    }
 
-    public abstract void calculateStats();
+    @Override
+    public String toString() {
+        return "{name=" + getName() + ", inputFileName=" + getInputFileName() + ", numberOfRuns=" + getNumberOfRuns() + ", \n\texperimentOutput=" + experimentStatsCalculator + '}';
+    }
+    
     
     protected abstract void executeRun();
     

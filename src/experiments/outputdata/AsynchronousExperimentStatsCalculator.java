@@ -1,35 +1,23 @@
-package experiments.outputdata.asynchronous;
+package experiments.outputdata;
 
-import experiments.cache.asynchronous.AsynchronousTask;
-import java.util.ArrayList;
+import experiments.RunTasksOutputManager;
+import experiments.Task;
 import java.util.List;
 
-public class AsynchronousExperimentOutput {
+public class AsynchronousExperimentStatsCalculator extends ExperimentStatsCalculator {
 
-    private final String name;
-    private final List<AsynchronousRunOutput> runsOutput;
-    private List<AsynchronousTaskOutput> tasksStats;
-
-    public AsynchronousExperimentOutput(String name, List<AsynchronousRunOutput> runs) {
-        this.name = name;
-        this.runsOutput = runs;
-        this.tasksStats = new ArrayList<>(runs.size());
+    public AsynchronousExperimentStatsCalculator(String name) {
+        super(name);
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public List<AsynchronousTaskOutput> getTasksStats() {
-        return tasksStats;
-    }
-
+    @Override
     public void calculateStats() {
 
         // getting number of tasks in a run (from first run element)
-        int numberOfTasks = runsOutput.get(0).getTasks().size();
+        List<RunTasksOutputManager> allRunsOutput = getAllRunsOutput();
+        int numberOfTasks = allRunsOutput.get(0).getTasks().size();
         
-        AsynchronousTaskOutput taskStats = null;
+        AsynchronousExperimentTaskStats taskStats = null;
 
         for (int i = 0; i < numberOfTasks; i++) {
 
@@ -39,9 +27,9 @@ public class AsynchronousExperimentOutput {
             long taskReplyDurationSum = 0;
             long taskReplyDurationSumSquares = 0;
             
-            for (AsynchronousRunOutput r : runsOutput) {
-                List<AsynchronousTask> tasks = r.getTasks();
-                AsynchronousTask currentTask = tasks.get(i);
+            for (RunTasksOutputManager r : allRunsOutput) {
+                List<Task> tasks = r.getTasks();
+                Task currentTask = tasks.get(i);
 
                 long taskDuration = currentTask.getDuration();
                 taskDurationSum += taskDuration;
@@ -51,10 +39,10 @@ public class AsynchronousExperimentOutput {
                 taskReplyDurationSum += taskReplyDuration;
                 taskReplyDurationSumSquares += taskReplyDuration * taskReplyDuration;
 
-                taskStats = new AsynchronousTaskOutput(currentTask.getName());
+                taskStats = new AsynchronousExperimentTaskStats(currentTask.getName());
             }
 
-            int numberOfRuns = runsOutput.size();
+            int numberOfRuns = allRunsOutput.size();
 
             double average = (double) taskDurationSum / numberOfRuns;
             double variance = ((double) taskDurationSumSquares / numberOfRuns) - (average * average);
@@ -71,13 +59,8 @@ public class AsynchronousExperimentOutput {
                 taskStats.setReplyDurationStandardDeviation(replyStdDeviation);
             }
 
-            tasksStats.add(taskStats);
-
+            List<ExperimentTaskStats> experimentTasksStats = getExperimentTasksStats();
+            experimentTasksStats.add(taskStats);
         }
-    }
-
-    @Override
-    public String toString() {
-        return "{" + "name=" + name + ", tasksStats=" + tasksStats + '}';
     }
 }

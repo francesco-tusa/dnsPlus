@@ -1,6 +1,7 @@
 package experiments.cache.asynchronous;
 
-import experiments.outputdata.asynchronous.AsynchronousRunOutput;
+import experiments.RunTasksOutputManager;
+import java.util.List;
 
 /**
  *
@@ -27,8 +28,8 @@ public final class DNSWithCacheAsynchronousExperiment extends AsynchronousExperi
         experimentRun.cleanUp();
         experimentRun.waitForRepliesCompletion();
         
-        AsynchronousRunOutput currentRunOutput = new AsynchronousRunOutput(experimentRun.getName(), experimentRun.getTasks());
-        getExperimentRunsOutput().add(currentRunOutput);
+        List<RunTasksOutputManager> allRunsTasksOutput = getAllRunsTasksOutput();
+        allRunsTasksOutput.add(experimentRun);
     }
     
     

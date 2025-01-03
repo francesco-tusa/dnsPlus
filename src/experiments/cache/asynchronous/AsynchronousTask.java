@@ -1,20 +1,22 @@
 package experiments.cache.asynchronous;
 
-import experiments.Task;
+import experiments.SynchronousTask;
 import java.time.Duration;
 
 /**
  *
  * @author uceeftu
  */
-public abstract class AsynchronousTask extends Task {
+public abstract class AsynchronousTask extends SynchronousTask {
     private Duration replyDuration;
 
+    @Override
     public long getReplyDuration() {
         return replyDuration.toMillis();
     }
 
-    protected void setReplyDuration(Duration replyDuration) {
+    @Override
+    public void setReplyDuration(Duration replyDuration) {
         this.replyDuration = replyDuration;
     } 
     

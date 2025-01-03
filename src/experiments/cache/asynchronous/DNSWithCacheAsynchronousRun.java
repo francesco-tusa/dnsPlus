@@ -24,7 +24,7 @@ import experiments.inputdata.DomainsDB;
  *
  * @author f.tusa
  */
-public final class DNSWithCacheAsynchronousRun implements AsynchronousRun {
+public final class DNSWithCacheAsynchronousRun implements AsynchronousTasksRunner {
 
     private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousRun.class.getName(), Level.WARNING);
     private AsynchronousSubscriber subscriber;
@@ -32,7 +32,7 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRun {
     private AsynchronousMeasurementProducerBroker broker;
     private DomainsDB domainsDB;
     
-    private List<AsynchronousTask> tasks;
+    private List<Task> tasks;
     private String name;
     
     private CountDownLatch requestsLatch;
@@ -65,7 +65,7 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRun {
     }
     
     @Override
-    public void addTask(AsynchronousTask task) {
+    public void addTask(Task task) {
         tasks.add(task);
     }
 
@@ -113,7 +113,7 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRun {
     }
 
     @Override
-    public List<AsynchronousTask> getTasks() {
+    public List<Task> getTasks() {
         return tasks;
     }
 
@@ -148,7 +148,7 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRun {
                 publisher.generateAndPublishAll(randomEntries);
                 return null;
             });
-            setRequestDuration(result.getDuration());
+            setDuration(result.getDuration());
             logger.log(Level.WARNING, "Publisher task request completed");
             requestsLatch.countDown();
         }
@@ -181,7 +181,7 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRun {
                 subscriber.generateAndSubscribeToAll(randomEntries);
                 return null;
             });
-            setRequestDuration(result.getDuration());
+            setDuration(result.getDuration());
             logger.log(Level.WARNING, "Subscriber task request completed");
             requestsLatch.countDown();
         }
