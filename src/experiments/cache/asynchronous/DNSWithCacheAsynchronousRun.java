@@ -24,7 +24,7 @@ import experiments.inputdata.DomainsDB;
  *
  * @author f.tusa
  */
-public final class DNSWithCacheAsynchronousRun implements AsynchronousTasksRunner {
+public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksExecutor {
 
     private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousRun.class.getName());
     private AsynchronousSubscriber subscriber;
