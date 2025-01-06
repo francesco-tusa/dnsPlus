@@ -12,12 +12,7 @@ public class AsynchronousExperimentTaskStats extends ExperimentTaskStats {
     public AsynchronousExperimentTaskStats(String name) {
         super(name);
     }
-
-    public AsynchronousExperimentTaskStats(String name, double averageReplyDuration, double replyDurationStandardDeviation, double averageDuration, double durationStandardDeviation) {
-        super(name, averageDuration, durationStandardDeviation);
-        this.averageReplyDuration = averageReplyDuration;
-        this.replyDurationStandardDeviation = replyDurationStandardDeviation;
-    }
+    
 
     public double getAverageReplyDuration() {
         return averageReplyDuration;

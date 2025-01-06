@@ -12,12 +12,6 @@ public class ExperimentTaskStats {
     public ExperimentTaskStats(String name) {
         this.name = name;
     }
-
-    public ExperimentTaskStats(String name, double averageDuration, double durationStandardDeviation) {
-        this.name = name;
-        this.averageDuration = averageDuration;
-        this.durationStandardDeviation = durationStandardDeviation;
-    }
     
 
     public double getAverageDuration() {
