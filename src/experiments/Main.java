@@ -16,12 +16,12 @@ public class Main {
     
     public static void main(String[] args) {
         //Experiment experiment = new DNSWithCacheAsynchronousExperiment("websites.txt", 1);
-        Experiment experiment1 = new DNSWithCacheAsynchronousExperiment("websites.txt", 1, 1000, 100);
+        Experiment experiment1 = new DNSWithCacheAsynchronousExperiment("websites.txt", 1, 1000, 100, 2, 3);
         //Experiment experiment = new DNSWithCacheExperiment("websites.txt", 1);
-        Experiment experiment2 = new DNSWithCacheExperiment("websites.txt", 1, 1000, 100);
+        //Experiment experiment2 = new DNSWithCacheExperiment("websites.txt", 1, 1000, 100);
         
         experiment1.start();  
-        experiment2.start();   
+        //experiment2.start();   
     }
     
 }
