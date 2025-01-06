@@ -1,5 +1,6 @@
 package broker.tree.binarybalanced.cache.asynchronous;
 
+import broker.AsynchronousBroker;
 import experiments.measurement.AsynchronousMeasurementProducer;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -23,14 +24,14 @@ import experiments.measurement.AsynchronousMeasurementListener;
 public class PublicationProcessor implements Runnable, AsynchronousMeasurementProducer{
     
     private static final Logger logger = CustomLogger.getLogger(PublicationProcessor.class.getName());
-    private AsynchronousBrokerWithBinaryBalancedTreeAndCache broker;
+    private AsynchronousBroker broker;
     private BlockingQueue<Publication> publicationQueue;
     private BlockingQueue<Subscription> resultQueue;
     
     private List<AsynchronousMeasurementListener> measurementListeners;
     
     
-    public PublicationProcessor(AsynchronousBrokerWithBinaryBalancedTreeAndCache b) {
+    public PublicationProcessor(AsynchronousBroker b) {
         broker = b;
         publicationQueue = new LinkedBlockingQueue<>();
         resultQueue = new LinkedBlockingQueue<>();
@@ -76,8 +77,8 @@ public class PublicationProcessor implements Runnable, AsynchronousMeasurementPr
                 Publication p = publicationQueue.take();
                 if (p != null) {
                     if (p instanceof PoisonPillPublication) {
-                        logger.log(Level.WARNING, "Thread {0} is being stopped", Thread.currentThread().getName());
-                        resultQueue.offer(new PoisonPillSubscription());
+                        logger.log(Level.WARNING, "Received PoisonPillPublication: Thread {0} is being stopped", Thread.currentThread().getName());
+                        resultQueue.offer(new PoisonPillSubscription(""));
                         break;
                     }
                     logger.log(Level.FINEST, "Publication for {0} taken off the queue", p.getServiceName());

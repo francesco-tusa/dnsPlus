@@ -1,39 +1,34 @@
 package experiments.cache.asynchronous;
 
+import broker.AsynchronousMeasurementProducerCachingBroker;
 import encryption.HEPS;
 import broker.tree.binarybalanced.cache.asynchronous.AsynchronousBrokerWithBinaryBalancedTreeAndCache;
+import experiments.RunParallelTasksExecutor;
 import experiments.Task;
 import experiments.inputdata.DBFactory;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import publishing.AsynchronousPublisher;
+import publishing.Publisher;
 import subscribing.AsynchronousSubscriber;
 import utils.CustomLogger;
-import publishing.PoisonPillPublication;
-import subscribing.PoisonPillSubscription;
 import experiments.measurement.AsynchronousMeasurementListener;
-import experiments.measurement.AsynchronousMeasurementProducerBroker;
 import utils.ExecutionTimeLogger;
 import experiments.inputdata.DomainsDB;
+import publishing.PoisonPillPublication;
+import subscribing.PoisonPillSubscription;
 
 /**
  *
  * @author f.tusa
  */
-public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksExecutor {
+public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor implements AsynchronousRunTasksExecutor {
 
     private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousRun.class.getName());
-    //private AsynchronousSubscriber subscriber;
-    //private AsynchronousPublisher publisher;
-    private AsynchronousMeasurementProducerBroker broker;
+    private AsynchronousMeasurementProducerCachingBroker broker;
     private DomainsDB domainsDB;
-    
-    private List<Task> tasks;
-    private String name;
     
     private CountDownLatch requestsLatch;
     private CountDownLatch repliesLatch;
@@ -51,12 +46,9 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
     }
 
     private DNSWithCacheAsynchronousRun(DomainsDB db, String fileName, int nPublications, int nSubscriptions) {
+        super(DNSWithCacheAsynchronousRun.class.getSimpleName());
         broker = new AsynchronousBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
-        //subscriber = new AsynchronousSubscriber("Subscriber1", broker);
-        //publisher = new AsynchronousPublisher("Publisher1", broker);
         domainsDB = (db != null) ? db : DBFactory.getDomainsDB(fileName);
-        tasks = new ArrayList<>();
-        name = this.getClass().getSimpleName();
         numberOfPublications = nPublications;
         numberOfSubscriptions = nSubscriptions;
     }
@@ -65,13 +57,6 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
     @Override
     public void setUp() {
         broker.startProcessing();
-        //publisher.init();
-        //subscriber.init();
-    }
-    
-    @Override
-    public void addTask(Task task) {
-        tasks.add(task);
     }
 
     @Override
@@ -87,9 +72,13 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
     @Override
     public void cleanUp() {
         logger.log(Level.INFO, "Cleaning Up Run");
-        //publisher.publish(new PoisonPillPublication());
-        //subscriber.subscribe(new PoisonPillSubscription());
+        for (Task task : tasks) {
+            if (task instanceof AsynchronousTask asyncTask) {
+                asyncTask.cleanUp();
+            }
+        }       
     }
+    
     
     @Override
     public void waitForRequestsCompletion() {
@@ -111,25 +100,17 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
         }
     }
 
-
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public List<Task> getTasks() {
-        return tasks;
-    }
-
     
 
     final class PublisherTask extends AsynchronousTask implements AsynchronousMeasurementListener {
         private static final Logger logger = CustomLogger.getLogger(PublisherTask.class.getName());
-        private AsynchronousPublisher publisher;
+        // a normal publisher is used here (does not wait for subscriptions that matched)
+        // publications as this is the case in pub/sub scenarios
+        // Asynchronous publisher might be used for debugging
+        private Publisher publisher;
         
         public PublisherTask(String publisherName) {
-            publisher = new AsynchronousPublisher(publisherName, broker);
+            publisher = new Publisher(publisherName, broker);
             publisher.init();
             setName(this.getClass().getSimpleName());
             registerWithMeasurementProducer();
@@ -142,7 +123,7 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
 
         @Override
         public void asynchronousMeasurementPerformed(Duration replyDuration) {
-            logger.log(Level.INFO, "Received measurement {0}", replyDuration.toMillis());
+            logger.log(Level.INFO, "Publisher {0} received measurement {1}", new Object[]{publisher.getName(), replyDuration.toMillis()});
             setReplyDuration(replyDuration);
             repliesLatch.countDown();
         }
@@ -157,10 +138,19 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
                 return null;
             });
             setDuration(result.getDuration());
-            logger.log(Level.INFO, "Publisher task request completed");
-            //publisher.publish(new PoisonPillPublication());
+            logger.log(Level.WARNING, "Publisher {0} completed their request task", publisher.getName());
             requestsLatch.countDown();
         }
+
+        @Override
+        public void cleanUp() {
+            logger.log(Level.INFO, "Publisher {0} is cleaning up run", name);
+            String name = publisher.getName();
+            publisher.publish(new PoisonPillPublication(name));
+            logger.log(Level.FINE, "Publisher {0} sent a poison pill publication", name);
+        }
+        
+        
     }
     
     final class SubscriberTask extends AsynchronousTask implements AsynchronousMeasurementListener {
@@ -181,7 +171,7 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
         
         @Override
         public void asynchronousMeasurementPerformed(Duration replyDuration) {
-            logger.log(Level.INFO, "Received measurement {0}", replyDuration.toMillis());
+            logger.log(Level.INFO, "Subscriber {0} received measurement {1}", new Object[]{subscriber.getName(), replyDuration.toMillis()});
             setReplyDuration(replyDuration);
             repliesLatch.countDown();
         }
@@ -195,9 +185,16 @@ public final class DNSWithCacheAsynchronousRun implements AsynchronousRunTasksEx
                 return null;
             });
             setDuration(result.getDuration());
-            logger.log(Level.INFO, "Subscriber {0} completed their request task", subscriber.getName());
-            //subscriber.subscribe(new PoisonPillSubscription());
+            logger.log(Level.WARNING, "Subscriber {0} completed their request task", subscriber.getName());
             requestsLatch.countDown();
+        }
+
+        @Override
+        public void cleanUp() {
+            logger.log(Level.INFO, "Subscriber {0} is cleaning up run", name);
+            String name = subscriber.getName();
+            subscriber.subscribe(new PoisonPillSubscription(name));
+            logger.log(Level.FINE, "Subscriber {0} sent a poison pill subscription", name);
         }
     }
 }

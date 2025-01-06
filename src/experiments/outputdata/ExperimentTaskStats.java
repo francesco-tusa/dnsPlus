@@ -42,8 +42,8 @@ public class ExperimentTaskStats {
 
     @Override
     public String toString() {
-        return "ExperimentTaskStats{" + "name=" + name + ", averageDuration=" + averageDuration + ", durationStandardDeviation=" + durationStandardDeviation + '}';
+        return "\n\t\t{name=" + getName() + 
+               ", averageDuration=" + getAverageDuration() + 
+               ", durationStandardDeviation=" + getDurationStandardDeviation() + '}';
     }
-    
-    
 }

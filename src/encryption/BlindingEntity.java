@@ -7,13 +7,13 @@ import java.util.List;
  *
  * @author f.tusa
  */
-public abstract class Entity {
+public abstract class BlindingEntity {
     
     protected String name;
     protected HEPS heps;
     protected List<BigInteger> params;
 
-    public Entity() {
+    public BlindingEntity() {
     }
 
     public String getName() {
@@ -27,6 +27,11 @@ public abstract class Entity {
     public void setHeps(HEPS heps) {
         this.heps = heps;
     }
+    
+    public void init() {
+        setHeps(HEPS.getInstance());
+        getSecurityParameters();
+    } 
 
     public abstract void getSecurityParameters();
     

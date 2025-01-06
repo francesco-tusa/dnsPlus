@@ -59,8 +59,7 @@ public class AsynchronousExperimentStatsCalculator extends ExperimentStatsCalcul
                 taskStats.setReplyDurationStandardDeviation(replyStdDeviation);
             }
 
-            List<ExperimentTaskStats> experimentTasksStats = getExperimentTasksStats();
-            experimentTasksStats.add(taskStats);
+            getExperimentTasksStats().add(taskStats);
         }
     }
 }

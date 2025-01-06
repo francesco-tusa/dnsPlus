@@ -1,116 +1,35 @@
 package subscribing;
 
-import encryption.HEPS;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import broker.AsynchronousBroker;
 import publishing.Publication;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import utils.CustomLogger;
-import broker.AsynchronousBroker;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import publishing.PoisonPillPublication;
 
 
-public final class AsynchronousSubscriber {
-    private static final Logger logger = CustomLogger.getLogger(AsynchronousSubscriber.class.getName());
-    private Subscriber subscriber;
-    private AsynchronousBroker broker;
+public class AsynchronousSubscriber extends Subscriber {
+    private static final Logger logger = CustomLogger.getLogger(Subscriber.class.getName());
     
-    private Map<String, Subscription> subscriptions;
     private BlockingQueue<Publication> publicationsQueue;
     
     public AsynchronousSubscriber(String name, AsynchronousBroker broker) {
-        this.broker = broker;
-        this.subscriber = new Subscriber(name);  
-        subscriptions = new HashMap<>();
+        super(name, broker);
         publicationsQueue = new LinkedBlockingQueue<>();
     }
     
-    public String getName() {
-        return subscriber.getName();
-    }
     
+    @Override
     public void init() {
-        subscriber.setHeps(HEPS.getInstance());
-        subscriber.getSecurityParameters();
-        register();
+        super.init();
+        ((AsynchronousBroker) getBroker()).register(this);
         receivePublications();
     }
     
-    private void register() {
-        broker.register(this);
-    }
-    
-    private Subscription generateSubscription(String service) {
-        Subscription s;
-        if (subscriptions.containsKey(service)) {
-            s = subscriptions.get(service);
-        } else {
-            s = subscriber.generateSubscription(service);
-            s.addSubscriber(getName());
-            subscriptions.put(service, s);
-        }
-        return s;
-    }
-    
-    public List<Subscription> generateSubscriptions(List<String> serviceNames) {
-        logger.log(Level.INFO, "Subscriber {0} is generating Subscriptions...", getName());
-        List<Subscription> subscriptionsList = new ArrayList<>();
-        for (String service : serviceNames) {
-            Subscription s = generateSubscription(service);
-            s.addSubscriber(getName());
-            subscriptions.put(service, s);
-            subscriptionsList.add(s);
-        }
-        return subscriptionsList;
-    }
-    
-    public void subscribe(String service) {
-        logger.log(Level.INFO, "Subscriber {0} is subscribing to service: {1}", new Object[]{getName(), service});
-        Subscription s = generateSubscription(service);
-        s.addSubscriber(getName());
-        broker.processSubscription(s);
-    }
-    
-    public void subscribe(Subscription s) {
-        logger.log(Level.INFO, "Subscriber {0} is subscribing to service: {1}", new Object[]{getName(), s.getServiceName()});
-        broker.processSubscription(s);
-    }
-    
-    
-    public void generateAndSubscribeToAll(List<String> serviceNames) {
-        logger.log(Level.INFO, "Subscriber {0} is generating Subscriptions...", getName());
-        for (String service : serviceNames) {
-            if (!subscriptions.containsKey(service)) {
-                Subscription s = subscriber.generateSubscription(service);
-                s.addSubscriber(getName());
-                subscriptions.put(service, s);
-            }
-        }
-        
-        // now sending subscriptions
-        logger.log(Level.INFO, "Subscriber {0} is sending Subscriptions to Broker...", getName());
-        for (String service : serviceNames) {
-            logger.log(Level.INFO, "Subscriber {0} is subscribing to service: {1}", new Object[]{getName(), service});
-            broker.processSubscription(subscriptions.get(service));
-        }
-    }
-    
-    
-    public void subscribeToAll(List<Subscription> subscriptionsList) {
-         logger.log(Level.INFO, "Subscriber {0} is sending Subscriptions to Broker...", getName());
-        for (Subscription s : subscriptionsList) {
-            logger.log(Level.INFO, "Subscriber {0} is subscribing to service: {1}", new Object[]{getName(), s.getServiceName()});
-            broker.processSubscription(s);
-        }
-    }
-    
     public void addMatchingPublication(Publication p) {
-        logger.log(Level.WARNING, "Added publication for {0} to the Queue", p.getServiceName());
+        logger.log(Level.FINE, "Added publication for {0} to Subscriber {1}'s Queue", new Object[]{p.getServiceName(), getName()});
         publicationsQueue.offer(p);
     }
     

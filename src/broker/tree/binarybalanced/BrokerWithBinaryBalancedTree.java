@@ -1,6 +1,6 @@
 package broker.tree.binarybalanced;
 
-import broker.AbstractBroker;
+import encryption.BlindedMatchingBroker;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
@@ -12,7 +12,7 @@ import utils.CustomLogger;
  *
  * @author f.tusa
  */
-public class BrokerWithBinaryBalancedTree extends AbstractBroker {
+public abstract class BrokerWithBinaryBalancedTree extends BlindedMatchingBroker {
     
     private static final Logger logger = CustomLogger.getLogger(BrokerWithBinaryBalancedTree.class.getName());
     private BinaryBalancedSubscriptionTree table;
@@ -47,4 +47,5 @@ public class BrokerWithBinaryBalancedTree extends AbstractBroker {
         }
         return found;
     }
+      
 }

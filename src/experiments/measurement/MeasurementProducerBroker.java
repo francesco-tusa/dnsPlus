@@ -1,12 +1,10 @@
 package experiments.measurement;
 
-import broker.AsynchronousBroker;
-
 /**
  *
  * @author uceeftu
  */
-public interface AsynchronousMeasurementProducerBroker extends AsynchronousBroker {
+public interface MeasurementProducerBroker {
     
     // add a listener for publication measurement events
     void addPublicationMeasurementListener(AsynchronousMeasurementListener listener);

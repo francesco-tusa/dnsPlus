@@ -1,22 +1,24 @@
 package broker;
 
 import publishing.Publication;
-import subscribing.AsynchronousSubscriber;
 import subscribing.Subscription;
 
 /**
  *
  * @author uceeftu
  */
-public interface SynchronousBroker {
+public interface Broker {
+    
+        // add a subscription to the table
+    void addSubscription(Subscription s);
 
-    // TODO should use an interface for subscriber
-    void register(AsynchronousSubscriber subscriber);
+    // match a publication with the entries in the
+    // subscription table
+    Subscription matchPublication(Publication p);
     
     // call to process a publication
     void processPublication(Publication p);
 
     // call to process a subscription
     void processSubscription(Subscription s);
-    
 }

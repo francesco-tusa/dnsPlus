@@ -14,13 +14,15 @@ public class Publication {
     private BigInteger coverValue;
     private BigInteger coverValuePlusOne;
     
-    List<String> recipients;
+    private List<String> recipients; // this is filled in by the broker
+    private String publisher;
     
      // for debug only
     private String serviceName;
     
-    public Publication() {
+    public Publication(String pub) {
         serviceName = "POISON_PILL";
+        publisher = pub;
     }
     
     public Publication(BigInteger mv, BigInteger cv, BigInteger cvPlusOne) {

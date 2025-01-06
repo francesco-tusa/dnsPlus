@@ -1,6 +1,6 @@
 package broker.tree.binary;
 
-import broker.AbstractBroker;
+import encryption.BlindedMatchingBroker;
 import subscribing.Subscription;
 import publishing.Publication;
 import encryption.HEPS;
@@ -9,7 +9,7 @@ import encryption.HEPS;
  *
  * @author f.tusa
  */
-public class BrokerWithBinaryTree extends AbstractBroker {
+public abstract class BrokerWithBinaryTree extends BlindedMatchingBroker {
     
     
     private BinarySubscriptionTree table;

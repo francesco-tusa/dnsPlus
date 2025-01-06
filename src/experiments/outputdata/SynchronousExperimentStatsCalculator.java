@@ -46,9 +46,8 @@ public class SynchronousExperimentStatsCalculator extends ExperimentStatsCalcula
                 taskStats.setAverageDuration(average);
                 taskStats.setDurationStandardDeviation(stdDeviation);
             }
+            
+            getExperimentTasksStats().add(taskStats);
         }
-        
-        List<ExperimentTaskStats> experimentTasksStats = getExperimentTasksStats();
-        experimentTasksStats.add(taskStats);
     }
 }

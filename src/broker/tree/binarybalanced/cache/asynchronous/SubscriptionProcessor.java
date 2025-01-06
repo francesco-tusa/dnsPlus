@@ -1,5 +1,6 @@
 package broker.tree.binarybalanced.cache.asynchronous;
 
+import broker.AsynchronousCachingBroker;
 import experiments.measurement.AsynchronousMeasurementProducer;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -15,6 +16,10 @@ import subscribing.Subscription;
 import utils.CustomLogger;
 import utils.ExecutionTimeLogger;
 import experiments.measurement.AsynchronousMeasurementListener;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import subscribing.AsynchronousSubscriber;
 
 /**
  *
@@ -23,14 +28,16 @@ import experiments.measurement.AsynchronousMeasurementListener;
 public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementProducer {
     
     private static final Logger logger = CustomLogger.getLogger(SubscriptionProcessor.class.getName());
-    private AsynchronousBrokerWithBinaryBalancedTreeAndCache broker;
+    private AsynchronousCachingBroker broker;
     private BlockingQueue<Subscription> subscriptionQueue;
     private BlockingQueue<Publication> resultQueue;
+
+    private Map<String, AsynchronousSubscriber> subscribers = Collections.synchronizedMap(new HashMap<>());
     
     private List<AsynchronousMeasurementListener> measurementListeners;
     
     
-    public SubscriptionProcessor(AsynchronousBrokerWithBinaryBalancedTreeAndCache b) {
+    public SubscriptionProcessor(AsynchronousCachingBroker b) {
         broker = b;
         subscriptionQueue = new LinkedBlockingQueue<>();
         resultQueue = new LinkedBlockingQueue<>();
@@ -58,26 +65,36 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
         logger.log(Level.FINEST, "Adding matching publication to the result queue: {0}", p.getServiceName());
         resultQueue.offer(p); // Store the result in the result queue
     }
+    
+    public void addSubscriber(AsynchronousSubscriber subscriber) {
+        subscribers.putIfAbsent(subscriber.getName(), subscriber);
+    }
+    
+    public int getPublicationsQueueSize() {
+        return resultQueue.size();
+    }
+    
 
     @Override
     public void addMeasurementListener(AsynchronousMeasurementListener l) {
         measurementListeners.add(l);
     }
-    
+
 
     @Override
     public void run() {
         
         Duration duration = Duration.ZERO;
         
+        logger.log(Level.FINE, "Started subscription processor thread");
         while (true) {
             try {
                 logger.log(Level.FINEST, "Taking a subscription off the queue");
                 Subscription s = subscriptionQueue.take();
                 if (s != null) {
-                    if (s instanceof PoisonPillSubscription) {
+                    if (s instanceof PoisonPillSubscription poisonPill && stopProcessing(poisonPill)) {
                         logger.log(Level.WARNING, "Thread {0} is being stopped", Thread.currentThread().getName());
-                        resultQueue.offer(new PoisonPillPublication());
+                        resultQueue.offer(new PoisonPillPublication(""));
                         break;
                     }
                     logger.log(Level.FINEST, "Subscription for {0} taken off the queue", s.getServiceName());
@@ -99,6 +116,11 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
         
         // sending duration to listeners
         sendMeasurement(duration);
+    }
+    
+    private boolean stopProcessing(PoisonPillSubscription s) {
+        subscribers.remove(s.getSubscriber());
+        return subscribers.isEmpty();      
     }
     
     private void sendMeasurement(Duration d) {

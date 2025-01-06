@@ -1,0 +1,5 @@
+package broker;
+
+import experiments.measurement.MeasurementProducerBroker;
+
+public interface AsynchronousMeasurementProducerCachingBroker extends AsynchronousCachingBroker, MeasurementProducerBroker {}

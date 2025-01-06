@@ -3,9 +3,10 @@ package broker.tree.binarybalanced;
 import broker.SubscriptionComparator;
 import java.util.Map;
 import java.util.TreeMap;
-import broker.AbstractBroker;
+import encryption.BlindedMatchingBroker;
 import broker.tree.SubscriptionTree;
 import java.util.Collections;
+import java.util.List;
 import publishing.Publication;
 import subscribing.Subscription;
 
@@ -15,11 +16,11 @@ import subscribing.Subscription;
  */
 public class BinaryBalancedSubscriptionTree implements SubscriptionTree 
 {    
-    AbstractBroker broker;
+    BlindedMatchingBroker broker;
 
     Map<Subscription, Subscription> tree;
 
-    public BinaryBalancedSubscriptionTree(AbstractBroker b) 
+    public BinaryBalancedSubscriptionTree(BlindedMatchingBroker b) 
     {
         broker = b;
         tree = Collections.synchronizedMap(new TreeMap<>(new SubscriptionComparator(broker)));
@@ -28,7 +29,18 @@ public class BinaryBalancedSubscriptionTree implements SubscriptionTree
     @Override
     public Subscription addNode(Subscription s) 
     {
-        return tree.putIfAbsent(s, s);
+        Subscription found = tree.get(s);
+        if (found != null) {
+            // the list of subscribers in a new subscription 's' always has
+            // one element before this check is performed
+            List<String> subscribers = found.getSubscribers();
+            String newSubscriber = s.getSubscribers().getFirst();
+            if (!subscribers.contains(newSubscriber))  
+                found.addSubscriber(newSubscriber);
+            
+            return found;
+        }
+        return tree.put(s, s);
     }
     
     

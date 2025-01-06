@@ -20,8 +20,10 @@ public class Subscription {
     // for debug only
     private String serviceName;
     
-    public Subscription() {
+    public Subscription(String subscriber) {
         serviceName = "POISON_PILL";
+        subscribers = new ArrayList<>();
+        subscribers.add(subscriber);
     }
     
     

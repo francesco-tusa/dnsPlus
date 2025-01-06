@@ -1,8 +1,8 @@
-package broker;
+package encryption;
 
+import broker.Broker;
 import subscribing.Subscription;
 import publishing.Publication;
-import encryption.HEPS;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.math.BigInteger;
@@ -12,13 +12,13 @@ import utils.CustomLogger;
  *
  * @author uceeftu
  */
-public abstract class AbstractBroker { //implements SynchronousBroker {
+public abstract class BlindedMatchingBroker implements Broker {
 
-    private static final Logger logger = CustomLogger.getLogger(AbstractBroker.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(BlindedMatchingBroker.class.getName());
     protected String name;
     protected HEPS heps;
 
-    public AbstractBroker() {}
+    public BlindedMatchingBroker() {}
 
     public Integer match(Subscription s1, Subscription s2) {
         logger.log(Level.FINE, "Matching Subscriptions: {0} with {1}", new Object[]{s1.getServiceName(), s2.getServiceName()});
@@ -36,18 +36,6 @@ public abstract class AbstractBroker { //implements SynchronousBroker {
     public Integer match(Publication p, Subscription s) {
         return compare(p.getMatchValue(), s.getMatchValue(), s.getMatchValuePlusOne());
     }
-
-//    @Override
-//    public abstract void processPublication(Publication p);
-//
-//    @Override
-//    public abstract void processSubscription(Subscription s);
-
-    
-    
-    public abstract void addSubscription(Subscription s);
-
-    public abstract Subscription matchPublication(Publication p);
 
     
     private int checkDifference(BigInteger value1, BigInteger value2) throws Exception {
@@ -76,4 +64,5 @@ public abstract class AbstractBroker { //implements SynchronousBroker {
             return null;
         }
     }
+    
 }

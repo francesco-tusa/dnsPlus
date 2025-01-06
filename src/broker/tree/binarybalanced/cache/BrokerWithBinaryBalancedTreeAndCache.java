@@ -23,6 +23,16 @@ public class BrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalanc
     public BinaryBalancedPublicationTree getCache() {
         return cache;
     }
+
+    @Override
+    public void processPublication(Publication p) {
+        matchPublication(p);
+    }
+
+    @Override
+    public void processSubscription(Subscription s) {
+        cacheLookUp(s);
+    }
     
     
     @Override

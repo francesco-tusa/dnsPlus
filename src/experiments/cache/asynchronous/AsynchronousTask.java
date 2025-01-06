@@ -22,4 +22,6 @@ public abstract class AsynchronousTask extends SynchronousTask {
     
     @Override
     public abstract void run();
+    
+    public abstract void cleanUp();
 }

@@ -1,5 +1,6 @@
 package broker;
 
+import encryption.BlindedMatchingBroker;
 import java.util.Comparator;
 import subscribing.Subscription;
 
@@ -9,9 +10,9 @@ import subscribing.Subscription;
  */
 public class SubscriptionComparator implements Comparator<Subscription> {
     
-    private final AbstractBroker broker;
+    private final BlindedMatchingBroker broker;
 
-    public SubscriptionComparator(AbstractBroker b) {
+    public SubscriptionComparator(BlindedMatchingBroker b) {
         broker = b;
     }
 

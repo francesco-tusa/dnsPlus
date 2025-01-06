@@ -4,7 +4,7 @@ import broker.PublicationComparator;
 import broker.tree.PublicationTree;
 import java.util.Map;
 import java.util.TreeMap;
-import broker.AbstractBroker;
+import encryption.BlindedMatchingBroker;
 import java.util.Collections;
 import publishing.Publication;
 import subscribing.Subscription;
@@ -15,17 +15,17 @@ import subscribing.Subscription;
  */
 public class BinaryBalancedPublicationTree implements PublicationTree 
 {    
-    AbstractBroker broker;
+    BlindedMatchingBroker broker;
 
     Map<Publication, Publication> tree;
 
-    public BinaryBalancedPublicationTree(AbstractBroker b) 
+    public BinaryBalancedPublicationTree(BlindedMatchingBroker b) 
     {
         broker = b;
         tree = Collections.synchronizedMap(new TreeMap<>(new PublicationComparator(broker)));
     }
     
-    public BinaryBalancedPublicationTree(AbstractBroker b, PublicationComparator comparator) 
+    public BinaryBalancedPublicationTree(BlindedMatchingBroker b, PublicationComparator comparator) 
     {
         broker = b;
         tree = Collections.synchronizedMap(new TreeMap<>(comparator));

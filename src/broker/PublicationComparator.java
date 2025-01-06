@@ -1,5 +1,6 @@
 package broker;
 
+import encryption.BlindedMatchingBroker;
 import java.util.Comparator;
 import publishing.Publication;
 
@@ -9,9 +10,9 @@ import publishing.Publication;
  */
 public class PublicationComparator implements Comparator<Publication> {
     
-    private final AbstractBroker broker;
+    private final BlindedMatchingBroker broker;
 
-    public PublicationComparator(AbstractBroker b) {
+    public PublicationComparator(BlindedMatchingBroker b) {
         broker = b;
     }
 

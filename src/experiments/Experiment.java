@@ -61,7 +61,7 @@ public abstract class Experiment {
     
     public void executeExperiment() {
         for (int i = 0; i < numberOfRuns; i++) {
-            logger.log(Level.INFO, "Executing run {0} of {1}", new Object[]{i+1, numberOfRuns});
+            logger.log(Level.SEVERE, "Executing run {0} of {1}", new Object[]{i+1, numberOfRuns});
             executeRun();
         }
     }
@@ -70,6 +70,14 @@ public abstract class Experiment {
         experimentStatsCalculator.calculateStats();
     }
 
+    
+    public void start() {
+        logger.log(Level.SEVERE, "Executing experiment {0}", name);
+        executeExperiment();
+        calculateStats();
+        System.out.println(toString());
+    }
+    
     @Override
     public String toString() {
         return "{name=" + getName() + ", inputFileName=" + getInputFileName() + ", numberOfRuns=" + getNumberOfRuns() + ", \n\texperimentOutput=" + experimentStatsCalculator + '}';

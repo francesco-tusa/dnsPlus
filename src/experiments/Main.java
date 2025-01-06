@@ -1,7 +1,9 @@
 package experiments;
 
+import experiments.cache.DNSWithCacheExperiment;
 import experiments.cache.asynchronous.DNSWithCacheAsynchronousExperiment;
 import java.util.logging.Logger;
+import java.util.logging.Level;
 import utils.CustomLogger;
 /**
  *
@@ -9,15 +11,17 @@ import utils.CustomLogger;
  */
 public class Main {
     
-    private static final Logger logger = CustomLogger.getLogger(Experiment.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(Experiment.class.getName(), Level.INFO);
     
     
     public static void main(String[] args) {
-        DNSWithCacheAsynchronousExperiment experiment = new DNSWithCacheAsynchronousExperiment("websites.txt", 1);
-        //DNSWithCacheAsynchronousExperiment experiment = new DNSWithCacheAsynchronousExperiment("websites.txt", 1, 1000, 100);
-        experiment.executeExperiment();
-        experiment.calculateStats();
-        System.out.println(experiment);
+        //Experiment experiment = new DNSWithCacheAsynchronousExperiment("websites.txt", 1);
+        Experiment experiment1 = new DNSWithCacheAsynchronousExperiment("websites.txt", 1, 1000, 100);
+        //Experiment experiment = new DNSWithCacheExperiment("websites.txt", 1);
+        Experiment experiment2 = new DNSWithCacheExperiment("websites.txt", 1, 1000, 100);
+        
+        experiment1.start();  
+        experiment2.start();   
     }
     
 }

@@ -1,5 +1,6 @@
 package broker.tree.binarybalanced.cache.asynchronous;
 
+import broker.AsynchronousMeasurementProducerCachingBroker;
 import broker.tree.binarybalanced.cache.BrokerWithBinaryBalancedTreeAndCache;
 import encryption.HEPS;
 import publishing.Publication;
@@ -8,21 +9,20 @@ import java.util.logging.Logger;
 import java.util.logging.Level;
 import utils.CustomLogger;
 import experiments.measurement.AsynchronousMeasurementListener;
-import experiments.measurement.AsynchronousMeasurementProducerBroker;
 import subscribing.AsynchronousSubscriber;
 
-public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTreeAndCache implements AsynchronousMeasurementProducerBroker {
+public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTreeAndCache implements AsynchronousMeasurementProducerCachingBroker {
     
     private static final Logger logger = CustomLogger.getLogger(AsynchronousBrokerWithBinaryBalancedTreeAndCache.class.getName());
     private SubscriptionProcessor subscriptionProcessor;
     private PublicationProcessor publicationProcessor;
-    private SubscriptionsDispatcher subscriptionsDispatcher;
+    private PublicationsDispatcher publicationsDispatcher;
         
     public AsynchronousBrokerWithBinaryBalancedTreeAndCache(String name, HEPS heps) {
         super(name, heps);
         subscriptionProcessor = new SubscriptionProcessor(this);
         publicationProcessor = new PublicationProcessor(this);
-        subscriptionsDispatcher = new SubscriptionsDispatcher(subscriptionProcessor);
+        publicationsDispatcher = new PublicationsDispatcher(this);
     }
 
     public SubscriptionProcessor getSubscriptionProcessor() {
@@ -39,7 +39,8 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
 
     @Override
     public void register(AsynchronousSubscriber subscriber) {
-        subscriptionsDispatcher.addSubscriber(subscriber);
+        logger.log(Level.INFO, "Registering sub {0}", subscriber.getName());
+        publicationsDispatcher.addSubscriber(subscriber);
     }
 
     
@@ -47,7 +48,7 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
     public void startProcessing() {
         subscriptionProcessor.startProcessing();
         publicationProcessor.startProcessing();
-        subscriptionsDispatcher.startDispatching();
+        publicationsDispatcher.startDispatching();
     }
     
     @Override
@@ -119,6 +120,8 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
         
         if (matched != null) {
             logger.log(Level.FINEST, "Adding matching publication from cache to the subscription processor''s results queue: {0}", s.getServiceName());
+            // adding the subscriber(s) to the publication's list of recipients
+            matched.setRecipients(s.getSubscribers());
             subscriptionProcessor.addMatchResult(matched);
         }
         
