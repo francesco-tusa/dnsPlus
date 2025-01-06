@@ -112,7 +112,7 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
         public PublisherTask(String publisherName) {
             publisher = new Publisher(publisherName, broker);
             publisher.init();
-            setName(this.getClass().getSimpleName());
+            setName(publisher.getName() + "-" + this.getClass().getSimpleName());
             registerWithMeasurementProducer();
         }
         
@@ -144,7 +144,7 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
 
         @Override
         public void cleanUp() {
-            logger.log(Level.INFO, "Publisher {0} is cleaning up run", name);
+            logger.log(Level.INFO, "Publisher {0} is cleaning up run", publisher.getName());
             String name = publisher.getName();
             publisher.publish(new PoisonPillPublication(name));
             logger.log(Level.FINE, "Publisher {0} sent a poison pill publication", name);
@@ -160,7 +160,7 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
         public SubscriberTask(String subscriberName) {
             subscriber = new AsynchronousSubscriber(subscriberName, broker);
             subscriber.init();
-            setName(this.getClass().getSimpleName());
+            setName(subscriber.getName() + "-" + this.getClass().getSimpleName());
             registerWithMeasurementProducer();
         }
         
@@ -191,7 +191,7 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
 
         @Override
         public void cleanUp() {
-            logger.log(Level.INFO, "Subscriber {0} is cleaning up run", name);
+            logger.log(Level.INFO, "Subscriber {0} is cleaning up run", subscriber.getName());
             String name = subscriber.getName();
             subscriber.subscribe(new PoisonPillSubscription(name));
             logger.log(Level.FINE, "Subscriber {0} sent a poison pill subscription", name);
