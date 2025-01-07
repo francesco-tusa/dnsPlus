@@ -16,6 +16,8 @@ import subscribing.Subscription;
 import utils.CustomLogger;
 import utils.ExecutionTimeLogger;
 import experiments.measurement.AsynchronousMeasurementListener;
+import experiments.measurement.AsynchronousSubscriptionMeasurementListener;
+import experiments.measurement.AsynchronousSubscriptionMeasurementProducer;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,7 +27,7 @@ import subscribing.AsynchronousSubscriber;
  *
  * @author uceeftu
  */
-public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementProducer {
+public class SubscriptionProcessor implements Runnable, AsynchronousSubscriptionMeasurementProducer {
     
     private static final Logger logger = CustomLogger.getLogger(SubscriptionProcessor.class.getName());
     private AsynchronousCachingBroker broker;
@@ -34,7 +36,7 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
 
     private Map<String, AsynchronousSubscriber> subscribers = Collections.synchronizedMap(new HashMap<>());
     
-    private List<AsynchronousMeasurementListener> measurementListeners;
+    private List<AsynchronousSubscriptionMeasurementListener> measurementListeners;
     
     
     public SubscriptionProcessor(AsynchronousCachingBroker b) {
@@ -76,7 +78,7 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
     
 
     @Override
-    public void addMeasurementListener(AsynchronousMeasurementListener l) {
+    public void addSubscriptionMeasurementListener(AsynchronousSubscriptionMeasurementListener l) {
         measurementListeners.add(l);
     }
 
@@ -125,8 +127,8 @@ public class SubscriptionProcessor implements Runnable, AsynchronousMeasurementP
     
     private void sendMeasurement(Duration d) {
         logger.log(Level.FINE, "Sending Measurement to listeners");
-        for (AsynchronousMeasurementListener l : measurementListeners) {
-            l.asynchronousMeasurementPerformed(d);
+        for (AsynchronousSubscriptionMeasurementListener l : measurementListeners) {
+            l.subscriptionMeasurementPerformed(d);
         } 
     }
 }

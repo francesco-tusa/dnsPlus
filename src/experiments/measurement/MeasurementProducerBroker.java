@@ -4,11 +4,8 @@ package experiments.measurement;
  *
  * @author uceeftu
  */
-public interface MeasurementProducerBroker {
+public interface MeasurementProducerBroker extends AsynchronousPublicationMeasurementProducer, 
+                                                   AsynchronousSubscriptionMeasurementProducer, 
+                                                   AsynchronousMeasurementProducer {
     
-    // add a listener for publication measurement events
-    void addPublicationMeasurementListener(AsynchronousMeasurementListener listener);
-    
-    // add a listener for subscription measurement events
-    void addSubscriptionMeasurementListener(AsynchronousMeasurementListener listener);
 }

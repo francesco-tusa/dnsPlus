@@ -9,4 +9,5 @@ public interface RunTasksExecutor extends RunTasksOutputManager {
     void addTask(Task task);
     void start();
     void cleanUp();
+    void finalise();
 }

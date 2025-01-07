@@ -62,8 +62,12 @@ public final class DNSWithCacheRun extends RunSequentialTasksExecutor {
         //publisher.publish(new PoisonPillPublication());
         //subscriber.subscribe(new PoisonPillSubscription());
     }
-    
-    
+
+    @Override
+    public void finalise() {
+        logger.log(Level.INFO, "Finalising Run");
+    }
+   
     
 //    public void simpleTest() {
 //        System.out.println("Publication: fonts");

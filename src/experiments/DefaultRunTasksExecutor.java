@@ -35,8 +35,5 @@ public abstract class DefaultRunTasksExecutor implements RunTasksExecutor {
     public void addTask(Task task) {
         tasks.add(task);
     }
-
-    @Override
-    public abstract void cleanUp();
     
 }

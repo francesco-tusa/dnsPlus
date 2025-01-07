@@ -16,19 +16,21 @@ import subscribing.PoisonPillSubscription;
 import utils.CustomLogger;
 import utils.ExecutionTimeLogger;
 import experiments.measurement.AsynchronousMeasurementListener;
+import experiments.measurement.AsynchronousPublicationMeasurementListener;
+import experiments.measurement.AsynchronousPublicationMeasurementProducer;
 
 /**
  *
  * @author uceeftu
  */
-public class PublicationProcessor implements Runnable, AsynchronousMeasurementProducer{
+public class PublicationProcessor implements Runnable, AsynchronousPublicationMeasurementProducer{
     
     private static final Logger logger = CustomLogger.getLogger(PublicationProcessor.class.getName());
     private AsynchronousBroker broker;
     private BlockingQueue<Publication> publicationQueue;
     private BlockingQueue<Subscription> resultQueue;
     
-    private List<AsynchronousMeasurementListener> measurementListeners;
+    private List<AsynchronousPublicationMeasurementListener> measurementListeners;
     
     
     public PublicationProcessor(AsynchronousBroker b) {
@@ -61,7 +63,7 @@ public class PublicationProcessor implements Runnable, AsynchronousMeasurementPr
     }
     
     @Override
-    public void addMeasurementListener(AsynchronousMeasurementListener l) {
+    public void addPublicationMeasurementListener(AsynchronousPublicationMeasurementListener l) {
         measurementListeners.add(l);
     }
     
@@ -104,8 +106,8 @@ public class PublicationProcessor implements Runnable, AsynchronousMeasurementPr
     
     private void sendMeasurement(Duration d) {
         logger.log(Level.FINE, "Sending Measurement to listeners");
-        for (AsynchronousMeasurementListener l : measurementListeners) {
-            l.asynchronousMeasurementPerformed(d);
+        for (AsynchronousPublicationMeasurementListener l : measurementListeners) {
+            l.publicationMeasurementPerformed(d);
         } 
     }
 }

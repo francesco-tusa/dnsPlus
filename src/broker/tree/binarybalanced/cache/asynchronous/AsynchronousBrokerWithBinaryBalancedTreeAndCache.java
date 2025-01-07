@@ -8,8 +8,13 @@ import subscribing.Subscription;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import utils.CustomLogger;
-import experiments.measurement.AsynchronousMeasurementListener;
+import experiments.measurement.AsynchronousPublicationMeasurementListener;
+import experiments.measurement.AsynchronousSubscriptionMeasurementListener;
+import java.util.ArrayList;
+import java.util.List;
 import subscribing.AsynchronousSubscriber;
+import experiments.measurement.AsynchronousBrokerMeasurementListener;
+import experiments.measurement.BrokerStats;
 
 public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTreeAndCache implements AsynchronousMeasurementProducerCachingBroker {
     
@@ -17,12 +22,17 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
     private SubscriptionProcessor subscriptionProcessor;
     private PublicationProcessor publicationProcessor;
     private PublicationsDispatcher publicationsDispatcher;
+    
+    private List<AsynchronousBrokerMeasurementListener> listeners;
+    private BrokerStats brokerStats;
         
     public AsynchronousBrokerWithBinaryBalancedTreeAndCache(String name, HEPS heps) {
         super(name, heps);
         subscriptionProcessor = new SubscriptionProcessor(this);
         publicationProcessor = new PublicationProcessor(this);
         publicationsDispatcher = new PublicationsDispatcher(this);
+        listeners = new ArrayList<>();
+        brokerStats = new BrokerStats();
     }
 
     public SubscriptionProcessor getSubscriptionProcessor() {
@@ -51,19 +61,33 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
         publicationsDispatcher.startDispatching();
     }
     
+
     @Override
-    public void addPublicationMeasurementListener(AsynchronousMeasurementListener listener) {
-        publicationProcessor.addMeasurementListener(listener);
+    public void stopProcessing() {
+        for (AsynchronousBrokerMeasurementListener l : listeners) {
+            l.asynchronousMeasurementPerformed(brokerStats);
+        }
+    }
+    
+    
+    @Override
+    public void addPublicationMeasurementListener(AsynchronousPublicationMeasurementListener listener) {
+        publicationProcessor.addPublicationMeasurementListener(listener);
     }
 
     @Override
-    public void addSubscriptionMeasurementListener(AsynchronousMeasurementListener listener) {
-        subscriptionProcessor.addMeasurementListener(listener);
+    public void addSubscriptionMeasurementListener(AsynchronousSubscriptionMeasurementListener listener) {
+        subscriptionProcessor.addSubscriptionMeasurementListener(listener);
     }
     
+    @Override
+    public void addMeasurementListener(AsynchronousBrokerMeasurementListener l) {
+        listeners.add(l);
+    }
 
     @Override
     public void processSubscription(Subscription s) {
+        brokerStats.incrementSubscriptions();
         subscriptionProcessor.addSubscription(s);
     }
 
@@ -79,6 +103,7 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
 
     @Override
     public void processPublication(Publication p) {
+        brokerStats.incrementPublications();
         publicationProcessor.addPublication(p);
     }
 
@@ -98,6 +123,9 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
         Subscription matched  = super.matchPublication(p);
         
         if (matched != null) {
+            
+            brokerStats.incrementMatches();
+            
             logger.log(Level.FINEST, "Adding matching subscription to the queue: {0}", matched.getServiceName());
             publicationProcessor.addMatchResult(matched);
             
@@ -119,6 +147,9 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
         Publication matched = super.cacheLookUp(s);
         
         if (matched != null) {
+            
+            brokerStats.incrementCacheHits();
+            
             logger.log(Level.FINEST, "Adding matching publication from cache to the subscription processor''s results queue: {0}", s.getServiceName());
             // adding the subscriber(s) to the publication's list of recipients
             matched.setRecipients(s.getSubscribers());

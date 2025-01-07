@@ -16,4 +16,6 @@ public interface AsynchronousBroker extends Broker {
     
     //returns the first available publication processing result (for debug)
     Subscription getPublicationResult();
+    
+    void stopProcessing();
 }

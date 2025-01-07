@@ -14,9 +14,12 @@ import java.util.logging.Logger;
 import publishing.Publisher;
 import subscribing.AsynchronousSubscriber;
 import utils.CustomLogger;
-import experiments.measurement.AsynchronousMeasurementListener;
 import utils.ExecutionTimeLogger;
 import experiments.inputdata.DomainsDB;
+import experiments.measurement.AsynchronousBrokerMeasurementListener;
+import experiments.measurement.AsynchronousPublicationMeasurementListener;
+import experiments.measurement.AsynchronousSubscriptionMeasurementListener;
+import experiments.measurement.BrokerStats;
 import publishing.PoisonPillPublication;
 import subscribing.PoisonPillSubscription;
 
@@ -36,6 +39,8 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
     private int numberOfPublications;
     private int numberOfSubscriptions;
     
+    private BrokerStatsCollector brokerStatsCollector;
+    
     
     public DNSWithCacheAsynchronousRun(DomainsDB db, int numberOfPublications, int numberOfSubscriptions) {
         this(db, null, numberOfPublications, numberOfSubscriptions);
@@ -51,6 +56,7 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
         domainsDB = (db != null) ? db : DBFactory.getDomainsDB(fileName);
         numberOfPublications = nPublications;
         numberOfSubscriptions = nSubscriptions;
+        brokerStatsCollector = new BrokerStatsCollector();
     }
     
 
@@ -78,7 +84,12 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
             if (task instanceof AsynchronousTask asyncTask) {
                 asyncTask.cleanUp();
             }
-        }       
+        }
+    }
+
+    @Override
+    public void finalise() {
+        broker.stopProcessing();
     }
     
     
@@ -100,11 +111,13 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
             logger.log(Level.SEVERE, "Thread interrupted", e);
             Thread.currentThread().interrupt();
         }
+        
+        broker.stopProcessing();
     }
 
     
 
-    final class PublisherTask extends AsynchronousTask implements AsynchronousMeasurementListener {
+    final class PublisherTask extends AsynchronousTask implements AsynchronousPublicationMeasurementListener {
         private static final Logger logger = CustomLogger.getLogger(PublisherTask.class.getName());
         // a normal publisher is used here (does not listen for subscriptions that matched
         // its publications) as this is the case in pub/sub scenarios
@@ -124,7 +137,7 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
         }
 
         @Override
-        public void asynchronousMeasurementPerformed(Duration replyDuration) {
+        public void publicationMeasurementPerformed(Duration replyDuration) {
             logger.log(Level.INFO, "Publisher {0} received measurement {1}", new Object[]{publisher.getName(), replyDuration.toMillis()});
             setReplyDuration(replyDuration);
             repliesLatch.countDown();
@@ -155,7 +168,7 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
         
     }
     
-    final class SubscriberTask extends AsynchronousTask implements AsynchronousMeasurementListener {
+    final class SubscriberTask extends AsynchronousTask implements AsynchronousSubscriptionMeasurementListener {
         private static final Logger logger = CustomLogger.getLogger(SubscriberTask.class.getName());
         private AsynchronousSubscriber subscriber;
         
@@ -172,7 +185,7 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
         }
         
         @Override
-        public void asynchronousMeasurementPerformed(Duration replyDuration) {
+        public void subscriptionMeasurementPerformed(Duration replyDuration) {
             logger.log(Level.INFO, "Subscriber {0} received measurement {1}", new Object[]{subscriber.getName(), replyDuration.toMillis()});
             setReplyDuration(replyDuration);
             repliesLatch.countDown();
@@ -198,5 +211,29 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
             subscriber.subscribe(new PoisonPillSubscription(name));
             logger.log(Level.FINE, "Subscriber {0} sent a poison pill subscription", name);
         }
+    }
+    
+    final class BrokerStatsCollector implements AsynchronousBrokerMeasurementListener {
+
+        private static final Logger logger = CustomLogger.getLogger(BrokerStatsCollector.class.getName());
+        private BrokerStats brokerStats;
+
+        public BrokerStatsCollector() {
+            registerWithMeasurementProducer();
+        }
+        
+        
+        
+        @Override
+        public void asynchronousMeasurementPerformed(BrokerStats brokerStats) {
+            this.brokerStats = brokerStats;
+            logger.log(Level.SEVERE, brokerStats.toString());
+        }
+
+        @Override
+        public void registerWithMeasurementProducer() {
+            broker.addMeasurementListener(this);
+        }
+        
     }
 }
