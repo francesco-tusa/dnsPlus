@@ -6,10 +6,10 @@ package experiments.inputdata;
  */
 public class DomainEntry {
     private final String name;
-    private float frequency;
-    private float probability;
+    private long frequency;
+    private double probability;
 
-    public DomainEntry(String name, float frequency) {
+    public DomainEntry(String name, long frequency) {
         this.name = name;
         this.frequency = frequency;
     }
@@ -22,19 +22,23 @@ public class DomainEntry {
         return name;
     }
 
-    public float getFrequency() {
+    public long getFrequency() {
         return frequency;
     }
 
-    public float getProbability() {
+    public double getProbability() {
         return probability;
     }
 
-    public void setProbability(float probability) {
+    public void setProbability(double probability) {
         this.probability = probability;
     }
-    
-    
-    
+
+    @Override
+    public String toString() {
+        return """
+               
+               \tDomainEntry{name=""" + name + ", frequency=" + frequency + ", probability=" + probability + '}';
+    }
     
 }

@@ -29,7 +29,7 @@ public abstract class Experiment {
         this.name = ExperimentTimestamp.appendTimestamp(name);
         this.inputFileName = inputFileName;
         this.numberOfRuns = numberOfRuns;
-        this.domainsDB = DBFactory.getDomainsDB(System.getProperty("user.home") + "/" + inputFileName);
+        this.domainsDB = DBFactory.getDomainsDB(inputFileName);
         allRunsTasksOutput = new ArrayList<>(numberOfRuns);
         
         this.experimentStatsCalculator = experimentStatsCalculator;

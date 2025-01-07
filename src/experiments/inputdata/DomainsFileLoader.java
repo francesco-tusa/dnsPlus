@@ -21,7 +21,8 @@ public class DomainsFileLoader {
     List<DomainEntry> domains;
 
     public DomainsFileLoader(String fileName) {
-        serviceNames = new File(fileName);
+        // assuming input file is always inside user home
+        serviceNames = new File(System.getProperty("user.home") + "/" + fileName);
         domains = new ArrayList<>();
     }
 
@@ -43,7 +44,7 @@ public class DomainsFileLoader {
                     DomainEntry domain = parseInfo(domainInfo);
                     domains.add(domain);
                 }
-                logger.log(Level.INFO, "Loaded domain names and frequencies information");
+                logger.log(Level.WARNING, "Loaded domain names and frequencies information");
             }
         }
     }
@@ -69,6 +70,6 @@ public class DomainsFileLoader {
 
     private DomainEntry parseInfo(String domainInfo) {
         String[] splitDomainInfo = domainInfo.split(",");
-        return new DomainEntry(splitDomainInfo[0], Float.parseFloat(splitDomainInfo[1]));
+        return new DomainEntry(splitDomainInfo[0], Long.parseLong(splitDomainInfo[1]));
     }
 }

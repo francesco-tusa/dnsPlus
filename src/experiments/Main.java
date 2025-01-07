@@ -15,8 +15,8 @@ public class Main {
     
     
     public static void main(String[] args) {
-        Experiment experiment = new DNSWithCacheAsynchronousExperiment("websites.txt", 1);
-        //Experiment experiment = new DNSWithCacheAsynchronousExperiment("websites.txt", 1, 1000, 100, 2, 3);
+        //Experiment experiment = new DNSWithCacheAsynchronousExperiment("ranked_websites.csv", 1);
+        Experiment experiment = new DNSWithCacheAsynchronousExperiment("ranked_websites.csv", 1, 100, 10000, 1, 1);
         //Experiment experiment = new DNSWithCacheExperiment("websites.txt", 1);
         //Experiment experiment = new DNSWithCacheExperiment("websites.txt", 1, 1000, 100);
         

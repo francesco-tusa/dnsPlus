@@ -5,13 +5,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-public class NamesDB implements DomainsDB {
+public final class NamesDB implements DomainsDB {
 
     private List<String> nameEntries;
 
-    public NamesDB(List<DomainEntry> list) {
+    public NamesDB(List<DomainEntry> domainsList) {
         this.nameEntries = new ArrayList<>();
-        for (DomainEntry d : list) {
+        for (DomainEntry d : domainsList) {
             nameEntries.add(d.getName());
         }
     }
