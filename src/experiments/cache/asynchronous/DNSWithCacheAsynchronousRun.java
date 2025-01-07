@@ -104,8 +104,8 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
 
     final class PublisherTask extends AsynchronousTask implements AsynchronousMeasurementListener {
         private static final Logger logger = CustomLogger.getLogger(PublisherTask.class.getName());
-        // a normal publisher is used here (does not wait for subscriptions that matched)
-        // publications as this is the case in pub/sub scenarios
+        // a normal publisher is used here (does not listen for subscriptions that matched
+        // its publications) as this is the case in pub/sub scenarios
         // Asynchronous publisher might be used for debugging
         private Publisher publisher;
         

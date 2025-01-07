@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import utils.CustomLogger;
+import utils.ExperimentTimestamp;
 
 /**
  *
@@ -25,7 +26,7 @@ public abstract class Experiment {
     private final ExperimentStatsCalculator experimentStatsCalculator;
 
     public Experiment(String name, String inputFileName, int numberOfRuns, ExperimentStatsCalculator experimentStatsCalculator) {
-        this.name = name;
+        this.name = ExperimentTimestamp.appendTimestamp(name);
         this.inputFileName = inputFileName;
         this.numberOfRuns = numberOfRuns;
         this.domainsDB = DBFactory.getDomainsDB(System.getProperty("user.home") + "/" + inputFileName);
