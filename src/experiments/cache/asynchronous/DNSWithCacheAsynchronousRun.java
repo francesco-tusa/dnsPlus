@@ -61,6 +61,7 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
 
     @Override
     public void start() {
+        List<Task> tasks = getTasks();
         requestsLatch = new CountDownLatch(tasks.size());
         repliesLatch = new CountDownLatch(tasks.size());
         for (Task task : tasks) {
@@ -72,6 +73,7 @@ public final class DNSWithCacheAsynchronousRun extends RunParallelTasksExecutor 
     @Override
     public void cleanUp() {
         logger.log(Level.INFO, "Cleaning Up Run");
+        List<Task> tasks = getTasks();
         for (Task task : tasks) {
             if (task instanceof AsynchronousTask asyncTask) {
                 asyncTask.cleanUp();

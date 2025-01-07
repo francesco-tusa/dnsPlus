@@ -9,8 +9,8 @@ import java.util.List;
  */
 public abstract class DefaultRunTasksExecutor implements RunTasksExecutor {
     
-    protected final String name;
-    protected final List<Task> tasks;
+    private final String name;
+    private final List<Task> tasks;
 
     public DefaultRunTasksExecutor(String name) {
         this.name = name;

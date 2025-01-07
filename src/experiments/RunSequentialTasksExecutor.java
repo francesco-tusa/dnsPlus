@@ -18,7 +18,7 @@ public abstract class RunSequentialTasksExecutor extends DefaultRunTasksExecutor
 
     @Override
     public void start() {
-        for (Task task : tasks) {
+        for (Task task : getTasks()) {
             Thread t = new Thread(task, task.getName());
             t.start();
             try {
