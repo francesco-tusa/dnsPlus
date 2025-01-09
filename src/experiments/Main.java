@@ -2,6 +2,7 @@ package experiments;
 
 import experiments.cache.DNSWithCacheExperiment;
 import experiments.cache.asynchronous.DNSWithCacheAsynchronousExperiment;
+import experiments.cache.asynchronous.DNSWithCacheAsynchronousSequentialParallelExperiment;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import utils.CustomLogger;
@@ -15,8 +16,12 @@ public class Main {
     
     
     public static void main(String[] args) {
+        //Experiment experiment = new DNSWithCacheAsynchronousSequentialParallelExperiment("ranked_websites.csv", 1);
+        Experiment experiment = new DNSWithCacheAsynchronousSequentialParallelExperiment("ranked_websites.csv", 1, 1000, 100, 1, 3);
+        
         //Experiment experiment = new DNSWithCacheAsynchronousExperiment("ranked_websites.csv", 1);
-        Experiment experiment = new DNSWithCacheAsynchronousExperiment("ranked_websites.csv", 1, 100, 1000, 1, 1);
+        //Experiment experiment = new DNSWithCacheAsynchronousExperiment("ranked_websites.csv", 1, 1000, 100, 1, 2);
+        
         //Experiment experiment = new DNSWithCacheExperiment("websites.txt", 1);
         //Experiment experiment = new DNSWithCacheExperiment("websites.txt", 1, 1000, 100);
         

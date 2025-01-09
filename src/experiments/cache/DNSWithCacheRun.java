@@ -15,6 +15,7 @@ import publishing.Publication;
 import publishing.Publisher;
 import subscribing.Subscriber;
 import utils.ExecutionTimeLogger;
+import utils.ExecutionTimeResult;
 
 /**
  *
@@ -51,6 +52,7 @@ public final class DNSWithCacheRun extends RunSequentialTasksExecutor {
        
     @Override
     public void setUp() {
+        logger.log(Level.INFO, "Setting Up Run");
         //publisher.init();
         //subscriber.init();
     }
@@ -188,13 +190,17 @@ public final class DNSWithCacheRun extends RunSequentialTasksExecutor {
         @Override
         public void run() {
             List<String> randomEntries = domainsDB.getRandomEntries(numberOfSubscriptions);
-            ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
-                    -> {
-                subscriber.generateAndSubscribeToAll(randomEntries);
-                return null;
-            });
+            
+            ExecutionTimeResult<Void> result = 
+                ExecutionTimeLogger.measure(
+                    "generateAndSubscribeToAll",
+                    () -> { subscriber.generateAndSubscribeToAll(randomEntries);
+                            return null; }
+                );
+            
             setDuration(result.getDuration());
-            logger.log(Level.INFO, "Subscriber {0} completed their request task", subscriber.getName());
+            logger.log(Level.INFO, "Subscriber {0} completed their request task operation {1}", 
+                                   new Object[]{subscriber.getName(), result.getCalledMethod()});
             //subscriber.subscribe(new PoisonPillSubscription());
         }
     }
@@ -218,13 +224,13 @@ public final class DNSWithCacheRun extends RunSequentialTasksExecutor {
             List<String> randomEntries = domainsDB.getRandomEntries(numberOfPublications);
             List<Publication> generatedPublications = publisher.generatePublications(randomEntries);
             
-            //TODO: if multiple measurements are requested then they should be added to a collection
-            // and average should be calculated over the runs for all of them
-            ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
-                    -> {
-                publisher.publishAll(generatedPublications);
-                return null;
-            });
+            ExecutionTimeResult<Void> result = 
+                ExecutionTimeLogger.measure(
+                    "publishAll",    
+                    () -> { publisher.publishAll(generatedPublications);
+                            return null; }
+                );
+            
             setDuration(result.getDuration());
             logger.log(Level.INFO, "Publisher task request completed");
             //publisher.publish(new PoisonPillPublication());

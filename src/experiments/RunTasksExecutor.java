@@ -7,7 +7,8 @@ package experiments;
 public interface RunTasksExecutor extends RunTasksOutputManager {
     void setUp();
     void addTask(Task task);
-    void start();
+    void runTasks();
     void cleanUp();
     void finalise();
+    void executeRun();
 }

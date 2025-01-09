@@ -20,6 +20,10 @@ public class Publication {
      // for debug only
     private String serviceName;
     
+    protected Publication () {
+        serviceName = "MEASUREMENT_PILL";
+    }
+    
     public Publication(String pub) {
         serviceName = "POISON_PILL";
         publisher = pub;

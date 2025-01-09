@@ -17,16 +17,26 @@ public class Subscriber extends BlindingSubscriber {
     
     private Map<String, Subscription> subscriptions;
     
+    
     public Subscriber(String name, Broker broker) {
         super(name);
         this.broker = broker;
         subscriptions = new HashMap<>();
     }
+    
+    public Subscriber(String name) {
+        this(name, null);
+    }
 
+    
     public Broker getBroker() {
         return broker;
     }
-    
+
+    public void setBroker(Broker broker) {
+        this.broker = broker;
+    }
+   
     
     @Override
     public Subscription generateSubscription(String service) {

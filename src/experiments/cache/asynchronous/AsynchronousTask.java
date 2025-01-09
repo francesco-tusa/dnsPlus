@@ -10,6 +10,10 @@ import java.time.Duration;
 public abstract class AsynchronousTask extends SynchronousTask {
     private Duration replyDuration;
 
+    protected AsynchronousTask() {
+        replyDuration = Duration.ZERO;
+    }
+    
     @Override
     public long getReplyDuration() {
         return replyDuration.toMillis();

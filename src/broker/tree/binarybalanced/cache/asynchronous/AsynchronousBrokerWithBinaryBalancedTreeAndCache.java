@@ -3,6 +3,7 @@ package broker.tree.binarybalanced.cache.asynchronous;
 import broker.AsynchronousMeasurementProducerCachingBroker;
 import broker.tree.binarybalanced.cache.BrokerWithBinaryBalancedTreeAndCache;
 import encryption.HEPS;
+import experiments.cache.asynchronous.AsynchronousTask;
 import publishing.Publication;
 import subscribing.Subscription;
 import java.util.logging.Logger;
@@ -14,7 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import subscribing.AsynchronousSubscriber;
 import experiments.measurement.AsynchronousBrokerMeasurementListener;
-import experiments.measurement.BrokerStats;
+import experiments.outputdata.BrokerStats;
+
 
 public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends BrokerWithBinaryBalancedTreeAndCache implements AsynchronousMeasurementProducerCachingBroker {
     
@@ -48,11 +50,32 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
     }
 
     @Override
-    public void register(AsynchronousSubscriber subscriber) {
+    public void registerSubscriber(AsynchronousSubscriber subscriber) {
         logger.log(Level.INFO, "Registering sub {0}", subscriber.getName());
         publicationsDispatcher.addSubscriber(subscriber);
     }
 
+
+    @Override
+    public void addSubscriptionTask(AsynchronousTask subscriberTask) {
+        subscriptionProcessor.addSubscriptionTask(subscriberTask);
+    }
+
+    @Override
+    public void removeSubscriptionTask(String subscriberTaskName) {
+        subscriptionProcessor.removeSubscriptionTask(subscriberTaskName);
+    }
+
+    @Override
+    public void addPublicationTask(AsynchronousTask publisherTask) {
+        publicationProcessor.addPublicationTask(publisherTask);
+    }
+
+    @Override
+    public void removePublicationTask(String publisherTaskName) {
+        publicationProcessor.removePublicationTask(publisherTaskName);
+    }
+    
     
     @Override
     public void startProcessing() {

@@ -1,7 +1,7 @@
 package broker.tree.binarybalanced.cache.asynchronous;
 
 import broker.AsynchronousBroker;
-import experiments.measurement.AsynchronousMeasurementProducer;
+import experiments.cache.asynchronous.AsynchronousTask;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,9 +15,13 @@ import publishing.PoisonPillPublication;
 import subscribing.PoisonPillSubscription;
 import utils.CustomLogger;
 import utils.ExecutionTimeLogger;
-import experiments.measurement.AsynchronousMeasurementListener;
 import experiments.measurement.AsynchronousPublicationMeasurementListener;
 import experiments.measurement.AsynchronousPublicationMeasurementProducer;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import publishing.MeasurementPillPublication;
+import utils.ExecutionTimeResult;
 
 /**
  *
@@ -31,6 +35,10 @@ public class PublicationProcessor implements Runnable, AsynchronousPublicationMe
     private BlockingQueue<Subscription> resultQueue;
     
     private List<AsynchronousPublicationMeasurementListener> measurementListeners;
+    
+    private Map<String, AsynchronousTask> publicationTasks = Collections.synchronizedMap(new HashMap<>());
+    private int poisonPills;
+    private int measurementPills;
     
     
     public PublicationProcessor(AsynchronousBroker b) {
@@ -62,6 +70,18 @@ public class PublicationProcessor implements Runnable, AsynchronousPublicationMe
         resultQueue.offer(s);
     }
     
+
+    @Override
+    public void addPublicationTask(AsynchronousTask publisherTask) {
+        publicationTasks.putIfAbsent(publisherTask.getName(), publisherTask);
+    }
+
+    @Override
+    public void removePublicationTask(String publisherTaskName) {
+        publicationTasks.remove(publisherTaskName);
+    }
+    
+    
     @Override
     public void addPublicationMeasurementListener(AsynchronousPublicationMeasurementListener l) {
         measurementListeners.add(l);
@@ -79,30 +99,55 @@ public class PublicationProcessor implements Runnable, AsynchronousPublicationMe
                 Publication p = publicationQueue.take();
                 if (p != null) {
                     if (p instanceof PoisonPillPublication) {
-                        logger.log(Level.WARNING, "Received PoisonPillPublication: Thread {0} is being stopped", Thread.currentThread().getName());
-                        resultQueue.offer(new PoisonPillSubscription(""));
-                        break;
+                        poisonPills++;
+                        if (stopProcessing()) {
+                            logger.log(Level.WARNING, "Thread {0} is being stopped", Thread.currentThread().getName());
+                            resultQueue.offer(new PoisonPillSubscription(""));
+                            break;
+                        }
+                    } else if (p instanceof MeasurementPillPublication) {
+                        logger.log(Level.FINE, "Requested Measurements");
+                        measurementPills++;
+                        if (stopProcessing()) {
+                            sendMeasurement(duration);
+                            duration = Duration.ZERO;
+                            measurementListeners.clear();
+                            measurementPills = 0;
+                        }
+                    } else {
+                        logger.log(Level.FINEST, "Publication for {0} taken off the queue", p.getServiceName());
+
+                        ExecutionTimeResult<Void> result = 
+                            ExecutionTimeLogger.measure(
+                                "matchPublication",    
+                                () -> { broker.matchPublication(p);
+                                        return null; }
+                            );
+
+                        duration = duration.plus(result.getDuration());
                     }
-                    logger.log(Level.FINEST, "Publication for {0} taken off the queue", p.getServiceName());
-                    
-                    ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
-                            -> {
-                        broker.matchPublication(p);
-                        return null;
-                    });
-                    
-                    duration = duration.plus(result.getDuration());
  
                 }
             } catch (InterruptedException e) {
                 logger.log(Level.WARNING, "Thread {0} was interrupted",  Thread.currentThread().getName());
-                Thread.currentThread().interrupt();
+                break;
             }
         }
         
         // sending duration to listeners
         sendMeasurement(duration);
     }
+    
+    
+    private boolean stopProcessing() {
+        logger.log(Level.FINER, "map size: {0}", publicationTasks.size());
+        logger.log(Level.FINER, "poison pills counter: {0}", poisonPills);
+        logger.log(Level.FINER, "measurement pills counter: {0}", measurementPills);
+        
+        return publicationTasks.size() == poisonPills || 
+               publicationTasks.size() == measurementPills;  
+    }
+    
     
     private void sendMeasurement(Duration d) {
         logger.log(Level.FINE, "Sending Measurement to listeners");

@@ -15,10 +15,11 @@ public final class AsynchronousPublisher extends Publisher {
 
     public AsynchronousPublisher(String name, AsynchronousBroker broker) {
         super(name, broker);
+        init();
     }
     
     @Override
-    public void init() {
+    public final void init() {
         super.init();
         receiveSubscriptions();
     }
@@ -26,7 +27,7 @@ public final class AsynchronousPublisher extends Publisher {
     
     // for debugging
     private void receiveSubscriptions() {
-        Thread publisherReceiverThread = new Thread(() -> listenForSubscriptions());
+        Thread publisherReceiverThread = new Thread(() -> listenForSubscriptions(), getName() + "receiver");
         publisherReceiverThread.start();
     }
     

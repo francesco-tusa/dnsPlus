@@ -34,11 +34,11 @@ public final class DNSWithCacheExperiment extends SynchronousExperiment {
         DNSWithCacheRun.PublisherTask publisherTask = experimentRun.new PublisherTask("Pub");
         
         experimentRun.addTask(subscriberTask);
-        experimentRun.addTask(publisherTask);
+        experimentRun.addTask(publisherTask);    
         
-        experimentRun.start();
-       
-        experimentRun.cleanUp();
+        experimentRun.executeRun();
+        //experimentRun.runTasks();
+        //experimentRun.cleanUp();
         
         List<RunTasksOutputManager> allRunsTasksOutput = getAllRunsTasksOutput();
         allRunsTasksOutput.add(experimentRun);

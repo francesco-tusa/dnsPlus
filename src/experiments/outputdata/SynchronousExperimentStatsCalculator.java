@@ -34,7 +34,7 @@ public class SynchronousExperimentStatsCalculator extends ExperimentStatsCalcula
                 long taskDuration = currentTask.getDuration();
                 taskDurationSum += taskDuration;
                 taskDurationSumSquares += taskDuration * taskDuration;
-                taskStats = new ExperimentTaskStats(currentTask.getName());
+                taskStats = new ExperimentTaskStats(currentTask.getName(), currentTask.getTaskType());
             }
             
             int numberOfRuns = allRunsOutput.size();

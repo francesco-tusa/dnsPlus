@@ -18,14 +18,31 @@ public class AsynchronousSubscriber extends Subscriber {
     public AsynchronousSubscriber(String name, AsynchronousBroker broker) {
         super(name, broker);
         publicationsQueue = new LinkedBlockingQueue<>();
+        init();
     }
     
+    public AsynchronousSubscriber(String name) {
+        this(name, null);
+    }
     
     @Override
-    public void init() {
+    public final void init() {
         super.init();
-        ((AsynchronousBroker) getBroker()).register(this);
+        
+        if (getBroker() != null) {
+            ((AsynchronousBroker) getBroker()).registerSubscriber(this);
+        }
+        
         receivePublications();
+    }
+    
+    public void setBroker(AsynchronousBroker broker) {
+        // we set the broker only if not previously done
+        // when calling this object constructor
+        if (getBroker() == null) {
+            super.setBroker(broker);
+            broker.registerSubscriber(this);
+        }
     }
     
     public void addMatchingPublication(Publication p) {
@@ -34,7 +51,7 @@ public class AsynchronousSubscriber extends Subscriber {
     }
     
     private void receivePublications() {
-        Thread subscriberReceiverThread = new Thread(() -> listenForPublications());
+        Thread subscriberReceiverThread = new Thread(() -> listenForPublications(), getName() + "receiver");
         subscriberReceiverThread.start();
     }
     

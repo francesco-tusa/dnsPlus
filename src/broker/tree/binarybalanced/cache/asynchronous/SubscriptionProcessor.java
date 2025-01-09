@@ -1,7 +1,7 @@
 package broker.tree.binarybalanced.cache.asynchronous;
 
 import broker.AsynchronousCachingBroker;
-import experiments.measurement.AsynchronousMeasurementProducer;
+import experiments.cache.asynchronous.AsynchronousTask;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,13 +15,13 @@ import subscribing.PoisonPillSubscription;
 import subscribing.Subscription;
 import utils.CustomLogger;
 import utils.ExecutionTimeLogger;
-import experiments.measurement.AsynchronousMeasurementListener;
 import experiments.measurement.AsynchronousSubscriptionMeasurementListener;
 import experiments.measurement.AsynchronousSubscriptionMeasurementProducer;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import subscribing.AsynchronousSubscriber;
+import subscribing.MeasurementPillSubscription;
+import utils.ExecutionTimeResult;
 
 /**
  *
@@ -34,7 +34,9 @@ public class SubscriptionProcessor implements Runnable, AsynchronousSubscription
     private BlockingQueue<Subscription> subscriptionQueue;
     private BlockingQueue<Publication> resultQueue;
 
-    private Map<String, AsynchronousSubscriber> subscribers = Collections.synchronizedMap(new HashMap<>());
+    private Map<String, AsynchronousTask> subscriptionTasks = Collections.synchronizedMap(new HashMap<>());
+    private int poisonPills;
+    private int measurementPills;
     
     private List<AsynchronousSubscriptionMeasurementListener> measurementListeners;
     
@@ -44,6 +46,7 @@ public class SubscriptionProcessor implements Runnable, AsynchronousSubscription
         subscriptionQueue = new LinkedBlockingQueue<>();
         resultQueue = new LinkedBlockingQueue<>();
         measurementListeners = new ArrayList<>();
+        poisonPills = measurementPills = 0;
     }
     
     public void startProcessing() {
@@ -68,8 +71,14 @@ public class SubscriptionProcessor implements Runnable, AsynchronousSubscription
         resultQueue.offer(p); // Store the result in the result queue
     }
     
-    public void addSubscriber(AsynchronousSubscriber subscriber) {
-        subscribers.putIfAbsent(subscriber.getName(), subscriber);
+    @Override
+    public void addSubscriptionTask(AsynchronousTask subscriberTask) {
+        subscriptionTasks.putIfAbsent(subscriberTask.getName(), subscriberTask);
+    }
+
+    @Override
+    public void removeSubscriptionTask(String subscriberTaskName) {
+        subscriptionTasks.remove(subscriberTaskName);
     }
     
     public int getPublicationsQueueSize() {
@@ -94,25 +103,39 @@ public class SubscriptionProcessor implements Runnable, AsynchronousSubscription
                 logger.log(Level.FINEST, "Taking a subscription off the queue");
                 Subscription s = subscriptionQueue.take();
                 if (s != null) {
-                    if (s instanceof PoisonPillSubscription poisonPill && stopProcessing(poisonPill)) {
-                        logger.log(Level.WARNING, "Thread {0} is being stopped", Thread.currentThread().getName());
-                        resultQueue.offer(new PoisonPillPublication(""));
-                        break;
-                    }
-                    logger.log(Level.FINEST, "Subscription for {0} taken off the queue", s.getServiceName());
+                    if (s instanceof PoisonPillSubscription) {
+                        poisonPills++;
+                        if (stopProcessing()) {
+                            logger.log(Level.WARNING, "Thread {0} is being stopped", Thread.currentThread().getName());
+                            resultQueue.offer(new PoisonPillPublication(""));
+                            break;
+                        }
+                    } else if (s instanceof MeasurementPillSubscription) {
+                        logger.log(Level.FINE, "Requested Measurements");
+                        measurementPills++;
+                        if (stopProcessing()) {
+                            sendMeasurement(duration);
+                            duration = Duration.ZERO;
+                            measurementListeners.clear();
+                            measurementPills = 0;
+                        }
+                    } else {
+                        logger.log(Level.FINEST, "Subscription for {0} taken off the queue", s.getServiceName());
 
-                    ExecutionTimeLogger.ExecutionResult<Void> result = ExecutionTimeLogger.measureExecutionTime(()
-                            -> {
-                        broker.cacheLookUp(s);
-                        return null;
-                    });
-                    
-                    duration = duration.plus(result.getDuration());
+                        ExecutionTimeResult<Void> result = 
+                            ExecutionTimeLogger.measure(
+                                "cacheLookUp",
+                                () -> { broker.cacheLookUp(s);
+                                        return null; }
+                            );
+
+                        duration = duration.plus(result.getDuration());
+                    }
 
                 }
             } catch (InterruptedException e) {
                 logger.log(Level.WARNING, "Thread {0} was interrupted",  Thread.currentThread().getName());
-                Thread.currentThread().interrupt();
+                break;
             }
         }
         
@@ -120,9 +143,13 @@ public class SubscriptionProcessor implements Runnable, AsynchronousSubscription
         sendMeasurement(duration);
     }
     
-    private boolean stopProcessing(PoisonPillSubscription s) {
-        subscribers.remove(s.getSubscriber());
-        return subscribers.isEmpty();      
+    private boolean stopProcessing() {
+        logger.log(Level.FINER, "map size: {0}", subscriptionTasks.size());
+        logger.log(Level.FINER, "poison pills counter: {0}", poisonPills);
+        logger.log(Level.FINER, "measurement pills counter: {0}", measurementPills);
+        
+        return subscriptionTasks.size() == poisonPills || 
+               subscriptionTasks.size() == measurementPills;  
     }
     
     private void sendMeasurement(Duration d) {

@@ -13,7 +13,7 @@ public abstract class RunParallelTasksExecutor extends DefaultRunTasksExecutor  
     
     
     @Override
-    public void start() {
+    public void runTasks() {
         for (Task task : getTasks()) {
             Thread t = new Thread(task, task.getName());
             t.start();

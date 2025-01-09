@@ -4,8 +4,6 @@ import broker.AsynchronousMeasurementProducerCachingBroker;
 import encryption.HEPS;
 import broker.tree.binarybalanced.cache.asynchronous.AsynchronousBrokerWithBinaryBalancedTreeAndCache;
 import experiments.PubSubTaskDelegator;
-import java.util.logging.Logger;
-import utils.CustomLogger;
 import experiments.outputdata.BrokerStatsCollector;
 import experiments.measurement.MeasurementProducerBroker;
 
@@ -13,10 +11,8 @@ import experiments.measurement.MeasurementProducerBroker;
  *
  * @author f.tusa
  */
-public class DNSWithCacheAsynchronousRun extends AsynchronousRunParallelTasksExecutor 
-                                         implements PubSubTaskDelegator {
+public final class DNSWithCacheAsynchronousSequentialParallelRun extends AsynchronousRunSequentialParallelTasksExecutor implements PubSubTaskDelegator {
 
-    private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousRun.class.getName());
     private AsynchronousMeasurementProducerCachingBroker broker;
 
     private int numberOfPublications;
@@ -24,9 +20,9 @@ public class DNSWithCacheAsynchronousRun extends AsynchronousRunParallelTasksExe
     
     private BrokerStatsCollector brokerStatsCollector;
     
-
-    public DNSWithCacheAsynchronousRun(int nPublications, int nSubscriptions) {
-        super(DNSWithCacheAsynchronousRun.class.getSimpleName());
+    
+    public DNSWithCacheAsynchronousSequentialParallelRun(int nPublications, int nSubscriptions) {
+        super(DNSWithCacheAsynchronousSequentialParallelRun.class.getSimpleName());
         broker = new AsynchronousBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
         numberOfPublications = nPublications;
         numberOfSubscriptions = nSubscriptions;
@@ -41,10 +37,11 @@ public class DNSWithCacheAsynchronousRun extends AsynchronousRunParallelTasksExe
 
     @Override
     public void finalise() {
+        super.finalise();
         broker.stopProcessing();
     }
-    
-    
+
+
     @Override
     public MeasurementProducerBroker getBroker() {
         return broker;
@@ -69,4 +66,6 @@ public class DNSWithCacheAsynchronousRun extends AsynchronousRunParallelTasksExe
     public int getNumberOfSubscriptions() {
         return numberOfSubscriptions;
     }
+    
+    
 }

@@ -11,6 +11,12 @@ public interface Task extends Runnable {
     void setName(String name);
     long getDuration();
     void setDuration(Duration duration);
+    TaskType getTaskType();
+    void setTaskType(TaskType taskType);
     long getReplyDuration();
     void setReplyDuration(Duration duration);
+    
+    enum TaskType {
+        PRE_TASK, TASK, POST_TASK
+    }
 }

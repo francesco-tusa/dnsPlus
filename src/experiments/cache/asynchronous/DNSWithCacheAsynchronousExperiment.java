@@ -1,6 +1,8 @@
 package experiments.cache.asynchronous;
 
 import experiments.RunTasksOutputManager;
+import experiments.cache.asynchronous.tasks.PublisherTask;
+import experiments.cache.asynchronous.tasks.SubscriberTask;
 import java.util.List;
 
 /**
@@ -42,30 +44,29 @@ public final class DNSWithCacheAsynchronousExperiment extends AsynchronousExperi
     
     private void addPublishers() {
         for (int i = 1; i <= nPubs; i++) {
-            DNSWithCacheAsynchronousRun.PublisherTask publisherTask = experimentRun.new PublisherTask("Pub" + i);
+            PublisherTask publisherTask = new PublisherTask("Pub" + i, experimentRun, getInputFileName());
             experimentRun.addTask(publisherTask);
         }
     }
 
     private void addSubscribers() {
         for (int i = 1; i <= nSubs; i++) {
-            DNSWithCacheAsynchronousRun.SubscriberTask subscriberTask = experimentRun.new SubscriberTask("Sub" + i);
+            SubscriberTask subscriberTask = new SubscriberTask("Sub" + i, experimentRun, getInputFileName());
             experimentRun.addTask(subscriberTask);
         }
     }
 
     @Override
     protected void executeRun() {
-        experimentRun = new DNSWithCacheAsynchronousRun(getDomainsDB(), numberOfPublications, numberOfSubscriptions);
+        experimentRun = new DNSWithCacheAsynchronousRun(numberOfPublications, numberOfSubscriptions);
         experimentRun.setUp();
         
         addPublishers();
         addSubscribers();
         
-        experimentRun.start();
-        experimentRun.waitForRequestsCompletion();
-        experimentRun.cleanUp();
-        experimentRun.waitForRepliesCompletion();
+        experimentRun.executeRun();
+        
+        experimentRun.finalise();
         
         List<RunTasksOutputManager> allRunsTasksOutput = getAllRunsTasksOutput();
         allRunsTasksOutput.add(experimentRun);

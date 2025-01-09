@@ -1,5 +1,7 @@
 package experiments.measurement;
 
+import experiments.outputdata.BrokerStats;
+
 /**
  *
  * @author uceeftu

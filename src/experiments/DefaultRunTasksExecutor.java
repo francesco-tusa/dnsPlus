@@ -1,5 +1,6 @@
 package experiments;
 
+import experiments.Task.TaskType;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,7 +11,7 @@ import java.util.List;
 public abstract class DefaultRunTasksExecutor implements RunTasksExecutor {
     
     private final String name;
-    private final List<Task> tasks;
+    private List<Task> tasks;
 
     public DefaultRunTasksExecutor(String name) {
         this.name = name;
@@ -27,12 +28,17 @@ public abstract class DefaultRunTasksExecutor implements RunTasksExecutor {
         return tasks;
     }
 
+    protected void setTasks(List<Task> tasks) {
+        this.tasks = tasks;
+    }
+
     @Override
     public abstract void setUp();
 
     
     @Override
     public void addTask(Task task) {
+        task.setTaskType(TaskType.TASK);
         tasks.add(task);
     }
     

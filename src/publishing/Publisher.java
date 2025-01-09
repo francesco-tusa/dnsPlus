@@ -23,15 +23,21 @@ public class Publisher extends BlindingPublisher {
         super(name);
         this.broker = broker;
         publications = new HashMap<>();
+        init();
     }
 
-    protected Broker getBroker() {
+    public Publisher(String name) {
+        this(name, null);
+    }
+
+    public Broker getBroker() {
         return broker;
     }
-    
-    
 
-    
+    public void setBroker(Broker broker) {
+        this.broker = broker;
+    }
+
     
     @Override
     public Publication generatePublication(String service) {

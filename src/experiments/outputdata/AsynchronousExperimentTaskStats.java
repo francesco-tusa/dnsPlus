@@ -1,5 +1,7 @@
 package experiments.outputdata;
 
+import experiments.Task.TaskType;
+
 /**
  *
  * @author uceeftu
@@ -13,6 +15,9 @@ public class AsynchronousExperimentTaskStats extends ExperimentTaskStats {
         super(name);
     }
     
+    public AsynchronousExperimentTaskStats(String name, TaskType taskType) {
+        super(name, taskType);
+    }
 
     public double getAverageReplyDuration() {
         return averageReplyDuration;
@@ -32,7 +37,8 @@ public class AsynchronousExperimentTaskStats extends ExperimentTaskStats {
 
     @Override
     public String toString() {
-        return "\n\t\t{name=" + getName() + 
+        return "\n\t\t{" + getTaskType() +
+               ", name=" + getName() + 
                ", averageDuration=" + getAverageDuration() + 
                ", durationStandardDeviation=" + getDurationStandardDeviation() +
                ", averageReplyDuration=" + averageReplyDuration + 

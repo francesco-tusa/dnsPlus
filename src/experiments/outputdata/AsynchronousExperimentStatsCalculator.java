@@ -39,7 +39,7 @@ public class AsynchronousExperimentStatsCalculator extends ExperimentStatsCalcul
                 taskReplyDurationSum += taskReplyDuration;
                 taskReplyDurationSumSquares += taskReplyDuration * taskReplyDuration;
 
-                taskStats = new AsynchronousExperimentTaskStats(currentTask.getName());
+                taskStats = new AsynchronousExperimentTaskStats(currentTask.getName(), currentTask.getTaskType());
             }
 
             int numberOfRuns = allRunsOutput.size();

@@ -8,8 +8,7 @@ public interface AsynchronousBroker extends Broker {
     
     void startProcessing();
     
-        // TODO should use an interface for subscriber
-    void register(AsynchronousSubscriber subscriber);
+    void registerSubscriber(AsynchronousSubscriber subscriber);
     
     //returns the first available subscription processing result
     Publication getSubscriptionResult(); 

@@ -20,6 +20,11 @@ public class Subscription {
     // for debug only
     private String serviceName;
     
+    
+    protected Subscription() {
+        serviceName = "MEASUREMENT_PILL";
+    }
+    
     public Subscription(String subscriber) {
         serviceName = "POISON_PILL";
         subscribers = new ArrayList<>();
