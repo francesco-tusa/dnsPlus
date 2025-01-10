@@ -10,18 +10,19 @@ import java.util.concurrent.LinkedBlockingQueue;
 import publishing.PoisonPillPublication;
 
 
-public class AsynchronousSubscriber extends Subscriber {
+public class ReceivingSubscriber extends Subscriber {
     private static final Logger logger = CustomLogger.getLogger(Subscriber.class.getName());
     
     private BlockingQueue<Publication> publicationsQueue;
+    private boolean receivingThreadRunning;
     
-    public AsynchronousSubscriber(String name, AsynchronousBroker broker) {
+    public ReceivingSubscriber(String name, AsynchronousBroker broker) {
         super(name, broker);
         publicationsQueue = new LinkedBlockingQueue<>();
         init();
     }
     
-    public AsynchronousSubscriber(String name) {
+    public ReceivingSubscriber(String name) {
         this(name, null);
     }
     
@@ -32,8 +33,6 @@ public class AsynchronousSubscriber extends Subscriber {
         if (getBroker() != null) {
             ((AsynchronousBroker) getBroker()).registerSubscriber(this);
         }
-        
-        receivePublications();
     }
     
     public void setBroker(AsynchronousBroker broker) {
@@ -50,11 +49,14 @@ public class AsynchronousSubscriber extends Subscriber {
         publicationsQueue.offer(p);
     }
     
-    private void receivePublications() {
-        Thread subscriberReceiverThread = new Thread(() -> listenForPublications(), getName() + "receiver");
-        subscriberReceiverThread.start();
+    public void receivePublications() {
+        if (!receivingThreadRunning) {
+            Thread subscriberReceiverThread = new Thread(() -> listenForPublications(), getName() + "receiver");
+            subscriberReceiverThread.start();
+            receivingThreadRunning = true;
+        }
     }
-    
+
     
     private void listenForPublications() {
         logger.log(Level.INFO, "*** Subscriber {0} is waiting for results (publications that matched their subscriptions) ***", getName());

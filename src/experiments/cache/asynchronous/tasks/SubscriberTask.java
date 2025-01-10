@@ -10,7 +10,7 @@ import java.util.List;
 import utils.CustomLogger;
 import java.util.logging.Logger;
 import java.util.logging.Level;
-import subscribing.AsynchronousSubscriber;
+import subscribing.ReceivingSubscriber;
 import subscribing.PoisonPillSubscription;
 import utils.ExecutionTimeResult;
 import utils.ExecutionTimeLogger;
@@ -22,34 +22,45 @@ import utils.ExecutionTimeLogger;
 public class SubscriberTask extends AsynchronousTask implements AsynchronousSubscriptionMeasurementListener {
     private static final Logger logger = CustomLogger.getLogger(SubscriberTask.class.getName());
     
-    private AsynchronousSubscriber subscriber;
+    private ReceivingSubscriber subscriber;
     private PubSubTaskDelegator taskRunner;
     private String domainsFile;
+    
     private int numberOfSubscriptions;
+    private List<String> subscriptionDomains;
     
     
-    public SubscriberTask(AsynchronousSubscriber subscriber, PubSubTaskDelegator taskRunner, String domainsFile, int nSubscriptions) {
-        this.taskRunner = taskRunner;
-        this.domainsFile = domainsFile;
+    private SubscriberTask(ReceivingSubscriber subscriber, PubSubTaskDelegator taskRunner) {
         this.subscriber = subscriber;
-        this.subscriber.setBroker((AsynchronousBroker)taskRunner.getBroker());
+        this.taskRunner = taskRunner;
+        subscriber.setBroker((AsynchronousBroker)taskRunner.getBroker());
+        subscriber.receivePublications();
+    }
+    
+    public SubscriberTask(ReceivingSubscriber subscriber, PubSubTaskDelegator taskRunner, String domainsFile, int nSubscriptions) {
+        this(subscriber, taskRunner);
+        this.domainsFile = domainsFile;
         numberOfSubscriptions = nSubscriptions;
+        subscriptionDomains = DBFactory.getDomainsDB(domainsFile).getRandomEntries(nSubscriptions);
         setName(generateTaskDescription());
     }
     
-    public SubscriberTask(AsynchronousSubscriber subscriber, PubSubTaskDelegator taskRunner, String domainsFile) {
-        this(subscriber, taskRunner, domainsFile, taskRunner.getNumberOfSubscriptions());  
+    public SubscriberTask(ReceivingSubscriber subscriber, PubSubTaskDelegator taskRunner, List<String> domains) {
+        this(subscriber, taskRunner);
+        numberOfSubscriptions = domains.size();
+        subscriptionDomains = domains;
+        setName(generateTaskDescription());
     }
     
-    public SubscriberTask(String subscriberName, PubSubTaskDelegator taskRunner, String domainsFile) {
-        this(new AsynchronousSubscriber(subscriberName), taskRunner, domainsFile);
+    public SubscriberTask(String subscriberName, PubSubTaskDelegator taskRunner, List<String> domains) {
+        this(new ReceivingSubscriber(subscriberName), taskRunner, domains);
     }
     
     public SubscriberTask(String subscriberName, PubSubTaskDelegator taskRunner, String domainsFile, int nSubscriptions) {
-        this(new AsynchronousSubscriber(subscriberName), taskRunner, domainsFile, nSubscriptions);
+        this(new ReceivingSubscriber(subscriberName), taskRunner, domainsFile, nSubscriptions);
     }
-
-    protected AsynchronousSubscriber getSubscriber() {
+    
+    protected ReceivingSubscriber getSubscriber() {
         return subscriber;
     }
 
@@ -80,12 +91,11 @@ public class SubscriberTask extends AsynchronousTask implements AsynchronousSubs
     @Override
     public void run() {
         registerWithMeasurementProducer();
-        List<String> randomEntries = DBFactory.getDomainsDB(domainsFile).getRandomEntries(numberOfSubscriptions);
         
         ExecutionTimeResult<Void> result = 
             ExecutionTimeLogger.measure(
                 "generateAndSubscribeToAll",
-                () ->   { subscriber.generateAndSubscribeToAll(randomEntries);
+                () ->   { subscriber.generateAndSubscribeToAll(subscriptionDomains);
                           return null; }
             );
         

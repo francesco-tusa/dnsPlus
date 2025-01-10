@@ -8,7 +8,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import publishing.PoisonPillPublication;
 import publishing.Publication;
-import subscribing.AsynchronousSubscriber;
+import subscribing.ReceivingSubscriber;
 import utils.CustomLogger;
 
 /**
@@ -18,7 +18,7 @@ import utils.CustomLogger;
 public class PublicationsDispatcher {
 
     private static final Logger logger = CustomLogger.getLogger(PublicationsDispatcher.class.getName());
-    private Map<String, AsynchronousSubscriber> subscribers = Collections.synchronizedMap(new HashMap<>());
+    private Map<String, ReceivingSubscriber> subscribers = Collections.synchronizedMap(new HashMap<>());
     private Thread dispatchingThread;
     AsynchronousBroker broker;
 
@@ -31,7 +31,7 @@ public class PublicationsDispatcher {
         dispatchingThread.start();
     }
 
-    public void addSubscriber(AsynchronousSubscriber subscriber) {
+    public void addSubscriber(ReceivingSubscriber subscriber) {
         subscribers.putIfAbsent(subscriber.getName(), subscriber);
     }
 
@@ -62,13 +62,13 @@ public class PublicationsDispatcher {
         
         private void broadcast(PoisonPillPublication p) {
             for (String subscriberName : subscribers.keySet()) {
-                AsynchronousSubscriber subscriber = subscribers.get(subscriberName);
+                ReceivingSubscriber subscriber = subscribers.get(subscriberName);
                 subscriber.addMatchingPublication(p);
             }
         }
         private void dispatch(Publication p) {
             for (String subscriberName : p.getRecipients()) {
-                AsynchronousSubscriber subscriber = subscribers.get(subscriberName);
+                ReceivingSubscriber subscriber = subscribers.get(subscriberName);
                 subscriber.addMatchingPublication(p);
             }
         }

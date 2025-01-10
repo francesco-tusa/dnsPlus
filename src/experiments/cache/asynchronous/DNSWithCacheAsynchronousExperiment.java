@@ -44,21 +44,21 @@ public final class DNSWithCacheAsynchronousExperiment extends AsynchronousExperi
     
     private void addPublishers() {
         for (int i = 1; i <= nPubs; i++) {
-            PublisherTask publisherTask = new PublisherTask("Pub" + i, experimentRun, getInputFileName());
+            PublisherTask publisherTask = new PublisherTask("Pub" + i, experimentRun, getInputFileName(), numberOfPublications);
             experimentRun.addTask(publisherTask);
         }
     }
 
     private void addSubscribers() {
         for (int i = 1; i <= nSubs; i++) {
-            SubscriberTask subscriberTask = new SubscriberTask("Sub" + i, experimentRun, getInputFileName());
+            SubscriberTask subscriberTask = new SubscriberTask("Sub" + i, experimentRun, getInputFileName(), numberOfSubscriptions);
             experimentRun.addTask(subscriberTask);
         }
     }
 
     @Override
     protected void executeRun() {
-        experimentRun = new DNSWithCacheAsynchronousRun(numberOfPublications, numberOfSubscriptions);
+        experimentRun = new DNSWithCacheAsynchronousRun();
         experimentRun.setUp();
         
         addPublishers();

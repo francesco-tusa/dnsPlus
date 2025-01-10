@@ -18,18 +18,13 @@ public class DNSWithCacheAsynchronousRun extends AsynchronousRunParallelTasksExe
 
     private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousRun.class.getName());
     private AsynchronousMeasurementProducerCachingBroker broker;
-
-    private int numberOfPublications;
-    private int numberOfSubscriptions;
     
     private BrokerStatsCollector brokerStatsCollector;
     
 
-    public DNSWithCacheAsynchronousRun(int nPublications, int nSubscriptions) {
+    public DNSWithCacheAsynchronousRun() {
         super(DNSWithCacheAsynchronousRun.class.getSimpleName());
         broker = new AsynchronousBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
-        numberOfPublications = nPublications;
-        numberOfSubscriptions = nSubscriptions;
         brokerStatsCollector = new BrokerStatsCollector(this);
     }
     
@@ -58,15 +53,5 @@ public class DNSWithCacheAsynchronousRun extends AsynchronousRunParallelTasksExe
     @Override
     public void taskResponseReceived() {
         super.getRepliesLatch().countDown();
-    }
-    
-    @Override
-    public int getNumberOfPublications() {
-        return numberOfPublications;
-    }
-
-    @Override
-    public int getNumberOfSubscriptions() {
-        return numberOfSubscriptions;
     }
 }

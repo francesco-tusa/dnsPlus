@@ -29,30 +29,39 @@ public class PublisherTask extends AsynchronousTask implements AsynchronousPubli
     private Publisher publisher;
     private PubSubTaskDelegator taskRunner;
     private String domainsFile;
+    
     private int numberOfPublications;
+    private List<String> publicationDomains;
     
 
-    public PublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, String domainsFile, int nPublications) {
-        this.taskRunner = taskRunner;
-        this.domainsFile = domainsFile;
+    private PublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner) {
         this.publisher = publisher; 
+        this.taskRunner = taskRunner;
         this.publisher.setBroker((Broker) taskRunner.getBroker());
+    }
+    
+    public PublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, String domainsFile, int nPublications) {
+        this(publisher, taskRunner);
+        this.domainsFile = domainsFile;
         numberOfPublications = nPublications;
+        publicationDomains = DBFactory.getDomainsDB(domainsFile).getRandomEntries(nPublications);
         setName(generateTaskDescription());
     }
     
-    public PublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, String domainsFile) {
-        this(publisher, taskRunner, domainsFile, taskRunner.getNumberOfPublications());
+    public PublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, List<String> domains) {
+        this(publisher, taskRunner);
+        numberOfPublications = domains.size();
+        publicationDomains = domains;
+        setName(generateTaskDescription());
     }
     
-    public PublisherTask(String publisherName, PubSubTaskDelegator taskRunner, String domainsFile) {
-        this(new Publisher(publisherName), taskRunner, domainsFile);
+    public PublisherTask(String publisherName, PubSubTaskDelegator taskRunner, List<String> domains) {
+        this(new Publisher(publisherName), taskRunner, domains);
     }
     
     public PublisherTask(String publisherName, PubSubTaskDelegator taskRunner, String domainsFile, int nPublications) {
         this(new Publisher(publisherName), taskRunner, domainsFile, nPublications);
     }
-    
 
     protected Publisher getPublisher() {
         return publisher;

@@ -1,14 +1,14 @@
 package broker;
 
 import publishing.Publication;
-import subscribing.AsynchronousSubscriber;
+import subscribing.ReceivingSubscriber;
 import subscribing.Subscription;
 
 public interface AsynchronousBroker extends Broker {
     
     void startProcessing();
     
-    void registerSubscriber(AsynchronousSubscriber subscriber);
+    void registerSubscriber(ReceivingSubscriber subscriber);
     
     //returns the first available subscription processing result
     Publication getSubscriptionResult(); 

@@ -11,6 +11,6 @@ public interface PubSubTaskDelegator {
     MeasurementProducerBroker getBroker();
     void taskRequestCompleted();
     void taskResponseReceived();
-    int getNumberOfPublications();
-    int getNumberOfSubscriptions();
+    //int getNumberOfPublications();
+    //int getNumberOfSubscriptions();
 }

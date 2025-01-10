@@ -2,7 +2,7 @@ package experiments.cache.asynchronous.tasks;
 
 import experiments.PubSubTaskDelegator;
 import java.time.Duration;
-import subscribing.AsynchronousSubscriber;
+import subscribing.ReceivingSubscriber;
 
 /**
  *
@@ -11,11 +11,11 @@ import subscribing.AsynchronousSubscriber;
 public class SubscriberNopTask extends SubscriberTask {
     
     public SubscriberNopTask(String subscriberName, PubSubTaskDelegator taskRunner) {
-        super(subscriberName, taskRunner, null);
+        super(subscriberName, taskRunner, null, 0);
         setName(subscriberName + ":nop");
     }
     
-    public SubscriberNopTask(AsynchronousSubscriber subscriber, PubSubTaskDelegator taskRunner) {
+    public SubscriberNopTask(ReceivingSubscriber subscriber, PubSubTaskDelegator taskRunner) {
         super(subscriber, taskRunner, null);
         setName(subscriber.getName() + ":nop");
     }

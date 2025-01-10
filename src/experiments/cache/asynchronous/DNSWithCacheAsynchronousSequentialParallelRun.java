@@ -14,18 +14,13 @@ import experiments.measurement.MeasurementProducerBroker;
 public final class DNSWithCacheAsynchronousSequentialParallelRun extends AsynchronousRunSequentialParallelTasksExecutor implements PubSubTaskDelegator {
 
     private AsynchronousMeasurementProducerCachingBroker broker;
-
-    private int numberOfPublications;
-    private int numberOfSubscriptions;
     
     private BrokerStatsCollector brokerStatsCollector;
     
     
-    public DNSWithCacheAsynchronousSequentialParallelRun(int nPublications, int nSubscriptions) {
+    public DNSWithCacheAsynchronousSequentialParallelRun() {
         super(DNSWithCacheAsynchronousSequentialParallelRun.class.getSimpleName());
         broker = new AsynchronousBrokerWithBinaryBalancedTreeAndCache("Broker1", HEPS.getInstance());
-        numberOfPublications = nPublications;
-        numberOfSubscriptions = nSubscriptions;
         brokerStatsCollector = new BrokerStatsCollector(this);
     }
     
@@ -55,17 +50,5 @@ public final class DNSWithCacheAsynchronousSequentialParallelRun extends Asynchr
     @Override
     public void taskResponseReceived() {
         super.getRepliesLatch().countDown();
-    }
-    
-    @Override
-    public int getNumberOfPublications() {
-        return numberOfPublications;
-    }
-
-    @Override
-    public int getNumberOfSubscriptions() {
-        return numberOfSubscriptions;
-    }
-    
-    
+    } 
 }

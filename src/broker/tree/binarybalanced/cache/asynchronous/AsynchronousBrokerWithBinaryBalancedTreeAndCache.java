@@ -13,7 +13,7 @@ import experiments.measurement.AsynchronousPublicationMeasurementListener;
 import experiments.measurement.AsynchronousSubscriptionMeasurementListener;
 import java.util.ArrayList;
 import java.util.List;
-import subscribing.AsynchronousSubscriber;
+import subscribing.ReceivingSubscriber;
 import experiments.measurement.AsynchronousBrokerMeasurementListener;
 import experiments.outputdata.BrokerStats;
 
@@ -50,7 +50,7 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
     }
 
     @Override
-    public void registerSubscriber(AsynchronousSubscriber subscriber) {
+    public void registerSubscriber(ReceivingSubscriber subscriber) {
         logger.log(Level.INFO, "Registering sub {0}", subscriber.getName());
         publicationsDispatcher.addSubscriber(subscriber);
     }

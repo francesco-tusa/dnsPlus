@@ -17,7 +17,7 @@ public class Main {
     
     public static void main(String[] args) {
         //Experiment experiment = new DNSWithCacheAsynchronousSequentialParallelExperiment("ranked_websites.csv", 1);
-        Experiment experiment = new DNSWithCacheAsynchronousSequentialParallelExperiment("ranked_websites.csv", 1, 1000, 100, 1, 3);
+        Experiment experiment = new DNSWithCacheAsynchronousSequentialParallelExperiment("ranked_websites.csv", 2, 1, 3);
         
         //Experiment experiment = new DNSWithCacheAsynchronousExperiment("ranked_websites.csv", 1);
         //Experiment experiment = new DNSWithCacheAsynchronousExperiment("ranked_websites.csv", 1, 1000, 100, 1, 2);

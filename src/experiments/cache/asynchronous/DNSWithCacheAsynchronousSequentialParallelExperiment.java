@@ -2,14 +2,19 @@ package experiments.cache.asynchronous;
 
 import encryption.BlindingEntity;
 import experiments.RunTasksOutputManager;
+import experiments.Task;
 import experiments.cache.asynchronous.tasks.MeasurementRequesterPublisherTask;
 import experiments.cache.asynchronous.tasks.MeasurementRequesterSubscriberTask;
 import experiments.cache.asynchronous.tasks.PublisherNopTask;
 import experiments.cache.asynchronous.tasks.PublisherTask;
+import experiments.cache.asynchronous.tasks.SubscriberNopTask;
 import experiments.cache.asynchronous.tasks.SubscriberTask;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 import publishing.Publisher;
-import subscribing.AsynchronousSubscriber;
+import subscribing.ReceivingSubscriber;
 
 /**
  *
@@ -19,78 +24,48 @@ public final class DNSWithCacheAsynchronousSequentialParallelExperiment extends 
 
     DNSWithCacheAsynchronousSequentialParallelRun experimentRun;
     
-    private int numberOfPublications;
-    private int numberOfSubscriptions;
-    
     private int nPubs;
     private int nSubs;
 
     public DNSWithCacheAsynchronousSequentialParallelExperiment(String inputFileName, int numberOfRuns) {
-        this(inputFileName, numberOfRuns, 100, 10);
-    }
-
-    public DNSWithCacheAsynchronousSequentialParallelExperiment(String inputFileName, int numberOfRuns, int numberOfPublications, int numberOfSubscriptions) {
-        this(inputFileName, numberOfRuns, numberOfPublications, numberOfSubscriptions, 1, 1);
+        this(inputFileName, numberOfRuns, 1, 1);
     }
     
+    
     public DNSWithCacheAsynchronousSequentialParallelExperiment(String inputFileName, 
-                                              int numberOfRuns, 
-                                              int numberOfPublications, 
-                                              int numberOfSubscriptions,
-                                              int numberOfPubs,
-                                              int numberOfSubs) 
+                                                                int numberOfRuns, 
+                                                                int numberOfPubs,
+                                                                int numberOfSubs) 
     {
         super(DNSWithCacheAsynchronousSequentialParallelExperiment.class.getSimpleName(), inputFileName, numberOfRuns);
-        this.numberOfPublications = numberOfPublications;
-        this.numberOfSubscriptions = numberOfSubscriptions;
         nPubs = numberOfPubs;
         nSubs = numberOfSubs;
     }
     
-    
-//    private void addPublishers() {
-//        for (int i = 1; i <= nPubs; i++) {
-//            DNSWithCacheAsynchronousSequentialParallelRun.PublisherTask publisherTask = experimentRun.new PublisherTask("Pub" + i);
-//            experimentRun.addTask(publisherTask);
-//        }
-//    }
-//
-//    private void addSubscribers() {
-//        for (int i = 1; i <= nSubs; i++) {
-//            DNSWithCacheAsynchronousSequentialParallelRun.SubscriberTask subscriberTask = experimentRun.new SubscriberTask("Sub" + i);
-//            experimentRun.addTask(subscriberTask);
-//        }
-//    }
 
     @Override
     protected void executeRun() {
-        experimentRun = new DNSWithCacheAsynchronousSequentialParallelRun(numberOfPublications, numberOfSubscriptions);
+        TaskGenerator taskGenerator = new TaskGenerator();
+        experimentRun = new DNSWithCacheAsynchronousSequentialParallelRun();
         experimentRun.setUp();
-        
-        //addPublishers();
-        //addSubscribers();
         
         Publisher pub1 = new Publisher("pub1");
         Publisher pub2 = new Publisher("pub2");
-        AsynchronousSubscriber sub1 = new AsynchronousSubscriber("sub1");
-        AsynchronousSubscriber sub2 = new AsynchronousSubscriber("sub2");
+        ReceivingSubscriber sub1 = new ReceivingSubscriber("sub1");
+        ReceivingSubscriber sub2 = new ReceivingSubscriber("sub2");
         
-        PublisherTask preTask = new MeasurementRequesterPublisherTask(pub1, experimentRun, getInputFileName());
-        experimentRun.addPreTask(preTask);
         
-        SubscriberTask task1 = new MeasurementRequesterSubscriberTask(sub1, experimentRun, getInputFileName(), 10);
-        SubscriberTask task2 = new MeasurementRequesterSubscriberTask(sub2, experimentRun, getInputFileName(), 10);
-        PublisherTask task3 = new MeasurementRequesterPublisherTask(pub1, experimentRun, getInputFileName(), 100);
-        PublisherTask task4 = new MeasurementRequesterPublisherTask(pub2, experimentRun, getInputFileName(), 200);
-        experimentRun.addTask(task1);
-        experimentRun.addTask(task2);
-        experimentRun.addTask(task3);
-        experimentRun.addTask(task4);
+        taskGenerator.addRandomisedPreTask(pub1, 500);
         
-        SubscriberTask postTask = new SubscriberTask(sub1, experimentRun, getInputFileName(), 20);
-        experimentRun.addPostTask(postTask);
-        // needed to properly shutdown the broker
-        experimentRun.addPostTask(new PublisherNopTask(pub1, experimentRun));
+        taskGenerator.addRandomisedTask(sub1, 10);
+        //taskGenerator.addRandomisedTask(sub2, 10);
+        taskGenerator.addTask(new ReceivingSubscriber("subbb"), new ArrayList<>(Arrays.asList("www.doesnotexist.com")));
+        taskGenerator.addRandomisedTask(pub1, 100);
+        taskGenerator.addRandomisedTask(pub2, 200);
+        
+        taskGenerator.addRandomisedPostTask(sub1, 20);
+        
+        taskGenerator.addRunCleaningTasks();
         
         
         experimentRun.executeRun();
@@ -103,11 +78,84 @@ public final class DNSWithCacheAsynchronousSequentialParallelExperiment extends 
     
     
     private class TaskGenerator {
-        public void addPreTask (BlindingEntity entity) {
-            if (entity instanceof Publisher p) {
-                
+        public void addRandomisedPreTask(BlindingEntity entity, int numberOfOperations) {
+            addRandomisedTaskHelper(entity, numberOfOperations, (task) -> { experimentRun.addPreTask(task); });
+        }
+        
+        public void addRandomisedTask(BlindingEntity entity, int numberOfOperations) {
+            addRandomisedTaskHelper(entity, numberOfOperations, (task) -> { experimentRun.addTask(task); });
+        }
+        
+        public void addRandomisedPostTask(BlindingEntity entity, int numberOfOperations) { 
+            addRandomisedTaskHelper(entity, numberOfOperations, (task) -> { experimentRun.addPostTask(task); });
+        }
+ 
+        private void addRandomisedTaskHelper(BlindingEntity entity, int numberOfOperations, Consumer<AsynchronousTask> method) {
+            AsynchronousTask task;
+            switch (entity) {
+                case Publisher p -> {
+                    task = new MeasurementRequesterPublisherTask(p, experimentRun, getInputFileName(), numberOfOperations);
+                }
+                case ReceivingSubscriber s -> {
+                    task = new MeasurementRequesterSubscriberTask(s, experimentRun, getInputFileName(), numberOfOperations);
+                }
+                default -> {
+                    return;
+                }
+            }
+            method.accept(task);
+        }
+        
+        
+        public void addPreTask(BlindingEntity entity, List<String> domains) {
+            addTaskHelper(entity, domains, (task) -> { experimentRun.addPreTask(task); });
+        }
+        
+        public void addTask(BlindingEntity entity, List<String> domains) {
+            addTaskHelper(entity, domains, (task) -> { experimentRun.addTask(task); });
+        }
+        
+        public void addPostTask(BlindingEntity entity, List<String> domains) { 
+            addTaskHelper(entity, domains, (task) -> { experimentRun.addPostTask(task); });
+        }
+        
+        private void addTaskHelper(BlindingEntity entity, List<String> domains, Consumer<AsynchronousTask> method) {
+            AsynchronousTask task;
+            switch (entity) {
+                case Publisher p -> {
+                    task = new MeasurementRequesterPublisherTask(p, experimentRun, domains);
+                }
+                case ReceivingSubscriber s -> {
+                    task = new MeasurementRequesterSubscriberTask(s, experimentRun, domains);
+                }
+                default -> {
+                    return;
+                }
+            }
+            method.accept(task);
+        }
+        
+        public void addRunCleaningTasks() {
+            
+            boolean subTaskFound = false;
+            boolean pubTaskFound = false;
+            
+            for (Task t : experimentRun.getPostTasks()) {
+                switch (t) {
+                    case SubscriberTask s -> subTaskFound = true;
+                    case PublisherTask p -> pubTaskFound = true;
+                    default -> {
+                    }
+                } 
             }
             
+            if (!subTaskFound) {
+                experimentRun.addPostTask(new SubscriberNopTask(new ReceivingSubscriber("sub"), experimentRun));
+            }
+            
+            if (!pubTaskFound) {
+                experimentRun.addPostTask(new PublisherNopTask(new Publisher("pub"), experimentRun));
+            }
         }
     }
 }

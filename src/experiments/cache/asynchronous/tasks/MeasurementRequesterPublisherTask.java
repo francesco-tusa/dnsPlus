@@ -1,6 +1,7 @@
 package experiments.cache.asynchronous.tasks;
 
 import experiments.PubSubTaskDelegator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import publishing.MeasurementPillPublication;
@@ -15,16 +16,16 @@ public class MeasurementRequesterPublisherTask extends PublisherTask implements 
 
     private static final Logger logger = CustomLogger.getLogger(MeasurementRequesterPublisherTask.class.getName());
 
-    public MeasurementRequesterPublisherTask(String publisherName, PubSubTaskDelegator taskRunner, String domainsFile) {
-        super(publisherName, taskRunner, domainsFile);
+    public MeasurementRequesterPublisherTask(String publisherName, PubSubTaskDelegator taskRunner, List<String> domains) {
+        super(publisherName, taskRunner, domains);
     }
     
     public MeasurementRequesterPublisherTask(String publisherName, PubSubTaskDelegator taskRunner, String domainsFile, int nPublications) {
         super(publisherName, taskRunner, domainsFile, nPublications);
     }
     
-    public MeasurementRequesterPublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, String domainsFile) {
-        super(publisher, taskRunner, domainsFile);
+    public MeasurementRequesterPublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, List<String> domains) {
+        super(publisher, taskRunner, domains);
     }
     
     public MeasurementRequesterPublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, String domainsFile, int nPublications) {

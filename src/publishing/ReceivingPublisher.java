@@ -7,13 +7,13 @@ import utils.CustomLogger;
 import broker.AsynchronousBroker;
 import subscribing.PoisonPillSubscription;
 
-
-public final class AsynchronousPublisher extends Publisher {
+// Used for debug: receives the subscriptions that matched its publications
+public final class ReceivingPublisher extends Publisher {
     
-    private static final Logger logger = CustomLogger.getLogger(AsynchronousPublisher.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(ReceivingPublisher.class.getName());
     
 
-    public AsynchronousPublisher(String name, AsynchronousBroker broker) {
+    public ReceivingPublisher(String name, AsynchronousBroker broker) {
         super(name, broker);
         init();
     }
@@ -21,12 +21,11 @@ public final class AsynchronousPublisher extends Publisher {
     @Override
     public final void init() {
         super.init();
-        receiveSubscriptions();
     }
     
     
     // for debugging
-    private void receiveSubscriptions() {
+    public void receiveSubscriptions() {
         Thread publisherReceiverThread = new Thread(() -> listenForSubscriptions(), getName() + "receiver");
         publisherReceiverThread.start();
     }

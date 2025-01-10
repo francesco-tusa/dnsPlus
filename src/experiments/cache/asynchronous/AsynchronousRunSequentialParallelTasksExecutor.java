@@ -36,6 +36,10 @@ public abstract class AsynchronousRunSequentialParallelTasksExecutor extends Asy
         task.setTaskType(TaskType.PRE_TASK);
         preTasks.add(task);
     }
+
+    public List<Task> getPreTasks() {
+        return preTasks;
+    }
     
     public void runPreTasks() {
         logger.log(Level.SEVERE, "Running preTasks");
@@ -68,6 +72,10 @@ public abstract class AsynchronousRunSequentialParallelTasksExecutor extends Asy
         logger.log(Level.FINE, "Adding postTasks");
         task.setTaskType(TaskType.POST_TASK);
         postTasks.add(task);
+    }
+
+    public List<Task> getPostTasks() {
+        return postTasks;
     }
     
     public void runPostTasks() {

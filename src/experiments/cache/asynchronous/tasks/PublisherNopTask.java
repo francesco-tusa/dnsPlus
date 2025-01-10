@@ -2,6 +2,7 @@ package experiments.cache.asynchronous.tasks;
 
 import experiments.PubSubTaskDelegator;
 import java.time.Duration;
+import java.util.ArrayList;
 import publishing.Publisher;
 
 /**
@@ -13,12 +14,12 @@ import publishing.Publisher;
 public class PublisherNopTask extends PublisherTask {
 
     public PublisherNopTask(String publisherName, PubSubTaskDelegator taskRunner) {
-        super(publisherName, taskRunner, null);
+        super(publisherName, taskRunner, new ArrayList<>());
         setName(publisherName + ":nop");
     }
     
     public PublisherNopTask(Publisher publisher, PubSubTaskDelegator taskRunner) {
-        super(publisher, taskRunner, null);
+        super(publisher, taskRunner, new ArrayList<>());
         setName(publisher.getName() + ":nop");
     }
 
