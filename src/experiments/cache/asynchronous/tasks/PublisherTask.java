@@ -85,7 +85,7 @@ public class PublisherTask extends AsynchronousTask implements AsynchronousPubli
     @Override
     public void publicationMeasurementPerformed(Duration replyDuration) {
         logger.log(Level.INFO, "Publisher {0} received measurement {1}", new Object[]{publisher.getName(), replyDuration.toMillis()});
-        setReplyDuration(replyDuration);
+        setAsynchronousProcessingDuration(replyDuration);
         taskRunner.setTaskResponseReceived();
         // remove task from broker when a measurement is received
         taskRunner.getBroker().removePublicationTask(getName());

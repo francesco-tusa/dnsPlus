@@ -14,7 +14,7 @@ public interface Task extends Runnable {
     TaskType getTaskType();
     void setTaskType(TaskType taskType);
     long getReplyDuration();
-    void setReplyDuration(Duration duration);
+    void setAsynchronousProcessingDuration(Duration duration);
     
     enum TaskType {
         PRE_TASK, TASK, POST_TASK

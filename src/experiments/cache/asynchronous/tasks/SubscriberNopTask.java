@@ -23,7 +23,7 @@ public class SubscriberNopTask extends SubscriberTask {
     
     @Override
     public void subscriptionMeasurementPerformed(Duration replyDuration) {
-        setReplyDuration(Duration.ZERO);
+        setAsynchronousProcessingDuration(Duration.ZERO);
         getTaskRunner().setTaskResponseReceived();
     }
     

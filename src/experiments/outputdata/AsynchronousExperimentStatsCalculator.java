@@ -55,8 +55,8 @@ public class AsynchronousExperimentStatsCalculator extends ExperimentStatsCalcul
             if (taskStats != null) {
                 taskStats.setAverageDuration(average);
                 taskStats.setDurationStandardDeviation(stdDeviation);
-                taskStats.setAverageReplyDuration(replyAverage);
-                taskStats.setReplyDurationStandardDeviation(replyStdDeviation);
+                taskStats.setAsynchronousProcessingAverageDuration(replyAverage);
+                taskStats.setAsynchronousProcessingDurationStandardDeviation(replyStdDeviation);
             }
 
             getExperimentTasksStats().add(taskStats);

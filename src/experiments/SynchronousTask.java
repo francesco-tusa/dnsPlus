@@ -52,7 +52,7 @@ public abstract class SynchronousTask implements Task {
     }
 
     @Override
-    public void setReplyDuration(Duration duration) {
+    public void setAsynchronousProcessingDuration(Duration duration) {
         throw new UnsupportedOperationException("No reply duration in a Synchronous Task");
     }
 

@@ -8,8 +8,8 @@ import experiments.Task.TaskType;
  */
 public class AsynchronousExperimentTaskStats extends ExperimentTaskStats {
 
-    private double averageReplyDuration;
-    private double replyDurationStandardDeviation;
+    private double asynchronousProcessingAverageDuration;
+    private double asynchronousProcessingDurationStandardDeviation;
     
     public AsynchronousExperimentTaskStats(String name) {
         super(name);
@@ -19,20 +19,20 @@ public class AsynchronousExperimentTaskStats extends ExperimentTaskStats {
         super(name, taskType);
     }
 
-    public double getAverageReplyDuration() {
-        return averageReplyDuration;
+    public double getAsynchronousProcessingAverageDuration() {
+        return asynchronousProcessingAverageDuration;
     }
 
-    public void setAverageReplyDuration(double averageReplyDuration) {
-        this.averageReplyDuration = averageReplyDuration;
+    public void setAsynchronousProcessingAverageDuration(double asynchronousProcessingAverageDuration) {
+        this.asynchronousProcessingAverageDuration = asynchronousProcessingAverageDuration;
     }
 
-    public double getReplyDurationStandardDeviation() {
-        return replyDurationStandardDeviation;
+    public double getAsynchronousProcessingDurationStandardDeviation() {
+        return asynchronousProcessingDurationStandardDeviation;
     }
 
-    public void setReplyDurationStandardDeviation(double replyDurationStandardDeviation) {
-        this.replyDurationStandardDeviation = replyDurationStandardDeviation;
+    public void setAsynchronousProcessingDurationStandardDeviation(double asynchronousProcessingDurationStandardDeviation) {
+        this.asynchronousProcessingDurationStandardDeviation = asynchronousProcessingDurationStandardDeviation;
     }
 
     @Override
@@ -41,7 +41,7 @@ public class AsynchronousExperimentTaskStats extends ExperimentTaskStats {
                ", name=" + getName() + 
                ", averageDuration=" + getAverageDuration() + 
                ", durationStandardDeviation=" + getDurationStandardDeviation() +
-               ", averageReplyDuration=" + averageReplyDuration + 
-               ", replyDurationStandardDeviation=" + replyDurationStandardDeviation + '}';
+               ", asynchronousProcessingAverageDuration=" + asynchronousProcessingAverageDuration + 
+               ", asynchronousProcessingDurationStandardDeviation=" + asynchronousProcessingDurationStandardDeviation + '}';
     }
 }

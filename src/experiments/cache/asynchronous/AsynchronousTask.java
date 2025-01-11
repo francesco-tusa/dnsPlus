@@ -8,20 +8,20 @@ import java.time.Duration;
  * @author uceeftu
  */
 public abstract class AsynchronousTask extends SynchronousTask {
-    private Duration replyDuration;
+    private Duration asynchronousProcessingDuration;
 
     protected AsynchronousTask() {
-        replyDuration = Duration.ZERO;
+        asynchronousProcessingDuration = Duration.ZERO;
     }
     
     @Override
     public long getReplyDuration() {
-        return replyDuration.toMillis();
+        return asynchronousProcessingDuration.toMillis();
     }
 
     @Override
-    public void setReplyDuration(Duration replyDuration) {
-        this.replyDuration = replyDuration;
+    public void setAsynchronousProcessingDuration(Duration asynchronousProcessingDuration) {
+        this.asynchronousProcessingDuration = asynchronousProcessingDuration;
     } 
     
     @Override

@@ -82,7 +82,7 @@ public class SubscriberTask extends AsynchronousTask implements AsynchronousSubs
     @Override
     public void subscriptionMeasurementPerformed(Duration replyDuration) {
         logger.log(Level.INFO, "Subscriber {0} received measurement {1}", new Object[]{subscriber.getName(), replyDuration.toMillis()});
-        setReplyDuration(replyDuration);
+        setAsynchronousProcessingDuration(replyDuration);
         taskRunner.setTaskResponseReceived();
         // remove task from broker when a measurement is received
         taskRunner.getBroker().removeSubscriptionTask(getName());

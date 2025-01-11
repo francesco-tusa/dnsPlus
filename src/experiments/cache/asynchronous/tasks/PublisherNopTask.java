@@ -25,7 +25,7 @@ public class PublisherNopTask extends PublisherTask {
 
     @Override
     public void publicationMeasurementPerformed(Duration replyDuration) {
-        setReplyDuration(Duration.ZERO);
+        setAsynchronousProcessingDuration(Duration.ZERO);
         getTaskRunner().setTaskResponseReceived();
     }
     
