@@ -110,7 +110,6 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
 
     @Override
     public void processSubscription(Subscription s) {
-        brokerStats.incrementSubscriptions();
         subscriptionProcessor.addSubscription(s);
     }
 
@@ -126,7 +125,6 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
 
     @Override
     public void processPublication(Publication p) {
-        brokerStats.incrementPublications();
         publicationProcessor.addPublication(p);
     }
 
@@ -143,6 +141,8 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
     @Override
     public Subscription matchPublication(Publication p) 
     {
+        brokerStats.incrementPublications();
+        
         Subscription matched  = super.matchPublication(p);
         
         if (matched != null) {
@@ -167,6 +167,8 @@ public final class AsynchronousBrokerWithBinaryBalancedTreeAndCache extends Brok
     @Override
     public Publication cacheLookUp(Subscription s) 
     {   
+        brokerStats.incrementSubscriptions();
+        
         Publication matched = super.cacheLookUp(s);
         
         if (matched != null) {
