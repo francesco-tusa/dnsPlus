@@ -9,4 +9,7 @@ import experiments.RunTasksExecutor;
 public interface AsynchronousRunTasksExecutor extends RunTasksExecutor {
     void waitForRequestsCompletion();
     void waitForRepliesCompletion();
+    
+    public void setTaskRequestCompleted();
+    public void setTaskResponseReceived();
 }

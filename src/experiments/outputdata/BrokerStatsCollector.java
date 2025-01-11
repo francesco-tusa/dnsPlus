@@ -1,10 +1,10 @@
 package experiments.outputdata;
 
-import experiments.PubSubTaskDelegator;
 import experiments.measurement.AsynchronousBrokerMeasurementListener;
 import utils.CustomLogger;
 import java.util.logging.Logger;
 import java.util.logging.Level;
+import experiments.PubSubRunTasksExecutor;
 
 /**
  *
@@ -13,10 +13,10 @@ import java.util.logging.Level;
 public final class BrokerStatsCollector implements AsynchronousBrokerMeasurementListener {
 
         private static final Logger logger = CustomLogger.getLogger(BrokerStatsCollector.class.getName());
-        private PubSubTaskDelegator taskRunner;
+        private PubSubRunTasksExecutor taskRunner;
         private BrokerStats brokerStats;
 
-        public BrokerStatsCollector(PubSubTaskDelegator taskRunner) {
+        public BrokerStatsCollector(PubSubRunTasksExecutor taskRunner) {
             this.taskRunner = taskRunner;
             registerWithMeasurementProducer();
         }

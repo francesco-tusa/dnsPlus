@@ -1,8 +1,8 @@
 package experiments.cache.asynchronous.tasks;
 
-import experiments.PubSubTaskDelegator;
 import java.time.Duration;
 import subscribing.ReceivingSubscriber;
+import experiments.PubSubRunTasksExecutor;
 
 /**
  *
@@ -10,12 +10,12 @@ import subscribing.ReceivingSubscriber;
  */
 public class SubscriberNopTask extends SubscriberTask {
     
-    public SubscriberNopTask(String subscriberName, PubSubTaskDelegator taskRunner) {
+    public SubscriberNopTask(String subscriberName, PubSubRunTasksExecutor taskRunner) {
         super(subscriberName, taskRunner, null, 0);
         setName(subscriberName + ":nop");
     }
     
-    public SubscriberNopTask(ReceivingSubscriber subscriber, PubSubTaskDelegator taskRunner) {
+    public SubscriberNopTask(ReceivingSubscriber subscriber, PubSubRunTasksExecutor taskRunner) {
         super(subscriber, taskRunner, null);
         setName(subscriber.getName() + ":nop");
     }
@@ -24,7 +24,7 @@ public class SubscriberNopTask extends SubscriberTask {
     @Override
     public void subscriptionMeasurementPerformed(Duration replyDuration) {
         setReplyDuration(Duration.ZERO);
-        getTaskRunner().taskResponseReceived();
+        getTaskRunner().setTaskResponseReceived();
     }
     
     @Override
@@ -32,6 +32,6 @@ public class SubscriberNopTask extends SubscriberTask {
         registerWithMeasurementProducer();
         // no operations
         setDuration(Duration.ZERO);
-        getTaskRunner().taskRequestCompleted();
+        getTaskRunner().setTaskRequestCompleted();
     }
 }

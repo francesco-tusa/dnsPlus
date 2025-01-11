@@ -1,7 +1,6 @@
 package experiments.cache.asynchronous.tasks;
 
 import broker.Broker;
-import experiments.PubSubTaskDelegator;
 import experiments.cache.asynchronous.AsynchronousTask;
 import experiments.inputdata.DBFactory;
 import experiments.measurement.AsynchronousPublicationMeasurementListener;
@@ -14,6 +13,7 @@ import publishing.Publisher;
 import utils.CustomLogger;
 import utils.ExecutionTimeLogger;
 import utils.ExecutionTimeResult;
+import experiments.PubSubRunTasksExecutor;
 
 /**
  *
@@ -27,20 +27,20 @@ public class PublisherTask extends AsynchronousTask implements AsynchronousPubli
     // its publications) as this is the case in pub/sub scenarios
     // Asynchronous publisher should be used for debugging instead
     private Publisher publisher;
-    private PubSubTaskDelegator taskRunner;
+    private PubSubRunTasksExecutor taskRunner;
     private String domainsFile;
     
     private int numberOfPublications;
     private List<String> publicationDomains;
     
 
-    private PublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner) {
+    private PublisherTask(Publisher publisher, PubSubRunTasksExecutor taskRunner) {
         this.publisher = publisher; 
         this.taskRunner = taskRunner;
         this.publisher.setBroker((Broker) taskRunner.getBroker());
     }
     
-    public PublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, String domainsFile, int nPublications) {
+    public PublisherTask(Publisher publisher, PubSubRunTasksExecutor taskRunner, String domainsFile, int nPublications) {
         this(publisher, taskRunner);
         this.domainsFile = domainsFile;
         numberOfPublications = nPublications;
@@ -48,18 +48,18 @@ public class PublisherTask extends AsynchronousTask implements AsynchronousPubli
         setName(generateTaskDescription());
     }
     
-    public PublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, List<String> domains) {
+    public PublisherTask(Publisher publisher, PubSubRunTasksExecutor taskRunner, List<String> domains) {
         this(publisher, taskRunner);
         numberOfPublications = domains.size();
         publicationDomains = domains;
         setName(generateTaskDescription());
     }
     
-    public PublisherTask(String publisherName, PubSubTaskDelegator taskRunner, List<String> domains) {
+    public PublisherTask(String publisherName, PubSubRunTasksExecutor taskRunner, List<String> domains) {
         this(new Publisher(publisherName), taskRunner, domains);
     }
     
-    public PublisherTask(String publisherName, PubSubTaskDelegator taskRunner, String domainsFile, int nPublications) {
+    public PublisherTask(String publisherName, PubSubRunTasksExecutor taskRunner, String domainsFile, int nPublications) {
         this(new Publisher(publisherName), taskRunner, domainsFile, nPublications);
     }
 
@@ -67,7 +67,7 @@ public class PublisherTask extends AsynchronousTask implements AsynchronousPubli
         return publisher;
     }
 
-    protected PubSubTaskDelegator getTaskRunner() {
+    protected PubSubRunTasksExecutor getTaskRunner() {
         return taskRunner;
     }
     
@@ -86,7 +86,7 @@ public class PublisherTask extends AsynchronousTask implements AsynchronousPubli
     public void publicationMeasurementPerformed(Duration replyDuration) {
         logger.log(Level.INFO, "Publisher {0} received measurement {1}", new Object[]{publisher.getName(), replyDuration.toMillis()});
         setReplyDuration(replyDuration);
-        taskRunner.taskResponseReceived();
+        taskRunner.setTaskResponseReceived();
         // remove task from broker when a measurement is received
         taskRunner.getBroker().removePublicationTask(getName());
     }
@@ -106,7 +106,7 @@ public class PublisherTask extends AsynchronousTask implements AsynchronousPubli
         setDuration(result.getDuration());
         logger.log(Level.WARNING, "Publisher {0} completed their request task operation: {1}", 
                                   new Object[]{publisher.getName(), result.getCalledMethod()});
-        taskRunner.taskRequestCompleted();
+        taskRunner.setTaskRequestCompleted();
     }
 
     @Override

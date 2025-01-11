@@ -3,18 +3,18 @@ package experiments.cache.asynchronous;
 import broker.AsynchronousMeasurementProducerCachingBroker;
 import encryption.HEPS;
 import broker.tree.binarybalanced.cache.asynchronous.AsynchronousBrokerWithBinaryBalancedTreeAndCache;
-import experiments.PubSubTaskDelegator;
 import java.util.logging.Logger;
 import utils.CustomLogger;
 import experiments.outputdata.BrokerStatsCollector;
 import experiments.measurement.MeasurementProducerBroker;
+import experiments.PubSubRunTasksExecutor;
 
 /**
  *
  * @author f.tusa
  */
 public class DNSWithCacheAsynchronousRun extends AsynchronousRunParallelTasksExecutor 
-                                         implements PubSubTaskDelegator {
+                                         implements PubSubRunTasksExecutor {
 
     private static final Logger logger = CustomLogger.getLogger(DNSWithCacheAsynchronousRun.class.getName());
     private AsynchronousMeasurementProducerCachingBroker broker;
@@ -43,15 +43,5 @@ public class DNSWithCacheAsynchronousRun extends AsynchronousRunParallelTasksExe
     @Override
     public MeasurementProducerBroker getBroker() {
         return broker;
-    }
-
-    @Override
-    public void taskRequestCompleted() {
-        super.getRequestsLatch().countDown();
-    }
-
-    @Override
-    public void taskResponseReceived() {
-        super.getRepliesLatch().countDown();
     }
 }

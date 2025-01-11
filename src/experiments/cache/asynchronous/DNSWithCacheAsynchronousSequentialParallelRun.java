@@ -3,15 +3,15 @@ package experiments.cache.asynchronous;
 import broker.AsynchronousMeasurementProducerCachingBroker;
 import encryption.HEPS;
 import broker.tree.binarybalanced.cache.asynchronous.AsynchronousBrokerWithBinaryBalancedTreeAndCache;
-import experiments.PubSubTaskDelegator;
 import experiments.outputdata.BrokerStatsCollector;
 import experiments.measurement.MeasurementProducerBroker;
+import experiments.PubSubRunTasksExecutor;
 
 /**
  *
  * @author f.tusa
  */
-public final class DNSWithCacheAsynchronousSequentialParallelRun extends AsynchronousRunSequentialParallelTasksExecutor implements PubSubTaskDelegator {
+public final class DNSWithCacheAsynchronousSequentialParallelRun extends AsynchronousRunSequentialParallelTasksExecutor implements PubSubRunTasksExecutor {
 
     private AsynchronousMeasurementProducerCachingBroker broker;
     
@@ -42,13 +42,5 @@ public final class DNSWithCacheAsynchronousSequentialParallelRun extends Asynchr
         return broker;
     }
 
-    @Override
-    public void taskRequestCompleted() {
-        super.getRequestsLatch().countDown();
-    }
-
-    @Override
-    public void taskResponseReceived() {
-        super.getRepliesLatch().countDown();
-    } 
+    
 }

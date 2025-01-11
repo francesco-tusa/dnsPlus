@@ -1,7 +1,6 @@
 package experiments.cache.asynchronous.tasks;
 
 import broker.AsynchronousBroker;
-import experiments.PubSubTaskDelegator;
 import experiments.cache.asynchronous.AsynchronousTask;
 import experiments.inputdata.DBFactory;
 import experiments.measurement.AsynchronousSubscriptionMeasurementListener;
@@ -14,6 +13,7 @@ import subscribing.ReceivingSubscriber;
 import subscribing.PoisonPillSubscription;
 import utils.ExecutionTimeResult;
 import utils.ExecutionTimeLogger;
+import experiments.PubSubRunTasksExecutor;
 
 /**
  *
@@ -23,21 +23,21 @@ public class SubscriberTask extends AsynchronousTask implements AsynchronousSubs
     private static final Logger logger = CustomLogger.getLogger(SubscriberTask.class.getName());
     
     private ReceivingSubscriber subscriber;
-    private PubSubTaskDelegator taskRunner;
+    private PubSubRunTasksExecutor taskRunner;
     private String domainsFile;
     
     private int numberOfSubscriptions;
     private List<String> subscriptionDomains;
     
     
-    private SubscriberTask(ReceivingSubscriber subscriber, PubSubTaskDelegator taskRunner) {
+    private SubscriberTask(ReceivingSubscriber subscriber, PubSubRunTasksExecutor taskRunner) {
         this.subscriber = subscriber;
         this.taskRunner = taskRunner;
         subscriber.setBroker((AsynchronousBroker)taskRunner.getBroker());
         subscriber.receivePublications();
     }
     
-    public SubscriberTask(ReceivingSubscriber subscriber, PubSubTaskDelegator taskRunner, String domainsFile, int nSubscriptions) {
+    public SubscriberTask(ReceivingSubscriber subscriber, PubSubRunTasksExecutor taskRunner, String domainsFile, int nSubscriptions) {
         this(subscriber, taskRunner);
         this.domainsFile = domainsFile;
         numberOfSubscriptions = nSubscriptions;
@@ -45,18 +45,18 @@ public class SubscriberTask extends AsynchronousTask implements AsynchronousSubs
         setName(generateTaskDescription());
     }
     
-    public SubscriberTask(ReceivingSubscriber subscriber, PubSubTaskDelegator taskRunner, List<String> domains) {
+    public SubscriberTask(ReceivingSubscriber subscriber, PubSubRunTasksExecutor taskRunner, List<String> domains) {
         this(subscriber, taskRunner);
         numberOfSubscriptions = domains.size();
         subscriptionDomains = domains;
         setName(generateTaskDescription());
     }
     
-    public SubscriberTask(String subscriberName, PubSubTaskDelegator taskRunner, List<String> domains) {
+    public SubscriberTask(String subscriberName, PubSubRunTasksExecutor taskRunner, List<String> domains) {
         this(new ReceivingSubscriber(subscriberName), taskRunner, domains);
     }
     
-    public SubscriberTask(String subscriberName, PubSubTaskDelegator taskRunner, String domainsFile, int nSubscriptions) {
+    public SubscriberTask(String subscriberName, PubSubRunTasksExecutor taskRunner, String domainsFile, int nSubscriptions) {
         this(new ReceivingSubscriber(subscriberName), taskRunner, domainsFile, nSubscriptions);
     }
     
@@ -64,7 +64,7 @@ public class SubscriberTask extends AsynchronousTask implements AsynchronousSubs
         return subscriber;
     }
 
-    protected PubSubTaskDelegator getTaskRunner() {
+    protected PubSubRunTasksExecutor getTaskRunner() {
         return taskRunner;
     }
     
@@ -83,7 +83,7 @@ public class SubscriberTask extends AsynchronousTask implements AsynchronousSubs
     public void subscriptionMeasurementPerformed(Duration replyDuration) {
         logger.log(Level.INFO, "Subscriber {0} received measurement {1}", new Object[]{subscriber.getName(), replyDuration.toMillis()});
         setReplyDuration(replyDuration);
-        taskRunner.taskResponseReceived();
+        taskRunner.setTaskResponseReceived();
         // remove task from broker when a measurement is received
         taskRunner.getBroker().removeSubscriptionTask(getName());
     }
@@ -104,7 +104,7 @@ public class SubscriberTask extends AsynchronousTask implements AsynchronousSubs
         setDuration(result.getDuration()); 
         logger.log(Level.WARNING, "Subscriber {0} completed their request task operation: {1}", 
                                   new Object[]{subscriber.getName(), result.getCalledMethod()});
-        taskRunner.taskRequestCompleted();
+        taskRunner.setTaskRequestCompleted();
     }
 
     @Override

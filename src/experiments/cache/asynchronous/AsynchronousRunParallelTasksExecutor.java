@@ -63,6 +63,14 @@ public abstract class AsynchronousRunParallelTasksExecutor extends RunParallelTa
         }
     }
     
+    @Override
+    public void executeRun() {
+        runTasks();
+        waitForRequestsCompletion();
+        cleanUp();
+        waitForRepliesCompletion();
+    }
+    
     
     @Override
     public void waitForRequestsCompletion() {
@@ -85,11 +93,12 @@ public abstract class AsynchronousRunParallelTasksExecutor extends RunParallelTa
     }
 
     @Override
-    public void executeRun() {
-        runTasks();
-        waitForRequestsCompletion();
-        cleanUp();
-        waitForRepliesCompletion();
+    public void setTaskRequestCompleted() {
+        getRequestsLatch().countDown();
     }
-    
+
+    @Override
+    public void setTaskResponseReceived() {
+        getRepliesLatch().countDown();
+    }
 }

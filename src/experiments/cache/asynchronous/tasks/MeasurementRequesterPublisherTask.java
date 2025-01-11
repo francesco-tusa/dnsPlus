@@ -1,12 +1,12 @@
 package experiments.cache.asynchronous.tasks;
 
-import experiments.PubSubTaskDelegator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import publishing.MeasurementPillPublication;
 import publishing.Publisher;
 import utils.CustomLogger;
+import experiments.PubSubRunTasksExecutor;
 
 /**
  *
@@ -16,19 +16,19 @@ public class MeasurementRequesterPublisherTask extends PublisherTask implements 
 
     private static final Logger logger = CustomLogger.getLogger(MeasurementRequesterPublisherTask.class.getName());
 
-    public MeasurementRequesterPublisherTask(String publisherName, PubSubTaskDelegator taskRunner, List<String> domains) {
+    public MeasurementRequesterPublisherTask(String publisherName, PubSubRunTasksExecutor taskRunner, List<String> domains) {
         super(publisherName, taskRunner, domains);
     }
     
-    public MeasurementRequesterPublisherTask(String publisherName, PubSubTaskDelegator taskRunner, String domainsFile, int nPublications) {
+    public MeasurementRequesterPublisherTask(String publisherName, PubSubRunTasksExecutor taskRunner, String domainsFile, int nPublications) {
         super(publisherName, taskRunner, domainsFile, nPublications);
     }
     
-    public MeasurementRequesterPublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, List<String> domains) {
+    public MeasurementRequesterPublisherTask(Publisher publisher, PubSubRunTasksExecutor taskRunner, List<String> domains) {
         super(publisher, taskRunner, domains);
     }
     
-    public MeasurementRequesterPublisherTask(Publisher publisher, PubSubTaskDelegator taskRunner, String domainsFile, int nPublications) {
+    public MeasurementRequesterPublisherTask(Publisher publisher, PubSubRunTasksExecutor taskRunner, String domainsFile, int nPublications) {
         super(publisher, taskRunner, domainsFile, nPublications);
     }
 
