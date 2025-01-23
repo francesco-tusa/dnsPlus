@@ -23,23 +23,10 @@ import subscribing.ReceivingSubscriber;
 public final class DNSWithCacheAsynchronousSequentialParallelExperiment extends AsynchronousExperiment {
 
     DNSWithCacheAsynchronousSequentialParallelRun experimentRun;
-    
-    private int nPubs;
-    private int nSubs;
 
+    
     public DNSWithCacheAsynchronousSequentialParallelExperiment(String inputFileName, int numberOfRuns) {
-        this(inputFileName, numberOfRuns, 1, 1);
-    }
-    
-    
-    public DNSWithCacheAsynchronousSequentialParallelExperiment(String inputFileName, 
-                                                                int numberOfRuns, 
-                                                                int numberOfPubs,
-                                                                int numberOfSubs) 
-    {
         super(DNSWithCacheAsynchronousSequentialParallelExperiment.class.getSimpleName(), inputFileName, numberOfRuns);
-        nPubs = numberOfPubs;
-        nSubs = numberOfSubs;
     }
     
 
