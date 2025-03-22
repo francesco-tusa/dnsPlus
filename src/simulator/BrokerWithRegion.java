@@ -23,10 +23,10 @@ public class BrokerWithRegion extends TreeNode implements Broker {
     
     public BrokerWithRegion(String name) {
         this.name = name;
-        region = new Region(new Point(0,0,0), new Point(10,10,10));
+        region = new Region(new Location(0,0,0), new Location(10,10,10));
     }
     
-    public BrokerWithRegion(String name, Point p1, Point p2) {
+    public BrokerWithRegion(String name, Location p1, Location p2) {
         this.name = name;
         region = new Region(p1, p2);
     }
@@ -35,6 +35,12 @@ public class BrokerWithRegion extends TreeNode implements Broker {
         return name;
     }
    
+    
+    /*
+        Add the subscription to the Map if not already there
+        If a subscription from that child exists check and compare
+        the locations of the two subscriptions
+    */
     
     @Override
     public void addSubscription(Subscription s) {
@@ -66,6 +72,10 @@ public class BrokerWithRegion extends TreeNode implements Broker {
         throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
     }
 
+    /* 
+        Process the subscription by calling addSubscription and 
+        then propagates it toward the root of the tree
+    */
     @Override
     public void processSubscription(Subscription s) {
         System.out.println("Processing subscription on node: " + name);

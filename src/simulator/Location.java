@@ -1,11 +1,11 @@
 package simulator;
 
-public class Point implements Comparable<Point> {
+public class Location implements Comparable<Location> {
     private final int x;
     private final int y;
     private final int z;
 
-    public Point(int x, int y, int z) {
+    public Location(int x, int y, int z) {
         this.x = x;
         this.y = y;
         this.z = z;
@@ -24,7 +24,7 @@ public class Point implements Comparable<Point> {
     }
 
     @Override
-    public int compareTo(Point o) {
+    public int compareTo(Location o) {
         if (x == o.getX() && y == o.getY() && z == o.getZ()) {
             return 0;
         } else if (x < o.getX() && y < o.getY() && z <o.getZ())

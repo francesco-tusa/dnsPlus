@@ -20,16 +20,16 @@ public class Simulation {
         child1.addChild(s3);
         child1.addChild(s4);
 
-        SubscriptionWithLocation subscription1 = new SubscriptionWithLocation(new Point(5, 5, 5));
+        SubscriptionWithLocation subscription1 = new SubscriptionWithLocation(new Location(5, 5, 5));
         s1.send(subscription1);
         
-        SubscriptionWithLocation subscription2 = new SubscriptionWithLocation(new Point(5, 5, 5));
+        SubscriptionWithLocation subscription2 = new SubscriptionWithLocation(new Location(5, 5, 5));
         s2.send(subscription2);
         
-        SubscriptionWithLocation subscription3 = new SubscriptionWithLocation(new Point(10, 5, 5));
+        SubscriptionWithLocation subscription3 = new SubscriptionWithLocation(new Location(10, 5, 5));
         s3.send(subscription3);
         
-        SubscriptionWithLocation subscription4 = new SubscriptionWithLocation(new Point(15, 5, 5));
+        SubscriptionWithLocation subscription4 = new SubscriptionWithLocation(new Location(15, 5, 5));
         s4.send(subscription4);
     }
 

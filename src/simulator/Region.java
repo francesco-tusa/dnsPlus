@@ -2,31 +2,31 @@ package simulator;
 
 
 public class Region {
-    private Point bottomLeft;
-    private Point topRight;
+    private Location bottomLeft;
+    private Location topRight;
 
-    public Region(Point bottomLeft, Point topRight) {
+    public Region(Location bottomLeft, Location topRight) {
         this.bottomLeft = bottomLeft;
         this.topRight = topRight;
     }
 
-    public Point getBottomLeft() {
+    public Location getBottomLeft() {
         return bottomLeft;
     }
 
-    public void setBottomLeft(Point bottomLeft) {
+    public void setBottomLeft(Location bottomLeft) {
         this.bottomLeft = bottomLeft;
     }
 
-    public Point getTopRight() {
+    public Location getTopRight() {
         return topRight;
     }
 
-    public void setTopRight(Point topRight) {
+    public void setTopRight(Location topRight) {
         this.topRight = topRight;
     }
     
-    public Boolean contains(Point p) {
+    public Boolean contains(Location p) {
         return p.compareTo(bottomLeft) > 0 && p.compareTo(topRight) < 0;
     }
     
