@@ -24,6 +24,11 @@ public class Location implements Comparable<Location> {
     }
 
     @Override
+    public String toString() {
+        return "(" + x + ", " + y + ", " + z + ")";
+    }
+
+    @Override
     public int compareTo(Location o) {
         if (x == o.getX() && y == o.getY() && z == o.getZ()) {
             return 0;

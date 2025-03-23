@@ -4,20 +4,13 @@ import broker.GenericBroker;
 
 public abstract class SimulationBroker extends TreeNode implements GenericBroker<SubscriptionWithLocation, PublicationWithLocation> {
 
-    private String name;
     private int nSubscriptions;
     private int nPublications;
 
-    private SimulationBroker parent;
-
     public SimulationBroker(String name) {
-        this.name = name;
+        super(name);
         this.nSubscriptions = 0;
         this.nPublications = 0;
-    }
-
-    public String getName() {
-        return name;
     }
 
     public int getnSubscriptions() {
@@ -29,7 +22,7 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
     }
 
     public SimulationBroker getParentBroker() {
-        return (SimulationBroker) parent;
+        return (SimulationBroker) getParent();
     }
 
 
@@ -49,14 +42,15 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
     */
     @Override
     public void processSubscription(SubscriptionWithLocation s) {
-        System.out.println("Processing subscription on node: " + name);
+        System.out.println(getName() + ": processing subscription");
         nSubscriptions++;
-        
-        s.setSource(this);
+
         addSubscription(s);
         
-        if (getParentBroker() != null) {
-            parent.processSubscription(s);
+        SimulationBroker parentBroker = getParentBroker();
+        if (parentBroker != null) {
+            s.setSource(this);
+            parentBroker.processSubscription(s);
         }
     }
 }

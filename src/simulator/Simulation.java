@@ -12,13 +12,17 @@ public class Simulation {
         Subscriber s3 = new Subscriber("sub3");
         Subscriber s4 = new Subscriber("sub4");
 
+        Publisher p1 = new Publisher("pub1");
+
         root.addChild(child1);
         root.addChild(child2);
 
         child2.addChild(s1);
         child2.addChild(s2);
         child1.addChild(s3);
-        child1.addChild(s4);
+        child1.addChild(s4);    
+
+        child1.addChild(p1);
 
         SubscriptionWithLocation subscription1 = new SubscriptionWithLocation(new Location(5, 5, 5));
         s1.send(subscription1);
@@ -34,6 +38,13 @@ public class Simulation {
 
         SubscriptionWithLocation subscription5 = new SubscriptionWithLocation(new Location(3, 3, 3));
         s4.send(subscription5);
+
+
+        PublicationWithLocation publication1 = new PublicationWithLocation(new Location(20, 20, 20));
+        p1.send(publication1);
+
+        PublicationWithLocation publication2 = new PublicationWithLocation(new Location(2, 2, 2));
+        p1.send(publication2);
     }
 
 }

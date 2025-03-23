@@ -5,23 +5,26 @@ import java.util.List;
 
 public class TreeNode {
 
-    private List<TreeNode> children;
+    private String name;
     private TreeNode parent;
+    private List<TreeNode> children;
 
-    public TreeNode(TreeNode value) {
+
+    public TreeNode(String name) {
+        this.name = name;
         this.children = new ArrayList<>();
     }
 
-    public TreeNode() {
-        this.children = new ArrayList<>();
-    }
-
-    public List<TreeNode> getChildren() {
-        return children;
+    public String getName() {
+        return name;
     }
 
     public TreeNode getParent() {
         return parent;
+    }
+
+    public List<TreeNode> getChildren() {
+        return children;
     }
     
     public void addChild(TreeNode child) {

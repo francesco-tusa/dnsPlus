@@ -29,5 +29,10 @@ public class Region {
     public Boolean contains(Location p) {
         return p.compareTo(bottomLeft) > 0 && p.compareTo(topRight) < 0;
     }
+
+    @Override
+    public String toString() {
+        return "Region{" + "bottomLeft=" + bottomLeft + ", topRight=" + topRight + '}';
+    }
     
 }
