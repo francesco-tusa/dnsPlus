@@ -33,10 +33,7 @@ public class BrokerWithRegion extends SimulationBroker {
     @Override
     public void addSubscription(SubscriptionWithLocation s) {
         TreeNode source = s.getSource();
-        if (source == null) {
-            System.out.println("Subscription source is null");
-            
-        }
+
         SubscriptionWithLocation entry = subscriptionTable.get(source);
         if (entry == null) {
             System.out.println("Adding subscription to the table");

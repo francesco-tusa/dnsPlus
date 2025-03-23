@@ -2,7 +2,6 @@ package simulator;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class TreeNode {
 
@@ -33,19 +32,5 @@ public class TreeNode {
     public void removeChild(TreeNode child) {
         child.parent = null;
         this.children.remove(child);
-    }
-
-    
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        TreeNode treeNode = (TreeNode) o;
-        return Objects.equals(parent, treeNode.parent);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(parent);
     }
 }

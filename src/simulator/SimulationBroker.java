@@ -51,10 +51,11 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
     public void processSubscription(SubscriptionWithLocation s) {
         System.out.println("Processing subscription on node: " + name);
         nSubscriptions++;
+        
+        s.setSource(this);
         addSubscription(s);
         
         if (getParentBroker() != null) {
-            s.setSource(this);
             parent.processSubscription(s);
         }
     }
