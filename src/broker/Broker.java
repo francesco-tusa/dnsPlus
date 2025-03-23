@@ -7,9 +7,9 @@ import subscribing.Subscription;
  *
  * @author uceeftu
  */
-public interface Broker {
+ public interface Broker extends GenericBroker<Subscription, Publication> {
     
-        // add a subscription to the table
+    // add a subscription to the table
     void addSubscription(Subscription s);
 
     // match a publication with the entries in the
@@ -21,4 +21,4 @@ public interface Broker {
 
     // call to process a subscription
     void processSubscription(Subscription s);
-}
+ }

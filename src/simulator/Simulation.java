@@ -31,6 +31,9 @@ public class Simulation {
         
         SubscriptionWithLocation subscription4 = new SubscriptionWithLocation(new Location(15, 5, 5));
         s4.send(subscription4);
+
+        SubscriptionWithLocation subscription5 = new SubscriptionWithLocation(new Location(3, 3, 3));
+        s4.send(subscription5);
     }
 
 }

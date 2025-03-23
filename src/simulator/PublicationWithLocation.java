@@ -1,14 +1,12 @@
-
 package simulator;
 
-import subscribing.Subscription;
+import publishing.Publication;
 
-
-public class SubscriptionWithLocation extends Subscription {
+public class PublicationWithLocation extends Publication {
     Location location;
     TreeNode source;
 
-    public SubscriptionWithLocation(Location location) {
+    public PublicationWithLocation(Location location) {
         this.location = location;
     }
 
@@ -23,4 +21,5 @@ public class SubscriptionWithLocation extends Subscription {
     public void setSource(TreeNode source) {
         this.source = source;
     }
+
 }

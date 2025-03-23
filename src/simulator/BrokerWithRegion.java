@@ -1,38 +1,26 @@
 package simulator;
 
-import broker.Broker;
 import java.util.HashMap;
 import java.util.Map;
-import publishing.Publication;
-import subscribing.Subscription;
 
 /**
  *
  * @author f.tusa
  */
-public class BrokerWithRegion extends TreeNode implements Broker {
-    
-    private String name;
+public class BrokerWithRegion extends SimulationBroker {
+
     private Region region;
-    
-    private int nSubscriptions;
-    private int nPublications;
-    
     Map<TreeNode, SubscriptionWithLocation> subscriptionTable = new HashMap<>();
     
     
     public BrokerWithRegion(String name) {
-        this.name = name;
+        super(name);
         region = new Region(new Location(0,0,0), new Location(10,10,10));
     }
     
     public BrokerWithRegion(String name, Location p1, Location p2) {
-        this.name = name;
+        super(name);
         region = new Region(p1, p2);
-    }
-
-    public String getName() {
-        return name;
     }
    
     
@@ -43,18 +31,21 @@ public class BrokerWithRegion extends TreeNode implements Broker {
     */
     
     @Override
-    public void addSubscription(Subscription s) {
-        SubscriptionWithLocation subscription = (SubscriptionWithLocation)s;
-        TreeNode source = subscription.getSource();
+    public void addSubscription(SubscriptionWithLocation s) {
+        TreeNode source = s.getSource();
+        if (source == null) {
+            System.out.println("Subscription source is null");
+            
+        }
         SubscriptionWithLocation entry = subscriptionTable.get(source);
         if (entry == null) {
             System.out.println("Adding subscription to the table");
-            subscriptionTable.put(source, subscription);
+            subscriptionTable.put(source, s);
             return;
         }
         
         System.out.println("Subscription already in the table");
-        if (region.contains(subscription.getLocation())) {
+        if (region.contains(s.getLocation())) {
             System.out.println("Subscription location is within broker region");
         } else {
             System.out.println("Subscription location is outside broker region");
@@ -63,30 +54,13 @@ public class BrokerWithRegion extends TreeNode implements Broker {
     
 
     @Override
-    public Subscription matchPublication(Publication p) {
+    public SubscriptionWithLocation matchPublication(PublicationWithLocation p) {
         throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
     }
 
     @Override
-    public void processPublication(Publication p) {
+    public void processPublication(PublicationWithLocation p) {
         throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-    /* 
-        Process the subscription by calling addSubscription and 
-        then propagates it toward the root of the tree
-    */
-    @Override
-    public void processSubscription(Subscription s) {
-        System.out.println("Processing subscription on node: " + name);
-        nSubscriptions++;
-        addSubscription(s);
-        
-        if (parent != null) {
-            ((SubscriptionWithLocation)s).setSource(this);
-            ((BrokerWithRegion)parent).processSubscription(s);
-        }
-        
     }
     
 }

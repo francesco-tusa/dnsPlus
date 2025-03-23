@@ -7,14 +7,19 @@ public class Subscriber extends TreeNode {
     public Subscriber(String name) {
         this.name = name;
     }
+
+    public SimulationBroker getBroker() {
+        return (SimulationBroker) getParent();
+    }
     
     public void send(SubscriptionWithLocation s) {
+        SimulationBroker broker = getBroker();
         s.setSource(this);
-        if (parent != null) {
-            System.out.println(name + " is sending subscription to " + ((BrokerWithRegion)parent).getName());
-            ((BrokerWithRegion)parent).processSubscription(s);
+        if (broker != null) {
+            System.out.println(name + " is sending the subscription to " + broker.getName());
+            broker.processSubscription(s);
         } else {
-            System.out.println(name + " has no broker to send subscription to");
+            System.out.println(name + " has no broker to send the subscription to");
         }
     }
     
