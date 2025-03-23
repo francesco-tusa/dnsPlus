@@ -33,7 +33,8 @@ public class Subscriber extends TreeNode {
         s.setSource(this);
 
         if (broker != null) {
-            System.out.println(getName() + ": sending subscription to " + broker.getName());
+            System.out.println();
+            System.out.println(getName() + ": sending subscription " + s.getLocation() + " to " + broker.getName());
             broker.processSubscription(s);
             nSubscriptions++;
         } 

@@ -17,13 +17,14 @@ public class Publisher extends TreeNode {
         return (SimulationBroker) getParent();
     }
     
-    public void send(PublicationWithLocation s) {
+    public void send(PublicationWithLocation p) {
         SimulationBroker broker = getBroker();
-        s.setSource(this);
+        p.setSource(this);
         
         if (broker != null) {
-            System.out.println(getName() + ": sending publication to " + broker.getName());
-            broker.processPublication(s);
+            System.out.println();
+            System.out.println(getName() + ": sending publication " + p.getLocation() + " to " + broker.getName());
+            broker.processPublication(p);
             nPublications++;
         } 
         

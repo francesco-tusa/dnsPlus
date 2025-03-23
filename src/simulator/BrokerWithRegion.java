@@ -42,13 +42,16 @@ public class BrokerWithRegion extends SimulationBroker {
         
         System.out.println(getName() + ": subscription already in the table");
         processLocation(s);
+    }
 
-        // print the subscription table
-        System.out.println("Subscription table:");
+    public void printSubscriptions() {
+        System.out.println("\n------------------------------");
+        System.out.println(getName() + "'s subscription table:");
         for (TreeNode subscriber : subscriptionTable.keySet()) {
             SubscriptionWithLocation sub = subscriptionTable.get(subscriber);
             System.out.println(subscriber.getName() + " -> " + sub.getLocation());
         }
+        System.out.println("------------------------------");
     }
 
 
@@ -57,9 +60,9 @@ public class BrokerWithRegion extends SimulationBroker {
      */
     private void processLocation(SubscriptionWithLocation s) {
         if (region.contains(s.getLocation())) {
-            System.out.println("Subscription location is within broker region");
+            System.out.println(getName() + ": subscription location is within broker region");
         } else {
-            System.out.println("Subscription location is outside broker region");
+            System.out.println(getName() + ": subscription location is outside broker region");
             // TODO: should enlarge the current region if necessary and possibly count the number of times this happens
         }
         
