@@ -5,8 +5,8 @@ import subscribing.Subscription;
 
 
 public class SubscriptionWithLocation extends Subscription {
-    Location location;
-    TreeNode source;
+    private Location location;
+    private TreeNode source;
 
     public SubscriptionWithLocation(Location location) {
         this.location = location;

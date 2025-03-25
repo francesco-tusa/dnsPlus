@@ -10,7 +10,7 @@ import java.util.Map;
 public class BrokerWithRegion extends SimulationBroker {
 
     private Region region;
-    Map<TreeNode, SubscriptionWithLocation> subscriptionTable = new HashMap<>();
+    private Map<TreeNode, SubscriptionWithLocation> subscriptionTable = new HashMap<>();
     
     
     public BrokerWithRegion(String name) {
