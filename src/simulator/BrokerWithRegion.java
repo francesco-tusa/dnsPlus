@@ -62,8 +62,11 @@ public class BrokerWithRegion extends SimulationBroker {
 
     @Override
     public SubscriptionWithLocation matchPublication(PublicationWithLocation p) {
+
+        SubscriptionWithLocation s = null;
+
         for (TreeNode subscriber : subscriptionTable.keySet()) {
-            SubscriptionWithLocation s = subscriptionTable.get(subscriber);
+            s = subscriptionTable.get(subscriber);
 
             if (subscriber ==  p.getSource()) {
                 continue;
@@ -73,17 +76,16 @@ public class BrokerWithRegion extends SimulationBroker {
             if (s.getLocation().compareTo(p.getLocation()) > 0) {
                 System.out.println(getName() + ": forwarding publication to " + subscriber.getName());
                 if (subscriber instanceof BrokerWithRegion) {
-                    return ((BrokerWithRegion) subscriber).matchPublication(p);
+                    ((BrokerWithRegion) subscriber).matchPublication(p);
                 } else if (subscriber instanceof Subscriber) {
                     ((Subscriber) subscriber).receive(p);
-                    return s;
                 }
             } else {
-                System.out.println(getName() + ": publication location is outside subscription location");
+                System.out.println(getName() + ": publication location is outside " + subscriber.getName() + "'s subscription location");
             }
         }
 
-        return null;
+        return s;
     }
 
 
