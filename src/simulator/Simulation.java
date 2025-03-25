@@ -6,21 +6,25 @@ public class Simulation {
         BrokerWithRegion root = new BrokerWithRegion("root");
         BrokerWithRegion child1 = new BrokerWithRegion("child1");
         BrokerWithRegion child2 = new BrokerWithRegion("child2");
+        BrokerWithRegion child3 = new BrokerWithRegion("child3");
 
         Subscriber s1 = new Subscriber("sub1");
         Subscriber s2 = new Subscriber("sub2");
         Subscriber s3 = new Subscriber("sub3");
         Subscriber s4 = new Subscriber("sub4");
+        Subscriber s5 = new Subscriber("sub5");
 
         Publisher p1 = new Publisher("pub1");
 
         root.addChild(child1);
         root.addChild(child2);
+        root.addChild(child3);
 
         child2.addChild(s1);
         child2.addChild(s2);
         child1.addChild(s3);
-        child1.addChild(s4);    
+        child1.addChild(s4);
+        child3.addChild(s5);
 
         child1.addChild(p1);
 
@@ -39,9 +43,12 @@ public class Simulation {
         SubscriptionWithLocation subscription5 = new SubscriptionWithLocation(new Location(3, 3, 3));
         s4.send(subscription5);
 
+        s5.send(subscription2);
+
         root.printSubscriptions();
         child1.printSubscriptions();
         child2.printSubscriptions();
+        child3.printSubscriptions();
 
         PublicationWithLocation publication1 = new PublicationWithLocation(new Location(20, 20, 20));
         p1.send(publication1);
