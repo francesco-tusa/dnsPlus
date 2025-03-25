@@ -26,20 +26,29 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
     }
 
 
-    @Override
-    public SubscriptionWithLocation matchPublication(PublicationWithLocation p) {
-        throw new UnsupportedOperationException("Unimplemented method 'matchPublication'");
-    }
+    /*
+     *  Process the publication by calling matchPublication and
+     *  then propagates it toward the root of the tree
+     */
 
     @Override
     public void processPublication(PublicationWithLocation p) {
-        throw new UnsupportedOperationException("Unimplemented method 'processPublication'");
+        System.out.println(getName() + ": processing publication");
+        nPublications++;
+
+        matchPublication(p);
+
+        SimulationBroker parentBroker = getParentBroker();
+        if (parentBroker != null) {
+            p.setSource(this);
+            parentBroker.processPublication(p);
+        }
     }
 
     /* 
-        Process the subscription by calling addSubscription and 
-        then propagates it toward the root of the tree
-    */
+     *   Process the subscription by calling addSubscription and 
+     *   then propagates it toward the root of the tree
+     */
     @Override
     public void processSubscription(SubscriptionWithLocation s) {
         System.out.println(getName() + ": processing subscription");

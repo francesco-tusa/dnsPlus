@@ -44,19 +44,10 @@ public class BrokerWithRegion extends SimulationBroker {
         processLocation(s);
     }
 
-    public void printSubscriptions() {
-        System.out.println("\n------------------------------");
-        System.out.println(getName() + "'s subscription table:");
-        for (TreeNode subscriber : subscriptionTable.keySet()) {
-            SubscriptionWithLocation sub = subscriptionTable.get(subscriber);
-            System.out.println(subscriber.getName() + " -> " + sub.getLocation());
-        }
-        System.out.println("------------------------------");
-    }
-
 
     /*
-     * implements the logic to process the subscription
+     * implements the logic to process the subscription based on the location
+     * of the subscription and the broker region
      */
     private void processLocation(SubscriptionWithLocation s) {
         if (region.contains(s.getLocation())) {
@@ -95,12 +86,14 @@ public class BrokerWithRegion extends SimulationBroker {
         return null;
     }
 
-    @Override
-    public void processPublication(PublicationWithLocation p) {
-        matchPublication(p);
 
-        if (getParentBroker() != null) {
-            getParentBroker().processPublication(p);
+    public void printSubscriptions() {
+        System.out.println("\n------------------------------");
+        System.out.println(getName() + "'s subscription table:");
+        for (TreeNode subscriber : subscriptionTable.keySet()) {
+            SubscriptionWithLocation sub = subscriptionTable.get(subscriber);
+            System.out.println(subscriber.getName() + " -> " + sub.getLocation());
         }
+        System.out.println("------------------------------");
     }
 }
