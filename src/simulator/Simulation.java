@@ -43,7 +43,7 @@ public class Simulation {
         SubscriptionWithLocation subscription5 = new SubscriptionWithLocation(new Location(3, 3, 3));
         s4.send(subscription5);
 
-        s5.send(subscription2);
+        s5.send(new SubscriptionWithLocation(new Location(1, 1, 1)));
 
         root.printSubscriptions();
         child1.printSubscriptions();
