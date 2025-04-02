@@ -1,19 +1,9 @@
 <project name="DNSPlus" basedir="." default="main">
-
     <property name="src.dir"     value="src"/>
     <property name="build.dir"   value="build"/>
     <property name="classes.dir" value="${build.dir}/classes"/>
     <property name="jar.dir"     value="${build.dir}/jar"/>
-    <property name="main-class"  value="simulator.Simulation"/>
-
-    <!-- Dynamically set JAVA_HOME -->
-    <target name="set-java-home">
-        <!-- Use /usr/libexec/java_home to get the correct JDK 23 path -->
-        <exec executable="/usr/libexec/java_home" outputproperty="java.home">
-        </exec>
-        <echo message="JAVA_HOME set to: ${java.home}"/>
-        <property name="javac.executable" value="${java.home}/bin/javac"/>
-    </target>
+    <property name="main-class"  value="experiments.Main"/>
 
     <target name="clean">
         <delete dir="${build.dir}"/>
@@ -21,11 +11,7 @@
 
     <target name="compile" depends="set-java-home">
         <mkdir dir="${classes.dir}"/>
-        <javac srcdir="${src.dir}" destdir="${classes.dir}" executable="${javac.executable}" fork="true" includeantruntime="false">
-            <compilerarg value="--release"/>
-            <compilerarg value="23"/>
-            <compilerarg value="--enable-preview"/>
-        </javac>
+        <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false"/>
     </target>
 
     <target name="jar" depends="compile">
