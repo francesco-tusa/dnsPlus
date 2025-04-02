@@ -1,14 +1,10 @@
 <project name="DNSPlus" basedir="." default="main">
-
     <property name="src.dir"     value="src"/>
 
     <property name="build.dir"   value="build"/>
     <property name="classes.dir" value="${build.dir}/classes"/>
     <property name="jar.dir"     value="${build.dir}/jar"/>
-
-    <property name="main-class"  value="naming.RandomTest"/>
-
-
+    <property name="main-class"  value="experiments.Main"/>
 
     <target name="clean">
         <delete dir="${build.dir}"/>
@@ -16,7 +12,7 @@
 
     <target name="compile">
         <mkdir dir="${classes.dir}"/>
-        <javac srcdir="${src.dir}" destdir="${classes.dir}"/>
+        <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false"/>
     </target>
 
     <target name="jar" depends="compile">
