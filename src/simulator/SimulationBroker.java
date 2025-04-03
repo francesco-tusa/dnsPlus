@@ -57,7 +57,7 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
         addSubscription(s);
         
         SimulationBroker parentBroker = getParentBroker();
-        if (parentBroker != null) {
+        if (parentBroker != null && s.isForwardingEnabled()) {
             s.setSource(this);
             parentBroker.processSubscription(s);
         }

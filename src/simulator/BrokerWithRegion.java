@@ -52,9 +52,11 @@ public class BrokerWithRegion extends SimulationBroker {
     private void processLocation(SubscriptionWithLocation s) {
         if (region.contains(s.getLocation())) {
             System.out.println(getName() + ": subscription location is within broker region");
+            // TODO: should not be propagated further
+            s.disableForwarding();
         } else {
             System.out.println(getName() + ": subscription location is outside broker region");
-            // TODO: should enlarge the current region if necessary and possibly count the number of times this happens
+            // TODO: should enlarge the current region if necessary (?) and possibly count the number of times this happens
         }
         
     }
