@@ -3,30 +3,80 @@ package simulator;
 public class Simulation {
 
     public static void main(String[] args) {
+
         BrokerWithRegion root = new BrokerWithRegion("root");
+
         BrokerWithRegion child1 = new BrokerWithRegion("child1");
         BrokerWithRegion child2 = new BrokerWithRegion("child2");
         BrokerWithRegion child3 = new BrokerWithRegion("child3");
 
-        Subscriber s1 = new Subscriber("sub1");
-        Subscriber s2 = new Subscriber("sub2");
-        Subscriber s3 = new Subscriber("sub3");
-        Subscriber s4 = new Subscriber("sub4");
-        Subscriber s5 = new Subscriber("sub5");
+        // leaf brokers
+        BrokerWithRegion grandchild1 = new LeafBrokerWithRegion("grandchild1");
+        BrokerWithRegion grandchild2 = new LeafBrokerWithRegion("grandchild2");
+        BrokerWithRegion grandchild3 = new LeafBrokerWithRegion("grandchild3");
+        BrokerWithRegion grandchild4 = new LeafBrokerWithRegion("grandchild4");
 
-        Publisher p1 = new Publisher("pub1");
+        Subscriber s1 = new Subscriber("sub1", new Location(0, 0, 0));
+        Subscriber s2 = new Subscriber("sub2", new Location(5, 2, 0));
+        Subscriber s3 = new Subscriber("sub3", new Location(10, 1, 0));
+        Subscriber s4 = new Subscriber("sub4", new Location(15, 1, 0));
+
+        Subscriber s5 = new Subscriber("sub5", new Location(4, 3, 0));
+        Subscriber s6 = new Subscriber("sub6", new Location(9, 4, 0));
+        Subscriber s7 = new Subscriber("sub7", new Location(13, 3, 0));
+        Subscriber s8 = new Subscriber("sub8", new Location(20, 5, 0));
+
+        Publisher p1 = new Publisher("pub1", new Location(2, 2, 0));
 
         root.addChild(child1);
         root.addChild(child2);
         root.addChild(child3);
 
-        child2.addChild(s1);
-        child2.addChild(s2);
-        child1.addChild(s3);
-        child1.addChild(s4);
-        child3.addChild(s5);
+        child1.addChild(grandchild1);
+        child2.addChild(grandchild2);
+        child2.addChild(grandchild3);
+        child3.addChild(grandchild4);
 
-        child1.addChild(p1);
+        System.out.println(child1.getRegion());
+        System.out.println(child2.getRegion());
+        System.out.println(child3.getRegion());
+
+        // subscribing to leaf brokers
+        grandchild1.addChild(s1);
+        grandchild2.addChild(s2);
+        grandchild3.addChild(s3);
+        grandchild4.addChild(s4);
+
+        System.out.println();
+        System.out.println(grandchild1.getRegion());
+        System.out.println(grandchild2.getRegion());
+        System.out.println(grandchild3.getRegion());
+        System.out.println(grandchild4.getRegion());
+        
+        grandchild1.addChild(s5);
+        grandchild2.addChild(s6);
+        grandchild3.addChild(s7);
+        grandchild4.addChild(s8);
+        
+        System.out.println();
+        System.out.println(grandchild1.getRegion());
+        System.out.println(grandchild2.getRegion());
+        System.out.println(grandchild3.getRegion());
+        System.out.println(grandchild4.getRegion());
+
+        System.out.println();
+        System.out.println(child1.getRegion());
+        System.out.println(child2.getRegion());
+        System.out.println(child3.getRegion());
+
+        System.out.println();
+        System.out.println(root.getRegion());
+        
+        
+        /* 
+
+        // TODO: check whether adding a publisher changes the region
+        grandchild1.addChild(p1);
 
         SubscriptionWithLocation subscription1 = new SubscriptionWithLocation(new Location(5, 5, 5));
         s1.send(subscription1);
@@ -46,16 +96,22 @@ public class Simulation {
         SubscriptionWithLocation subscription6 = new SubscriptionWithLocation(new Location(1, 1, 1));
         s5.send(subscription6);
 
-        root.printSubscriptions();
-        child1.printSubscriptions();
-        child2.printSubscriptions();
-        child3.printSubscriptions();
+        root.printSubscriptionsTable();
+        child1.printSubscriptionsTable();
+        child2.printSubscriptionsTable();
+        child3.printSubscriptionsTable();
+        grandchild1.printSubscriptionsTable();
+        grandchild2.printSubscriptionsTable();
+        grandchild3.printSubscriptionsTable();
+        grandchild4.printSubscriptionsTable();
 
         PublicationWithLocation publication1 = new PublicationWithLocation(new Location(20, 20, 20));
         p1.send(publication1);
 
         PublicationWithLocation publication2 = new PublicationWithLocation(new Location(2, 2, 2));
         p1.send(publication2);
+        */
+        
     }
 
 }

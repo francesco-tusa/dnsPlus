@@ -1,11 +1,12 @@
 package simulator;
 
 public class Publisher extends TreeNode {
-    
+    Location location;
     private int nPublications;
 
-    public Publisher(String name) {
+    public Publisher(String name, Location location) {
         super(name);
+        this.location = location;
         this.nPublications = 0;
     }
 

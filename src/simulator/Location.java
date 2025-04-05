@@ -30,11 +30,12 @@ public class Location implements Comparable<Location> {
 
     @Override
     public int compareTo(Location o) {
-        if (x == o.getX() && y == o.getY() && z == o.getZ()) {
-            return 0;
-        } else if (x < o.getX() && y < o.getY() && z <o.getZ())
-            return -1;
-        else
-            return 1;
-    }
+        if (x != o.getX()) {
+            return Integer.compare(x, o.getX());
+        } else if (y != o.getY()) {
+            return Integer.compare(y, o.getY());
+        } else {
+            return Integer.compare(z, o.getZ());
+        }
+    }    
 }

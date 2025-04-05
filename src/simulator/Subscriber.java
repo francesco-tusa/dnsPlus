@@ -1,15 +1,20 @@
 package simulator;
 
 public class Subscriber extends TreeNode {
-    
+    private Location location;
     private int nSubscriptions;
     private int nPublications;
 
-    public Subscriber(String name) {
+    public Subscriber(String name, Location location) {
         super(name);
+        this.location = location;
         this.nSubscriptions = 0;
         this.nPublications = 0;
     }
+    
+    public Location getLocation() {
+        return location;
+    } 
 
     public int getnSubscriptions() {
         return nSubscriptions;
@@ -42,5 +47,5 @@ public class Subscriber extends TreeNode {
         else {
             System.out.println(getName() + ": there is no broker to send the subscription to");
         }
-    } 
+    }
 }

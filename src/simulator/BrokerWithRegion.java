@@ -8,14 +8,13 @@ import java.util.Map;
  * @author f.tusa
  */
 public class BrokerWithRegion extends SimulationBroker {
-
     private Region region;
     private Map<TreeNode, SubscriptionWithLocation> subscriptionTable = new HashMap<>();
     
     
     public BrokerWithRegion(String name) {
         super(name);
-        region = new Region(new Location(0,0,0), new Location(10,10,10));
+        region = new Region();
     }
     
     public BrokerWithRegion(String name, Location p1, Location p2) {
@@ -24,6 +23,21 @@ public class BrokerWithRegion extends SimulationBroker {
     }
    
     
+    public Region getRegion() {
+        return region;
+    }
+
+
+    protected void updateRegion(TreeNode child) {
+        if (child instanceof BrokerWithRegion broker) {
+            region.expand(broker.region);
+        }
+
+        if (getParentBroker() != null && getParentBroker() instanceof BrokerWithRegion parentBroker) {
+            parentBroker.updateRegion(this);
+        }
+    }
+
     /*
      *   Add the subscription to the Map if not already there
      *   If a subscription from that child exists check and compare
@@ -91,7 +105,7 @@ public class BrokerWithRegion extends SimulationBroker {
     }
 
 
-    public void printSubscriptions() {
+    public void printSubscriptionsTable() {
         System.out.println("\n------------------------------");
         System.out.println(getName() + "'s subscription table:");
         for (TreeNode subscriber : subscriptionTable.keySet()) {
