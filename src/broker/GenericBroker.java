@@ -1,7 +1,9 @@
 package broker;
 
-public interface GenericBroker<S, P> {
-    
+import publishing.Publication;
+import subscribing.Subscription;
+
+public interface GenericBroker<S extends Subscription, P extends Publication> {
     void addSubscription(S s);
 
     S matchPublication(P p);

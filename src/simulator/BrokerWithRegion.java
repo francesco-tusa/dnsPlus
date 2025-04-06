@@ -1,104 +1,130 @@
 package simulator;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import broker.Broker;
 
 /**
  *
  * @author f.tusa
  */
-public class BrokerWithRegion extends SimulationBroker {
+public abstract class BrokerWithRegion extends SimulationBroker {
     private Region region;
-    private Map<TreeNode, SubscriptionWithLocation> subscriptionTable = new HashMap<>();
+    private Map<TreeNode, SimulationSubscription> subscriptionTable = new HashMap<>();
+    private long numOfRegionUpdates;
     
+    /*
+     * implements the logic to process a new subscription based on the location or the region
+     * of an existing subscription
+     */
+    public abstract boolean matchingSubscriptionLocationOrRegion(SimulationSubscription existingSubscription, SimulationSubscription newSubscription);
+
+    /*
+     * implements the logic to propagate a new subscription to the children of this broker
+     */
+    protected abstract void sendSubscriptionToChildren(SimulationSubscription s);
+
+    /*
+     * implements
+     */
+    public abstract void processPublicationLocation(SimulationPublication p, TreeNode child);
+
+
     
     public BrokerWithRegion(String name) {
         super(name);
         region = new Region();
+        numOfRegionUpdates = 0;
     }
     
     public BrokerWithRegion(String name, Location p1, Location p2) {
         super(name);
         region = new Region(p1, p2);
+        numOfRegionUpdates = 0;
     }
-   
     
+    @Override
+    public BrokerWithRegion getParentBroker() {
+        SimulationBroker parentBroker = super.getParentBroker();
+        if (parentBroker != null && parentBroker instanceof BrokerWithRegion parentBrokerWithRegion) {
+            return parentBrokerWithRegion;
+        } else {
+            return null;
+        }
+    }
+
     public Region getRegion() {
         return region;
     }
 
+    public long getNumOfRegionUpdates() {
+        return numOfRegionUpdates;
+    }
+
+    protected void increaseNumOfRegionUpdates() {
+        numOfRegionUpdates++;
+    }
+
+    public SimulationSubscription getChildSubscriptionEntry(TreeNode child) {
+        return subscriptionTable.get(child);
+    }
 
     protected void updateRegion(TreeNode child) {
         if (child instanceof BrokerWithRegion broker) {
-            region.expand(broker.region);
-        }
-
-        if (getParentBroker() != null && getParentBroker() instanceof BrokerWithRegion parentBroker) {
-            parentBroker.updateRegion(this);
+            if (region.expand(broker.region)) {
+                System.out.println(getName() + ": updated region");
+                numOfRegionUpdates++;
+                BrokerWithRegion parentBroker= getParentBroker();
+                if (parentBroker != null) {
+                    parentBroker.updateRegion(this);
+            
+                }
+            }
         }
     }
 
     /*
      *   Add the subscription to the Map if not already there
      *   If a subscription from that child exists check and compare
-     *   the locations of the two subscriptions calling processLocation
+     *   the locations of the two subscriptions calling matchingSubscriptionLocationOrRegion
      */
     @Override
-    public void addSubscription(SubscriptionWithLocation s) {
+    public void addSubscription(SimulationSubscription s) {
         TreeNode source = s.getSource();
 
-        SubscriptionWithLocation tableEntry = subscriptionTable.get(source);
+        SimulationSubscription tableEntry = subscriptionTable.get(source);
         if (tableEntry == null) {
-            System.out.println(getName() + ": adding subscription to the table");
+            System.out.println(getName() + ": adding subscription " + s + "to the table");
             subscriptionTable.put(source, s);
-            return;
-        }
-        
-        System.out.println(getName() + ": subscription already in the table");
-        processLocation(s);
-    }
-
-
-    /*
-     * implements the logic to process the subscription based on the location
-     * of the subscription and the broker region
-     */
-    private void processLocation(SubscriptionWithLocation s) {
-        if (region.contains(s.getLocation())) {
-            System.out.println(getName() + ": subscription location is within broker region");
-            // TODO: should not be propagated further
-            s.disableForwarding();
+            sendSubscriptionToChildren(s);
         } else {
-            System.out.println(getName() + ": subscription location is outside broker region");
-            // TODO: should enlarge the current region if necessary (?) and possibly count the number of times this happens
+            System.out.println(getName() + ": subscription " + s + " already in the table");
+            if (matchingSubscriptionLocationOrRegion(tableEntry, s)) {
+                s.disableForwarding();
+            } else {
+                subscriptionTable.put(source, s);
+                sendSubscriptionToChildren(s);
+            }
         }
-        
     }
     
 
     @Override
-    public SubscriptionWithLocation matchPublication(PublicationWithLocation p) {
+    public SimulationSubscription matchPublication(SimulationPublication p) {
 
-        SubscriptionWithLocation s = null;
+        SimulationSubscription s = null;
 
-        for (TreeNode subscriber : subscriptionTable.keySet()) {
-            s = subscriptionTable.get(subscriber);
+        
+        for (TreeNode child : subscriptionTable.keySet()) {
+            s = subscriptionTable.get(child);
 
-            if (subscriber ==  p.getSource()) {
+            if (child ==  p.getSource()) {
                 continue;
             }
 
-            // just for testing, should check the region properly
-            if (s.getLocation().compareTo(p.getLocation()) > 0) {
-                System.out.println(getName() + ": forwarding publication to " + subscriber.getName());
-                if (subscriber instanceof BrokerWithRegion) {
-                    ((BrokerWithRegion) subscriber).matchPublication(p);
-                } else if (subscriber instanceof Subscriber) {
-                    ((Subscriber) subscriber).receive(p);
-                }
-            } else {
-                System.out.println(getName() + ": publication location is outside " + subscriber.getName() + "'s subscription location");
-            }
+            processPublicationLocation(p, child);
         }
 
         return s;
@@ -109,8 +135,8 @@ public class BrokerWithRegion extends SimulationBroker {
         System.out.println("\n------------------------------");
         System.out.println(getName() + "'s subscription table:");
         for (TreeNode subscriber : subscriptionTable.keySet()) {
-            SubscriptionWithLocation sub = subscriptionTable.get(subscriber);
-            System.out.println(subscriber.getName() + " -> " + sub.getLocation());
+            SimulationSubscription sub = subscriptionTable.get(subscriber);
+            System.out.println(subscriber.getName() + " -> " + sub);
         }
         System.out.println("------------------------------");
     }

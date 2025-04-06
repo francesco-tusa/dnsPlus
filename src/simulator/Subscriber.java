@@ -28,24 +28,31 @@ public class Subscriber extends TreeNode {
         return (SimulationBroker) getParent();
     }
 
-    public void receive(PublicationWithLocation p) {
+    public void receive(SimulationPublication p) {
         System.out.println(getName() + ": received publication");
         nPublications++;
     }
     
-    public void send(SubscriptionWithLocation s) {
+    public void send(SimulationSubscription s) {
         SimulationBroker broker = getBroker();
         s.setSource(this);
 
         if (broker != null) {
             System.out.println();
-            System.out.println(getName() + ": sending subscription " + s.getLocation() + " to " + broker.getName());
+            System.out.println(getName() + ": sending subscription " + s + " to " + broker.getName());
             broker.processSubscription(s);
             nSubscriptions++;
         } 
         
         else {
-            System.out.println(getName() + ": there is no broker to send the subscription to");
+            System.out.println(getName() + ": topology error, there is no broker to send the subscription to");
         }
     }
+
+    @Override
+    public String toString() {
+        return "Subscriber [name=" + getName() + ", location=" + location + "]";
+    }
+
+    
 }

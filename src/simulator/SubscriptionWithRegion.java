@@ -10,4 +10,10 @@ public class SubscriptionWithRegion extends SimulationSubscription {
     public Region getRegion() {
         return region;
     }
+
+    @Override
+    public String toString() {
+        return "SubscriptionWithRegion [region=" + region + "]";
+    }
+
 }

@@ -2,7 +2,7 @@ package simulator;
 
 import broker.GenericBroker;
 
-public abstract class SimulationBroker extends TreeNode implements GenericBroker<SubscriptionWithLocation, PublicationWithLocation> {
+public abstract class SimulationBroker extends TreeNode implements GenericBroker<SimulationSubscription, SimulationPublication> {
 
     private int nSubscriptions;
     private int nPublications;
@@ -32,7 +32,7 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
      */
 
     @Override
-    public void processPublication(PublicationWithLocation p) {
+    public void processPublication(SimulationPublication p) {
         System.out.println(getName() + ": processing publication");
         nPublications++;
 
@@ -50,7 +50,7 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
      *   then propagates it toward the root of the tree
      */
     @Override
-    public void processSubscription(SubscriptionWithLocation s) {
+    public void processSubscription(SimulationSubscription s) {
         System.out.println(getName() + ": processing subscription");
         nSubscriptions++;
 

@@ -18,7 +18,7 @@ public class Publisher extends TreeNode {
         return (SimulationBroker) getParent();
     }
     
-    public void send(PublicationWithLocation p) {
+    public void send(SimulationPublication p) {
         SimulationBroker broker = getBroker();
         p.setSource(this);
         

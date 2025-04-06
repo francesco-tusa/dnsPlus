@@ -2,11 +2,11 @@ package simulator;
 
 import publishing.Publication;
 
-public class PublicationWithLocation extends Publication {
+public class SimulationPublication extends Publication {
     private Location location;
     private TreeNode source;
 
-    public PublicationWithLocation(Location location) {
+    public SimulationPublication(Location location) {
         this.location = location;
     }
 

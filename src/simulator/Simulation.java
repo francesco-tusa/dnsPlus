@@ -4,17 +4,17 @@ public class Simulation {
 
     public static void main(String[] args) {
 
-        BrokerWithRegion root = new BrokerWithRegion("root");
+        BrokerWithRegion root = new BrokerWithRegionProcessingRegion("root");
 
-        BrokerWithRegion child1 = new BrokerWithRegion("child1");
-        BrokerWithRegion child2 = new BrokerWithRegion("child2");
-        BrokerWithRegion child3 = new BrokerWithRegion("child3");
+        BrokerWithRegion child1 = new BrokerWithRegionProcessingRegion("child1");
+        BrokerWithRegion child2 = new BrokerWithRegionProcessingRegion("child2");
+        BrokerWithRegion child3 = new BrokerWithRegionProcessingRegion("child3");
 
         // leaf brokers
-        BrokerWithRegion grandchild1 = new LeafBrokerWithRegion("grandchild1");
-        BrokerWithRegion grandchild2 = new LeafBrokerWithRegion("grandchild2");
-        BrokerWithRegion grandchild3 = new LeafBrokerWithRegion("grandchild3");
-        BrokerWithRegion grandchild4 = new LeafBrokerWithRegion("grandchild4");
+        BrokerWithRegion grandchild1 = new LeafBrokerWithRegionProcessingRegion("grandchild1");
+        BrokerWithRegion grandchild2 = new LeafBrokerWithRegionProcessingRegion("grandchild2");
+        BrokerWithRegion grandchild3 = new LeafBrokerWithRegionProcessingRegion("grandchild3");
+        BrokerWithRegion grandchild4 = new LeafBrokerWithRegionProcessingRegion("grandchild4");
 
         Subscriber s1 = new Subscriber("sub1", new Location(0, 0, 0));
         Subscriber s2 = new Subscriber("sub2", new Location(5, 2, 0));
@@ -72,6 +72,28 @@ public class Simulation {
         System.out.println();
         System.out.println(root.getRegion());
         
+        System.out.println();
+        Subscriber subTest = new Subscriber("subTest", new Location(2, 2, 0));
+        grandchild1.addChild(subTest);
+
+        System.out.println();
+        System.out.println(grandchild1.getRegion());
+        System.out.println(grandchild2.getRegion());
+        System.out.println(grandchild3.getRegion());
+        System.out.println(grandchild4.getRegion());
+
+        System.out.println();
+        System.out.println(child1.getRegion());
+        System.out.println(child2.getRegion());
+        System.out.println(child3.getRegion());
+
+
+        
+        Region subscription1Region = new Region(new Location(8, 3,0), new Location(10, 4, 0));
+        SubscriptionWithRegion subscription1 = new SubscriptionWithRegion(subscription1Region);
+        s2.send(subscription1);
+        
+
         
         /* 
 

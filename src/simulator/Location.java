@@ -1,5 +1,7 @@
 package simulator;
 
+import java.util.Objects;
+
 public class Location implements Comparable<Location> {
     private final int x;
     private final int y;
@@ -37,5 +39,23 @@ public class Location implements Comparable<Location> {
         } else {
             return Integer.compare(z, o.getZ());
         }
-    }    
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        Location location = (Location) obj;
+        return x == location.x && y == location.y && z == location.z;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(x, y, z);
+    }
+
 }
