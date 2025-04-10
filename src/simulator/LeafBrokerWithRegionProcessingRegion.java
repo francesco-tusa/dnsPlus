@@ -34,6 +34,6 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
     }
 
     protected void sendSubscriptionToChildren(SimulationSubscription newSubscription) {
-        System.out.println(getName() + ": I am a leaf broker, I do not have child brokers");
+        System.out.println(getName() + ": I am a leaf broker and I do not have children");
     }
 }

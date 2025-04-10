@@ -124,7 +124,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
             System.out.println(getName() + ": subscription received from my parent");
         }
 
-        System.out.println(getName() + ": sending subscription received from " + s.getSource().getName() + " to children");
+        System.out.println(getName() + ": sending subscription received from " + s.getSource().getName() + " to my children");
         sendSubscriptionToChildren(s);
     }
 
