@@ -26,5 +26,5 @@ public abstract class SimulationSubscription extends Subscription {
         return shouldForwardUpwards;
     }
 
-    public abstract SubscriptionTableEntry getTableEntry();
+    public abstract SimulationSubscription getTableEntry();
 }

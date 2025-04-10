@@ -9,9 +9,9 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     }
 
     @Override
-    public boolean regionsOrLocationsMatch(SubscriptionTableEntry existingSubscription, SimulationSubscription newSubscription) {
+    public boolean regionsOrLocationsMatch(SimulationSubscription existingSubscription, SimulationSubscription newSubscription) {
         SubscriptionWithRegion newSubscriptionWithRegion = ((SubscriptionWithRegion) newSubscription);
-        SubscriptionTableEntryWithRegion existingSubscriptionWithRegion = ((SubscriptionTableEntryWithRegion) existingSubscription);
+        SubscriptionWithRegion existingSubscriptionWithRegion = ((SubscriptionWithRegion) existingSubscription);
 
         // FIXME: This might require checking for intersections and do specific
         // operations accordingly
@@ -27,14 +27,14 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     @Override
     public void processPublicationLocation(SimulationPublication p, TreeNode child) {
         // just for testing, should check the region properly
-        SubscriptionTableEntryWithRegion s = (SubscriptionTableEntryWithRegion) getChildSubscriptionEntry(child);
+        SubscriptionWithRegion s = (SubscriptionWithRegion) getChildSubscriptionEntry(child);
 
         if (s.getRegion().contains(p.getLocation())) {
             System.out.println(getName() + ": forwarding publication to " + child.getName());
-            if (child instanceof BrokerWithRegion) {
-                ((BrokerWithRegion) child).matchPublication(p);
-            } else if (child instanceof Subscriber) {
-                ((Subscriber) child).receive(p);
+            switch (child) {
+                case BrokerWithRegion brokerWithRegion -> brokerWithRegion.matchPublication(p);
+                case Subscriber subscriber -> subscriber.receive(p);
+                default -> {}
             }
         } else {
             System.out.println(
@@ -42,6 +42,7 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
         }
     }
 
+    @Override
     protected void sendSubscriptionToChildren(SimulationSubscription newSubscription) {
         SubscriptionWithRegion newSubscriptionWithRegion = ((SubscriptionWithRegion) newSubscription);
         List<TreeNode> children = getChildren();
@@ -57,7 +58,7 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
                             " with intersecting " + childWithRegion.getRegion() +
                             " for " + newSubscription);
 
-                    SubscriptionTableEntryWithRegion existingSubscriptionWithRegion = (SubscriptionTableEntryWithRegion) getChildSubscriptionEntry(child);
+                    SubscriptionWithRegion existingSubscriptionWithRegion = (SubscriptionWithRegion) getChildSubscriptionEntry(child);
 
                     if (existingSubscriptionWithRegion == null ||
                             !existingSubscriptionWithRegion.getRegion()
@@ -81,10 +82,9 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     }
 
     @Override
-    protected void updateSubscriptionEntry(SubscriptionTableEntry existingSubscription,
-            SimulationSubscription newSubscription) {
+    protected void updateSubscriptionTableEntry(SimulationSubscription existingSubscription, SimulationSubscription newSubscription) {
         SubscriptionWithRegion newSubscriptionWithRegion = ((SubscriptionWithRegion) newSubscription);
-        SubscriptionTableEntryWithRegion existingSubscriptionWithRegion = ((SubscriptionTableEntryWithRegion) existingSubscription);
+        SubscriptionWithRegion existingSubscriptionWithRegion = ((SubscriptionWithRegion) existingSubscription);
 
         Region currentRegion = existingSubscriptionWithRegion.getRegion();
         Region newRegion = newSubscriptionWithRegion.getRegion();

@@ -131,12 +131,10 @@ public class Simulation {
         grandchild2.printSubscriptionsTable();
         grandchild3.printSubscriptionsTable();
         grandchild4.printSubscriptionsTable();
-        
+        // FIXME: check whether adding a publisher should change the region
+        grandchild2.addChild(p1);
+
         /* 
-
-        // TODO: check whether adding a publisher changes the region
-        grandchild1.addChild(p1);
-
         SubscriptionWithLocation subscription1 = new SubscriptionWithLocation(new Location(5, 5, 5));
         s1.send(subscription1);
         
@@ -165,13 +163,10 @@ public class Simulation {
         grandchild4.printSubscriptionsTable();
         */
 
-        SimulationPublication publication1 = new SimulationPublication(p1.getLocation());
-        p1.send(publication1);
+        //SimulationPublication publication1 = new SimulationPublication(p1.getLocation());
+        //p1.send(publication1);
 
         //SimulationPublication publication2 = new SimulationPublication(new Location(2, 2, 2));
         //p1.send(publication2);
-        
-        
     }
-
 }

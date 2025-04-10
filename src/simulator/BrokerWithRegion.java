@@ -9,15 +9,14 @@ import java.util.Map;
  */
 public abstract class BrokerWithRegion extends SimulationBroker {
     private Region region;
-    private Map<TreeNode, SubscriptionTableEntry> subscriptionsTable = new HashMap<>();
-    //private Map<TreeNode, SubscriptionTableEntry> sentSubscriptionsTable = new HashMap<>();
+    private Map<TreeNode, SimulationSubscription> subscriptionsTable = new HashMap<>();
     private long numOfRegionUpdates;
     
     /*
      * implements the logic to process a new subscription based on the location or the region
      * of an existing subscription
      */
-    protected abstract boolean regionsOrLocationsMatch(SubscriptionTableEntry existingSubscription, SimulationSubscription newSubscription);
+    protected abstract boolean regionsOrLocationsMatch(SimulationSubscription existingSubscription, SimulationSubscription newSubscription);
 
     /*
      * implements the logic to propagate a new subscription to the children of this broker
@@ -27,7 +26,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     /*
      * implements the logic to update an existing subscription region considering the region of a new subscription
      */
-    protected abstract void updateSubscriptionEntry(SubscriptionTableEntry existingSubscription, SimulationSubscription newSubscription);
+    protected abstract void updateSubscriptionTableEntry(SimulationSubscription existingSubscription, SimulationSubscription newSubscription);
 
     /*
      * implements
@@ -70,7 +69,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         numOfRegionUpdates++;
     }
 
-    public SubscriptionTableEntry getChildSubscriptionEntry(TreeNode child) {
+    public SimulationSubscription getChildSubscriptionEntry(TreeNode child) {
         return subscriptionsTable.get(child);
     }
 
@@ -99,10 +98,10 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         System.out.println(getName() + ": processing a subscription received from " + s.getSource().getName());
 
         TreeNode source = s.getSource();
-        SubscriptionTableEntry tableEntry = subscriptionsTable.get(source);
+        SimulationSubscription tableEntry = subscriptionsTable.get(source);
 
         if (tableEntry != null && regionsOrLocationsMatch(tableEntry, s)) {
-            System.out.println(getName() + ": subscription already in the table");
+            System.out.println(getName() + ": a subscription entry from " + s.getSource().getName() + " is already in the table");
             if (source != getParent()) {
                 System.out.println(getName() + ": subscriptions matched, disabling upwards propagation");
                 s.disableUpwardsForwarding();
@@ -112,7 +111,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
 
         if (tableEntry != null) {
             System.out.println(getName() + ": a subscription entry from " + s.getSource().getName() + " is already in the table");
-            updateSubscriptionEntry(tableEntry, s);
+            updateSubscriptionTableEntry(tableEntry, s);
             System.out.println(getName() + ": subscriptions did not match, updated table with " + tableEntry);
             
         } else {
@@ -155,7 +154,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         System.out.println("\n------------------------------");
         System.out.println(getName() + "'s subscription table:");
         for (TreeNode subscriber : subscriptionsTable.keySet()) {
-            SubscriptionTableEntry tableEntry = subscriptionsTable.get(subscriber);
+            SimulationSubscription tableEntry = subscriptionsTable.get(subscriber);
             System.out.println(subscriber.getName() + " -> " + tableEntry);
         }
         System.out.println("------------------------------");

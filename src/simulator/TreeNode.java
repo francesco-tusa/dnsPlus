@@ -15,6 +15,12 @@ public class TreeNode {
         this.children = new ArrayList<>();
     }
 
+    @SuppressWarnings("RedundantStringConstructorCall")
+    public TreeNode(TreeNode node) {
+        this.name = new String(node.name);
+        this.children = new ArrayList<>();
+    }
+
     public String getName() {
         return name;
     }

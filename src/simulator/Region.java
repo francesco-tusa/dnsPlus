@@ -17,6 +17,11 @@ public class Region {
         this.topRight = topRight;
     }
 
+    public Region(Region r) {
+        this.bottomLeft = new Location(r.bottomLeft);
+        this.topRight = new Location(r.topRight);
+    }
+
     public Location getBottomLeft() {
         return bottomLeft;
     }

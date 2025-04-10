@@ -7,18 +7,22 @@ public class SubscriptionWithLocation extends SimulationSubscription {
         this.location = location;
     }
 
+    private SubscriptionWithLocation(SubscriptionWithLocation s) {
+        setSource(new TreeNode(s.getSource()));
+        this.location = new Location(s.getLocation());
+    }
+
     public Location getLocation() {
         return location;
     }
 
     @Override
     public String toString() {
-        return "SubscriptionWithLocation [location=" + location + "]";
+        return "SubscriptionWithLocation [" + location + "]";
     }
 
     @Override
-    public SubscriptionTableEntry getTableEntry() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getTableEntry'");
+    public SimulationSubscription getTableEntry() {
+        return new SubscriptionWithLocation(this);
     }
 }
