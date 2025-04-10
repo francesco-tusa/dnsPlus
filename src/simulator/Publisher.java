@@ -10,6 +10,10 @@ public class Publisher extends TreeNode {
         this.nPublications = 0;
     }
 
+    public Location getLocation() {
+        return location;
+    }
+
     public int getnPublications() {
         return nPublications;
     }

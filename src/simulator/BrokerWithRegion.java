@@ -96,7 +96,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     @Override
     public void addSubscription(SimulationSubscription s) {
 
-        System.out.println(getName() + ": executing addSubscription on a subscription from " + s.getSource().getName());
+        System.out.println(getName() + ": processing a subscription received from " + s.getSource().getName());
 
         TreeNode source = s.getSource();
         SubscriptionTableEntry tableEntry = subscriptionsTable.get(source);
@@ -111,7 +111,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         }
 
         if (tableEntry != null) {
-            System.out.println(getName() + ": subscription already in the table");
+            System.out.println(getName() + ": a subscription entry from " + s.getSource().getName() + " is already in the table");
             updateSubscriptionEntry(tableEntry, s);
             System.out.println(getName() + ": subscriptions did not match, updated table with " + tableEntry);
             
@@ -124,7 +124,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
             System.out.println(getName() + ": subscription received from my parent");
         }
 
-        System.out.println(getName() + ": sending subscription received from " + s.getSource().getName() + " to children");
+        System.out.println(getName() + ": sending subscription received from " + s.getSource().getName() + " to my children");
         sendSubscriptionToChildren(s);
     }
 

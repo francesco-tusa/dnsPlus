@@ -8,8 +8,8 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
         super(name);
     }
 
-    public boolean regionsOrLocationsMatch(SubscriptionTableEntry existingSubscription,
-            SimulationSubscription newSubscription) {
+    @Override
+    public boolean regionsOrLocationsMatch(SubscriptionTableEntry existingSubscription, SimulationSubscription newSubscription) {
         SubscriptionWithRegion newSubscriptionWithRegion = ((SubscriptionWithRegion) newSubscription);
         SubscriptionTableEntryWithRegion existingSubscriptionWithRegion = ((SubscriptionTableEntryWithRegion) existingSubscription);
 
@@ -58,7 +58,6 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
                             " for " + newSubscription);
 
                     SubscriptionTableEntryWithRegion existingSubscriptionWithRegion = (SubscriptionTableEntryWithRegion) getChildSubscriptionEntry(child);
-                    //newSubscriptionWithRegion.setSource(this);
 
                     if (existingSubscriptionWithRegion == null ||
                             !existingSubscriptionWithRegion.getRegion()
@@ -70,6 +69,7 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
                         subscriptionToSend.setSource(this);
                         childWithRegion.addSubscription(subscriptionToSend);
                     }
+                // the two 'else' below are just for debugging the simulation    
                 } else {
                     System.out.println(getName() + ": no intersections found with " + child.getName() + "'s region");
                 }

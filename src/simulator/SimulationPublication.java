@@ -3,7 +3,7 @@ package simulator;
 import publishing.Publication;
 
 public class SimulationPublication extends Publication {
-    private Location location;
+    private final Location location;
     private TreeNode source;
 
     public SimulationPublication(Location location) {
