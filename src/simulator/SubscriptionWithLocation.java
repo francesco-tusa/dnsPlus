@@ -15,4 +15,10 @@ public class SubscriptionWithLocation extends SimulationSubscription {
     public String toString() {
         return "SubscriptionWithLocation [location=" + location + "]";
     }
+
+    @Override
+    public SubscriptionTableEntry getTableEntry() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getTableEntry'");
+    }
 }

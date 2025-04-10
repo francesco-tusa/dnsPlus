@@ -1,10 +1,7 @@
 package simulator;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-
-import broker.Broker;
 
 /**
  *
@@ -12,14 +9,15 @@ import broker.Broker;
  */
 public abstract class BrokerWithRegion extends SimulationBroker {
     private Region region;
-    private Map<TreeNode, SimulationSubscription> subscriptionTable = new HashMap<>();
+    private Map<TreeNode, SubscriptionTableEntry> subscriptionsTable = new HashMap<>();
+    //private Map<TreeNode, SubscriptionTableEntry> sentSubscriptionsTable = new HashMap<>();
     private long numOfRegionUpdates;
     
     /*
      * implements the logic to process a new subscription based on the location or the region
      * of an existing subscription
      */
-    public abstract boolean matchingSubscriptionLocationOrRegion(SimulationSubscription existingSubscription, SimulationSubscription newSubscription);
+    protected abstract boolean regionsOrLocationsMatch(SubscriptionTableEntry existingSubscription, SimulationSubscription newSubscription);
 
     /*
      * implements the logic to propagate a new subscription to the children of this broker
@@ -27,9 +25,14 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     protected abstract void sendSubscriptionToChildren(SimulationSubscription s);
 
     /*
+     * implements the logic to update an existing subscription region considering the region of a new subscription
+     */
+    protected abstract void updateSubscriptionEntry(SubscriptionTableEntry existingSubscription, SimulationSubscription newSubscription);
+
+    /*
      * implements
      */
-    public abstract void processPublicationLocation(SimulationPublication p, TreeNode child);
+    protected abstract void processPublicationLocation(SimulationPublication p, TreeNode child);
 
 
     
@@ -67,8 +70,8 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         numOfRegionUpdates++;
     }
 
-    public SimulationSubscription getChildSubscriptionEntry(TreeNode child) {
-        return subscriptionTable.get(child);
+    public SubscriptionTableEntry getChildSubscriptionEntry(TreeNode child) {
+        return subscriptionsTable.get(child);
     }
 
     protected void updateRegion(TreeNode child) {
@@ -88,27 +91,44 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     /*
      *   Add the subscription to the Map if not already there
      *   If a subscription from that child exists check and compare
-     *   the locations of the two subscriptions calling matchingSubscriptionLocationOrRegion
+     *   the locations of the two subscriptions calling regionsOrLocationsMatch
      */
     @Override
     public void addSubscription(SimulationSubscription s) {
-        TreeNode source = s.getSource();
 
-        SimulationSubscription tableEntry = subscriptionTable.get(source);
-        if (tableEntry == null) {
-            System.out.println(getName() + ": adding subscription " + s + "to the table");
-            subscriptionTable.put(source, s);
-            sendSubscriptionToChildren(s);
-        } else {
-            System.out.println(getName() + ": subscription " + s + " already in the table");
-            if (matchingSubscriptionLocationOrRegion(tableEntry, s)) {
-                s.disableForwarding();
-            } else {
-                subscriptionTable.put(source, s);
-                sendSubscriptionToChildren(s);
+        System.out.println(getName() + ": executing addSubscription on a subscription from " + s.getSource().getName());
+
+        TreeNode source = s.getSource();
+        SubscriptionTableEntry tableEntry = subscriptionsTable.get(source);
+
+        if (tableEntry != null && regionsOrLocationsMatch(tableEntry, s)) {
+            System.out.println(getName() + ": subscription already in the table");
+            if (source != getParent()) {
+                System.out.println(getName() + ": subscriptions matched, disabling upwards propagation");
+                s.disableUpwardsForwarding();
+                return;
             }
         }
+
+        if (tableEntry != null) {
+            System.out.println(getName() + ": subscription already in the table");
+            updateSubscriptionEntry(tableEntry, s);
+            System.out.println(getName() + ": subscriptions did not match, updated table with " + tableEntry);
+            
+        } else {
+            System.out.println(getName() + ": adding new subscription to the table");
+            subscriptionsTable.put(source, s.getTableEntry());
+        }
+
+        if (source == getParent()) {
+            System.out.println(getName() + ": subscription received from my parent");
+        }
+
+        System.out.println(getName() + ": sending subscription received from " + s.getSource().getName() + " to children");
+        sendSubscriptionToChildren(s);
     }
+
+    
     
 
     @Override
@@ -117,8 +137,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         SimulationSubscription s = null;
 
         
-        for (TreeNode child : subscriptionTable.keySet()) {
-            s = subscriptionTable.get(child);
+        for (TreeNode child : subscriptionsTable.keySet()) {
 
             if (child ==  p.getSource()) {
                 continue;
@@ -127,6 +146,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
             processPublicationLocation(p, child);
         }
 
+        // FIXME: the current design forces us to return a subscription, however this is not currently used.
         return s;
     }
 
@@ -134,9 +154,9 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     public void printSubscriptionsTable() {
         System.out.println("\n------------------------------");
         System.out.println(getName() + "'s subscription table:");
-        for (TreeNode subscriber : subscriptionTable.keySet()) {
-            SimulationSubscription sub = subscriptionTable.get(subscriber);
-            System.out.println(subscriber.getName() + " -> " + sub);
+        for (TreeNode subscriber : subscriptionsTable.keySet()) {
+            SubscriptionTableEntry tableEntry = subscriptionsTable.get(subscriber);
+            System.out.println(subscriber.getName() + " -> " + tableEntry);
         }
         System.out.println("------------------------------");
     }

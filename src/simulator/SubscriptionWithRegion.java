@@ -13,7 +13,15 @@ public class SubscriptionWithRegion extends SimulationSubscription {
 
     @Override
     public String toString() {
-        return "SubscriptionWithRegion [region=" + region + "]";
+        //return "SubscriptionWithRegion [region=" + region + "]";
+        return "SubscriptionWithRegion [" + region + "]";
     }
+
+    @Override
+    public SubscriptionTableEntry getTableEntry() {
+        return new SubscriptionTableEntryWithRegion(this);
+    }
+
+    
 
 }

@@ -22,7 +22,7 @@ public class Simulation {
         Subscriber s4 = new Subscriber("sub4", new Location(15, 1, 0));
 
         Subscriber s5 = new Subscriber("sub5", new Location(4, 3, 0));
-        Subscriber s6 = new Subscriber("sub6", new Location(9, 4, 0));
+        Subscriber s6 = new Subscriber("sub6", new Location(9, 5, 0));
         Subscriber s7 = new Subscriber("sub7", new Location(13, 3, 0));
         Subscriber s8 = new Subscriber("sub8", new Location(20, 5, 0));
 
@@ -37,9 +37,11 @@ public class Simulation {
         child2.addChild(grandchild3);
         child3.addChild(grandchild4);
 
+        /* 
         System.out.println(child1.getRegion());
         System.out.println(child2.getRegion());
         System.out.println(child3.getRegion());
+        */
 
         // subscribing to leaf brokers
         grandchild1.addChild(s1);
@@ -47,17 +49,20 @@ public class Simulation {
         grandchild3.addChild(s3);
         grandchild4.addChild(s4);
 
+        /*
         System.out.println();
         System.out.println(grandchild1.getRegion());
         System.out.println(grandchild2.getRegion());
         System.out.println(grandchild3.getRegion());
         System.out.println(grandchild4.getRegion());
+        */
         
         grandchild1.addChild(s5);
         grandchild2.addChild(s6);
         grandchild3.addChild(s7);
         grandchild4.addChild(s8);
         
+        /*
         System.out.println();
         System.out.println(grandchild1.getRegion());
         System.out.println(grandchild2.getRegion());
@@ -75,6 +80,7 @@ public class Simulation {
         System.out.println();
         Subscriber subTest = new Subscriber("subTest", new Location(2, 2, 0));
         grandchild1.addChild(subTest);
+        */
 
         System.out.println();
         System.out.println(grandchild1.getRegion());
@@ -87,13 +93,44 @@ public class Simulation {
         System.out.println(child2.getRegion());
         System.out.println(child3.getRegion());
 
+        System.out.println();
+        System.out.println(root.getRegion());
+        System.out.println();
 
         
-        Region subscription1Region = new Region(new Location(8, 3,0), new Location(10, 4, 0));
+        Region subscription1Region = new Region(new Location(5, 2,0), new Location(8, 5, 0));
+        Region subscription2Region = new Region(new Location(6, 3,0), new Location(7, 4, 0));
+        Region subscription3Region = new Region(new Location(4, 2,0), new Location(7, 4, 0));
+
+        grandchild2.printSubscriptionsTable();
+        child2.printSubscriptionsTable();
+        root.printSubscriptionsTable();
+
         SubscriptionWithRegion subscription1 = new SubscriptionWithRegion(subscription1Region);
         s2.send(subscription1);
-        
 
+        grandchild2.printSubscriptionsTable();
+        child2.printSubscriptionsTable();
+        root.printSubscriptionsTable();
+        
+        SubscriptionWithRegion subscription2 = new SubscriptionWithRegion(subscription2Region);
+        s2.send(subscription2);
+
+        grandchild2.printSubscriptionsTable();
+        child2.printSubscriptionsTable();
+        root.printSubscriptionsTable();
+
+        SubscriptionWithRegion subscription3 = new SubscriptionWithRegion(subscription3Region);
+        s2.send(subscription3);
+
+        root.printSubscriptionsTable();
+        child1.printSubscriptionsTable();
+        child2.printSubscriptionsTable();
+        child3.printSubscriptionsTable();
+        grandchild1.printSubscriptionsTable();
+        grandchild2.printSubscriptionsTable();
+        grandchild3.printSubscriptionsTable();
+        grandchild4.printSubscriptionsTable();
         
         /* 
 

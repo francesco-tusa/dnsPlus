@@ -121,7 +121,7 @@ public class Region {
 
     @Override
     public String toString() {
-        return "Region{" + "bottomLeft=" + bottomLeft + ", topRight=" + topRight + '}';
+        return "{" + "bottomLeft=" + bottomLeft + ", topRight=" + topRight + '}';
     }
     
 }

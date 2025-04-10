@@ -4,10 +4,10 @@ import subscribing.Subscription;
 
 public abstract class SimulationSubscription extends Subscription {
     private TreeNode source;
-    private boolean shouldForward;
+    private boolean shouldForwardUpwards;
 
     public SimulationSubscription() {
-        shouldForward = true;
+        shouldForwardUpwards = true;
     }
 
     public TreeNode getSource() {
@@ -18,11 +18,13 @@ public abstract class SimulationSubscription extends Subscription {
         this.source = source;
     }
 
-    public void disableForwarding() {
-        shouldForward = false;
+    public void disableUpwardsForwarding() {
+        shouldForwardUpwards = false;
     }
 
-    public boolean isForwardingEnabled() {
-        return shouldForward;
+    public boolean isUpwardsForwardingEnabled() {
+        return shouldForwardUpwards;
     }
+
+    public abstract SubscriptionTableEntry getTableEntry();
 }

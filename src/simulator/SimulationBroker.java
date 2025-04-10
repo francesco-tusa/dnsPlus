@@ -51,13 +51,13 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
      */
     @Override
     public void processSubscription(SimulationSubscription s) {
-        System.out.println(getName() + ": processing subscription");
+        System.out.println(getName() + ": processing subscription " + s);
         nSubscriptions++;
 
         addSubscription(s);
         
         SimulationBroker parentBroker = getParentBroker();
-        if (parentBroker != null && s.isForwardingEnabled()) {
+        if (parentBroker != null && s.isUpwardsForwardingEnabled()) {
             s.setSource(this);
             parentBroker.processSubscription(s);
         }
