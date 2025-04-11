@@ -25,20 +25,19 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     }
 
     @Override
-    public void processPublicationLocation(SimulationPublication p, TreeNode child) {
-        // just for testing, should check the region properly
-        SubscriptionWithRegion s = (SubscriptionWithRegion) getChildSubscriptionEntry(child);
+    public void processPublicationLocation(SimulationPublication p, TreeNode nextBroker) {
+        SubscriptionWithRegion tableEntry = (SubscriptionWithRegion) getSubscriptionEntry(nextBroker);
 
-        if (s.getRegion().contains(p.getLocation())) {
-            System.out.println(getName() + ": forwarding publication to " + child.getName());
-            switch (child) {
+        if (tableEntry.getRegion().contains(p.getLocation())) {
+            System.out.println(getName() + ": forwarding publication to " + nextBroker.getName());
+            switch (nextBroker) {
                 case BrokerWithRegion brokerWithRegion -> brokerWithRegion.matchPublication(p);
                 case Subscriber subscriber -> subscriber.receive(p);
                 default -> {}
             }
         } else {
             System.out.println(
-                    getName() + ": publication location is outside " + child.getName() + "'s subscription location");
+                    getName() + ": publication location is outside " + nextBroker.getName() + "'s subscription location");
         }
     }
 
@@ -58,7 +57,7 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
                             " with intersecting " + childWithRegion.getRegion() +
                             " for " + newSubscription);
 
-                    SubscriptionWithRegion existingSubscriptionWithRegion = (SubscriptionWithRegion) getChildSubscriptionEntry(child);
+                    SubscriptionWithRegion existingSubscriptionWithRegion = (SubscriptionWithRegion) getSubscriptionEntry(child);
 
                     if (existingSubscriptionWithRegion == null ||
                             !existingSubscriptionWithRegion.getRegion()
@@ -81,14 +80,24 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
         }
     }
 
+    /*
+     * Updates the region of the entry found in the subscription table and the region of the current subscription
+     * by aggregating them.
+     */
     @Override
-    protected void updateSubscriptionTableEntry(SimulationSubscription existingSubscription, SimulationSubscription newSubscription) {
+    protected void updateSubscriptions(SimulationSubscription existingSubscription, SimulationSubscription newSubscription) {
         SubscriptionWithRegion newSubscriptionWithRegion = ((SubscriptionWithRegion) newSubscription);
         SubscriptionWithRegion existingSubscriptionWithRegion = ((SubscriptionWithRegion) existingSubscription);
 
-        Region currentRegion = existingSubscriptionWithRegion.getRegion();
-        Region newRegion = newSubscriptionWithRegion.getRegion();
+        Region existingSubscriptionRegion = existingSubscriptionWithRegion.getRegion();
+        Region newSubscriptionRegion = newSubscriptionWithRegion.getRegion();
 
-        currentRegion.expand(newRegion);
+        Region existingSubscriptionRegionCopy = new Region(existingSubscriptionRegion);
+
+        existingSubscriptionRegion.expand(newSubscriptionRegion);
+        newSubscriptionRegion.expand(existingSubscriptionRegionCopy);
+
+        System.out.println(getName() + ": updated table with " + existingSubscriptionWithRegion);
+        System.out.println(getName() + ": updated current subscription with " + newSubscriptionWithRegion);
     }
 }

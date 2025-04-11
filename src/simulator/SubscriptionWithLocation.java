@@ -1,6 +1,6 @@
 package simulator;
 
-public class SubscriptionWithLocation extends SimulationSubscription {
+public final class SubscriptionWithLocation extends SimulationSubscription {
     private Location location;
 
     public SubscriptionWithLocation(Location location) {

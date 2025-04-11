@@ -28,26 +28,20 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
 
     /*
      *  Process the publication by calling matchPublication and
-     *  then propagates it toward the root of the tree
+     *  then propagates it based on the broker's subscription tables
      */
 
     @Override
     public void processPublication(SimulationPublication p) {
         System.out.println(getName() + ": processing publication");
         nPublications++;
-
         matchPublication(p);
-
-        SimulationBroker parentBroker = getParentBroker();
-        if (parentBroker != null) {
-            p.setSource(this);
-            parentBroker.processPublication(p);
-        }
     }
 
     /* 
      *   Process the subscription by calling addSubscription and 
-     *   then propagates it toward the root of the tree
+     *   then propagates it (recursively) toward the root of the tree unless 
+     *   upwards subscription propagation was disabled
      */
     @Override
     public void processSubscription(SimulationSubscription s) {

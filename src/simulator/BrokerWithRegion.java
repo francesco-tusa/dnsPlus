@@ -24,9 +24,10 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     protected abstract void sendSubscriptionToChildren(SimulationSubscription s);
 
     /*
-     * implements the logic to update an existing subscription region considering the region of a new subscription
+     * implements the logic to update an existing entry in the subscription table
+     * subclasses can also update the new subscription being processed if needed
      */
-    protected abstract void updateSubscriptionTableEntry(SimulationSubscription existingSubscription, SimulationSubscription newSubscription);
+    protected abstract void updateSubscriptions(SimulationSubscription existingSubscription, SimulationSubscription newSubscription);
 
     /*
      * implements
@@ -69,8 +70,8 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         numOfRegionUpdates++;
     }
 
-    public SimulationSubscription getChildSubscriptionEntry(TreeNode child) {
-        return subscriptionsTable.get(child);
+    public SimulationSubscription getSubscriptionEntry(TreeNode source) {
+        return subscriptionsTable.get(source);
     }
 
     protected void updateRegion(TreeNode child) {
@@ -111,9 +112,8 @@ public abstract class BrokerWithRegion extends SimulationBroker {
 
         if (tableEntry != null) {
             System.out.println(getName() + ": a subscription entry from " + s.getSource().getName() + " is already in the table");
-            updateSubscriptionTableEntry(tableEntry, s);
-            System.out.println(getName() + ": subscriptions did not match, updated table with " + tableEntry);
-            
+            System.out.println(getName() + ": subscriptions did not match");
+            updateSubscriptions(tableEntry, s);
         } else {
             System.out.println(getName() + ": adding new subscription to the table");
             subscriptionsTable.put(source, s.getTableEntry());
@@ -127,26 +127,17 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         sendSubscriptionToChildren(s);
     }
 
-    
-    
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-
-        SimulationSubscription s = null;
-
-        
-        for (TreeNode child : subscriptionsTable.keySet()) {
-
-            if (child ==  p.getSource()) {
+        for (TreeNode nextBroker : subscriptionsTable.keySet()) {
+            if (nextBroker ==  p.getSource()) {
                 continue;
             }
-
-            processPublicationLocation(p, child);
+            processPublicationLocation(p, nextBroker);
         }
-
         // FIXME: the current design forces us to return a subscription, however this is not currently used.
-        return s;
+        return null;
     }
 
 

@@ -39,6 +39,7 @@ public class Region implements Comparable<Region> {
         this.topRight = topRight;
     }
 
+
     public boolean contains(Location l) {
         if (l == null) {
             return false;
@@ -49,14 +50,16 @@ public class Region implements Comparable<Region> {
                 && l.getZ() >= bottomLeft.getZ() && l.getZ() <= topRight.getZ();
     }
 
-    public Boolean contains(Region r) {
+
+    public boolean contains(Region r) {
         if (bottomLeft == null || topRight == null || r.getBottomLeft() == null || r.getTopRight() == null) {
             return false;
         }
         return contains(r.bottomLeft) && contains(r.topRight);
     }
 
-    public Boolean intersects(Region r) {
+
+    public boolean intersects(Region r) {
         if (bottomLeft == null || topRight == null || r.getBottomLeft() == null || r.getTopRight() == null) {
             return false;
         }
@@ -66,6 +69,7 @@ public class Region implements Comparable<Region> {
 
         return intersectsX && intersectsY && intersectsZ;
     }
+
 
     public boolean expand(Location l) {
         boolean updated = false;
@@ -97,6 +101,7 @@ public class Region implements Comparable<Region> {
         return updated;
     }
 
+
     public boolean expand(Region r) {
         boolean updated = false;
 
@@ -118,6 +123,7 @@ public class Region implements Comparable<Region> {
         return updated;
     }
 
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -134,6 +140,7 @@ public class Region implements Comparable<Region> {
                 && (topRight != null ? topRight.equals(region.topRight) : region.topRight == null);
     }
 
+
     @Override
     public int hashCode() {
         int result = 17;
@@ -142,10 +149,12 @@ public class Region implements Comparable<Region> {
         return result;
     }
 
+
     @Override
     public String toString() {
         return "{" + "bottomLeft=" + bottomLeft + ", topRight=" + topRight + '}';
     }
+    
 
     @Override
     public int compareTo(Region o) {

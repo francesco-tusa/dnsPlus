@@ -13,7 +13,7 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
     @Override
     public void addChild(TreeNode child) {
         super.addChild(child);
-        System.out.println(getName() + ": added new " + child);
+        System.out.println(getName() + ": added new " + child.getName());
         updateRegion(child);
     }
 

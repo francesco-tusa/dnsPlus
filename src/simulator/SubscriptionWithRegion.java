@@ -1,6 +1,6 @@
 package simulator;
 
-public class SubscriptionWithRegion extends SimulationSubscription {
+public final class SubscriptionWithRegion extends SimulationSubscription implements Comparable<SubscriptionWithRegion> {
     private Region region;
 
     public SubscriptionWithRegion(Region region) {
@@ -8,7 +8,7 @@ public class SubscriptionWithRegion extends SimulationSubscription {
     }
 
     /*
-     * This private constructors is used to create a copy of this subscription
+     * Creates a copy of this subscription
      * to be stored in a broker's subscription table.
      */
     private SubscriptionWithRegion(SubscriptionWithRegion s) {
@@ -28,5 +28,10 @@ public class SubscriptionWithRegion extends SimulationSubscription {
     @Override
     public SimulationSubscription getTableEntry() {
         return new SubscriptionWithRegion(this);
+    }
+
+    @Override
+    public int compareTo(SubscriptionWithRegion o) {
+        return this.region.compareTo(o.region);
     }
 }
