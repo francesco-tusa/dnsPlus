@@ -16,17 +16,17 @@ public class Simulation {
         BrokerWithRegion grandchild3 = new LeafBrokerWithRegionProcessingRegion("grandchild3");
         BrokerWithRegion grandchild4 = new LeafBrokerWithRegionProcessingRegion("grandchild4");
 
-        Subscriber s1 = new Subscriber("sub1", new Location(0, 0, 0));
-        Subscriber s2 = new Subscriber("sub2", new Location(5, 2, 0));
-        Subscriber s3 = new Subscriber("sub3", new Location(10, 1, 0));
-        Subscriber s4 = new Subscriber("sub4", new Location(15, 1, 0));
+        SubscriberWithLocation s1 = new SubscriberWithLocation("sub1", new Location(0, 0, 0));
+        SubscriberWithLocation s2 = new SubscriberWithLocation("sub2", new Location(5, 2, 0));
+        SubscriberWithLocation s3 = new SubscriberWithLocation("sub3", new Location(10, 1, 0));
+        SubscriberWithLocation s4 = new SubscriberWithLocation("sub4", new Location(15, 1, 0));
 
-        Subscriber s5 = new Subscriber("sub5", new Location(4, 3, 0));
-        Subscriber s6 = new Subscriber("sub6", new Location(9, 5, 0));
-        Subscriber s7 = new Subscriber("sub7", new Location(13, 3, 0));
-        Subscriber s8 = new Subscriber("sub8", new Location(20, 5, 0));
+        SubscriberWithLocation s5 = new SubscriberWithLocation("sub5", new Location(4, 3, 0));
+        SubscriberWithLocation s6 = new SubscriberWithLocation("sub6", new Location(9, 5, 0));
+        SubscriberWithLocation s7 = new SubscriberWithLocation("sub7", new Location(13, 3, 0));
+        SubscriberWithLocation s8 = new SubscriberWithLocation("sub8", new Location(20, 5, 0));
 
-        Publisher p1 = new Publisher("pub1", new Location(7, 7, 0));
+        PublisherWithLocation p1 = new PublisherWithLocation("pub1", new Location(7, 7, 0));
 
         root.addChild(child1);
         root.addChild(child2);
@@ -103,6 +103,9 @@ public class Simulation {
         Region subscription1Region = new Region(new Location(5, 2,0), new Location(8, 5, 0));
         Region subscription2Region = new Region(new Location(6, 3,0), new Location(7, 4, 0));
         Region subscription3Region = new Region(new Location(4, 2,0), new Location(7, 4, 0));
+        Region subscription4Region = new Region(new Location(2, 2,0), new Location(3, 3, 0));
+        Region subscription5Region = new Region(new Location(2, 2,0), new Location(4, 3, 0));
+
 
         grandchild2.printSubscriptionsTable();
         child2.printSubscriptionsTable();
@@ -124,6 +127,13 @@ public class Simulation {
 
         SubscriptionWithRegion subscription3 = new SubscriptionWithRegion(subscription3Region);
         s2.send(subscription3);
+
+        SubscriptionWithRegion subscription4 = new SubscriptionWithRegion(subscription4Region);
+        s5.send(subscription4);
+
+        SubscriptionWithRegion subscription5 = new SubscriptionWithRegion(subscription5Region);
+        s5.send(subscription5);
+
 
         root.printSubscriptionsTable();
         child1.printSubscriptionsTable();
@@ -163,7 +173,13 @@ public class Simulation {
         grandchild4.printSubscriptionsTable();
         */
 
-        SimulationPublication publication1 = new SimulationPublication(new Location(9, 3, 0));
+        PublicationWithLocation publication1 = new PublicationWithLocation(new Location(9, 3, 0));
         p1.send(publication1);
+
+        PublicationWithLocation publication2 = new PublicationWithLocation(new Location(7, 3, 0));
+        p1.send(publication2);
+
+        PublicationWithLocation publication3 = new PublicationWithLocation(new Location(3, 3, 0));
+        p1.send(publication3);
     }
 }

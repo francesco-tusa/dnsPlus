@@ -25,21 +25,29 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     }
 
     @Override
-    public void processPublicationLocation(SimulationPublication p, TreeNode nextBroker) {
-        SubscriptionWithRegion tableEntry = (SubscriptionWithRegion) getSubscriptionEntry(nextBroker);
+    public void processPublicationLocation(SimulationPublication p, TreeNode next) {
+        SubscriptionWithRegion tableEntry = (SubscriptionWithRegion) getSubscriptionEntry(next);
 
-        if (tableEntry.getRegion().contains(p.getLocation())) {
-            System.out.println(getName() + ": forwarding publication to " + nextBroker.getName());
-            switch (nextBroker) {
-                case BrokerWithRegion brokerWithRegion -> brokerWithRegion.matchPublication(p);
-                case Subscriber subscriber -> subscriber.receive(p);
-                default -> {}
-            }
+        if (tableEntry.getRegion().contains(((PublicationWithLocation) p).getLocation())) {
+            SimulationPublication forwardedPublication = p.getPublication();
+            forwardedPublication.setSource(this);
+            forwardPublicationToNode(forwardedPublication, next);
         } else {
             System.out.println(
-                    getName() + ": publication location is outside " + nextBroker.getName() + "'s subscription location");
+                    getName() + ": publication location is outside " + next.getName() + "'s subscription region");
         }
     }
+
+    @Override
+    public void forwardPublicationToNode(SimulationPublication p, TreeNode next) {
+        if (next instanceof BrokerWithRegionProcessingRegion brokerWithRegion) {
+            System.out.println(getName() + ": forwarding publication to broker " + next.getName());
+            brokerWithRegion.matchPublication(p);
+        } else {
+            System.err.println(getName() + ": topology error");
+        }
+    }
+         
 
     @Override
     protected void sendSubscriptionToChildren(SimulationSubscription newSubscription) {

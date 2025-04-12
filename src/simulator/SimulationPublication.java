@@ -2,17 +2,10 @@ package simulator;
 
 import publishing.Publication;
 
-public class SimulationPublication extends Publication {
-    private final Location location;
+public abstract class SimulationPublication extends Publication {
     private TreeNode source;
 
-    public SimulationPublication(Location location) {
-        this.location = location;
-    }
-
-    public Location getLocation() {
-        return location;
-    }
+    
 
     public TreeNode getSource() {
         return source;
@@ -22,4 +15,5 @@ public class SimulationPublication extends Publication {
         this.source = source;
     }
 
+    public abstract SimulationPublication getPublication();
 }

@@ -19,7 +19,7 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
 
     @Override
     protected void updateRegion(TreeNode child) {
-        if (child instanceof Subscriber subscriber) {
+        if (child instanceof SubscriberWithLocation subscriber) {
             if (getRegion().expand(subscriber.getLocation())) {
                 increaseNumOfRegionUpdates();
                 System.out.println(getName() + ": updated region");
@@ -36,5 +36,17 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
     @Override
     protected void sendSubscriptionToChildren(SimulationSubscription newSubscription) {
         System.out.println(getName() + ": I am a leaf broker and I do not have children");
+    }
+
+    /*
+     * Only a leaf broker should check whether the next node is a broker or a subscriber
+     */
+    @Override
+    public void forwardPublicationToNode(SimulationPublication p, TreeNode next) {
+        switch (next) {
+            case BrokerWithRegion brokerWithRegion -> brokerWithRegion.matchPublication(p);
+            case SubscriberWithLocation subscriber -> subscriber.receive(p);
+            default -> System.err.println(getName() + ": topology error");
+        }
     }
 }

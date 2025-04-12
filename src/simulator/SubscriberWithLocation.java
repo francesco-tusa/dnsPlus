@@ -1,11 +1,11 @@
 package simulator;
 
-public class Subscriber extends TreeNode {
+public class SubscriberWithLocation extends TreeNode {
     private Location location;
     private int nSubscriptions;
     private int nPublications;
 
-    public Subscriber(String name, Location location) {
+    public SubscriberWithLocation(String name, Location location) {
         super(name);
         this.location = location;
         this.nSubscriptions = 0;
@@ -29,7 +29,7 @@ public class Subscriber extends TreeNode {
     }
 
     public void receive(SimulationPublication p) {
-        System.out.println(getName() + ": received publication");
+        System.out.println(getName() + ": received publication " + p);
         nPublications++;
     }
     

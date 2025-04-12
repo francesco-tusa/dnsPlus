@@ -1,10 +1,10 @@
 package simulator;
 
-public class Publisher extends TreeNode {
+public class PublisherWithLocation extends TreeNode {
     Location location;
     private int nPublications;
 
-    public Publisher(String name, Location location) {
+    public PublisherWithLocation(String name, Location location) {
         super(name);
         this.location = location;
         this.nPublications = 0;
@@ -28,7 +28,7 @@ public class Publisher extends TreeNode {
         
         if (broker != null) {
             System.out.println();
-            System.out.println(getName() + ": sending publication " + p.getLocation() + " to " + broker.getName());
+            System.out.println(getName() + ": sending publication " + p + " to " + broker.getName());
             broker.processPublication(p);
             nPublications++;
         } 

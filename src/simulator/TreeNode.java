@@ -42,4 +42,9 @@ public class TreeNode {
         child.parent = null;
         this.children.remove(child);
     }
+
+    @Override
+    public String toString() {
+        return "TreeNode [name=" + name + "]";
+    }
 }

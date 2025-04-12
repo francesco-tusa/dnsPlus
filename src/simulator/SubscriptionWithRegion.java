@@ -21,13 +21,15 @@ public final class SubscriptionWithRegion extends SimulationSubscription impleme
     }
 
     @Override
-    public String toString() {
-        return "SubscriptionWithRegion [" + region + "]";
-    }
-
-    @Override
     public SimulationSubscription getTableEntry() {
         return new SubscriptionWithRegion(this);
+    }
+
+
+
+    @Override
+    public String toString() {
+        return "SubscriptionWithRegion [region=" + region + ", source=" + getSource() + "]";
     }
 
     @Override
