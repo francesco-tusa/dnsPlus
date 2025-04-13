@@ -1,4 +1,7 @@
-package simulator;
+package simulator.regions;
+
+import simulator.SimulationSubscription;
+import simulator.TreeNode;
 
 public final class SubscriptionWithRegion extends SimulationSubscription implements Comparable<SubscriptionWithRegion> {
     private Region region;

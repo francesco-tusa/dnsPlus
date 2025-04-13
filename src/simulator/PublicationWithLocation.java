@@ -1,6 +1,6 @@
 package simulator;
 
-public class PublicationWithLocation extends SimulationPublication{
+public class PublicationWithLocation extends SimulationPublication {
     private final Location location;
 
     public PublicationWithLocation(Location location) {

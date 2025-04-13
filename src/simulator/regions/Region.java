@@ -1,4 +1,6 @@
-package simulator;
+package simulator.regions;
+
+import simulator.Location;
 
 public class Region implements Comparable<Region> {
 

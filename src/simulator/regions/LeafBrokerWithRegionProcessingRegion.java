@@ -1,4 +1,10 @@
-package simulator;
+package simulator.regions;
+
+import simulator.Location;
+import simulator.SimulationPublication;
+import simulator.SimulationSubscription;
+import simulator.SubscriberWithLocation;
+import simulator.TreeNode;
 
 public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProcessingRegion {
 

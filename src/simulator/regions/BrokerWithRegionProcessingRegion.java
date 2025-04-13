@@ -1,6 +1,11 @@
-package simulator;
+package simulator.regions;
 
 import java.util.List;
+
+import simulator.PublicationWithLocation;
+import simulator.SimulationPublication;
+import simulator.SimulationSubscription;
+import simulator.TreeNode;
 
 public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
 

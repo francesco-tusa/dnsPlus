@@ -1,7 +1,13 @@
-package simulator;
+package simulator.regions;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import simulator.Location;
+import simulator.SimulationBroker;
+import simulator.SimulationPublication;
+import simulator.SimulationSubscription;
+import simulator.TreeNode;
 
 /**
  *
