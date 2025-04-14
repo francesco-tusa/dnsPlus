@@ -32,7 +32,7 @@ public final class SubscriptionWithRegion extends SimulationSubscription impleme
 
     @Override
     public String toString() {
-        return "SubscriptionWithRegion [region=" + region + ", source=" + getSource() + "]";
+        return "region=[" + region + "]";
     }
 
     @Override

@@ -1,4 +1,4 @@
-package simulator.topology;
+package simulator.topology.random;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,15 +10,17 @@ import simulator.SubscriberWithLocation;
 import simulator.regions.BrokerWithRegionProcessingRegion;
 import simulator.regions.LeafBrokerWithRegionProcessingRegion;
 import simulator.regions.Region;
+import simulator.topology.AbstractTopologyFactory;
+import simulator.topology.TopologyConfiguration;
 
 /**
- * Generates a tree-based topology specifically for simulations using
+ * Generates a random tree-based topology specifically for simulations using
  * Brokers with Regions that process Region-based Subscriptions.
  * Extends AbstractTopologyFactory to structure the generation process.
  * Regions are defined bottom-up based on subscriber locations.
  * Leaf brokers are assigned to region definitions based on their index.
  */
-public class RegionProcessingTopologyGenerator extends AbstractTopologyFactory<RegionTopologyConfiguration, BrokerWithRegionProcessingRegion> {
+public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFactory<RegionRandomTopologyConfiguration, BrokerWithRegionProcessingRegion> {
 
     // State specific to this generator
     private List<Region> leafRegionsDefinition; // Defines *where* subs/pubs are placed
@@ -30,12 +32,12 @@ public class RegionProcessingTopologyGenerator extends AbstractTopologyFactory<R
     private static final int MAX_Z = 100;
 
     @Override
-    protected void initialize(TopologyConfiguration genericConfig) {
-        System.out.println("Initializing RegionProcessingTopologyGenerator...");
-        if (!(genericConfig instanceof RegionTopologyConfiguration)) {
+    protected void initialise(TopologyConfiguration genericConfig) {
+        System.out.println("Initialising RegionProcessingTopologyGenerator...");
+        if (!(genericConfig instanceof RegionRandomTopologyConfiguration)) {
             throw new IllegalArgumentException("Configuration must be an instance of RegionTopologyConfiguration for this generator.");
         }
-        this.config = (RegionTopologyConfiguration) genericConfig;
+        this.config = (RegionRandomTopologyConfiguration) genericConfig;
 
         brokerIdCounter = 0;
         leafBrokerIdCounter = 0;
@@ -51,13 +53,13 @@ public class RegionProcessingTopologyGenerator extends AbstractTopologyFactory<R
              throw new IllegalStateException("Failed to generate region definitions during initialization.");
         }
         System.out.println("Generated " + this.leafRegionsDefinition.size() + " region definitions.");
-        System.out.println("Initialization complete.");
+        System.out.println("Initialisation complete.");
     }
 
     @Override
     protected BrokerWithRegionProcessingRegion buildCoreTopology() {
         System.out.println("Building core broker topology...");
-        Objects.requireNonNull(config, "Configuration must be initialized before building topology.");
+        Objects.requireNonNull(config, "Configuration must be initialised before building topology.");
 
         BrokerWithRegionProcessingRegion root = new BrokerWithRegionProcessingRegion(generateBrokerName());
         System.out.println("Created Root Broker: " + root.getName() + " (Initial Region: " + root.getRegion() + ")"); // Region starts empty
@@ -94,7 +96,7 @@ public class RegionProcessingTopologyGenerator extends AbstractTopologyFactory<R
     @Override
     protected void attachSubscribers(BrokerWithRegionProcessingRegion root) {
         System.out.println("Attaching subscribers to leaf brokers...");
-        Objects.requireNonNull(config, "Configuration must be initialized.");
+        Objects.requireNonNull(config, "Configuration must be initialised.");
         Objects.requireNonNull(leafRegionsDefinition, "Region definitions must be generated before attaching subscribers.");
         Objects.requireNonNull(allLeafBrokers, "Leaf brokers must be generated before attaching subscribers.");
 
@@ -155,7 +157,7 @@ public class RegionProcessingTopologyGenerator extends AbstractTopologyFactory<R
     @Override
     protected void attachPublishers(BrokerWithRegionProcessingRegion root) {
         System.out.println("Attaching publishers to leaf brokers...");
-        Objects.requireNonNull(config, "Configuration must be initialized.");
+        Objects.requireNonNull(config, "Configuration must be initialised.");
         Objects.requireNonNull(leafRegionsDefinition, "Region definitions must be generated before attaching publishers.");
         Objects.requireNonNull(allLeafBrokers, "Leaf brokers must be generated before attaching publishers.");
 

@@ -14,16 +14,16 @@ public abstract class AbstractTopologyFactory<C extends TopologyConfiguration, R
 
     protected C config; // Store the specific configuration type
     protected final Random random = new Random();
-    protected int brokerIdCounter = 0; // Counters specific to node types might be needed
+    protected int brokerIdCounter = 0;
     protected int leafBrokerIdCounter = 0;
     protected int subscriberIdCounter = 0;
-    protected int publisherIdCounter = 0; // If publishers are distinct nodes
-    protected R rootNode = null; // Store the generated root
+    protected int publisherIdCounter = 0;
+    protected R rootNode = null;
 
     @Override
     public final TreeNode generateTopology(TopologyConfiguration genericConfig) {
-        // 1. Initialization (includes validation and type casting)
-        initialize(genericConfig); // This method handles casting and stores the config
+        // 1. Initialisation (includes validation and type casting)
+        initialise(genericConfig); // This method handles casting and stores the config
 
         // 2. Build Core Structure (e.g., Brokers)
         this.rootNode = buildCoreTopology();
@@ -42,7 +42,7 @@ public abstract class AbstractTopologyFactory<C extends TopologyConfiguration, R
     }
 
     /**
-     * Initializes the factory with the specific configuration, performs validation,
+     * Initialises the factory with the specific configuration, performs validation,
      * resets state (like counters), and performs any type-specific setup
      * (e.g., generating regions).
      * This method MUST handle casting the generic config to the specific type C
@@ -51,7 +51,7 @@ public abstract class AbstractTopologyFactory<C extends TopologyConfiguration, R
      * @param genericConfig The generic configuration object passed to generateTopology.
      * @throws IllegalArgumentException if the configuration is not of the expected type or is invalid.
      */
-    protected abstract void initialize(TopologyConfiguration genericConfig);
+    protected abstract void initialise(TopologyConfiguration genericConfig);
 
     /**
      * Builds the main hierarchical structure of the topology (e.g., brokers).

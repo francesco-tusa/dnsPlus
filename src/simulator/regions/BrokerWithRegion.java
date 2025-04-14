@@ -1,8 +1,5 @@
 package simulator.regions;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import simulator.Location;
 import simulator.SimulationBroker;
 import simulator.SimulationPublication;
@@ -15,7 +12,6 @@ import simulator.TreeNode;
  */
 public abstract class BrokerWithRegion extends SimulationBroker {
     private Region region;
-    private Map<TreeNode, SimulationSubscription> subscriptionsTable = new HashMap<>();
     private long numOfRegionUpdates;
 
     /*
@@ -89,7 +85,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     }
 
     public SimulationSubscription getSubscriptionEntry(TreeNode source) {
-        return subscriptionsTable.get(source);
+        return getSubscriptionsTable().get(source);
     }
 
     protected void updateRegion(TreeNode child) {
@@ -117,7 +113,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         System.out.println(getName() + ": processing a subscription received from " + s.getSource().getName());
 
         TreeNode source = s.getSource();
-        SimulationSubscription tableEntry = subscriptionsTable.get(source);
+        SimulationSubscription tableEntry = getSubscriptionsTable().get(source);
 
         if (tableEntry != null && regionsOrLocationsMatch(tableEntry, s)) {
             System.out.println(
@@ -136,7 +132,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
             updateSubscriptions(tableEntry, s);
         } else {
             System.out.println(getName() + ": adding new subscription to the table");
-            subscriptionsTable.put(source, s.getTableEntry());
+            getSubscriptionsTable().put(source, s.getTableEntry());
         }
 
         if (source == getParent()) {
@@ -151,7 +147,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         System.out.println(getName() + ": processing a publication received from " + p.getSource().getName());
-        for (TreeNode nextBroker : subscriptionsTable.keySet()) {
+        for (TreeNode nextBroker : getSubscriptionsTable().keySet()) {
             if (nextBroker == p.getSource()) {
                 System.out.println(getName() + ": skipping " + nextBroker.getName() + " as it sent the publication");
                 continue;
@@ -160,15 +156,5 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         }
         // FIXME: existing design forces us to return a subscription but this is not used here.
         return null;
-    }
-
-    public void printSubscriptionsTable() {
-        System.out.println("\n------------------------------");
-        System.out.println(getName() + "'s subscription table:");
-        for (TreeNode subscriber : subscriptionsTable.keySet()) {
-            SimulationSubscription tableEntry = subscriptionsTable.get(subscriber);
-            System.out.println(subscriber.getName() + " -> " + tableEntry);
-        }
-        System.out.println("------------------------------");
     }
 }
