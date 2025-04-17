@@ -15,9 +15,8 @@ public class TreeNode {
         this.children = new ArrayList<>();
     }
 
-    @SuppressWarnings("RedundantStringConstructorCall")
     public TreeNode(TreeNode node) {
-        this.name = new String(node.name);
+        this.name = node.name;
         this.children = new ArrayList<>();
     }
 
@@ -45,6 +44,6 @@ public class TreeNode {
 
     @Override
     public String toString() {
-        return "TreeNode [name=" + name + "]";
+        return name;
     }
 }

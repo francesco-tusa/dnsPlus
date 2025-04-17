@@ -18,7 +18,7 @@ public class PublicationWithLocation extends SimulationPublication {
 
     @Override
     public String toString() {
-        return "SimulationPublication [location=" + location + ", source=" + getSource() + "]";
+        return "[location=" + location + ", source=" + getSource() + "]";
     }
 
     @Override

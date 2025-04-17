@@ -60,9 +60,6 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
         List<TreeNode> children = getChildren();
 
         for (TreeNode child : children) {
-            //System.out.println(getName() + ": current child: " + child.getName());
-            //System.out.println(getName() + ": subscription source: " + newSubscriptionWithRegion.getSource().getName());
-
             if (child instanceof BrokerWithRegion childWithRegion
                     && childWithRegion != newSubscriptionWithRegion.getSource()) {
                 if (childWithRegion.getRegion().intersects(newSubscriptionWithRegion.getRegion())) {

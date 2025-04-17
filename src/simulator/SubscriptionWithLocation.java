@@ -18,7 +18,7 @@ public final class SubscriptionWithLocation extends SimulationSubscription {
 
     @Override
     public String toString() {
-        return "SubscriptionWithLocation [" + location + "]";
+        return "location=[" + location + "]";
     }
 
     @Override

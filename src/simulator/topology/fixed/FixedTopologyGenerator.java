@@ -37,9 +37,9 @@ public class FixedTopologyGenerator extends AbstractTopologyFactory<FixedTopolog
 
     @Override
     protected void initialise(TopologyConfiguration genericConfig) {
-        System.out.println("Initialising ManualTopologyGenerator...");
+        System.out.println("Initialising FixedTopologyGenerator...");
         if (!(genericConfig instanceof FixedTopologyConfiguration)) {
-            throw new IllegalArgumentException("Configuration must be an instance of ManualTopologyConfiguration.");
+            throw new IllegalArgumentException("Configuration must be an instance of FixedTopologyConfiguration.");
         }
         this.config = (FixedTopologyConfiguration) genericConfig;
 
@@ -53,7 +53,7 @@ public class FixedTopologyGenerator extends AbstractTopologyFactory<FixedTopolog
 
     @Override
     protected BrokerWithRegionProcessingRegion buildCoreTopology() {
-        System.out.println("Building manual core broker topology...");
+        System.out.println("Building fixed core broker topology...");
         Objects.requireNonNull(config, "Configuration must be initialised.");
 
         // --- Create Brokers ---
@@ -87,7 +87,7 @@ public class FixedTopologyGenerator extends AbstractTopologyFactory<FixedTopolog
 
     @Override
     protected void attachSubscribers(BrokerWithRegionProcessingRegion root) {
-        System.out.println("Attaching manual subscribers...");
+        System.out.println("Attaching fixed subscribers...");
         Objects.requireNonNull(brokerNodes, "Broker nodes must be built before attaching subscribers.");
 
         // --- Create Subscribers ---
@@ -121,7 +121,7 @@ public class FixedTopologyGenerator extends AbstractTopologyFactory<FixedTopolog
 
     @Override
     protected void attachPublishers(BrokerWithRegionProcessingRegion root) {
-        System.out.println("Attaching manual publishers...");
+        System.out.println("Attaching fixed publishers...");
          Objects.requireNonNull(brokerNodes, "Broker nodes must be built before attaching publishers.");
 
         // --- Create Publishers ---

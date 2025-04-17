@@ -12,7 +12,7 @@ import simulator.topology.fixed.FixedTopologyConfiguration;
 import simulator.topology.fixed.FixedTopologyGenerator;
 
 /**
- * Concrete SimulationRunner for the manually defined test topology.
+ * Concrete SimulationRunner for the fixed manually defined test topology.
  */
 public class RegionFixedSimulation extends SimulationRunner<
     FixedTopologyConfiguration,
@@ -21,7 +21,7 @@ public class RegionFixedSimulation extends SimulationRunner<
 
     @Override
     protected void executeScenarios() {
-        System.out.println("\n--- Running Manual Topology Test Scenarios ---");
+        System.out.println("\n--- Running Fixed Topology Test Scenarios ---");
 
         // Find nodes needed using helper methods from SimulationRunner
         SubscriberWithLocation s2 = findNodeByName("sub2", SubscriberWithLocation.class);
@@ -76,11 +76,11 @@ public class RegionFixedSimulation extends SimulationRunner<
         System.out.println("\nSending Pub4 from " + p2.getName() + " at " + pubLoc4);
         p2.send(new PublicationWithLocation(pubLoc4));
 
-        System.out.println("\n--- Manual Topology Test Scenarios Complete ---");
+        System.out.println("\n--- Fixed Topology Test Scenarios Complete ---");
     }
 
     public static void main(String[] args) {
-        System.out.println("--- Starting Manual Topology Test Run ---");
+        System.out.println("--- Starting Fixed Topology Test Run ---");
 
         // --- Configuration ---
         FixedTopologyConfiguration config = new FixedTopologyConfiguration();

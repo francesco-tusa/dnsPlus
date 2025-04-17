@@ -70,24 +70,23 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
 
         public void printSubscriptionsTable() {
         System.out.println("\n" + getName() + "'s Subscription Table:");
-        System.out.println("=============================="); // Use different separator for header
+        System.out.println("==============================");
 
         if (subscriptionsTable.isEmpty()) {
             System.out.println("  (Table is empty)");
         } else {
-            String formatString = "  %-15s -> %s%n"; // Left-align name in a 15-char wide column
+            String formatString = "  %-15s -> %s%n";
 
-            System.out.printf(formatString, "Source Node", "Subscription Details"); // Header Row
-            System.out.println("  ---------------   --------------------"); // Separator under header
+            System.out.printf(formatString, "Source Node", "Subscription Details");
+            System.out.println("  ---------------   --------------------");
 
-            // Iterate using Map.Entry for efficiency
             for (Map.Entry<TreeNode, SimulationSubscription> entry : subscriptionsTable.entrySet()) {
                 TreeNode sourceNode = entry.getKey();
                 SimulationSubscription tableEntry = entry.getValue();
                 System.out.printf(formatString, sourceNode.getName(), tableEntry);
             }
         }
-        System.out.println("=============================="); // Match closing separator
+        System.out.println("==============================");
     }
 
 }

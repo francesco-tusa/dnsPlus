@@ -1,5 +1,7 @@
 package simulator.regions;
 
+import java.util.Map;
+
 import simulator.Location;
 import simulator.SimulationBroker;
 import simulator.SimulationPublication;
@@ -96,7 +98,6 @@ public abstract class BrokerWithRegion extends SimulationBroker {
                 BrokerWithRegion parentBroker = getParentBroker();
                 if (parentBroker != null) {
                     parentBroker.updateRegion(this);
-
                 }
             }
         }
@@ -147,6 +148,13 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         System.out.println(getName() + ": processing a publication received from " + p.getSource().getName());
+
+        Map<TreeNode, SimulationSubscription> subscriptionsTable = getSubscriptionsTable();
+        if (subscriptionsTable.size() == 0) {
+            System.out.println(getName() + ": no subscriptions in the table");
+            return null;
+        }
+
         for (TreeNode nextBroker : getSubscriptionsTable().keySet()) {
             if (nextBroker == p.getSource()) {
                 System.out.println(getName() + ": skipping " + nextBroker.getName() + " as it sent the publication");
