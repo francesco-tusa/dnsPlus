@@ -6,7 +6,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.PrintWriter; // Keep for potential fallback/debugging
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -16,64 +16,59 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 
+// --- Jackson Imports (Add these) ---
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.annotation.JsonInclude; // To handle potential null bounds cleanly
+
 /**
  * Helper class to store and update bounding box coordinates.
+ * Needs to be serializable by Jackson (public fields or getters work).
  */
 class BoundingBox {
-    // Initialize with invalid values to ensure first point sets the bounds
-    double minLat = 91.0;
-    double maxLat = -91.0;
-    double minLon = 181.0;
-    double maxLon = -181.0;
+    // Jackson can serialize public fields directly
+    public double minLat = 91.0;
+    public double maxLat = -91.0;
+    public double minLon = 181.0;
+    public double maxLon = -181.0;
 
-    // Extends this bounding box to include the coordinates of another point
+    // No-arg constructor needed by some frameworks/libraries like Jackson
+    public BoundingBox() {}
+
     void extend(double lat, double lon) {
-        if (Double.isNaN(lat) || Double.isNaN(lon))
-            return; // Ignore invalid coords
-        if (lat < minLat)
-            minLat = lat;
-        if (lat > maxLat)
-            maxLat = lat;
-        if (lon < minLon)
-            minLon = lon;
-        if (lon > maxLon)
-            maxLon = lon;
+        if (Double.isNaN(lat) || Double.isNaN(lon)) return;
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lon < minLon) minLon = lon;
+        if (lon > maxLon) maxLon = lon;
     }
 
-    // Extends this bounding box to include another bounding box
     void extend(BoundingBox other) {
-        if (other == null || !other.isValid())
-            return; // Ignore invalid boxes
-        if (other.minLat < minLat)
-            minLat = other.minLat;
-        if (other.maxLat > maxLat)
-            maxLat = other.maxLat;
-        if (other.minLon < minLon)
-            minLon = other.minLon;
-        if (other.maxLon < maxLon)
-            maxLon = other.maxLon;
+        if (other == null || !other.isValid()) return;
+        if (other.minLat < minLat) minLat = other.minLat;
+        if (other.maxLat > maxLat) maxLat = other.maxLat;
+        if (other.minLon < minLon) minLon = other.minLon;
+        if (other.maxLon < maxLon) maxLon = other.maxLon;
     }
 
-    // Checks if the bounding box has been initialized with valid coordinates
     boolean isValid() {
-        return minLat <= 90.0 && maxLat >= -90.0 && minLon <= 180.0 && maxLon >= -180.0 && minLat <= maxLat
-                && minLon <= maxLon;
+        return minLat <= 90.0 && maxLat >= -90.0 && minLon <= 180.0 && maxLon >= -180.0 && minLat <= maxLat && minLon <= maxLon;
     }
 
+    // toString is used for the text output, not directly by JSON serialization usually
     @Override
     public String toString() {
-        if (!isValid()) {
-            return "Invalid BBox";
-        }
+        if (!isValid()) return "Invalid BBox";
         return String.format("[(%.4f, %.4f) - (%.4f, %.4f)]", minLat, minLon, maxLat, maxLon);
     }
 }
 
 /**
  * Represents an entry parsed from a GeoNames data file (like allCountries.txt).
- * Includes robust parsing for required fields including lat/lon.
+ * This class is used for intermediate parsing and not directly part of the final JSON topology.
  */
 class GeonameEntry {
+    // ... (GeonameEntry class remains unchanged)
     int geonameId;
     String name;
     String featureClass;
@@ -146,37 +141,44 @@ class GeonameEntry {
 
 /**
  * Represents a node in the hierarchical tree structure.
- * Added fields for official population, internet penetration, and internet population.
+ * Ensure fields are accessible for Jackson serialization (public or getters).
  */
+// Include non-null bounds only in JSON output
+@JsonInclude(JsonInclude.Include.NON_NULL)
 class TreeNode {
-    int geonameId; // 0 for World/Continent, negative for artificial
-    String name;
-    String featureCode; // Original feature code (PCLI, ADM1, CONT, ARTIFICIAL)
-    String code; // admin code, country code, continent code, or inherited code
-    NodeType type;
-    long aggregatedPopulation; // Population aggregated/scaled from children or PPLs
-    long internetPopulation; // Estimated internet users based on scaled pop and rate
-    long officialPopulation; // Official population from PCLI entry (only for COUNTRY nodes)
-    double internetPenetrationRate; // Country-level penetration rate (0.0 to 1.0)
-    BoundingBox bounds;
-    List<TreeNode> children = new ArrayList<>();
+    // Fields made public for easier Jackson serialization without explicit getters/setters
+    public int geonameId;
+    public String name;
+    public String featureCode;
+    public String code;
+    public NodeType type;
+    public long aggregatedPopulation;
+    public long internetPopulation;
+    public long officialPopulation; // Should only be non-zero for COUNTRY type
+    public double internetPenetrationRate; // Should only be non-zero for COUNTRY type
+    public BoundingBox bounds; // Jackson will serialize this object too
+    public List<TreeNode> children = new ArrayList<>();
 
-    enum NodeType {
-        WORLD, CONTINENT, COUNTRY, ADM1, ADM2, S_ADM3, S_ADM4, PPL // PPL is used internally but not added to tree
+    // Jackson needs a no-arg constructor for deserialization (if you load later)
+    public TreeNode() {}
+
+    // Enum needs to be public or Jackson might have issues
+    public enum NodeType {
+        WORLD, CONTINENT, COUNTRY, ADM1, ADM2, S_ADM3, S_ADM4, PPL
     }
 
-    // Main constructor for ALL node types
+    // Main constructor used by the builder
     TreeNode(int geonameId, String name, NodeType type, String code, String featureCode) {
         this.geonameId = geonameId;
         this.name = name;
         this.type = type;
         this.code = (code != null ? code : "");
         this.featureCode = (featureCode != null ? featureCode : "");
-        this.aggregatedPopulation = 0; // Initialize pop to 0
-        this.internetPopulation = 0;   // Initialize internet pop to 0
-        this.officialPopulation = 0;   // Initialize official pop to 0
-        this.internetPenetrationRate = 0.0; // Initialize rate to 0.0
-        this.bounds = null;
+        this.aggregatedPopulation = 0;
+        this.internetPopulation = 0;
+        this.officialPopulation = 0;
+        this.internetPenetrationRate = 0.0;
+        this.bounds = null; // Initialize bounds to null
     }
 
     // Constructor for Continent/World specifically (calls main constructor)
@@ -189,6 +191,7 @@ class TreeNode {
             children.add(child);
     }
 
+    // toString is used for the original text output, keep it for reference/debugging
     @Override
     public String toString() {
         String boundsStr = (bounds != null && bounds.isValid()) ? ", bounds=" + bounds : "";
@@ -196,26 +199,29 @@ class TreeNode {
         String rateStr = (type == NodeType.COUNTRY && internetPenetrationRate > 0) ? String.format(", rate=%.3f", internetPenetrationRate) : "";
         return name + " (" + type + (code != null && !code.isEmpty() ? ", code=" + code : "") + ", id=" + geonameId
                 + ", pop=" + aggregatedPopulation
-                + ", internetPop=" + internetPopulation // Added internet pop
-                + officialPopStr + rateStr // Added official pop and rate for countries
+                + ", internetPop=" + internetPopulation
+                + officialPopStr + rateStr
                 + boundsStr
                 + (children.isEmpty() ? "" : ", children=" + children.size()) + ")";
     }
 
-    // Modified printTree to write to PrintWriter
+    // This method is for the text output, not needed for JSON output
     public void printTree(PrintWriter writer, String indent) {
-        writer.println(indent + this); // Use writer
+        writer.println(indent + this);
+        // Sort children before printing for consistent text output
         children.sort(Comparator.comparing(a -> a.name));
         for (TreeNode child : children) {
-            child.printTree(writer, indent + "  "); // Pass writer down recursively
+            child.printTree(writer, indent + "  ");
         }
     }
 }
 
 /**
  * Lightweight holder for relevant PCLI/ADM1/ADM2 info collected in Pass 1.
+ * Not part of the final JSON topology.
  */
 class RelevantAdminInfo {
+    // ... (RelevantAdminInfo class remains unchanged)
     int geonameId;
     String name;
     TreeNode.NodeType type;
@@ -279,6 +285,7 @@ public class FileBasedDynamicBuilder {
     final long POPULATION_THRESHOLD_10K = 10_000;
 
     // --- Loading methods ---
+    // ... (loadAdminCodes, loadCountryInfo, loadInternetPenetration remain unchanged)
     void loadAdminCodes(String filePath, Map<String, Integer> map, String adminLevelName) {
         int count = 0;
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
@@ -348,13 +355,6 @@ public class FileBasedDynamicBuilder {
         System.out.println("Loaded " + countryCodeToIdMap.size() + " country ISO2->GeonameID mappings from " + filePath);
     }
 
-    /**
-     * Loads internet penetration data from the CSV file.
-     * Finds the latest year with valid data for each country.
-     * Stores the rate as a decimal (e.g., 85.5% -> 0.855).
-     *
-     * @param filePath Path to the internet penetration CSV file.
-     */
      void loadInternetPenetration(String filePath) {
         System.out.println("Loading Internet Penetration data from " + filePath + "...");
         countryIsoToPenetrationMap.clear();
@@ -445,9 +445,8 @@ public class FileBasedDynamicBuilder {
         System.out.println("Loaded latest internet penetration rates for " + validRatesLoaded + " countries.");
     }
 
-
-     // --- Pass 1: Process allCountries.txt ---
-     // Modified to store official population for PCLI entries
+    // --- Pass 1: Process allCountries.txt ---
+    // ... (processAllCountriesPass1 remains unchanged)
      void processAllCountriesPass1(String filePath) {
         System.out.println("Starting Pass 1: Identifying features, aggregating PPL population & bounds, storing PCLI pop...");
         int lineCount = 0, pplCount = 0, pcliCount = 0, adm1Count = 0, adm2Count = 0;
@@ -554,6 +553,7 @@ public class FileBasedDynamicBuilder {
         System.out.println("Stored official population for " + countryIdToOfficialPopulationMap.size() + " PCLI entries.");
     }
 
+    // ... (determineNodeType remains unchanged)
     private TreeNode.NodeType determineNodeType(String fcl, String fcode) {
         if ("PCLI".equals(fcode))
             return TreeNode.NodeType.COUNTRY;
@@ -567,8 +567,8 @@ public class FileBasedDynamicBuilder {
         return null;
     }
 
-    // --- Pass 2: Build Initial Hierarchy (World -> Continent -> Country -> ADM1) ---
-    // Modified to set official population and penetration rate on country nodes
+    // --- Pass 2: Build Initial Hierarchy ---
+    // ... (buildInitialAdm1Hierarchy remains unchanged)
     TreeNode buildInitialAdm1Hierarchy() {
         System.out.println("Starting Pass 2: Building initial hierarchy (World -> Continent -> Country -> ADM1)...");
         TreeNode worldRoot = new TreeNode("World", TreeNode.NodeType.WORLD, "WORLD");
@@ -650,8 +650,8 @@ public class FileBasedDynamicBuilder {
         return worldRoot;
     }
 
-    // --- Pass 3: Assign initial populations/bounds to ADM1 and find nodes > 1M ---
-    // Assigns population aggregated from PPLs in Pass 1
+    // --- Pass 3: Assign Initial Pop/Bounds & Identify Nodes > 1M ---
+    // ... (assignInitialPopBoundsAndIdentifyExpansions remains unchanged)
     BoundingBox assignInitialPopBoundsAndIdentifyExpansions(TreeNode node, List<TreeNode> nodesToExpand) {
         BoundingBox nodeBounds = new BoundingBox();
         long currentAggregatedPop = 0; // Use a local var for summing children
@@ -686,9 +686,8 @@ public class FileBasedDynamicBuilder {
         return nodeBounds;
     }
 
-
-    // --- Pass 4: Add ADM2 Layer for specific ADM1 nodes ---
-    // Assigns population aggregated from PPLs in Pass 1 to ADM2 nodes
+    // --- Pass 4: Add ADM2 Layer ---
+    // ... (addAdm2Layer remains unchanged)
     void addAdm2Layer(List<TreeNode> nodesToExpand) {
         System.out.println("Starting Pass 4: Adding ADM2 layer for " + nodesToExpand.size() + " ADM1 nodes...");
         int adm2Added = 0;
@@ -732,9 +731,8 @@ public class FileBasedDynamicBuilder {
         System.out.println("Pass 4 Complete. Added " + adm2Added + " ADM2 nodes.");
     }
 
-
-    // --- Pass 5: Distribute Remaining ADM1 Population ONLY to Zero-Pop ADM2 Children ---
-    // Uses the initial PPL-aggregated populations
+    // --- Pass 5: Distribute Initial ADM1 Population ---
+    // ... (distributeAdm1Population remains unchanged)
     void distributeAdm1Population(List<TreeNode> expandedAdm1Nodes) {
         System.out.println("Starting Pass 5: Distributing remaining initial ADM1 population to zero-pop ADM2 children...");
         int adm2PopDistributed = 0;
@@ -794,8 +792,8 @@ public class FileBasedDynamicBuilder {
                 + " previously zero-pop ADM2 nodes.");
     }
 
-
-    // --- Pass 6: Estimate Missing ADM2 Bounding Boxes ---
+    // --- Pass 6: Estimate Missing ADM2 Bounds ---
+    // ... (estimateMissingAdm2Bounds remains unchanged)
     void estimateMissingAdm2Bounds(List<TreeNode> expandedAdm1Nodes) {
         System.out.println("Starting Pass 6: Estimating missing bounds for ADM2 children...");
         int boundsEstimated = 0;
@@ -876,7 +874,8 @@ public class FileBasedDynamicBuilder {
                 "Pass 6 complete. Estimated bounds for " + boundsEstimated + " ADM2 nodes that were missing them.");
     }
 
-    // --- Helper Function: Sum population recursively (used before scaling) ---
+    // --- Helper: Sum Population Pre-Scaling ---
+    // ... (sumCurrentPopulation remains unchanged)
     private long sumCurrentPopulation(TreeNode node) {
         if (node == null) return 0;
         // Base case: If it's a leaf node at this stage (ADM1 without ADM2 children, or ADM2)
@@ -905,8 +904,8 @@ public class FileBasedDynamicBuilder {
         return sum;
     }
 
-
-    // --- Helper Function: Apply Scaling and Calculate Internet Population Recursively ---
+    // --- Helper: Apply Scaling and Internet Pop ---
+    // ... (applyScalingAndInternetPop remains unchanged)
     private void applyScalingAndInternetPop(TreeNode node, double scaleFactor, double countryPenetrationRate) {
         if (node == null) return;
 
@@ -925,7 +924,8 @@ public class FileBasedDynamicBuilder {
         }
     }
 
-    // --- Pass 7: Population Scaling and Internet Population Calculation ---
+    // --- Pass 7: Population Scaling and Internet Pop Calculation ---
+    // ... (scaleAndCalculateInternetPop remains unchanged)
     void scaleAndCalculateInternetPop(TreeNode root) {
         System.out.println("Starting Pass 7: Scaling populations to match official PCLI figures and calculating internet population...");
         int countriesScaled = 0;
@@ -981,9 +981,8 @@ public class FileBasedDynamicBuilder {
          System.out.println("Pass 7 Complete. Applied population scaling and calculated internet population for " + countriesScaled + " countries.");
     }
 
-
-    // --- Expansion Logic (Reusable for different thresholds) ---
-    // Now operates on SCALED populations
+    // --- Expansion Logic ---
+    // ... (expandLeafNodeIfNeeded remains unchanged)
     boolean expandLeafNodeIfNeeded(TreeNode leafNode, long threshold, boolean distributeEqually,
             TreeNode.NodeType artificialChildType) {
         if (leafNode == null || !leafNode.children.isEmpty() || leafNode.aggregatedPopulation <= threshold) {
@@ -1105,9 +1104,8 @@ public class FileBasedDynamicBuilder {
         return true; // Expansion occurred
     }
 
-
-    // Traverses the tree and calls expandLeafNodeIfNeeded
-    // Now operates on SCALED populations
+    // --- Expansion Pass Runner ---
+    // ... (findAndExpandLeaves remains unchanged)
     void findAndExpandLeaves(TreeNode startNode, long threshold, boolean distributeEqually,
             TreeNode.NodeType artificialChildType, String passIdentifier) {
         System.out.println("Starting " + passIdentifier + ": Expanding Leaves with Population > " + threshold + "...");
@@ -1138,11 +1136,8 @@ public class FileBasedDynamicBuilder {
         System.out.println(passIdentifier + " Complete. Expanded " + expandedCount + " leaves.");
     }
 
-
     // --- Final Aggregation Pass ---
-    // Recalculates populations from the bottom up AFTER all scaling and expansions
-
-    // Aggregates total population
+    // ... (finalAggregateTotalPopulation, finalAggregateInternetPopulation, finalAggregateBounds remain unchanged)
     long finalAggregateTotalPopulation(TreeNode node) {
         if (node == null) return 0;
         // If it's a leaf node in the final tree, return its current population
@@ -1216,34 +1211,38 @@ public class FileBasedDynamicBuilder {
         // --- File Paths ---
         String geonamesFileName = "allCountries.txt";
         String admin1FileName = "admin1CodesASCII.txt";
-        String admin2FileName = "admin2Codes.txt"; // Required for ADM2 level
+        String admin2FileName = "admin2Codes.txt";
         String countryInfoFileName = "countryInfo.txt";
-        String internetPenetrationFileName = "internet_penetration_iso2.csv"; // New file
-        String outputFileName = "geonames_hierarchy_output.txt";
+        String internetPenetrationFileName = "internet_penetration_iso2.csv";
+        String outputTextFileName = "geonames_hierarchy_output.txt"; // Original text output (optional)
+        String outputJsonFileName = "geonames_topology.json"; // New JSON output file
 
         String geonamesFilePath = homeDir + File.separator + geonamesFileName;
         String admin1FilePath = homeDir + File.separator + admin1FileName;
         String admin2FilePath = homeDir + File.separator + admin2FileName;
         String countryInfoFilePath = homeDir + File.separator + countryInfoFileName;
-        String internetPenetrationFilePath = homeDir + File.separator + internetPenetrationFileName; // New path
-        String outputFilePath = homeDir + File.separator + outputFileName;
+        String internetPenetrationFilePath = homeDir + File.separator + internetPenetrationFileName;
+        String outputTextFilePath = homeDir + File.separator + outputTextFileName; // Path for text file
+        String outputJsonFilePath = homeDir + File.separator + outputJsonFileName; // Path for JSON file
 
         // --- Check File Existence ---
         if (!new File(geonamesFilePath).exists()) { System.err.println("Error: File not found: " + geonamesFilePath); return; }
         if (!new File(admin1FilePath).exists()) { System.err.println("Error: File not found: " + admin1FilePath); return; }
         if (!new File(admin2FilePath).exists()) { System.err.println("Error: File not found: " + admin2FilePath); return; }
         if (!new File(countryInfoFilePath).exists()) { System.err.println("Error: File not found: " + countryInfoFilePath); return; }
-        if (!new File(internetPenetrationFilePath).exists()) { System.err.println("Error: File not found: " + internetPenetrationFilePath); return; } // Check new file
+        if (!new File(internetPenetrationFilePath).exists()) { System.err.println("Error: File not found: " + internetPenetrationFilePath); return; }
 
         FileBasedDynamicBuilder builder = new FileBasedDynamicBuilder();
         long overallStartTime = System.currentTimeMillis();
 
+        // --- Build Process (Passes 1-10) ---
         System.out.println("--- Loading Index & Data Files ---");
         builder.loadCountryInfo(countryInfoFilePath);
         builder.loadAdminCodes(admin1FilePath, builder.admin1CodeToIdMap, "ADM1");
         builder.loadAdminCodes(admin2FilePath, builder.admin2CodeToIdMap, "ADM2");
-        builder.loadInternetPenetration(internetPenetrationFilePath); // Load penetration data
+        builder.loadInternetPenetration(internetPenetrationFilePath);
 
+        // Check if essential maps loaded correctly
         if (builder.countryToContinentMap.isEmpty() || builder.admin1CodeToIdMap.isEmpty()
                 || builder.admin2CodeToIdMap.isEmpty() || builder.countryIsoToPenetrationMap.isEmpty()) {
             System.err.println("Failed to load essential index/data files. Exiting.");
@@ -1262,7 +1261,7 @@ public class FileBasedDynamicBuilder {
 
         System.out.println("\n--- Pass 2: Building Initial ADM1 Hierarchy ---");
         startTime = System.currentTimeMillis();
-        TreeNode root = builder.buildInitialAdm1Hierarchy();
+        TreeNode root = builder.buildInitialAdm1Hierarchy(); // Assign root node
         long pass2Time = System.currentTimeMillis() - startTime;
         System.out.println("Pass 2 finished in " + pass2Time + " ms.");
         if (root == null || root.children.isEmpty()) {
@@ -1292,18 +1291,16 @@ public class FileBasedDynamicBuilder {
 
         System.out.println("\n--- Pass 6: Estimating Missing ADM2 Bounding Boxes ---");
         startTime = System.currentTimeMillis();
-        builder.estimateMissingAdm2Bounds(nodesToExpand1M); // Pass the same list used for pop distribution
+        builder.estimateMissingAdm2Bounds(nodesToExpand1M);
         long pass6Time = System.currentTimeMillis() - startTime;
         System.out.println("Pass 6 finished in " + pass6Time + " ms.");
 
-        // --- NEW SCALING PASS ---
         System.out.println("\n--- Pass 7: Population Scaling and Internet Population Calculation ---");
         startTime = System.currentTimeMillis();
         builder.scaleAndCalculateInternetPop(root);
         long pass7Time = System.currentTimeMillis() - startTime;
         System.out.println("Pass 7 finished in " + pass7Time + " ms.");
 
-        // --- EXPANSION PASSES (now operate on scaled populations) ---
         System.out.println("\n--- Pass 8: Expanding Leaves with Population > 1,000,000 ---");
         startTime = System.currentTimeMillis();
         builder.findAndExpandLeaves(root, builder.POPULATION_THRESHOLD_1M, false, TreeNode.NodeType.S_ADM3, "Pass 8");
@@ -1316,38 +1313,55 @@ public class FileBasedDynamicBuilder {
         long pass9Time = System.currentTimeMillis() - startTime;
         System.out.println("Pass 9 finished in " + pass9Time + " ms.");
 
-        // --- FINAL AGGREGATION PASS ---
         System.out.println("\n--- Pass 10: Final Recalculation of Aggregated Data ---");
         startTime = System.currentTimeMillis();
-        // Recalculate populations first by summing children AFTER scaling and expansions
         builder.finalAggregateTotalPopulation(root);
         builder.finalAggregateInternetPopulation(root);
-        // Then recalculate bounds
         builder.finalAggregateBounds(root);
         long pass10Time = System.currentTimeMillis() - startTime;
         System.out.println("Pass 10 finished in " + pass10Time + " ms.");
 
-        // --- Output ---
-        System.out.println("\n--- Writing Final Hierarchy to File ---");
-        System.out.println("Output file: " + outputFilePath);
+
+        // --- Output Section ---
+        System.out.println("\n--- Writing Final Hierarchy to JSON File ---");
+        System.out.println("Output JSON file: " + outputJsonFilePath);
+
         if (root != null) {
-            try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(outputFilePath)))) {
-                 root.printTree(writer, "");
-                 System.out.println("Successfully wrote hierarchy to " + outputFilePath);
+            // --- Use Jackson to write JSON ---
+            // Ensure you have added the Jackson Databind dependency to your project
+            ObjectMapper objectMapper = new ObjectMapper();
+            // Configure for pretty printing (optional, makes file readable)
+            objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+            // Configure to not fail on empty beans (if any class happens to be empty)
+            objectMapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
+             // Configure to exclude null fields (like bounds if not set)
+            objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+
+
+            try {
+                // Write the root TreeNode object (which includes all children recursively) to the JSON file
+                objectMapper.writeValue(new File(outputJsonFilePath), root);
+                System.out.println("Successfully wrote hierarchy to " + outputJsonFilePath);
+
             } catch (IOException e) {
-                 System.err.println("Error writing hierarchy to file: " + e.getMessage());
-                 e.printStackTrace();
-                 System.out.println("\n--- Printing Fallback to Console ---");
-                 try (PrintWriter consoleWriter = new PrintWriter(System.out)) {
-                      root.printTree(consoleWriter, "");
-                      consoleWriter.flush();
-                 } catch (Exception fallbackEx) {
-                      System.err.println("Error printing hierarchy to console fallback: " + fallbackEx.getMessage());
-                      fallbackEx.printStackTrace();
-                 }
+                System.err.println("Error writing hierarchy to JSON file: " + e.getMessage());
+                e.printStackTrace();
+
+                // --- Fallback to Text Output if JSON fails ---
+                System.out.println("\n--- JSON writing failed. Falling back to Text Output ---");
+                System.out.println("Output Text file: " + outputTextFilePath);
+                try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(outputTextFilePath)))) {
+                    root.printTree(writer, "");
+                    System.out.println("Successfully wrote hierarchy to text file: " + outputTextFilePath);
+                } catch (IOException textEx) {
+                    System.err.println("Error writing hierarchy to fallback text file: " + textEx.getMessage());
+                    textEx.printStackTrace();
+                }
             }
+            // --- End JSON Writing ---
+
         } else {
-            System.err.println("Root node is null, cannot print tree.");
+            System.err.println("Root node is null, cannot write output.");
         }
 
         long overallEndTime = System.currentTimeMillis();

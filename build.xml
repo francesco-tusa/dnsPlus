@@ -1,34 +1,72 @@
 <project name="DNSPlus" basedir="." default="main">
+
     <property name="src.dir"     value="src"/>
-    <property name="build.dir"   value="build"/>
+    <property name="lib.dir"     value="lib"/> <property name="build.dir"   value="build"/>
     <property name="classes.dir" value="${build.dir}/classes"/>
     <property name="jar.dir"     value="${build.dir}/jar"/>
-    <property name="main-class"  value="experiments.Main"/>
+    <property name="main-class"  value="experiments.Main"/> 
+    <property name="jar.name"    value="${ant.project.name}_topology_builder"/> <path id="project.classpath">
+        <pathelement location="${classes.dir}"/>
+        <fileset dir="${lib.dir}">
+            <include name="**/*.jar"/>
+        </fileset>
+    </path>
 
     <target name="clean">
         <delete dir="${build.dir}"/>
     </target>
 
-    <target name="compile" depends="set-java-home">
+    <target name="compile">
         <mkdir dir="${classes.dir}"/>
-        <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false"/>
-    </target>
+        <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false">
+            <classpath refid="project.classpath"/> <compilerarg value="-Xlint:all,-serial"/> </javac>
+        </target>
 
     <target name="jar" depends="compile">
         <mkdir dir="${jar.dir}"/>
-        <jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${classes.dir}">
+
+        <pathconvert property="manifest.classpath" pathsep=" ">
+            <path refid="project.classpath"/>
+            <chainedmapper>
+                <flattenmapper/>
+                <globmapper from="*" to="../${lib.dir}/*" casesensitive="no"/>
+            </chainedmapper>
+        </pathconvert>
+
+         <copy todir="${jar.dir}">
+            <fileset dir="${lib.dir}" includes="**/*.jar"/>
+        </copy>
+
+        <jar destfile="${jar.dir}/${jar.name}.jar" basedir="${classes.dir}">
             <manifest>
                 <attribute name="Main-Class" value="${main-class}"/>
+                <attribute name="Class-Path" value="${manifest.classpath}"/>
             </manifest>
         </jar>
+        <echo message="Created ${jar.name}.jar in ${jar.dir}"/>
+        <echo message="Manifest Class-Path: ${manifest.classpath}"/>
+        <echo message="Remember to keep the lib directory relative to the JAR when running."/>
     </target>
 
     <target name="run" depends="jar">
-        <java jar="${jar.dir}/${ant.project.name}.jar" fork="true"/>
+         <echo message="Running ${main-class} from ${jar.dir}/${jar.name}.jar"/>
+         <echo message="Using classpath: ${jar.dir}/${jar.name}.jar and JARs in ${jar.dir}"/>
+        <java classname="${main-class}" fork="true">
+            <classpath>
+                 <pathelement location="${jar.dir}/${jar.name}.jar"/>
+                 <fileset dir="${jar.dir}">
+                     <include name="*.jar"/>
+                     <exclude name="${jar.name}.jar"/> </fileset>
+            </classpath>
+             </java>
     </target>
 
     <target name="clean-build" depends="clean,jar"/>
 
     <target name="main" depends="clean,run"/>
+
+    <target name="set-java-home" unless="env.JAVA_HOME">
+        <echo message="Warning: JAVA_HOME environment variable not set."/>
+        </target>
 
 </project>
