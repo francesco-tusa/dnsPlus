@@ -1,2 +1,8 @@
 build/*
 .DS_Store
+output/*
+resources/world/admin1CodesASCII.txt
+resources/world/admin2Codes.txt
+resources/world/allCountries.txt
+resources/world/countryInfo.txt
+.gitignore
