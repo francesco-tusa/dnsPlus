@@ -4,6 +4,7 @@ import simulator.topology.TopologyConfiguration;
 import simulator.topology.TopologyFactory;
 
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Queue;
 
 /**
@@ -206,20 +207,39 @@ public abstract class SimulationRunner<
         return null; // Not found
     }
 
-    /** Prints subscription tables for all brokers */
+    /**
+     * Prints subscription tables for all brokers that have non-empty tables.
+     * If all found brokers have empty tables, a message is printed.
+     * If no relevant brokers are found, a different message is printed.
+     */
     protected void printAllBrokerSubscriptionTables() {
-        if (rootNode == null) return;
+        if (rootNode == null) {
+            System.out.println("Cannot print subscription tables: Root node is null.");
+            return;
+        }
         System.out.println("\n--- Broker Subscription Tables ---");
         Queue<TreeNode> queue = new LinkedList<>();
         queue.offer(rootNode);
-        boolean foundBroker = false;
+        boolean foundAnyBroker = false; // Tracks if any relevant broker was found
+        boolean printedAtLeastOneNonEmptyTable = false; // Tracks if any non-empty table was printed
+
         while (!queue.isEmpty()) {
             TreeNode current = queue.poll();
-            // Check specifically for BrokerWithRegion as it has the print method
+
+            // Check specifically for BrokerWithRegion (or SimulationBroker if getSubscriptionsTable is there)
+            // Assuming BrokerWithRegion is the correct type that has the table and print method.
             if (current instanceof simulator.regions.BrokerWithRegion broker) {
-                 foundBroker = true;
-                 broker.printSubscriptionsTable();
+                foundAnyBroker = true;
+                // Get the subscription table. Assumes getSubscriptionsTable() is public in SimulationBroker.
+                Map<TreeNode, SimulationSubscription> subscriptions = broker.getSubscriptionsTable();
+
+                if (subscriptions != null && !subscriptions.isEmpty()) {
+                    broker.printSubscriptionsTable(); // This method should handle its own formatting
+                    printedAtLeastOneNonEmptyTable = true;
+                }
+                // If the table is empty, we don't call printSubscriptionsTable based on the new requirement.
             }
+
             // Traverse children regardless of current node type
             if (current.getChildren() != null) {
                 for (TreeNode child : current.getChildren()) {
@@ -227,9 +247,16 @@ public abstract class SimulationRunner<
                 }
             }
         }
-        if (!foundBroker) {
-            System.out.println("No brokers with subscription tables found in the topology.");
+
+        if (!printedAtLeastOneNonEmptyTable) {
+            if (foundAnyBroker) {
+                // Brokers were found, but all their tables were empty
+                System.out.println("All broker subscription tables are currently empty.");
+            } else {
+                // No brokers of the type BrokerWithRegion were found in the topology
+                System.out.println("No brokers found to display subscription tables.");
+            }
         }
-         System.out.println("--------------------------------");
+        System.out.println("--------------------------------");
     }
 }

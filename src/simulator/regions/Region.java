@@ -1,250 +1,300 @@
 package simulator.regions;
 
-// Ensure this imports the updated simulator.Location
 import simulator.Location;
-import java.util.Objects; // Import Objects for null checks
 
 /**
- * Represents a rectangular region in 3D space defined by two corner Locations.
- * Uses double-precision coordinates via the Location class.
+ * Represents a rectangular region that handles longitude wrap-around at the
+ * antimeridian (-180/180) for contains(), intersects(), and expand() methods.
+ * Extends BaseRegion. Assumes X coordinate is longitude.
+ * NOTE: Expanding a region that *already* wraps the antimeridian might not always
+ * produce the geographically smallest bounding box with this implementation.
  */
-public class Region implements Comparable<Region> {
+public class Region extends BaseRegion {
 
-    private Location bottomLeft;
-    private Location topRight;
+    // --- Constructors ---
 
     /**
-     * Creates an empty region (both corners null).
+     * Creates an empty region.
      */
     public Region() {
-        this.bottomLeft = null;
-        this.topRight = null;
+        super(); // Calls BaseRegion()
     }
 
     /**
-     * Creates a point region where bottomLeft and topRight are the same.
+     * Creates a point region.
      * @param location The location defining the point region. Must not be null.
      */
     public Region(Location location) {
-        // Use Objects.requireNonNull for constructor argument validation
-        Objects.requireNonNull(location, "Location for point region cannot be null.");
-        // Create defensive copies if Location is mutable, but our updated Location is immutable.
-        this.bottomLeft = location;
-        this.topRight = location;
+        super(location); // Calls BaseRegion(Location)
     }
 
     /**
      * Creates a region defined by two corner locations.
-     * It's recommended practice to ensure bottomLeft coordinates are <= topRight coordinates,
-     * but this constructor doesn't enforce it. Methods like contains assume standard orientation.
+     * Allows minLon > maxLon to represent regions crossing the antimeridian.
      * @param bottomLeft The bottom-left-front corner. Must not be null.
      * @param topRight The top-right-back corner. Must not be null.
      */
     public Region(Location bottomLeft, Location topRight) {
-        Objects.requireNonNull(bottomLeft, "Bottom-left location cannot be null.");
-        Objects.requireNonNull(topRight, "Top-right location cannot be null.");
-        // Create defensive copies if Location were mutable.
-        this.bottomLeft = bottomLeft;
-        this.topRight = topRight;
-        // Optional: Add validation/normalization to ensure bl.x <= tr.x etc.
-        // normalizeCorners();
+        super(bottomLeft, topRight); // Calls BaseRegion(Location, Location)
     }
 
     /**
-     * Copy constructor.
+     * Copy constructor for Region.
      * @param r The Region to copy. Must not be null.
      */
     public Region(Region r) {
-        Objects.requireNonNull(r, "Region to copy cannot be null.");
-        // Create defensive copies using the Location copy constructor
-        this.bottomLeft = (r.bottomLeft != null) ? new Location(r.bottomLeft) : null;
-        this.topRight = (r.topRight != null) ? new Location(r.topRight) : null;
+        super(r); // Calls BaseRegion(BaseRegion) copy constructor
     }
-
-    public Location getBottomLeft() {
-        return bottomLeft; // Returning immutable Location is safe
-    }
-
-    // Consider making Region immutable by removing setters or having them return new instances
-    public void setBottomLeft(Location bottomLeft) {
-        Objects.requireNonNull(bottomLeft, "Bottom-left location cannot be null.");
-        this.bottomLeft = bottomLeft; // Or new Location(bottomLeft) if Location were mutable
-    }
-
-    public Location getTopRight() {
-        return topRight; // Returning immutable Location is safe
-    }
-
-    // Consider making Region immutable
-    public void setTopRight(Location topRight) {
-        Objects.requireNonNull(topRight, "Top-right location cannot be null.");
-        this.topRight = topRight; // Or new Location(topRight) if Location were mutable
-    }
-
 
     /**
-     * Checks if this region contains the given location.
-     * Assumes the region is valid (e.g., bottomLeft.x <= topRight.x).
-     * Uses inclusive boundaries (>=, <=).
-     * @param l The location to check.
-     * @return true if the location is within or on the boundary of the region, false otherwise or if region is invalid.
+     * Copy constructor from BaseRegion.
+     * @param r The BaseRegion to copy. Must not be null.
      */
+    public Region(BaseRegion r) {
+        super(r); // Calls BaseRegion(BaseRegion) copy constructor
+    }
+
+
+    // --- Helper for contains/intersects ---
+    private boolean containsLongitude(double lon) {
+        // Uses inherited bottomLeft and topRight (which are protected in BaseRegion)
+        if (bottomLeft == null || topRight == null) return false;
+        double minLon = bottomLeft.getX();
+        double maxLon = topRight.getX();
+
+        if (minLon <= maxLon) { // Doesn't wrap
+            return lon >= minLon && lon <= maxLon;
+        } else { // Wraps
+            return lon >= minLon || lon <= maxLon;
+        }
+    }
+
+    // --- Overridden Methods with Wrap Logic ---
+
+    /**
+     * Checks if this region contains the given location, handling antimeridian wrap for longitude (X).
+     * @param l The location to check.
+     * @return true if the location is within the region, false otherwise.
+     */
+    @Override
     public boolean contains(Location l) {
         if (l == null || bottomLeft == null || topRight == null) {
-            return false; // Cannot contain null or if region is undefined
+            return false;
         }
-        // Logic remains the same, works with doubles
-        return l.getX() >= bottomLeft.getX() && l.getX() <= topRight.getX()
-            && l.getY() >= bottomLeft.getY() && l.getY() <= topRight.getY()
-            && l.getZ() >= bottomLeft.getZ() && l.getZ() <= topRight.getZ();
+
+        // Check Latitude (Y) and Altitude (Z) first (no wrap assumed)
+        boolean latOk = l.getY() >= bottomLeft.getY() && l.getY() <= topRight.getY();
+        boolean altOk = l.getZ() >= bottomLeft.getZ() && l.getZ() <= topRight.getZ();
+
+        if (!latOk || !altOk) {
+            return false;
+        }
+
+        // Check Longitude (X) using helper that handles wrap
+        return containsLongitude(l.getX());
     }
 
-
     /**
-     * Checks if this region fully contains another region.
-     * @param r The other region.
+     * Checks if this region fully contains another region, handling antimeridian wrap.
+     * Note: This is a simplified check based on corners.
+     * @param r The other region (can be BaseRegion or Region).
      * @return true if this region contains the other region, false otherwise.
      */
-    public boolean contains(Region r) {
+    @Override
+    public boolean contains(BaseRegion r) {
         if (r == null || r.getBottomLeft() == null || r.getTopRight() == null || this.bottomLeft == null || this.topRight == null) {
-            return false; // Cannot contain null or undefined regions
+            return false;
         }
-        // Check if both corners of the other region are within this region
-        return contains(r.bottomLeft) && contains(r.topRight);
+        // Use the overridden contains(Location) which handles wrap
+        return contains(r.getBottomLeft()) && contains(r.getTopRight());
     }
 
-
     /**
-     * Checks if this region intersects with another region.
-     * @param r The other region.
+     * Checks if this region intersects with another region, handling antimeridian wrap for longitude (X).
+     * @param r The other region (can be BaseRegion or Region).
      * @return true if the regions intersect, false otherwise.
      */
-    public boolean intersects(Region r) {
+    @Override
+    public boolean intersects(BaseRegion r) {
         if (r == null || r.getBottomLeft() == null || r.getTopRight() == null || this.bottomLeft == null || this.topRight == null) {
-            return false; // Cannot intersect null or undefined regions
+            return false;
         }
-        // Check for overlap on each axis
-        // Assumes bl.x <= tr.x, etc.
-        boolean noOverlapX = this.topRight.getX() < r.getBottomLeft().getX() || this.bottomLeft.getX() > r.getTopRight().getX();
+
+        // Check for non-overlap on Latitude (Y) and Altitude (Z) first
         boolean noOverlapY = this.topRight.getY() < r.getBottomLeft().getY() || this.bottomLeft.getY() > r.getTopRight().getY();
         boolean noOverlapZ = this.topRight.getZ() < r.getBottomLeft().getZ() || this.bottomLeft.getZ() > r.getTopRight().getZ();
 
-        // If there is no overlap on *any* axis, they don't intersect
-        return !(noOverlapX || noOverlapY || noOverlapZ);
+        if (noOverlapY || noOverlapZ) {
+            return false; // No intersection if they don't overlap on Y or Z
+        }
+
+        // Check for non-overlap on Longitude (X), handling wrap-around
+        // Uses inherited protected fields bottomLeft, topRight
+        double minLon1 = this.bottomLeft.getX();
+        double maxLon1 = this.topRight.getX();
+        double minLon2 = r.getBottomLeft().getX();
+        double maxLon2 = r.getTopRight().getX();
+
+        boolean wraps1 = minLon1 > maxLon1;
+        boolean wraps2 = minLon2 > maxLon2;
+
+        boolean noOverlapX;
+
+        if (!wraps1 && !wraps2) { // Case 1: Neither wraps
+            noOverlapX = maxLon1 < minLon2 || minLon1 > maxLon2;
+        } else if (wraps1 && !wraps2) { // Case 2: Only this region wraps
+            noOverlapX = maxLon2 < minLon1 && minLon2 > maxLon1; // No overlap if r is in the gap
+        } else if (!wraps1 && wraps2) { // Case 3: Only other region wraps
+            noOverlapX = maxLon1 < minLon2 && minLon1 > maxLon2; // No overlap if this is in the gap
+        } else { // Case 4: Both wrap
+            noOverlapX = false; // They must intersect if both wrap
+        }
+
+        return !noOverlapX; // Intersect if they overlap on X (and already passed Y, Z checks)
     }
 
 
     /**
      * Expands this region to include the given location. Modifies this region instance.
+     * Attempts to handle antimeridian wrapping for longitude.
      * @param l The location to include.
      * @return true if the region was modified, false otherwise.
      */
+    @Override
     public boolean expand(Location l) {
-        if (l == null) return false; // Cannot expand with null
+        if (l == null) return false;
 
-        boolean updated = false;
-
+        // Use inherited protected fields bottomLeft, topRight
         if (bottomLeft == null || topRight == null) {
             // Initialize region with the location if it was empty
             bottomLeft = new Location(l); // Use copy constructor
             topRight = new Location(l);
-            updated = true;
+            return true; // Was updated
+        }
+
+        // Store original values for comparison later
+        double originalMinLon = bottomLeft.getX();
+        double originalMaxLon = topRight.getX();
+        double originalMinLat = bottomLeft.getY();
+        double originalMaxLat = topRight.getY();
+        double originalMinAlt = bottomLeft.getZ();
+        double originalMaxAlt = topRight.getZ();
+
+        // --- Latitude (Y) and Altitude (Z) expansion (simple min/max) ---
+        double newBlY = Math.min(originalMinLat, l.getY());
+        double newBlZ = Math.min(originalMinAlt, l.getZ());
+        double newTrY = Math.max(originalMaxLat, l.getY());
+        double newTrZ = Math.max(originalMaxAlt, l.getZ());
+
+        // --- Longitude (X) expansion with wrap handling ---
+        double lon2 = l.getX();
+        double newMinLon, newMaxLon;
+
+        if (containsLongitude(lon2)) { // Use helper which checks wrap
+            // Point is already contained, longitude bounds don't change
+            newMinLon = originalMinLon;
+            newMaxLon = originalMaxLon;
         } else {
-            // Calculate potential new corners
-            double newBlX = Math.min(bottomLeft.getX(), l.getX());
-            double newBlY = Math.min(bottomLeft.getY(), l.getY());
-            double newBlZ = Math.min(bottomLeft.getZ(), l.getZ());
+            // Point is outside, need to expand longitude range
+            boolean currentlyWraps = originalMinLon > originalMaxLon;
 
-            double newTrX = Math.max(topRight.getX(), l.getX());
-            double newTrY = Math.max(topRight.getY(), l.getY());
-            double newTrZ = Math.max(topRight.getZ(), l.getZ());
+            if (currentlyWraps) {
+                // Region currently wraps. Expanding might make it unwrap.
+                // Simple approach: Assume it stays wrapped and adjust the closer boundary.
+                double distToMin = (originalMinLon - lon2 + 360) % 360; // Counter-clockwise distance
+                double distToMax = (lon2 - originalMaxLon + 360) % 360; // Clockwise distance
 
-            // Check if update is needed (using direct double comparison here)
-            if (Double.compare(newBlX, bottomLeft.getX()) != 0 ||
-                Double.compare(newBlY, bottomLeft.getY()) != 0 ||
-                Double.compare(newBlZ, bottomLeft.getZ()) != 0 ||
-                Double.compare(newTrX, topRight.getX()) != 0 ||
-                Double.compare(newTrY, topRight.getY()) != 0 ||
-                Double.compare(newTrZ, topRight.getZ()) != 0)
-            {
-                bottomLeft = new Location(newBlX, newBlY, newBlZ);
-                topRight = new Location(newTrX, newTrY, newTrZ);
-                updated = true;
+                if (distToMin < distToMax) {
+                    newMinLon = lon2; // Expand counter-clockwise
+                    newMaxLon = originalMaxLon;
+                } else {
+                    newMinLon = originalMinLon;
+                    newMaxLon = lon2; // Expand clockwise
+                }
+                // Check if this expansion accidentally unwrapped the region
+                if (newMinLon <= newMaxLon) {
+                     System.out.println("Warning: Expanding wrapped region resulted in unwrap. Assuming full longitude coverage [-180, 180].");
+                     newMinLon = -180.0;
+                     newMaxLon = 180.0;
+                }
+
+            } else {
+                // Region does not currently wrap. Check if expansion causes wrap.
+                double testMin = Math.min(originalMinLon, lon2);
+                double testMax = Math.max(originalMaxLon, lon2);
+                double directWidth = testMax - testMin;
+                double wrapWidth = 360.0 - directWidth; // Width going the other way
+
+                if (directWidth <= 180.0 || directWidth <= wrapWidth) { // Prefer non-wrapping if possible or shorter
+                    // The direct expansion is shorter or equal, keep it non-wrapped.
+                    newMinLon = testMin;
+                    newMaxLon = testMax;
+                } else {
+                    // Wrapping the other way is shorter. New bounds represent wrap.
+                    newMinLon = testMax; // The 'max' becomes the start of the wrapped range
+                    newMaxLon = testMin; // The 'min' becomes the end of the wrapped range
+                }
             }
         }
+
+        // Check if any coordinate actually changed
+        boolean updated = ( Double.compare(newMinLon, originalMinLon) != 0 ||
+                            Double.compare(newMaxLon, originalMaxLon) != 0 ||
+                            Double.compare(newBlY, originalMinLat) != 0 ||
+                            Double.compare(newBlZ, originalMinAlt) != 0 ||
+                            Double.compare(newTrY, originalMaxLat) != 0 ||
+                            Double.compare(newTrZ, originalMaxAlt) != 0);
+
+        if (updated) {
+            // Update location objects only if there was a change
+            // Create new Location objects to maintain potential immutability of Location
+            this.bottomLeft = new Location(newMinLon, newBlY, newBlZ);
+            this.topRight = new Location(newMaxLon, newTrY, newTrZ);
+        }
+
         return updated;
     }
-
 
     /**
      * Expands this region to include the other region. Modifies this region instance.
-     * @param r The region to include.
+     * Uses the overridden expand(Location) method which handles wrap-around.
+     * @param r The region to include (can be BaseRegion or Region).
      * @return true if the region was modified, false otherwise.
      */
-    public boolean expand(Region r) {
-        if (r == null) return false; // Cannot expand with null region
-
+    @Override
+    public boolean expand(BaseRegion r) {
+        if (r == null) return false;
         boolean updated = false;
-
         // Expand by the other region's corners if they exist
         if (r.getBottomLeft() != null) {
-            updated |= expand(r.getBottomLeft());
+             // Use the overridden expand(Location) which handles longitude
+            updated |= this.expand(r.getBottomLeft());
         }
         if (r.getTopRight() != null) {
-            // Avoid expanding twice with the same point if it's a point region
+            // Check if corners are different to avoid redundant expansion for point regions
             if (!r.getTopRight().equals(r.getBottomLeft())) {
-                 updated |= expand(r.getTopRight());
+                 // Use the overridden expand(Location) which handles longitude
+                 updated |= this.expand(r.getTopRight());
+            } else if (this.bottomLeft == null || this.topRight == null) {
+                 // If this region was empty, expanding by a point region's single corner is needed
+                 updated |= this.expand(r.getTopRight());
             }
         }
         return updated;
     }
 
 
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        Region region = (Region) obj;
-        // Use Objects.equals to handle potential nulls gracefully
-        return Objects.equals(bottomLeft, region.bottomLeft) &&
-               Objects.equals(topRight, region.topRight);
-    }
-
-
-    @Override
-    public int hashCode() {
-        // Use Objects.hash for consistency with equals
-        return Objects.hash(bottomLeft, topRight);
-    }
-
-
-    @Override
-    public String toString() {
-        return "Region{" + "bl=" + bottomLeft + ", tr=" + topRight + '}';
-    }
-
-
     /**
-     * Compares this region to another region.
-     * Comparison is based first on the bottom-left location, then on the top-right location.
-     * @param o The Region to compare against.
-     * @return a negative integer, zero, or a positive integer.
-     * @throws NullPointerException if either region or its corners are null.
+     * Provides a string representation, indicating if the region wraps longitudinally.
+     * @return String representation of the region.
      */
     @Override
-    public int compareTo(Region o) {
-        Objects.requireNonNull(o, "Cannot compare to a null Region.");
-        Objects.requireNonNull(this.bottomLeft, "Cannot compare Region with null bottomLeft.");
-        Objects.requireNonNull(this.topRight, "Cannot compare Region with null topRight.");
-        Objects.requireNonNull(o.bottomLeft, "Cannot compare with Region with null bottomLeft.");
-        Objects.requireNonNull(o.topRight, "Cannot compare with Region with null topRight.");
-
-
-        int blComparison = this.bottomLeft.compareTo(o.bottomLeft);
-        if (blComparison != 0) {
-            return blComparison;
-        }
-        // If bottom-left corners are equal, compare top-right corners
-        return this.topRight.compareTo(o.topRight);
+    public String toString() {
+        // Use inherited protected fields bottomLeft, topRight
+        boolean wraps = (bottomLeft != null && topRight != null && bottomLeft.getX() > topRight.getX());
+        return "Region{" + "bl=" + bottomLeft + ", tr=" + topRight + (wraps ? " [Wraps]" : "") + '}';
     }
+
+    // Inherits equals, hashCode, compareTo from BaseRegion.
+    // Note: compareTo might behave unexpectedly for wrapped regions.
 }

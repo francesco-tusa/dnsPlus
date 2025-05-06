@@ -79,6 +79,13 @@ public class RegionFileBasedSimulation extends
         }
     }
 
+    @Override
+    protected void printTopologyStructure() {
+        System.out.println("Topology too big to print structure.");
+    }
+
+    
+
 
     public static void main(String[] args) {
         String topologyJsonFilePath = "output/geonames_topology.json";
