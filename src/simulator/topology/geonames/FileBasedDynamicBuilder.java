@@ -32,54 +32,108 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+// This class is part of FileBasedDynamicBuilder.java
+
 /**
  * Helper class to store and update bounding box coordinates.
  */
 class BoundingBox {
-    // ... (BoundingBox class remains unchanged) ...
-    public double minLat = 91.0;
-    public double maxLat = -91.0;
-    public double minLon = 181.0;
-    public double maxLon = -181.0;
+    public double minLat = 91.0;  // Sentinel: higher than any valid latitude
+    public double maxLat = -91.0; // Sentinel: lower than any valid latitude
+    public double minLon = 181.0; // Sentinel: higher than any valid longitude
+    public double maxLon = -181.0;// Sentinel: lower than any valid longitude
 
     public BoundingBox() {
     }
 
+    /**
+     * Extends the bounding box to include the given latitude and longitude.
+     * @param lat The latitude of the point.
+     * @param lon The longitude of the point.
+     */
     void extend(double lat, double lon) {
-        if (Double.isNaN(lat) || Double.isNaN(lon))
-            return;
-        if (lat < minLat)
+        if (Double.isNaN(lat) || Double.isNaN(lon)) {
+            return; // Ignore NaN values
+        }
+        // Update minLat
+        if (lat < minLat) {
             minLat = lat;
-        if (lat > maxLat)
+        }
+        // Update maxLat
+        if (lat > maxLat) {
             maxLat = lat;
-        if (lon < minLon)
+        }
+        // Update minLon
+        if (lon < minLon) {
             minLon = lon;
-        if (lon > maxLon)
+        }
+        // Update maxLon
+        if (lon > maxLon) {
             maxLon = lon;
+        }
     }
 
+    /**
+     * Extends this bounding box to include the 'other' bounding box.
+     * @param other The other BoundingBox to include.
+     */
     void extend(BoundingBox other) {
-        if (other == null || !other.isValid())
+        if (other == null) {
             return;
-        if (other.minLat < minLat)
-            minLat = other.minLat;
-        if (other.maxLat > maxLat)
-            maxLat = other.maxLat;
-        if (other.minLon < minLon)
-            minLon = other.minLon;
-        if (other.maxLon < maxLon)
-            maxLon = other.maxLon;
+        }
+        // If the 'other' box itself is uninitialized (still has sentinel values
+        // that make it invalid in the sense of min > max), we might choose to ignore it,
+        // or extend by its individual valid coordinates if any.
+        // However, the isValid() check below handles the case where 'other' might be
+        // partially valid but overall !isValid().
+        // A simpler approach is to extend by each coordinate if 'other' is not null.
+
+        // If 'other' is valid or partially valid (even if its own isValid() is false
+        // due to one bad coordinate like a stuck maxLon), we still try to incorporate its "better" parts.
+        if (other.minLat < this.minLat) {
+            this.minLat = other.minLat;
+        }
+        if (other.maxLat > this.maxLat) {
+            this.maxLat = other.maxLat;
+        }
+        if (other.minLon < this.minLon) {
+            this.minLon = other.minLon;
+        }
+        // *** CORRECTED LOGIC FOR MAXLON ***
+        if (other.maxLon > this.maxLon) {
+            this.maxLon = other.maxLon;
+        }
     }
 
+    /**
+     * Checks if the bounding box has been initialized with valid, consistent coordinates.
+     * Valid means min <= max for both latitude and longitude, and coordinates are within
+     * standard geographic ranges.
+     * @return true if the bounds are valid, false otherwise.
+     */
     boolean isValid() {
-        return minLat <= 90.0 && maxLat >= -90.0 && minLon <= 180.0 && maxLon >= -180.0 && minLat <= maxLat
-                && minLon <= maxLon;
+        // Check if coordinates are within standard geographic ranges
+        boolean latRangeOk = minLat >= -90.0 && minLat <= 90.0 &&
+                             maxLat >= -90.0 && maxLat <= 90.0;
+        boolean lonRangeOk = minLon >= -180.0 && minLon <= 180.0 &&
+                             maxLon >= -180.0 && maxLon <= 180.0;
+
+        // Check for consistency (min <= max)
+        boolean latConsistent = minLat <= maxLat;
+        boolean lonConsistent = minLon <= maxLon;
+
+        return latRangeOk && lonRangeOk && latConsistent && lonConsistent;
     }
 
     @Override
     public String toString() {
-        if (!isValid())
-            return "Invalid BBox";
+        // Check against initial sentinel values to determine if it's truly uninitialized
+        if (minLat == 91.0 && maxLat == -91.0 && minLon == 181.0 && maxLon == -181.0) {
+            return "Uninitialized BBox";
+        }
+        if (!isValid()) { // Use the refined isValid()
+            return String.format("Invalid BBox [(%.4f, %.4f) - (%.4f, %.4f)]", minLat, minLon, maxLat, maxLon);
+        }
         return String.format("[(%.4f, %.4f) - (%.4f, %.4f)]", minLat, minLon, maxLat, maxLon);
     }
 }

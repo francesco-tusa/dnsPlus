@@ -30,7 +30,7 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
         return (SimulationBroker) getParent();
     }
 
-    protected Map<TreeNode, SimulationSubscription> getSubscriptionsTable() {
+    public Map<TreeNode, SimulationSubscription> getSubscriptionsTable() {
         return subscriptionsTable;
     }
 

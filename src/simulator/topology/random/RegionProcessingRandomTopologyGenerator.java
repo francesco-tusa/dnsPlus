@@ -253,25 +253,25 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
         Objects.requireNonNull(bl, "Region point bottomLeft cannot be null");
         Objects.requireNonNull(tr, "Region point topRight cannot be null");
 
-        int minX = Math.min(bl.getX(), tr.getX());
-        int minY = Math.min(bl.getY(), tr.getY());
-        int minZ = Math.min(bl.getZ(), tr.getZ());
-        int maxX = Math.max(bl.getX(), tr.getX());
-        int maxY = Math.max(bl.getY(), tr.getY());
-        int maxZ = Math.max(bl.getZ(), tr.getZ());
+        double minX = Math.min(bl.getX(), tr.getX());
+        double minY = Math.min(bl.getY(), tr.getY());
+        double minZ = Math.min(bl.getZ(), tr.getZ());
+        double maxX = Math.max(bl.getX(), tr.getX());
+        double maxY = Math.max(bl.getY(), tr.getY());
+        double maxZ = Math.max(bl.getZ(), tr.getZ());
 
-        int rangeX = maxX - minX + 1;
-        int rangeY = maxY - minY + 1;
-        int rangeZ = maxZ - minZ + 1;
+        double rangeX = maxX - minX + 1;
+        double rangeY = maxY - minY + 1;
+        double rangeZ = maxZ - minZ + 1;
 
         if (rangeX <= 0 || rangeY <= 0 || rangeZ <= 0) {
              System.err.println("Warning: Generating location in degenerate region definition: " + region);
              return new Location(minX, minY, minZ);
         }
 
-        int randomX = minX + random.nextInt(rangeX);
-        int randomY = minY + random.nextInt(rangeY);
-        int randomZ = minZ + random.nextInt(rangeZ);
+        double randomX = minX + random.nextDouble(rangeX);
+        double randomY = minY + random.nextDouble(rangeY);
+        double randomZ = minZ + random.nextDouble(rangeZ);
 
         return new Location(randomX, randomY, randomZ);
     }

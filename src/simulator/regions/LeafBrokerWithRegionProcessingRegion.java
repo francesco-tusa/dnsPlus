@@ -13,7 +13,7 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
     }
     
     public LeafBrokerWithRegionProcessingRegion(String name, Location p1, Location p2) {
-        super(name);
+        super(name, p1, p2);
     }
 
     @Override

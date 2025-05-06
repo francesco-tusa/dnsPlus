@@ -2,6 +2,7 @@ package simulator.regions;
 
 import java.util.List;
 
+import simulator.Location;
 import simulator.PublicationWithLocation;
 import simulator.SimulationPublication;
 import simulator.SimulationSubscription;
@@ -11,6 +12,11 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
 
     public BrokerWithRegionProcessingRegion(String name) {
         super(name);
+    }
+
+
+    public BrokerWithRegionProcessingRegion(String name, Location p1, Location p2) {
+        super(name, p1, p2);
     }
 
     @Override
@@ -104,10 +110,9 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
 
         Region existingSubscriptionRegionCopy = new Region(existingSubscriptionRegion);
 
-        existingSubscriptionRegion.expand(newSubscriptionRegion);
-        newSubscriptionRegion.expand(existingSubscriptionRegionCopy);
-
         System.out.println(getName() + ": updated table with " + existingSubscriptionWithRegion);
+        existingSubscriptionRegion.expand(newSubscriptionRegion);
+        newSubscriptionRegion.expand(existingSubscriptionRegionCopy);        
         System.out.println(getName() + ": updated current subscription with " + newSubscriptionWithRegion);
     }
 }
