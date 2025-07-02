@@ -24,7 +24,7 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
     }
 
     @Override
-    protected void updateRegion(TreeNode child) {
+    public void updateRegion(TreeNode child) {
         if (child instanceof SubscriberWithLocation subscriber) {
             if (getRegion().expand(subscriber.getLocation())) {
                 increaseNumOfRegionUpdates();

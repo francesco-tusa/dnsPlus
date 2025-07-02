@@ -1,7 +1,6 @@
 package simulator.regions;
 
 import java.util.Map;
-
 import simulator.Location;
 import simulator.SimulationBroker;
 import simulator.SimulationPublication;
@@ -9,12 +8,13 @@ import simulator.SimulationSubscription;
 import simulator.TreeNode;
 
 /**
- *
+ * An abstract broker that represents a geographic region and can hold population data.
  * @author f.tusa
  */
 public abstract class BrokerWithRegion extends SimulationBroker {
     private Region region;
     private long numOfRegionUpdates;
+    private long internetPopulation; // Added field to store population data
 
     /*
      * implements the logic to process a new subscription based on the location or
@@ -56,12 +56,14 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         super(name);
         region = new Region();
         numOfRegionUpdates = 0;
+        internetPopulation = 0; // Initialize population
     }
 
     public BrokerWithRegion(String name, Location p1, Location p2) {
         super(name);
         region = new Region(p1, p2);
         numOfRegionUpdates = 0;
+        internetPopulation = 0; // Initialize population
     }
 
     @Override
@@ -74,8 +76,36 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         }
     }
 
+    /**
+    * Override the generic addChild to ensure region updates are triggered.
+    * This is the critical fix.
+    */
+    @Override
+    public void addChild(TreeNode child) {
+        super.addChild(child);
+        if (child instanceof BrokerWithRegion) {
+            this.updateRegion(child);
+        }
+    }
+
     public Region getRegion() {
         return region;
+    }
+    
+    /**
+     * Gets the internet-using population associated with this broker's region.
+     * @return The internet population count.
+     */
+    public long getInternetPopulation() {
+        return internetPopulation;
+    }
+
+    /**
+     * Sets the internet-using population for this broker's region.
+     * @param internetPopulation The internet population count.
+     */
+    public void setInternetPopulation(long internetPopulation) {
+        this.internetPopulation = internetPopulation;
     }
 
     public long getNumOfRegionUpdates() {
@@ -90,10 +120,10 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         return getSubscriptionsTable().get(source);
     }
 
-    protected void updateRegion(TreeNode child) {
+    public void updateRegion(TreeNode child) { // Made public to be accessible from generator
         if (child instanceof BrokerWithRegion broker) {
             if (region.expand(broker.region)) {
-                System.out.println(getName() + ": updated region");
+                System.out.println(getName() + ": updated region to " + this.region);
                 numOfRegionUpdates++;
                 BrokerWithRegion parentBroker = getParentBroker();
                 if (parentBroker != null) {
@@ -103,11 +133,6 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         }
     }
 
-    /*
-     * Add the subscription to the Map if not already there
-     * If a subscription from that child exists check and compare
-     * the locations of the two subscriptions calling regionsOrLocationsMatch
-     */
     @Override
     public void addSubscription(SimulationSubscription s) {
 
@@ -162,7 +187,6 @@ public abstract class BrokerWithRegion extends SimulationBroker {
             }
             processPublicationLocation(p, nextBroker);
         }
-        // FIXME: existing design forces us to return a subscription but this is not used here.
         return null;
     }
 }

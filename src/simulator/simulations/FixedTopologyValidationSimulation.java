@@ -3,21 +3,20 @@ package simulator.simulations;
 import simulator.Location;
 import simulator.PublicationWithLocation;
 import simulator.PublisherWithLocation;
-import simulator.SimulationRunner;
 import simulator.SubscriberWithLocation;
-import simulator.regions.BrokerWithRegionProcessingRegion;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
-import simulator.topology.fixed.FixedTopologyConfiguration;
-import simulator.topology.fixed.FixedTopologyGenerator;
+import simulator.topology.fixed.FixedTestTopologyConfiguration;
+import simulator.topology.fixed.FixedTestTopologyGenerator;
 
 /**
  * Concrete SimulationRunner for the fixed manually defined test topology.
+ * This class is designed for unit testing and validation of core logic.
+ * It now extends AbstractTopologyValidationSimulation for better classification.
  */
-public class RegionFixedSimulation extends SimulationRunner<
-    FixedTopologyConfiguration,
-    BrokerWithRegionProcessingRegion,
-    FixedTopologyGenerator> {
+public class FixedTopologyValidationSimulation extends AbstractTopologyValidationSimulation<
+    FixedTestTopologyConfiguration,
+    FixedTestTopologyGenerator> {
 
     @Override
     protected void executeScenarios() {
@@ -43,53 +42,29 @@ public class RegionFixedSimulation extends SimulationRunner<
         Region subscription4Region = new Region(new Location(2, 2, 0), new Location(3, 3, 0));
         Region subscription5Region = new Region(new Location(2, 2, 0), new Location(4, 3, 0));
 
-        System.out.println("\nSending Subscription 1 from " + s2.getName() + ": " + subscription1Region);
         s2.send(new SubscriptionWithRegion(subscription1Region));
-
-        System.out.println("\nSending Subscription 2 from " + s2.getName() + ": " + subscription2Region);
         s2.send(new SubscriptionWithRegion(subscription2Region));
-
-        System.out.println("\nSending Subscription 3 from " + s2.getName() + ": " + subscription3Region);
         s2.send(new SubscriptionWithRegion(subscription3Region));
-
-        System.out.println("\nSending Subscription 4 from " + s5.getName() + ": " + subscription4Region);
         s5.send(new SubscriptionWithRegion(subscription4Region));
-
-        System.out.println("\nSending Subscription 5 from " + s5.getName() + ": " + subscription5Region);
         s5.send(new SubscriptionWithRegion(subscription5Region));
 
-        printAllBrokerSubscriptionTables(); // Print tables after subscriptions
+        printAllBrokerSubscriptionTables();
 
         // --- Send Publications ---
         System.out.println("\n>>> Scenario: Sending Publications <<<");
-        Location pubLoc1 = new Location(9, 3, 0); // No match expected
-        Location pubLoc2 = new Location(7, 3, 0); // Match s2 expected
-        Location pubLoc3 = new Location(3, 3, 0); // Match s5 expected
-        Location pubLoc4 = new Location(19, 4, 0); // No match expected
-
-        System.out.println("\nSending Pub1 from " + p1.getName() + " at " + pubLoc1);
-        p1.send(new PublicationWithLocation(pubLoc1));
-        System.out.println("\nSending Pub2 from " + p1.getName() + " at " + pubLoc2);
-        p1.send(new PublicationWithLocation(pubLoc2));
-        System.out.println("\nSending Pub3 from " + p1.getName() + " at " + pubLoc3);
-        p1.send(new PublicationWithLocation(pubLoc3));
-        System.out.println("\nSending Pub4 from " + p2.getName() + " at " + pubLoc4);
-        p2.send(new PublicationWithLocation(pubLoc4));
+        p1.send(new PublicationWithLocation(new Location(9, 3, 0)));
+        p1.send(new PublicationWithLocation(new Location(7, 3, 0)));
+        p1.send(new PublicationWithLocation(new Location(3, 3, 0)));
+        p2.send(new PublicationWithLocation(new Location(19, 4, 0)));
 
         System.out.println("\n--- Fixed Topology Test Scenarios Complete ---");
     }
 
     public static void main(String[] args) {
         System.out.println("--- Starting Fixed Topology Test Run ---");
-
-        // --- Configuration ---
-        FixedTopologyConfiguration config = new FixedTopologyConfiguration();
-
-        // --- Factory ---
-        FixedTopologyGenerator factory = new FixedTopologyGenerator();
-
-        // --- Create and Run the Specific Simulation ---
-        RegionFixedSimulation simulation = new RegionFixedSimulation();
+        FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
+        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator();
+        FixedTopologyValidationSimulation simulation = new FixedTopologyValidationSimulation();
         simulation.run(factory, config);
     }
 }

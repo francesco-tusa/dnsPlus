@@ -1,8 +1,8 @@
 package simulator;
 
-import simulator.simulations.RegionFileBasedSimulation;
-import simulator.simulations.RegionFixedSimulation;
-import simulator.simulations.RegionRandomSimulation;
+import simulator.simulations.GridServiceSimulation;
+import simulator.simulations.FixedTopologyValidationSimulation;
+import simulator.simulations.RandomTopologyValidationSimulation;
 
 
 /**
@@ -12,7 +12,7 @@ import simulator.simulations.RegionRandomSimulation;
 public class SimulationMain {
 
     public static void main(String[] args) {
-        RegionFileBasedSimulation.main(args);
+        GridServiceSimulation.main(args);
         //RegionFixedSimulation.main(args);
         //RegionRandomSimulation.main(args);
     }

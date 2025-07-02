@@ -14,7 +14,7 @@ import simulator.topology.TopologyConfiguration;
 /**
  * Generates a specific, hardcoded topology defined manually.
  */
-public class FixedTopologyGenerator extends AbstractTopologyFactory<FixedTopologyConfiguration, BrokerWithRegionProcessingRegion> {
+public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTestTopologyConfiguration, BrokerWithRegionProcessingRegion> {
 
     private BrokerNodes brokerNodes;
     private List<SubscriberWithLocation> subscribers;
@@ -38,10 +38,10 @@ public class FixedTopologyGenerator extends AbstractTopologyFactory<FixedTopolog
     @Override
     protected void initialise(TopologyConfiguration genericConfig) {
         System.out.println("Initialising FixedTopologyGenerator...");
-        if (!(genericConfig instanceof FixedTopologyConfiguration)) {
+        if (!(genericConfig instanceof FixedTestTopologyConfiguration)) {
             throw new IllegalArgumentException("Configuration must be an instance of FixedTopologyConfiguration.");
         }
-        this.config = (FixedTopologyConfiguration) genericConfig;
+        this.config = (FixedTestTopologyConfiguration) genericConfig;
 
         // Reset internal state
         this.brokerNodes = null;
