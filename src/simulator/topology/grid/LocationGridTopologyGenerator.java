@@ -7,18 +7,18 @@ import java.util.Random;
 import simulator.Location;
 import simulator.regions.BrokerWithRegion;
 import simulator.regions.BrokerWithRegionProcessingLocation;
-import simulator.regions.LeafBrokerWithRegionProcessingRegion;
+import simulator.regions.LeafBrokerWithRegionProcessingLocation;
 import simulator.regions.Region;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 
 /**
- * Generates a procedural, grid-based broker topology.
- * The grid size, tree depth, and region overlap are all configurable.
+ * A topology generator that creates a grid-based world using the
+ * location-processing broker types.
  */
-public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyConfiguration, BrokerWithRegionProcessingLocation> {
+public class LocationGridTopologyGenerator extends AbstractTopologyFactory<GridTopologyConfiguration, BrokerWithRegionProcessingLocation> {
 
-    private List<LeafBrokerWithRegionProcessingRegion> leafBrokers;
+    private List<LeafBrokerWithRegionProcessingLocation> leafBrokers;
     private final Random random = new Random();
 
     private static final double MIN_LON = -180.0;
@@ -28,7 +28,7 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
 
     @Override
     protected void initialise(TopologyConfiguration genericConfig) {
-        System.out.println("Initialising GridTopologyGenerator...");
+        System.out.println("Initialising LocationGridTopologyGenerator...");
         if (!(genericConfig instanceof GridTopologyConfiguration)) {
             throw new IllegalArgumentException("Configuration must be an instance of GridTopologyConfiguration.");
         }
@@ -43,16 +43,17 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
 
     @Override
     protected BrokerWithRegionProcessingLocation buildCoreTopology() {
-        System.out.println("Building procedural grid-based core broker topology...");
+        System.out.println("Building procedural grid-based core broker topology with location-processing brokers...");
         Objects.requireNonNull(config, "Configuration must be initialised before building topology.");
 
         BrokerWithRegionProcessingLocation root = new BrokerWithRegionProcessingLocation("Root");
 
-        List<LeafBrokerWithRegionProcessingRegion> allLeaves = createAllLeafBrokers();
+        List<LeafBrokerWithRegionProcessingLocation> allLeaves = createAllLeafBrokers();
         this.leafBrokers.addAll(allLeaves);
 
         buildRecursive(root, allLeaves, 1, config.getTreeDepth());
         
+        // Correctly aggregate data from the bottom up after the tree is built.
         aggregateData(root);
 
         System.out.println("Core broker hierarchy with " + allLeaves.size() + " leaves created.");
@@ -61,9 +62,9 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
         return root;
     }
 
-    private void buildRecursive(BrokerWithRegion parent, List<LeafBrokerWithRegionProcessingRegion> leavesToPlace, int currentDepth, int maxDepth) {
+    private void buildRecursive(BrokerWithRegion parent, List<LeafBrokerWithRegionProcessingLocation> leavesToPlace, int currentDepth, int maxDepth) {
         if (currentDepth >= maxDepth - 1) {
-            for (LeafBrokerWithRegionProcessingRegion leaf : leavesToPlace) {
+            for (LeafBrokerWithRegionProcessingLocation leaf : leavesToPlace) {
                 parent.addChild(leaf);
             }
             return;
@@ -80,7 +81,7 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
             if (startIndex >= numLeaves) break;
             
             int endIndex = Math.min(startIndex + leavesPerChild, numLeaves);
-            List<LeafBrokerWithRegionProcessingRegion> childLeaves = leavesToPlace.subList(startIndex, endIndex);
+            List<LeafBrokerWithRegionProcessingLocation> childLeaves = leavesToPlace.subList(startIndex, endIndex);
             
             if (childLeaves.isEmpty()) continue;
             
@@ -91,8 +92,8 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
         }
     }
 
-    private List<LeafBrokerWithRegionProcessingRegion> createAllLeafBrokers() {
-        List<LeafBrokerWithRegionProcessingRegion> leaves = new ArrayList<>();
+    private List<LeafBrokerWithRegionProcessingLocation> createAllLeafBrokers() {
+        List<LeafBrokerWithRegionProcessingLocation> leaves = new ArrayList<>();
         int gridDimension = config.getGridDimension();
         double overlapFactor = config.getOverlapFactor();
         
@@ -119,30 +120,52 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
             Location bl = new Location(finalMinLon, finalMinLat, 0);
             Location tr = new Location(finalMaxLon, finalMaxLat, 0);
             
-            LeafBrokerWithRegionProcessingRegion leafBroker = new LeafBrokerWithRegionProcessingRegion(generateLeafBrokerName(), bl, tr);
+            LeafBrokerWithRegionProcessingLocation leafBroker = new LeafBrokerWithRegionProcessingLocation(generateLeafBrokerName(), bl, tr);
             leafBroker.setInternetPopulation(getMockPopulationForRegion(gridRow, gridCol));
             leaves.add(leafBroker);
         }
         return leaves;
     }
     
+    /**
+     * A single recursive method to aggregate both population and region data
+     * in a post-order traversal (children first, then parent). This version
+     * manually calculates the bounding box to avoid incorrect wrapping logic.
+     * @param node The current node to process.
+     */
     private void aggregateData(BrokerWithRegion node) {
-        if (node instanceof LeafBrokerWithRegionProcessingRegion) {
+        if (node instanceof LeafBrokerWithRegionProcessingLocation) {
             return;
         }
+        
         long aggregatedPopulation = 0;
-        Region combinedRegion = new Region();
+        // Use sentinel values for min/max calculation
+        double minLon = 181, maxLon = -181, minLat = 91, maxLat = -91;
+
         for (Object childObj : node.getChildren()) {
             if (childObj instanceof BrokerWithRegion) {
                 BrokerWithRegion childBroker = (BrokerWithRegion) childObj;
-                aggregateData(childBroker); 
+                aggregateData(childBroker); // Recurse first
+
                 aggregatedPopulation += childBroker.getInternetPopulation();
-                combinedRegion.expand(childBroker.getRegion());
+                
+                // Manually find the min/max coordinates across all children
+                Region childRegion = childBroker.getRegion();
+                if (childRegion != null && childRegion.getBottomLeft() != null && childRegion.getTopRight() != null) {
+                    minLon = Math.min(minLon, childRegion.getBottomLeft().getX());
+                    minLat = Math.min(minLat, childRegion.getBottomLeft().getY());
+                    maxLon = Math.max(maxLon, childRegion.getTopRight().getX());
+                    maxLat = Math.max(maxLat, childRegion.getTopRight().getY());
+                }
             }
         }
+
         node.setInternetPopulation(aggregatedPopulation);
-        node.getRegion().setBottomLeft(combinedRegion.getBottomLeft());
-        node.getRegion().setTopRight(combinedRegion.getTopRight());
+        // Only set region if valid children were found
+        if (minLon <= maxLon && minLat <= maxLat) { 
+            node.getRegion().setBottomLeft(new Location(minLon, minLat, 0));
+            node.getRegion().setTopRight(new Location(maxLon, maxLat, 0));
+        }
     }
 
     private long getMockPopulationForRegion(int row, int col) {
@@ -157,16 +180,12 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
     }
 
     @Override
-    protected void attachSubscribers(BrokerWithRegionProcessingLocation root) {
-        System.out.println("GridTopologyGenerator: Subscriber attachment is handled by a dedicated generator class.");
-    }
+    protected void attachSubscribers(BrokerWithRegionProcessingLocation root) {}
 
     @Override
-    protected void attachPublishers(BrokerWithRegionProcessingLocation root) {
-         System.out.println("GridTopologyGenerator: Publisher attachment is handled by a dedicated generator class.");
-    }
+    protected void attachPublishers(BrokerWithRegionProcessingLocation root) {}
 
-    public List<LeafBrokerWithRegionProcessingRegion> getLeafBrokers() {
+    public List<LeafBrokerWithRegionProcessingLocation> getLeafBrokers() {
         return this.leafBrokers;
     }
 }

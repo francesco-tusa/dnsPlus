@@ -6,7 +6,7 @@ import java.util.Objects;
 import simulator.Location;
 import simulator.PublisherWithLocation;
 import simulator.SubscriberWithLocation;
-import simulator.regions.BrokerWithRegionProcessingRegion;
+import simulator.regions.BrokerWithRegionProcessingLocation;
 import simulator.regions.LeafBrokerWithRegionProcessingRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
@@ -14,7 +14,7 @@ import simulator.topology.TopologyConfiguration;
 /**
  * Generates a specific, hardcoded topology defined manually.
  */
-public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTestTopologyConfiguration, BrokerWithRegionProcessingRegion> {
+public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTestTopologyConfiguration, BrokerWithRegionProcessingLocation> {
 
     private BrokerNodes brokerNodes;
     private List<SubscriberWithLocation> subscribers;
@@ -25,10 +25,10 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
      * Using specific types as the topology is fixed.
      */
     private record BrokerNodes(
-        BrokerWithRegionProcessingRegion root,
-        BrokerWithRegionProcessingRegion child1,
-        BrokerWithRegionProcessingRegion child2,
-        BrokerWithRegionProcessingRegion child3,
+        BrokerWithRegionProcessingLocation root,
+        BrokerWithRegionProcessingLocation child1,
+        BrokerWithRegionProcessingLocation child2,
+        BrokerWithRegionProcessingLocation child3,
         LeafBrokerWithRegionProcessingRegion grandchild1,
         LeafBrokerWithRegionProcessingRegion grandchild2,
         LeafBrokerWithRegionProcessingRegion grandchild3,
@@ -52,16 +52,16 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     }
 
     @Override
-    protected BrokerWithRegionProcessingRegion buildCoreTopology() {
+    protected BrokerWithRegionProcessingLocation buildCoreTopology() {
         System.out.println("Building fixed core broker topology...");
         Objects.requireNonNull(config, "Configuration must be initialised.");
 
         // --- Create Brokers ---
         System.out.println("  Creating Brokers...");
-        BrokerWithRegionProcessingRegion root = new BrokerWithRegionProcessingRegion("root");
-        BrokerWithRegionProcessingRegion child1 = new BrokerWithRegionProcessingRegion("child1");
-        BrokerWithRegionProcessingRegion child2 = new BrokerWithRegionProcessingRegion("child2");
-        BrokerWithRegionProcessingRegion child3 = new BrokerWithRegionProcessingRegion("child3");
+        BrokerWithRegionProcessingLocation root = new BrokerWithRegionProcessingLocation("root");
+        BrokerWithRegionProcessingLocation child1 = new BrokerWithRegionProcessingLocation("child1");
+        BrokerWithRegionProcessingLocation child2 = new BrokerWithRegionProcessingLocation("child2");
+        BrokerWithRegionProcessingLocation child3 = new BrokerWithRegionProcessingLocation("child3");
         LeafBrokerWithRegionProcessingRegion grandchild1 = new LeafBrokerWithRegionProcessingRegion("grandchild1");
         LeafBrokerWithRegionProcessingRegion grandchild2 = new LeafBrokerWithRegionProcessingRegion("grandchild2");
         LeafBrokerWithRegionProcessingRegion grandchild3 = new LeafBrokerWithRegionProcessingRegion("grandchild3");
@@ -86,7 +86,7 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     }
 
     @Override
-    protected void attachSubscribers(BrokerWithRegionProcessingRegion root) {
+    protected void attachSubscribers(BrokerWithRegionProcessingLocation root) {
         System.out.println("Attaching fixed subscribers...");
         Objects.requireNonNull(brokerNodes, "Broker nodes must be built before attaching subscribers.");
 
@@ -120,7 +120,7 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     }
 
     @Override
-    protected void attachPublishers(BrokerWithRegionProcessingRegion root) {
+    protected void attachPublishers(BrokerWithRegionProcessingLocation root) {
         System.out.println("Attaching fixed publishers...");
          Objects.requireNonNull(brokerNodes, "Broker nodes must be built before attaching publishers.");
 

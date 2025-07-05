@@ -1,7 +1,7 @@
-package simulator.simulations;
+package simulator.simulations.validation;
 
 import simulator.SimulationRunner;
-import simulator.regions.BrokerWithRegionProcessingRegion;
+import simulator.regions.BrokerWithRegionProcessingLocation;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 
@@ -19,8 +19,8 @@ import simulator.topology.TopologyConfiguration;
  */
 public abstract class AbstractTopologyValidationSimulation<
     C extends TopologyConfiguration,
-    F extends AbstractTopologyFactory<C, BrokerWithRegionProcessingRegion>
-> extends SimulationRunner<C, BrokerWithRegionProcessingRegion, F> {
+    F extends AbstractTopologyFactory<C, BrokerWithRegionProcessingLocation>
+> extends SimulationRunner<C, BrokerWithRegionProcessingLocation, F> {
     // This class is intentionally left empty as its main purpose is to provide
     // a common type for validation-focused simulations.
 }

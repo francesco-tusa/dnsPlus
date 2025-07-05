@@ -1,4 +1,4 @@
-package simulator.simulations;
+package simulator.simulations.validation;
 
 import simulator.Location;
 import simulator.PublicationWithLocation;

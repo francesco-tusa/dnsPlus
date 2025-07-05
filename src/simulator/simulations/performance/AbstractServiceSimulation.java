@@ -1,4 +1,4 @@
-package simulator.simulations;
+package simulator.simulations.performance;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -16,7 +16,7 @@ import simulator.SimulationRunner;
 import simulator.TreeNode;
 import simulator.clients.ProportionalSubscriberGenerator;
 import simulator.regions.BrokerWithRegion;
-import simulator.regions.BrokerWithRegionProcessingRegion;
+import simulator.regions.BrokerWithRegionProcessingLocation;
 import simulator.regions.LeafBrokerWithRegionProcessingRegion;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
@@ -34,8 +34,8 @@ import simulator.topology.TopologyConfiguration;
  */
 public abstract class AbstractServiceSimulation<
     C extends TopologyConfiguration, 
-    F extends AbstractTopologyFactory<C, BrokerWithRegionProcessingRegion>
-> extends SimulationRunner<C, BrokerWithRegionProcessingRegion, F> {
+    F extends AbstractTopologyFactory<C, BrokerWithRegionProcessingLocation>
+> extends SimulationRunner<C, BrokerWithRegionProcessingLocation, F> {
 
     // --- Data Collection ---
     protected final List<SubscriberWithLocation> allSubscribers = new ArrayList<>();
@@ -190,7 +190,7 @@ public abstract class AbstractServiceSimulation<
         }
     }
     
-    protected List<LeafBrokerWithRegionProcessingRegion> findLeafBrokers(BrokerWithRegionProcessingRegion root) {
+    protected List<LeafBrokerWithRegionProcessingRegion> findLeafBrokers(BrokerWithRegionProcessingLocation root) {
         List<LeafBrokerWithRegionProcessingRegion> leaves = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
         if (root != null) queue.add(root);

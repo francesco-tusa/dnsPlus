@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import simulator.Location;
 import simulator.regions.Region;
 import simulator.TreeNode;
-import simulator.regions.BrokerWithRegionProcessingRegion;
+import simulator.regions.BrokerWithRegionProcessingLocation;
 import simulator.regions.LeafBrokerWithRegionProcessingRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
@@ -22,10 +22,10 @@ import java.util.Objects;
  * the "internetPopulation" for data-driven client allocation.
  */
 public class FileBasedTopologyGenerator // Changed class name
-        extends AbstractTopologyFactory<FileBasedTopologyConfiguration, BrokerWithRegionProcessingRegion> {
+        extends AbstractTopologyFactory<FileBasedTopologyConfiguration, BrokerWithRegionProcessingLocation> {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final List<BrokerWithRegionProcessingRegion> allBrokers = new ArrayList<>();
+    private final List<BrokerWithRegionProcessingLocation> allBrokers = new ArrayList<>();
 
     // Constants for JSON field names
     private static final String JSON_FIELD_NAME = "name";
@@ -57,7 +57,7 @@ public class FileBasedTopologyGenerator // Changed class name
     }
 
     @Override
-    protected BrokerWithRegionProcessingRegion buildCoreTopology() {
+    protected BrokerWithRegionProcessingLocation buildCoreTopology() {
         Objects.requireNonNull(this.config, "Configuration must be set during initialise before building topology.");
         String filePath = this.config.getTopologyFilePath();
         System.out.println("Building core topology from file: " + filePath);
@@ -89,7 +89,7 @@ public class FileBasedTopologyGenerator // Changed class name
     }
 
     @Override
-    protected void attachSubscribers(BrokerWithRegionProcessingRegion root) {
+    protected void attachSubscribers(BrokerWithRegionProcessingLocation root) {
          if (root == null || this.rootNode == null || root != this.rootNode) {
              System.err.println("Warning: Root node mismatch or null during attachSubscribers. Aborting subscriber attachment.");
              return;
@@ -98,7 +98,7 @@ public class FileBasedTopologyGenerator // Changed class name
     }
 
     @Override
-    protected void attachPublishers(BrokerWithRegionProcessingRegion root) {
+    protected void attachPublishers(BrokerWithRegionProcessingLocation root) {
          if (root == null || this.rootNode == null || root != this.rootNode) {
              System.err.println("Warning: Root node mismatch or null during attachPublishers. Aborting publisher attachment.");
              return;
@@ -115,7 +115,7 @@ public class FileBasedTopologyGenerator // Changed class name
      * @return The constructed BrokerWithRegionProcessingRegion.
      * @throws IOException If JSON parsing fails.
      */
-    private BrokerWithRegionProcessingRegion buildBrokerFromJson(JsonNode jsonNode, BrokerWithRegionProcessingRegion parent) throws IOException {
+    private BrokerWithRegionProcessingLocation buildBrokerFromJson(JsonNode jsonNode, BrokerWithRegionProcessingLocation parent) throws IOException {
          if (jsonNode == null || !jsonNode.isObject()) {
              System.err.println("Warning: Encountered invalid JSON node structure while building broker. Skipping.");
              return null;
@@ -129,7 +129,7 @@ public class FileBasedTopologyGenerator // Changed class name
          JsonNode childrenNode = jsonNode.path(JSON_FIELD_CHILDREN);
          boolean isLeafNodeInJson = !childrenNode.isArray() || childrenNode.isEmpty();
 
-         BrokerWithRegionProcessingRegion currentBroker;
+         BrokerWithRegionProcessingLocation currentBroker;
           try {
              Location p1 = region.getBottomLeft();
              Location p2 = region.getTopRight();
@@ -144,7 +144,7 @@ public class FileBasedTopologyGenerator // Changed class name
              if (isLeafNodeInJson) {
                  currentBroker = new LeafBrokerWithRegionProcessingRegion(brokerName, p1, p2);
              } else {
-                 currentBroker = new BrokerWithRegionProcessingRegion(brokerName, p1, p2);
+                 currentBroker = new BrokerWithRegionProcessingLocation(brokerName, p1, p2);
              }
              // We need a way to store the internet population on the broker node.
              // Since BrokerWithRegion doesn't have a field for this, we will need to
@@ -161,7 +161,7 @@ public class FileBasedTopologyGenerator // Changed class name
 
          if (!isLeafNodeInJson) {
              for (JsonNode childNode : childrenNode) {
-                 BrokerWithRegionProcessingRegion childBroker = buildBrokerFromJson(childNode, currentBroker);
+                 BrokerWithRegionProcessingLocation childBroker = buildBrokerFromJson(childNode, currentBroker);
                  if (childBroker != null) {
                      currentBroker.addChild(childBroker);
                  }
@@ -191,20 +191,20 @@ public class FileBasedTopologyGenerator // Changed class name
         return new Region(bottomLeft, topRight);
     }
 
-    private void addAllBrokersRecursively(BrokerWithRegionProcessingRegion broker) {
+    private void addAllBrokersRecursively(BrokerWithRegionProcessingLocation broker) {
         if (broker == null) return;
         this.allBrokers.add(broker);
         List<TreeNode> children = broker.getChildren();
         if (children != null) {
             for (TreeNode childNode : children) {
-                if (childNode instanceof BrokerWithRegionProcessingRegion) {
-                    addAllBrokersRecursively((BrokerWithRegionProcessingRegion) childNode);
+                if (childNode instanceof BrokerWithRegionProcessingLocation) {
+                    addAllBrokersRecursively((BrokerWithRegionProcessingLocation) childNode);
                 }
             }
         }
     }
 
-     public List<BrokerWithRegionProcessingRegion> getBrokers() {
+     public List<BrokerWithRegionProcessingLocation> getBrokers() {
          return new ArrayList<>(this.allBrokers);
      }
 }

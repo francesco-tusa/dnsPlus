@@ -24,7 +24,10 @@ public class PublisherWithLocation extends TreeNode {
     
     public void send(SimulationPublication p) {
         SimulationBroker broker = getBroker();
+        
+        // **THE FIX**: Set both the immediate source and the original source
         p.setSource(this);
+        p.setOriginalSource(this);
         
         if (broker != null) {
             System.out.println();

@@ -1,4 +1,4 @@
-package simulator.simulations;
+package simulator.simulations.validation;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -7,7 +7,7 @@ import java.util.Objects;
 import simulator.Location;
 import simulator.PublisherWithLocation;
 import simulator.SubscriberWithLocation;
-import simulator.regions.BrokerWithRegionProcessingRegion;
+import simulator.regions.BrokerWithRegionProcessingLocation;
 import simulator.regions.LeafBrokerWithRegionProcessingRegion;
 import simulator.regions.Region;
 import simulator.topology.AbstractTopologyFactory;
@@ -20,7 +20,7 @@ import simulator.topology.TopologyConfiguration;
  * Regions are defined bottom-up based on subscriber locations.
  * Leaf brokers are assigned to region definitions based on their index.
  */
-public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFactory<RegionRandomTopologyConfiguration, BrokerWithRegionProcessingRegion> {
+public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFactory<RegionRandomTopologyConfiguration, BrokerWithRegionProcessingLocation> {
 
     // State specific to this generator
     private List<Region> leafRegionsDefinition; // Defines *where* subs/pubs are placed
@@ -57,11 +57,11 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
     }
 
     @Override
-    protected BrokerWithRegionProcessingRegion buildCoreTopology() {
+    protected BrokerWithRegionProcessingLocation buildCoreTopology() {
         System.out.println("Building core broker topology...");
         Objects.requireNonNull(config, "Configuration must be initialised before building topology.");
 
-        BrokerWithRegionProcessingRegion root = new BrokerWithRegionProcessingRegion(generateBrokerName());
+        BrokerWithRegionProcessingLocation root = new BrokerWithRegionProcessingLocation(generateBrokerName());
         System.out.println("Created Root Broker: " + root.getName() + " (Initial Region: " + root.getRegion() + ")"); // Region starts empty
 
         buildBrokerLevelRecursive(root, 0, config.getTreeDepth() - 1, config.getMaxBranchingFactor());
@@ -74,7 +74,7 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
      * Recursive helper method to build broker levels.
      * Populates the 'allLeafBrokers' list.
      */
-    private void buildBrokerLevelRecursive(BrokerWithRegionProcessingRegion parent, int currentDepth, int leafDepth, int maxBranchingFactor) {
+    private void buildBrokerLevelRecursive(BrokerWithRegionProcessingLocation parent, int currentDepth, int leafDepth, int maxBranchingFactor) {
         int numChildren = (maxBranchingFactor <= 1) ? 1 : (1 + random.nextInt(maxBranchingFactor));
 
         if (currentDepth == leafDepth) {
@@ -87,14 +87,14 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
         }
 
         for (int i = 0; i < numChildren; i++) {
-            BrokerWithRegionProcessingRegion childBroker = new BrokerWithRegionProcessingRegion(generateBrokerName());
+            BrokerWithRegionProcessingLocation childBroker = new BrokerWithRegionProcessingLocation(generateBrokerName());
             parent.addChild(childBroker);
             buildBrokerLevelRecursive(childBroker, currentDepth + 1, leafDepth, maxBranchingFactor);
         }
     }
 
     @Override
-    protected void attachSubscribers(BrokerWithRegionProcessingRegion root) {
+    protected void attachSubscribers(BrokerWithRegionProcessingLocation root) {
         System.out.println("Attaching subscribers to leaf brokers...");
         Objects.requireNonNull(config, "Configuration must be initialised.");
         Objects.requireNonNull(leafRegionsDefinition, "Region definitions must be generated before attaching subscribers.");
@@ -155,7 +155,7 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
      * Publishers are placed within the defined region area associated with the leaf broker.
      */
     @Override
-    protected void attachPublishers(BrokerWithRegionProcessingRegion root) {
+    protected void attachPublishers(BrokerWithRegionProcessingLocation root) {
         System.out.println("Attaching publishers to leaf brokers...");
         Objects.requireNonNull(config, "Configuration must be initialised.");
         Objects.requireNonNull(leafRegionsDefinition, "Region definitions must be generated before attaching publishers.");

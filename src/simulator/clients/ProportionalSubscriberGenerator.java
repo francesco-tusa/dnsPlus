@@ -12,7 +12,7 @@ import simulator.regions.Region;
 
 /**
  * A utility class for generating subscribers and attaching them to a broker topology
- * using a weighted random distribution based on internet population.
+ * based on a proportional, data-driven distribution.
  */
 public class ProportionalSubscriberGenerator {
 
@@ -20,20 +20,16 @@ public class ProportionalSubscriberGenerator {
     private int subscriberIdCounter = 0;
 
     /**
-     * Generates and attaches a total number of subscribers to a pre-built topology.
-     * <p>
-     * This method uses a weighted random sampling algorithm. It creates a cumulative
-     * distribution of the internet population across all leaf brokers. For each
-     * subscriber to be created, it picks a random number and uses the cumulative
-     * distribution to select a broker, making brokers with higher populations
-     * proportionally more likely to be chosen.
+     * Generates and attaches a total number of subscribers to the leaf brokers of a
+     * given topology, distributing them proportionally based on the internet
+     * population of each leaf broker's region.
      *
-     * @param rootNode The root of the broker topology, used to get total world population.
-     * @param leafBrokers A list of all leaf brokers in the topology, for direct access.
+     * @param rootNode The root of the broker topology.
+     * @param leafBrokers A list of all leaf brokers in the topology. This is now generic.
      * @param totalSubscribersToCreate The total number of subscribers to distribute.
      */
-    public void generateAndAttach(BrokerWithRegion rootNode, List<LeafBrokerWithRegionProcessingRegion> leafBrokers, long totalSubscribersToCreate) {
-        System.out.println("\n--- Starting Proportional Subscriber Generation (Weighted Random Sampling) ---");
+    public void generateAndAttach(BrokerWithRegion rootNode, List<? extends BrokerWithRegion> leafBrokers, long totalSubscribersToCreate) {
+        System.out.println("\n--- Starting Proportional Subscriber Generation ---");
         System.out.println("Distributing " + totalSubscribersToCreate + " total subscribers...");
 
         if (leafBrokers == null || leafBrokers.isEmpty()) {
@@ -41,16 +37,14 @@ public class ProportionalSubscriberGenerator {
             return;
         }
 
-        // The total population is now known from the root node.
-        long totalInternetPopulation = rootNode.getInternetPopulation();
+        long worldTotalInternetPopulation = rootNode.getInternetPopulation();
 
-        if (totalInternetPopulation <= 0) {
-            System.err.println("Warning: Total internet population is " + totalInternetPopulation + ". Falling back to uniform random distribution.");
+        if (worldTotalInternetPopulation == 0) {
+            System.err.println("Warning: Total internet population is zero. Using uniform random distribution.");
             generateAndAttachUniformly(leafBrokers, totalSubscribersToCreate);
             return;
         }
         
-        // Step 1: Create a cumulative weight array for weighted random sampling.
         long[] cumulativeWeights = new long[leafBrokers.size()];
         long runningTotal = 0;
         for (int i = 0; i < leafBrokers.size(); i++) {
@@ -58,16 +52,10 @@ public class ProportionalSubscriberGenerator {
             cumulativeWeights[i] = runningTotal;
         }
 
-        System.out.println("Created cumulative distribution for " + leafBrokers.size() + " leaf brokers.");
-
-        // Step 2: Generate each subscriber and assign it to a broker.
         long subscribersCreated = 0;
         for (long i = 0; i < totalSubscribersToCreate; i++) {
-            // Generate a random value within the total population range.
-            long randomWeight = (long) (random.nextDouble() * totalInternetPopulation);
-
-            // Find which broker this random value falls into.
-            LeafBrokerWithRegionProcessingRegion chosenBroker = findBrokerForWeight(randomWeight, leafBrokers, cumulativeWeights);
+            long randomWeight = (long) (random.nextDouble() * worldTotalInternetPopulation);
+            BrokerWithRegion chosenBroker = findBrokerForWeight(randomWeight, leafBrokers, cumulativeWeights);
 
             if (chosenBroker != null) {
                 Region brokerRegion = chosenBroker.getRegion();
@@ -82,11 +70,7 @@ public class ProportionalSubscriberGenerator {
         System.out.println("--- Proportional Subscriber Generation Complete. Total subscribers created: " + subscribersCreated + " ---");
     }
 
-    /**
-     * Uses binary search to find the index of the broker corresponding to the random weight.
-     * This is an efficient way to perform the weighted selection.
-     */
-    private LeafBrokerWithRegionProcessingRegion findBrokerForWeight(long weight, List<LeafBrokerWithRegionProcessingRegion> brokers, long[] cumulativeWeights) {
+    private BrokerWithRegion findBrokerForWeight(long weight, List<? extends BrokerWithRegion> brokers, long[] cumulativeWeights) {
         int low = 0;
         int high = cumulativeWeights.length - 1;
         int ans = -1;
@@ -103,15 +87,10 @@ public class ProportionalSubscriberGenerator {
         return (ans != -1) ? brokers.get(ans) : null;
     }
 
-    /**
-     * A fallback method for topologies that don't have population data. It distributes
-     * subscribers uniformly at random across all available leaf brokers.
-     */
-    private void generateAndAttachUniformly(List<LeafBrokerWithRegionProcessingRegion> leafBrokers, long totalSubscribersToCreate) {
+    private void generateAndAttachUniformly(List<? extends BrokerWithRegion> leafBrokers, long totalSubscribersToCreate) {
         long subscribersCreated = 0;
         for (long i = 0; i < totalSubscribersToCreate; i++) {
-            // Pick a leaf broker with equal probability
-            LeafBrokerWithRegionProcessingRegion chosenBroker = leafBrokers.get(random.nextInt(leafBrokers.size()));
+            BrokerWithRegion chosenBroker = leafBrokers.get(random.nextInt(leafBrokers.size()));
 
             Region brokerRegion = chosenBroker.getRegion();
             if (brokerRegion == null) continue;
@@ -123,7 +102,6 @@ public class ProportionalSubscriberGenerator {
         }
          System.out.println("--- Uniform Subscriber Generation Complete. Total subscribers created: " + subscribersCreated + " ---");
     }
-
 
     private Location generateLocationInRegion(Region region) {
         Objects.requireNonNull(region, "Region cannot be null");

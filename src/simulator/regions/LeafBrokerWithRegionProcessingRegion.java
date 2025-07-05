@@ -6,7 +6,7 @@ import simulator.SimulationSubscription;
 import simulator.SubscriberWithLocation;
 import simulator.TreeNode;
 
-public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProcessingRegion {
+public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProcessingLocation {
 
     public LeafBrokerWithRegionProcessingRegion(String name) {
         super(name);

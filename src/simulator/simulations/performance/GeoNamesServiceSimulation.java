@@ -1,4 +1,4 @@
-package simulator.simulations;
+package simulator.simulations.performance;
 
 import java.util.List;
 import simulator.Location;

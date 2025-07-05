@@ -1,8 +1,8 @@
 package simulator;
 
-import simulator.simulations.GridServiceSimulation;
-import simulator.simulations.FixedTopologyValidationSimulation;
-import simulator.simulations.RandomTopologyValidationSimulation;
+import simulator.simulations.performance.GridServiceSimulation;
+import simulator.simulations.validation.FixedTopologyValidationSimulation;
+import simulator.simulations.validation.RandomTopologyValidationSimulation;
 
 
 /**
