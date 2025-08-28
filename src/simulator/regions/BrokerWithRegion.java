@@ -4,6 +4,7 @@ import simulator.Location;
 import simulator.SimulationBroker;
 import simulator.SimulationPublication;
 import simulator.SimulationSubscription;
+import simulator.SubscriberWithLocation;
 import simulator.TreeNode;
 
 /**
@@ -40,14 +41,6 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         }
     }
 
-    @Override
-    public void addChild(TreeNode child) {
-        super.addChild(child);
-        if (child instanceof BrokerWithRegion) {
-            this.updateRegion(child);
-        }
-    }
-
     public Region getRegion() {
         return region;
     }
@@ -72,20 +65,47 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         return getSubscriptionsTable().get(source);
     }
 
+    /**
+     * Updates this broker's region to encompass the region of a child node.
+     * This method now handles both child brokers and subscribers, and correctly
+     * initializes the region if it was previously undefined.
+     * @param child The child node (either a BrokerWithRegion or SubscriberWithLocation).
+     */
     public void updateRegion(TreeNode child) {
+        boolean regionChanged = false;
+        
+        Region childRegion = null;
         if (child instanceof BrokerWithRegion broker) {
-            if (region.expand(broker.region)) {
-                System.out.println(getName() + ": updated region to " + this.region);
-                numOfRegionUpdates++;
-                BrokerWithRegion parentBroker = getParentBroker();
-                if (parentBroker != null) {
-                    parentBroker.updateRegion(this);
+            childRegion = broker.getRegion();
+        } else if (child instanceof SubscriberWithLocation subscriber) {
+            // Treat a subscriber's single location as a point-region
+            childRegion = new Region(subscriber.getLocation(), subscriber.getLocation());
+        }
+
+        if (childRegion != null && childRegion.getBottomLeft() != null) {
+            // If the current broker's region is not yet initialized, set it.
+            if (this.region.getBottomLeft() == null) {
+                this.region.set(childRegion);
+                regionChanged = true;
+            } 
+            // Otherwise, expand the existing region.
+            else {
+                if (this.region.expand(childRegion)) {
+                    regionChanged = true;
                 }
+            }
+        }
+
+        if (regionChanged) {
+            System.out.println(getName() + ": updated region to " + this.region);
+            numOfRegionUpdates++;
+            BrokerWithRegion parentBroker = getParentBroker();
+            if (parentBroker != null) {
+                parentBroker.updateRegion(this);
             }
         }
     }
     
-    // This is the single abstract method that all concrete broker types MUST implement.
     @Override
     public abstract SimulationSubscription matchPublication(SimulationPublication p);
 }

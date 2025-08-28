@@ -25,6 +25,17 @@ public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProc
     }
 
     /**
+     * Overrides the default addChild to ensure the region is updated when a subscriber is added.
+     */
+    @Override
+    public void addChild(TreeNode child) {
+        super.addChild(child);
+        System.out.println(getName() + ": added new " + child.getName());
+        // When a subscriber is added, update the leaf's region and propagate the change upwards.
+        updateRegion(child);
+    }
+
+    /**
      * Overrides the downward processing logic for leaf brokers. It now checks
      * the publication against each subscriber's specific subscription region.
      * @param p The publication received from the parent.

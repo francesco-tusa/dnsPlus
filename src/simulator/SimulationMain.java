@@ -31,8 +31,8 @@ public class SimulationMain {
         // --- Run a Validation Simulation ---
         runFixedTopologyLocationValidation();
         runFixedTopologyRegionValidation();
-        runRandomTopologyRegionValidation();
-        runRandomTopologyLocationValidation(); // New test scenario
+        //runRandomTopologyRegionValidation();
+        //runRandomTopologyLocationValidation(); // New test scenario
     }
 
     // --- Performance Simulation Scenarios ---

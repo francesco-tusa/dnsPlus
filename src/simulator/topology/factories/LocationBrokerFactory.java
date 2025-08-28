@@ -18,4 +18,9 @@ public class LocationBrokerFactory implements BrokerFactory {
     public BrokerWithRegion createLeafBroker(String name, Location p1, Location p2) {
         return new LeafBrokerWithRegionProcessingLocation(name, p1, p2);
     }
+
+    @Override
+    public BrokerWithRegion createLeafBroker(String name) {
+        return new LeafBrokerWithRegionProcessingLocation(name);
+    }
 }

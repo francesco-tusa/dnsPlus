@@ -54,6 +54,22 @@ public class Region extends BaseRegion {
         super(r); // Calls BaseRegion(BaseRegion) copy constructor
     }
 
+    /**
+     * Sets this region's boundaries to be a copy of another region's boundaries.
+     * This is the new method that resolves the compilation error.
+     * @param other The region to copy the boundaries from.
+     */
+    public void set(BaseRegion other) {
+        if (other == null || other.getBottomLeft() == null || other.getTopRight() == null) {
+            this.bottomLeft = null;
+            this.topRight = null;
+            return;
+        }
+        // Use copy constructors to avoid aliasing issues.
+        this.bottomLeft = new Location(other.getBottomLeft());
+        this.topRight = new Location(other.getTopRight());
+    }
+
 
     // --- Helper for contains/intersects ---
     private boolean containsLongitude(double lon) {
