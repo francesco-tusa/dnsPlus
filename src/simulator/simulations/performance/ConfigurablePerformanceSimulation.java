@@ -1,13 +1,10 @@
 package simulator.simulations.performance;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Random;
-import java.util.stream.Collectors;
-
 import simulator.Location;
 import simulator.PublisherWithLocation;
 import simulator.SubscriberWithLocation;
@@ -16,39 +13,44 @@ import simulator.SimulationRunner;
 import simulator.TreeNode;
 import simulator.clients.TopologyPopulater;
 import simulator.regions.BrokerWithRegion;
-import simulator.regions.LeafBrokerWithRegionProcessingRegion;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 
 /**
- * An abstract base class for running service replication simulations.
- * It now uses a TopologyPopulater to handle client setup and works with generic leaf brokers.
+ * A generic and configurable class for running a service replication performance simulation.
+ * It is parameterized to work with a specific configuration (C) and a factory (F) that uses it.
  *
- * @param <C> The specific type of TopologyConfiguration.
- * @param <F> The specific type of AbstractTopologyFactory.
+ * @param <C> The specific type of TopologyConfiguration for the simulation.
+ * @param <F> The specific type of AbstractTopologyFactory that uses the configuration C.
  */
-public abstract class AbstractServiceSimulation<
-    C extends TopologyConfiguration, 
+public class ConfigurablePerformanceSimulation<
+    C extends TopologyConfiguration,
     F extends AbstractTopologyFactory<C, BrokerWithRegion>
 > extends SimulationRunner<C, BrokerWithRegion, F> {
 
+    // --- Simulation Parameters ---
+    private final long totalSubscribers;
+    private final int numberOfReplicas;
+    private final double subscriptionRegionSize;
+    private final double remoteInterestProbability;
+
+    // --- Data Collection ---
     protected final List<SubscriberWithLocation> allSubscribers = new ArrayList<>();
     protected final List<PublisherWithLocation> allPublishers = new ArrayList<>();
     protected final Random random = new Random();
 
-    // --- Abstract Methods for Subclasses ---
-    protected abstract long getTotalSubscribers();
-    protected abstract int getNumberOfReplicas();
-    protected abstract double getSubscriptionRegionSize();
-    protected abstract double getRemoteInterestProbability();
-    protected abstract SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers);
-
+    public ConfigurablePerformanceSimulation(long totalSubscribers, int numberOfReplicas, double subscriptionRegionSize, double remoteInterestProbability) {
+        this.totalSubscribers = totalSubscribers;
+        this.numberOfReplicas = numberOfReplicas;
+        this.subscriptionRegionSize = subscriptionRegionSize;
+        this.remoteInterestProbability = remoteInterestProbability;
+    }
 
     @Override
     protected void setupSimulation() {
-        System.out.println("\n--- Populating World for a Single Service Simulation ---");
+        System.out.println("\n--- Populating World for Performance Simulation ---");
         if (this.rootNode == null) {
             System.err.println("Cannot populate world: Root node is null.");
             return;
@@ -60,16 +62,15 @@ public abstract class AbstractServiceSimulation<
             return;
         }
 
-        // Use the new TopologyPopulater
         TopologyPopulater populater = new TopologyPopulater();
-        populater.populate(this.rootNode, leafBrokers, getTotalSubscribers(), getNumberOfReplicas());
+        populater.populate(this.rootNode, leafBrokers, totalSubscribers, numberOfReplicas);
         
         collectClients(leafBrokers);
     }
 
     @Override
     protected void executeScenarios() {
-        System.out.println("\n--- Executing Single Service Scenario with Replicas ---");
+        System.out.println("\n--- Executing Performance Scenario with Replicas ---");
 
         if (allSubscribers.isEmpty()) {
             System.err.println("No subscribers were created. Cannot run scenarios.");
@@ -97,6 +98,26 @@ public abstract class AbstractServiceSimulation<
         collectAndPrintMetrics();
     }
 
+    private SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers) {
+        Location centerOfInterest;
+
+        if (random.nextDouble() < remoteInterestProbability) {
+            BrokerWithRegion remoteBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
+            centerOfInterest = getRandomLocationInRegion(remoteBroker.getRegion());
+        } else {
+            centerOfInterest = subscriber.getLocation();
+        }
+
+        Region subscriptionRegion = new Region(
+            new Location(centerOfInterest.getX() - (subscriptionRegionSize / 2), 
+                         centerOfInterest.getY() - (subscriptionRegionSize / 2), 0),
+            new Location(centerOfInterest.getX() + (subscriptionRegionSize / 2), 
+                         centerOfInterest.getY() + (subscriptionRegionSize / 2), 0)
+        );
+        
+        return new SubscriptionWithRegion(subscriptionRegion);
+    }
+
     private void collectClients(List<BrokerWithRegion> leafBrokers) {
         allSubscribers.clear();
         allPublishers.clear();
@@ -112,11 +133,6 @@ public abstract class AbstractServiceSimulation<
         System.out.println("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
     }
     
-    /**
-     * Finds all leaf brokers in the topology. A leaf is a broker with no other brokers as children.
-     * @param root The root node to start the search from.
-     * @return A list of leaf brokers.
-     */
     protected List<BrokerWithRegion> findLeafBrokers(BrokerWithRegion root) {
         List<BrokerWithRegion> leaves = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
@@ -172,8 +188,8 @@ public abstract class AbstractServiceSimulation<
         System.out.println("Total Publications Sent by all Replicas: " + totalPublicationsSent);
         System.out.println("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
         
-        if (getTotalSubscribers() > 0) {
-            double matchRate = (double) successfulNotifications / getTotalSubscribers() * 100.0;
+        if (totalSubscribers > 0) {
+            double matchRate = (double) successfulNotifications / totalSubscribers * 100.0;
             System.out.printf("Subscriber Match Rate: %.2f%%\n", matchRate);
         }
     }

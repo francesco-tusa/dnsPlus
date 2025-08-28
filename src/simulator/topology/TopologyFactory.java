@@ -3,20 +3,18 @@ package simulator.topology;
 import simulator.TreeNode;
 
 /**
- * Interface defining the contract for topology generators/factories.
- * Implementations create a simulation topology based on a configuration.
+ * A generic interface for a factory that generates a simulation topology.
+ *
+ * @param <C> The type of TopologyConfiguration this factory accepts.
+ * @param <R> The type of the root TreeNode this factory produces.
  */
-public interface TopologyFactory {
-
+public interface TopologyFactory<C extends TopologyConfiguration, R extends TreeNode> {
+    
     /**
-     * Generates the simulation topology based on the provided configuration.
+     * Generates a topology based on the provided configuration.
      *
-     * @param config The configuration object containing parameters for generation.
-     *               The specific implementation may expect a subclass of TopologyConfiguration.
-     * @return The root TreeNode of the generated topology.
-     * @throws IllegalArgumentException if the configuration is invalid or not suitable
-     *                                  for the specific generator implementation.
+     * @param config The configuration object containing parameters for topology generation.
+     * @return The root node of the generated topology.
      */
-    TreeNode generateTopology(TopologyConfiguration config);
-
+    R generateTopology(C config);
 }

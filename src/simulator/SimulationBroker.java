@@ -9,7 +9,7 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
 
     private int nSubscriptions;
     private int nPublications;
-    private Map<TreeNode, SimulationSubscription> subscriptionsTable;
+    private final Map<TreeNode, SimulationSubscription> subscriptionsTable;
 
     public SimulationBroker(String name) {
         super(name);
@@ -34,13 +34,6 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
         return subscriptionsTable;
     }
 
-
-    /*
-     *  Process the publication by calling matchPublication,
-     *  which defines the logic to propagate it 
-     *  based on the broker's subscription tables
-     */
-
     @Override
     public void processPublication(SimulationPublication p) {
         System.out.println(getName() + ": processing publication " + p);
@@ -48,17 +41,11 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
         matchPublication(p);
     }
 
-    /* 
-     *   Process the subscription by calling addSubscription and 
-     *   then propagates it (recursively) toward the root of the tree unless 
-     *   upwards subscription propagation was disabled
-     */
     @Override
     public void processSubscription(SimulationSubscription s) {
         System.out.println();
         System.out.println(getName() + ": processing subscription " + s);
         nSubscriptions++;
-
         addSubscription(s);
         
         SimulationBroker parentBroker = getParentBroker();
@@ -68,7 +55,19 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
         }
     }
 
-        public void printSubscriptionsTable() {
+    /**
+     * Adds a subscription to this broker's local table.
+     * This method is now protected and final to prevent incorrect overrides.
+     * @param s The subscription to add.
+     */
+    public final void addSubscription(SimulationSubscription s) {
+        getSubscriptionsTable().put(s.getSource(), s.getTableEntry());
+    }
+
+    @Override
+    public abstract SimulationSubscription matchPublication(SimulationPublication p);
+
+    public void printSubscriptionsTable() {
         System.out.println("\n" + getName() + "'s Subscription Table:");
         System.out.println("==============================");
 
@@ -80,7 +79,7 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
             System.out.printf(formatString, "Source Node", "Subscription Details");
             System.out.println("  ---------------   --------------------");
 
-            for (Map.Entry<TreeNode, SimulationSubscription> entry : subscriptionsTable.entrySet()) {
+            for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
                 TreeNode sourceNode = entry.getKey();
                 SimulationSubscription tableEntry = entry.getValue();
                 System.out.printf(formatString, sourceNode.getName(), tableEntry);
@@ -88,5 +87,4 @@ public abstract class SimulationBroker extends TreeNode implements GenericBroker
         }
         System.out.println("==============================");
     }
-
 }

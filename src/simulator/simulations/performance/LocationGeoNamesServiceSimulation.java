@@ -3,17 +3,18 @@ package simulator.simulations.performance;
 import java.util.List;
 import simulator.Location;
 import simulator.SubscriberWithLocation;
-import simulator.regions.LeafBrokerWithRegionProcessingRegion;
+import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
+import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyGenerator;
 
 /**
  * A concrete simulation that runs a service replication scenario on the
- * full, data-driven topology generated from GeoNames data.
+ * full, data-driven topology generated from GeoNames data using location-processing brokers.
  */
-public class GeoNamesServiceSimulation extends AbstractServiceSimulation<
+public class LocationGeoNamesServiceSimulation extends AbstractServiceSimulation<
     FileBasedTopologyConfiguration,
     FileBasedTopologyGenerator
 > {
@@ -21,8 +22,8 @@ public class GeoNamesServiceSimulation extends AbstractServiceSimulation<
     // --- Simulation Parameters ---
     private static final long TOTAL_SUBSCRIBERS = 500_000;
     private static final int NUMBER_OF_REPLICAS = 20;
-    private static final double SUBSCRIPTION_REGION_SIZE = 1.0; // Smaller size for real-world coordinates
-    private static final double REMOTE_INTEREST_PROBABILITY = 0.1; // 10% of subscribers have remote interests
+    private static final double SUBSCRIPTION_REGION_SIZE = 1.0;
+    private static final double REMOTE_INTEREST_PROBABILITY = 0.1;
 
     @Override
     protected long getTotalSubscribers() {
@@ -45,12 +46,12 @@ public class GeoNamesServiceSimulation extends AbstractServiceSimulation<
     }
 
     @Override
-    protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<LeafBrokerWithRegionProcessingRegion> allLeafBrokers) {
+    protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers) {
         
         Location centerOfInterest;
 
         if (random.nextDouble() < getRemoteInterestProbability()) {
-            LeafBrokerWithRegionProcessingRegion remoteBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
+            BrokerWithRegion remoteBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
             centerOfInterest = getRandomLocationInRegion(remoteBroker.getRegion());
         } else {
             centerOfInterest = subscriber.getLocation();
@@ -67,12 +68,14 @@ public class GeoNamesServiceSimulation extends AbstractServiceSimulation<
     }
 
     public static void main(String[] args) {
-        System.out.println("--- Starting Service Replication Simulation on GeoNames Topology ---");
+        System.out.println("--- Starting Location-Based Service Simulation on GeoNames Topology ---");
         
         FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration("output/geonames_topology.json");
-        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator();
         
-        GeoNamesServiceSimulation simulation = new GeoNamesServiceSimulation();
+        // Correctly instantiate the generator with the factory
+        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new LocationBrokerFactory());
+        
+        LocationGeoNamesServiceSimulation simulation = new LocationGeoNamesServiceSimulation();
         simulation.run(factory, config);
     }
 }

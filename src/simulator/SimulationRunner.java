@@ -9,58 +9,34 @@ import java.util.Queue;
 
 /**
  * Abstract base class for running simulations.
- * Handles topology generation using a provided factory and configuration,
- * and defines abstract methods for executing specific simulation scenarios.
  *
  * @param <C> The specific type of TopologyConfiguration used.
  * @param <R> The specific type of the root TreeNode generated.
- * @param <F> The specific type of TopologyFactory used.
+ * @param <F> The specific type of TopologyFactory used, which must be compatible with C and R.
  */
 public abstract class SimulationRunner<
     C extends TopologyConfiguration,
     R extends TreeNode,
-    F extends TopologyFactory> {
+    F extends TopologyFactory<C, R>> { // Corrected generic bounds
 
     protected F topologyFactory;
     protected C topologyConfig;
     protected R rootNode;
 
-    /**
-     * Runs the complete simulation process: setup, topology generation, scenario execution, cleanup.
-     *
-     * @param factory The TopologyFactory instance to use.
-     * @param config The TopologyConfiguration instance for the factory.
-     */
     public final void run(F factory, C config) {
         try {
-            // 1. Initialization
             initialise(factory, config);
-
-            // 2. Generate Topology
             generateTopology();
-
-            // 3. Setup Simulation (optional steps after topology exists)
             setupSimulation();
-
-            // 4. Execute Simulation Scenarios
             executeScenarios();
-
         } catch (Exception e) {
             System.err.println("Simulation failed: " + e.getMessage());
             e.printStackTrace();
         } finally {
-            // 5. Cleanup (optional)
             cleanup();
         }
     }
 
-    /**
-     * Initialises the runner with the factory and configuration.
-     * Basic validation occurs here.
-     *
-     * @param factory The TopologyFactory instance.
-     * @param config The TopologyConfiguration instance.
-     */
     protected void initialise(F factory, C config) {
         System.out.println("--- Initialising Simulation Runner ---");
         if (factory == null) {
@@ -75,64 +51,35 @@ public abstract class SimulationRunner<
         System.out.println("Using Configuration: " + config.getClass().getSimpleName());
     }
 
-    /**
-     * Generates the topology using the configured factory and configuration.
-     * Stores the root node.
-     */
-    @SuppressWarnings("unchecked") // Suppress cast warning, validated by factory contract
+    @SuppressWarnings("unchecked")
     protected void generateTopology() {
         System.out.println("\n--- Generating Topology ---");
-        TreeNode generatedRoot = topologyFactory.generateTopology(topologyConfig);
-        if (generatedRoot == null) {
+        // The cast is no longer needed because the factory is now strongly typed
+        this.rootNode = topologyFactory.generateTopology(topologyConfig);
+        if (this.rootNode == null) {
             throw new IllegalStateException("Topology generation failed to produce a root node.");
         }
-        try {
-            // Attempt to cast to the expected root type R
-            this.rootNode = (R) generatedRoot;
-            System.out.println("--- Topology Generation Complete ---");
-            System.out.println("Root Node: " + rootNode.getName() + " (" + rootNode.getClass().getSimpleName() + ")");
-            System.out.println();
-            printTopologyStructure(); // Print the generated structure
-        } catch (ClassCastException e) {
-            throw new IllegalStateException("Generated root node type (" + generatedRoot.getClass().getSimpleName()
-                + ") does not match expected type.", e);
-        }
+        System.out.println("--- Topology Generation Complete ---");
+        System.out.println("Root Node: " + rootNode.getName() + " (" + rootNode.getClass().getSimpleName() + ")");
+        System.out.println();
+        printTopologyStructure();
     }
 
-    /**
-     * Optional setup phase after topology generation but before scenario execution.
-     * Subclasses can override this to perform tasks like initializing metrics, etc.
-     */
     protected void setupSimulation() {
-        // Default: No specific setup needed.
         System.out.println("\n--- Performing Simulation Setup (Default: None) ---");
     }
-
-    /**
-     * Abstract method where subclasses implement the core simulation logic,
-     * such as sending subscriptions and publications.
-     * This method is called after the topology is successfully generated.
-     */
+    
     protected abstract void executeScenarios();
 
-    /**
-     * Optional cleanup phase after simulation execution or failure.
-     * Subclasses can override this to release resources, print summaries, etc.
-     */
     protected void cleanup() {
-        // Default: No specific cleanup needed.
         System.out.println("\n--- Simulation Run Finished ---");
     }
 
-    // --- Common Helper Methods ---
-
-    /** Prints the generated topology structure */
     protected void printTopologyStructure() {
         if (rootNode != null) {
             System.out.println("--- Generated Topology Structure ---");
             printTree(rootNode, 0);
             System.out.println("----------------------------------");
-            // Optionally print root region if applicable
             if (rootNode instanceof simulator.regions.BrokerWithRegion rootBroker) {
                  System.out.println("Final Root Region: " + rootBroker.getRegion());
             }
@@ -141,122 +88,26 @@ public abstract class SimulationRunner<
             System.out.println("Cannot print topology: Root node is null.");
         }
     }
-
-    /**
-     * Prints the tree structure starting from the given node, including node level.
-     * (Copied from previous examples, could be made non-static if preferred)
-     */
+    
     public static void printTree(TreeNode node, int level) {
         if (node == null) return;
-        for (int i = 0; i < level; i++) System.out.print("  ");
-        System.out.print("- [L" + level + "] " + node.getName() + " (" + node.getClass().getSimpleName() + ")");
+        StringBuilder prefix = new StringBuilder();
+        for (int i = 0; i < level; i++) prefix.append("  ");
+        prefix.append("- [L").append(level).append("] ").append(node.getName()).append(" (").append(node.getClass().getSimpleName()).append(")");
+        
         if (node instanceof simulator.regions.BrokerWithRegion broker) {
-             System.out.print(" Region: " + broker.getRegion());
+             prefix.append(" Region: ").append(broker.getRegion());
         } else if (node instanceof SubscriberWithLocation sub) {
-             System.out.print(" Location: " + sub.getLocation());
+             prefix.append(" Location: ").append(sub.getLocation());
         } else if (node instanceof PublisherWithLocation pub) {
-             System.out.print(" Location: " + pub.getLocation());
+             prefix.append(" Location: ").append(pub.getLocation());
         }
-        System.out.println();
+        System.out.println(prefix.toString());
+        
         if (node.getChildren() != null) {
             for (TreeNode child : node.getChildren()) {
                 printTree(child, level + 1);
             }
         }
-    }
-
-    /** Generic helper to find a node by name and type using BFS */
-    protected <T extends TreeNode> T findNodeByName(String name, Class<T> type) {
-        if (rootNode == null || name == null) return null;
-        Queue<TreeNode> queue = new LinkedList<>();
-        queue.offer(rootNode);
-
-        while (!queue.isEmpty()) {
-            TreeNode current = queue.poll();
-            if (type.isInstance(current) && name.equals(current.getName())) {
-                return type.cast(current);
-            }
-            if (current.getChildren() != null) {
-                for (TreeNode child : current.getChildren()) {
-                    queue.offer(child);
-                }
-            }
-        }
-        System.err.println("Warning: Node not found - Name: " + name + ", Type: " + type.getSimpleName());
-        return null; // Not found
-    }
-
-     /** Finds the first node of a given type using BFS */
-    protected <T extends TreeNode> T findFirstNodeOfType(Class<T> type) {
-        if (rootNode == null) return null;
-        Queue<TreeNode> queue = new LinkedList<>();
-        queue.offer(rootNode);
-
-        while (!queue.isEmpty()) {
-            TreeNode current = queue.poll();
-            if (type.isInstance(current)) {
-                return type.cast(current);
-            }
-            if (current.getChildren() != null) {
-                for (TreeNode child : current.getChildren()) {
-                    queue.offer(child);
-                }
-            }
-        }
-         System.err.println("Warning: No node found of type: " + type.getSimpleName());
-        return null; // Not found
-    }
-
-    /**
-     * Prints subscription tables for all brokers that have non-empty tables.
-     * If all found brokers have empty tables, a message is printed.
-     * If no relevant brokers are found, a different message is printed.
-     */
-    protected void printAllBrokerSubscriptionTables() {
-        if (rootNode == null) {
-            System.out.println("Cannot print subscription tables: Root node is null.");
-            return;
-        }
-        System.out.println("\n--- Broker Subscription Tables ---");
-        Queue<TreeNode> queue = new LinkedList<>();
-        queue.offer(rootNode);
-        boolean foundAnyBroker = false; // Tracks if any relevant broker was found
-        boolean printedAtLeastOneNonEmptyTable = false; // Tracks if any non-empty table was printed
-
-        while (!queue.isEmpty()) {
-            TreeNode current = queue.poll();
-
-            // Check specifically for BrokerWithRegion (or SimulationBroker if getSubscriptionsTable is there)
-            // Assuming BrokerWithRegion is the correct type that has the table and print method.
-            if (current instanceof simulator.regions.BrokerWithRegion broker) {
-                foundAnyBroker = true;
-                // Get the subscription table. Assumes getSubscriptionsTable() is public in SimulationBroker.
-                Map<TreeNode, SimulationSubscription> subscriptions = broker.getSubscriptionsTable();
-
-                if (subscriptions != null && !subscriptions.isEmpty()) {
-                    broker.printSubscriptionsTable(); // This method should handle its own formatting
-                    printedAtLeastOneNonEmptyTable = true;
-                }
-                // If the table is empty, we don't call printSubscriptionsTable based on the new requirement.
-            }
-
-            // Traverse children regardless of current node type
-            if (current.getChildren() != null) {
-                for (TreeNode child : current.getChildren()) {
-                    queue.offer(child);
-                }
-            }
-        }
-
-        if (!printedAtLeastOneNonEmptyTable) {
-            if (foundAnyBroker) {
-                // Brokers were found, but all their tables were empty
-                System.out.println("All broker subscription tables are currently empty.");
-            } else {
-                // No brokers of the type BrokerWithRegion were found in the topology
-                System.out.println("No brokers found to display subscription tables.");
-            }
-        }
-        System.out.println("--------------------------------");
     }
 }

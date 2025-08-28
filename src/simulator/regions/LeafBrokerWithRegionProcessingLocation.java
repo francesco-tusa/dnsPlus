@@ -5,17 +5,16 @@ import java.util.Map;
 import simulator.Location;
 import simulator.PublicationWithLocation;
 import simulator.SimulationPublication;
+import simulator.SimulationSubscription;
 import simulator.SubscriberWithLocation;
 import simulator.TreeNode;
 
 /**
  * The leaf-level broker for the location-based upward propagation routing strategy.
- * This broker is directly connected to subscribers and uses an internal cache
- * to prevent sending redundant publications.
+ * This broker is directly connected to subscribers and now correctly validates
+ * publications against subscriptions before delivery.
  */
 public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProcessingLocation {
-
-    private final Map<SubscriberWithLocation, PublicationWithLocation> subscriberCache = new HashMap<>();
 
     public LeafBrokerWithRegionProcessingLocation(String name) {
         super(name);
@@ -26,8 +25,8 @@ public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProc
     }
 
     /**
-     * Overrides the downward processing logic for leaf brokers. It now uses its
-     * internal caching mechanism to determine if a publication should be forwarded.
+     * Overrides the downward processing logic for leaf brokers. It now checks
+     * the publication against each subscriber's specific subscription region.
      * @param p The publication received from the parent.
      */
     @Override
@@ -37,25 +36,19 @@ public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProc
 
         for (TreeNode child : getChildren()) {
             if (child instanceof SubscriberWithLocation subscriber) {
-                PublicationWithLocation cachedPub = subscriberCache.get(subscriber);
+                // Get the subscription for this specific subscriber from the broker's table.
+                SimulationSubscription subscription = getSubscriptionsTable().get(subscriber);
 
-                if (cachedPub == null || 
-                    distanceSquared(newPublication.getLocation(), subscriber.getLocation()) < distanceSquared(cachedPub.getLocation(), subscriber.getLocation())) {
-                    
-                    forwardPublicationToNode(newPublication, subscriber);
-                    subscriberCache.put(subscriber, newPublication);
+                if (subscription instanceof SubscriptionWithRegion subRegion) {
+                    // This is the crucial check: Is the publication's location inside the subscriber's region?
+                    if (subRegion.getRegion().contains(newPublication.getLocation())) {
+                        System.out.println(getName() + ": Publication matches subscription for " + subscriber.getName() + ". Delivering.");
+                        subscriber.receive(newPublication);
+                    } else {
+                        System.out.println(getName() + ": Publication does NOT match subscription for " + subscriber.getName() + ". Filtering.");
+                    }
                 }
             }
-        }
-    }
-
-    @Override
-    public void forwardPublicationToNode(SimulationPublication p, TreeNode next) {
-        if (next instanceof SubscriberWithLocation subscriber) {
-            System.out.println(getName() + ": Delivering publication to subscriber " + subscriber.getName());
-            subscriber.receive(p);
-        } else {
-            System.err.println(getName() + ": Topology error, expected a subscriber but got " + next.getClass().getSimpleName());
         }
     }
 }

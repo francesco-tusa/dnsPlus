@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import simulator.Location;
 import simulator.regions.Region;
 import simulator.TreeNode;
-import simulator.regions.BrokerWithRegionProcessingLocation;
-import simulator.regions.LeafBrokerWithRegionProcessingRegion;
+import simulator.regions.BrokerWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
+import simulator.topology.factories.BrokerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,16 +18,16 @@ import java.util.Objects;
 
 /**
  * Generator for building broker topologies based on a JSON file definition.
- * Parses "bounds" from the JSON to initialize broker Regions and also parses
- * the "internetPopulation" for data-driven client allocation.
+ * It now uses a BrokerFactory to remain agnostic of the specific broker implementation.
  */
-public class FileBasedTopologyGenerator // Changed class name
-        extends AbstractTopologyFactory<FileBasedTopologyConfiguration, BrokerWithRegionProcessingLocation> {
+public class FileBasedTopologyGenerator
+        extends AbstractTopologyFactory<FileBasedTopologyConfiguration, BrokerWithRegion> {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final List<BrokerWithRegionProcessingLocation> allBrokers = new ArrayList<>();
+    private final BrokerFactory brokerFactory;
+    private final List<BrokerWithRegion> allBrokers = new ArrayList<>();
 
-    // Constants for JSON field names
+    // --- Constants for JSON field names ---
     private static final String JSON_FIELD_NAME = "name";
     private static final String JSON_FIELD_INTERNET_POPULATION = "internetPopulation";
     private static final String JSON_FIELD_CHILDREN = "children";
@@ -37,6 +37,10 @@ public class FileBasedTopologyGenerator // Changed class name
     private static final String JSON_FIELD_MIN_LON = "minLon";
     private static final String JSON_FIELD_MAX_LON = "maxLon";
 
+    public FileBasedTopologyGenerator(BrokerFactory brokerFactory) {
+        Objects.requireNonNull(brokerFactory, "BrokerFactory cannot be null.");
+        this.brokerFactory = brokerFactory;
+    }
 
     @Override
     protected void initialise(TopologyConfiguration genericConfig) {
@@ -57,7 +61,7 @@ public class FileBasedTopologyGenerator // Changed class name
     }
 
     @Override
-    protected BrokerWithRegionProcessingLocation buildCoreTopology() {
+    protected BrokerWithRegion buildCoreTopology() {
         Objects.requireNonNull(this.config, "Configuration must be set during initialise before building topology.");
         String filePath = this.config.getTopologyFilePath();
         System.out.println("Building core topology from file: " + filePath);
@@ -89,7 +93,7 @@ public class FileBasedTopologyGenerator // Changed class name
     }
 
     @Override
-    protected void attachSubscribers(BrokerWithRegionProcessingLocation root) {
+    protected void attachSubscribers(BrokerWithRegion root) {
          if (root == null || this.rootNode == null || root != this.rootNode) {
              System.err.println("Warning: Root node mismatch or null during attachSubscribers. Aborting subscriber attachment.");
              return;
@@ -98,7 +102,7 @@ public class FileBasedTopologyGenerator // Changed class name
     }
 
     @Override
-    protected void attachPublishers(BrokerWithRegionProcessingLocation root) {
+    protected void attachPublishers(BrokerWithRegion root) {
          if (root == null || this.rootNode == null || root != this.rootNode) {
              System.err.println("Warning: Root node mismatch or null during attachPublishers. Aborting publisher attachment.");
              return;
@@ -106,16 +110,7 @@ public class FileBasedTopologyGenerator // Changed class name
         System.out.println("FileBasedTopologyGenerator: Publisher attachment is handled by a dedicated generator class.");
     }
 
-    /**
-     * Recursively builds a broker and its children from a JSON node.
-     * Initializes the broker's region and internet population from the JSON.
-     *
-     * @param jsonNode The JSON node representing the broker.
-     * @param parent   The parent broker object (null for the root).
-     * @return The constructed BrokerWithRegionProcessingRegion.
-     * @throws IOException If JSON parsing fails.
-     */
-    private BrokerWithRegionProcessingLocation buildBrokerFromJson(JsonNode jsonNode, BrokerWithRegionProcessingLocation parent) throws IOException {
+    private BrokerWithRegion buildBrokerFromJson(JsonNode jsonNode, BrokerWithRegion parent) throws IOException {
          if (jsonNode == null || !jsonNode.isObject()) {
              System.err.println("Warning: Encountered invalid JSON node structure while building broker. Skipping.");
              return null;
@@ -129,7 +124,7 @@ public class FileBasedTopologyGenerator // Changed class name
          JsonNode childrenNode = jsonNode.path(JSON_FIELD_CHILDREN);
          boolean isLeafNodeInJson = !childrenNode.isArray() || childrenNode.isEmpty();
 
-         BrokerWithRegionProcessingLocation currentBroker;
+         BrokerWithRegion currentBroker;
           try {
              Location p1 = region.getBottomLeft();
              Location p2 = region.getTopRight();
@@ -142,16 +137,13 @@ public class FileBasedTopologyGenerator // Changed class name
              }
 
              if (isLeafNodeInJson) {
-                 currentBroker = new LeafBrokerWithRegionProcessingRegion(brokerName, p1, p2);
+                 currentBroker = brokerFactory.createLeafBroker(brokerName, p1, p2);
              } else {
-                 currentBroker = new BrokerWithRegionProcessingLocation(brokerName, p1, p2);
+                 currentBroker = brokerFactory.createBroker(brokerName);
              }
-             // We need a way to store the internet population on the broker node.
-             // Since BrokerWithRegion doesn't have a field for this, we will need to
-             // add one or use a workaround. For now, we will print it.
-             // In a real implementation, you would add `setInternetPopulation(long)` to BrokerWithRegion.
+             
+             currentBroker.setInternetPopulation(internetPopulation);
              System.out.println("  Created " + brokerName + " with Internet Population: " + internetPopulation);
-
 
          } catch (Exception e) {
              System.err.println("Error creating broker instance for " + brokerName + ". Error: " + e.getMessage());
@@ -161,7 +153,7 @@ public class FileBasedTopologyGenerator // Changed class name
 
          if (!isLeafNodeInJson) {
              for (JsonNode childNode : childrenNode) {
-                 BrokerWithRegionProcessingLocation childBroker = buildBrokerFromJson(childNode, currentBroker);
+                 BrokerWithRegion childBroker = buildBrokerFromJson(childNode, currentBroker);
                  if (childBroker != null) {
                      currentBroker.addChild(childBroker);
                  }
@@ -191,20 +183,20 @@ public class FileBasedTopologyGenerator // Changed class name
         return new Region(bottomLeft, topRight);
     }
 
-    private void addAllBrokersRecursively(BrokerWithRegionProcessingLocation broker) {
+    private void addAllBrokersRecursively(BrokerWithRegion broker) {
         if (broker == null) return;
         this.allBrokers.add(broker);
         List<TreeNode> children = broker.getChildren();
         if (children != null) {
             for (TreeNode childNode : children) {
-                if (childNode instanceof BrokerWithRegionProcessingLocation) {
-                    addAllBrokersRecursively((BrokerWithRegionProcessingLocation) childNode);
+                if (childNode instanceof BrokerWithRegion) {
+                    addAllBrokersRecursively((BrokerWithRegion) childNode);
                 }
             }
         }
     }
 
-     public List<BrokerWithRegionProcessingLocation> getBrokers() {
+     public List<BrokerWithRegion> getBrokers() {
          return new ArrayList<>(this.allBrokers);
      }
 }

@@ -3,18 +3,19 @@ package simulator.simulations.performance;
 import java.util.List;
 import simulator.Location;
 import simulator.SubscriberWithLocation;
-import simulator.regions.LeafBrokerWithRegionProcessingRegion;
+import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
+import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.grid.GridTopologyConfiguration;
 import simulator.topology.grid.GridTopologyGenerator;
 
 /**
  * A concrete simulation that runs a service replication scenario on a
- * dynamically generated, grid-based world topology.
+ * dynamically generated, grid-based world topology using location-processing brokers.
  */
-public class GridServiceSimulation extends AbstractServiceSimulation<
-    GridTopologyConfiguration, 
+public class LocationGridServiceSimulation extends AbstractServiceSimulation<
+    GridTopologyConfiguration,
     GridTopologyGenerator
 > {
 
@@ -25,7 +26,7 @@ public class GridServiceSimulation extends AbstractServiceSimulation<
     private static final double REMOTE_INTEREST_PROBABILITY = 0.2;
     
     // --- Topology Parameters ---
-    private static final int GRID_DIMENSION = 10; // Use 10 for a 10x10 grid (100 leaves)
+    private static final int GRID_DIMENSION = 10;
     private static final int TREE_DEPTH = 4;
     private static final double OVERLAP_FACTOR = 0.25;
 
@@ -50,12 +51,12 @@ public class GridServiceSimulation extends AbstractServiceSimulation<
     }
 
     @Override
-    protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<LeafBrokerWithRegionProcessingRegion> allLeafBrokers) {
+    protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers) {
         
         Location centerOfInterest;
 
         if (random.nextDouble() < getRemoteInterestProbability()) {
-            LeafBrokerWithRegionProcessingRegion remoteBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
+            BrokerWithRegion remoteBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
             centerOfInterest = getRandomLocationInRegion(remoteBroker.getRegion());
         } else {
             centerOfInterest = subscriber.getLocation();
@@ -72,16 +73,17 @@ public class GridServiceSimulation extends AbstractServiceSimulation<
     }
 
     public static void main(String[] args) {
-        System.out.println("--- Starting Service Replication Simulation on Grid-Based Topology ---");
+        System.out.println("--- Starting Location-Based Service Simulation on Grid Topology ---");
         
         GridTopologyConfiguration config = new GridTopologyConfiguration(
             GRID_DIMENSION, 
             OVERLAP_FACTOR, 
             TREE_DEPTH
         );
-        GridTopologyGenerator factory = new GridTopologyGenerator();
         
-        GridServiceSimulation simulation = new GridServiceSimulation();
+        GridTopologyGenerator factory = new GridTopologyGenerator(new LocationBrokerFactory());
+        
+        LocationGridServiceSimulation simulation = new LocationGridServiceSimulation();
         simulation.run(factory, config);
     }
 }
