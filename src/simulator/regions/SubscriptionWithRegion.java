@@ -1,21 +1,27 @@
 package simulator.regions;
 
 import simulator.SimulationSubscription;
-import simulator.TreeNode;
 
-public final class SubscriptionWithRegion extends SimulationSubscription implements Comparable<SubscriptionWithRegion> {
-    private Region region;
+/**
+ * Represents a subscription to a geographical region.
+ */
+public class SubscriptionWithRegion extends SimulationSubscription {
+
+    private final Region region;
 
     public SubscriptionWithRegion(Region region) {
+        super();
+        if (region == null) {
+            throw new IllegalArgumentException("Region cannot be null for a SubscriptionWithRegion.");
+        }
         this.region = region;
     }
 
-    /*
-     * Creates a copy of this subscription
-     * to be stored in a broker's subscription table.
+    /**
+     * Copy constructor.
      */
-    private SubscriptionWithRegion(SubscriptionWithRegion s) {
-        setSource(new TreeNode(s.getSource()));
+    public SubscriptionWithRegion(SubscriptionWithRegion s) {
+        super();
         this.region = new Region(s.getRegion());
     }
 
@@ -23,20 +29,19 @@ public final class SubscriptionWithRegion extends SimulationSubscription impleme
         return region;
     }
 
+    /**
+     * Correctly overrides the superclass method to create a full copy of this subscription.
+     */
     @Override
-    public SimulationSubscription getTableEntry() {
-        return new SubscriptionWithRegion(this);
+    public SimulationSubscription getSubscription() {
+        SubscriptionWithRegion copy = new SubscriptionWithRegion(this.region);
+        copy.setSource(this.getSource());
+        copy.setOriginalSource(this.getOriginalSource());
+        return copy;
     }
-
-
 
     @Override
     public String toString() {
-        return "region=[" + region + "]";
-    }
-
-    @Override
-    public int compareTo(SubscriptionWithRegion o) {
-        return this.region.compareTo(o.region);
+        return "region=" + region;
     }
 }

@@ -31,6 +31,16 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         internetPopulation = 0;
     }
 
+    /**
+     * This is the main fix. By overriding addChild, we ensure that adding any child
+     * (broker or subscriber) automatically triggers the region update logic.
+     */
+    @Override
+    public void addChild(TreeNode child) {
+        super.addChild(child);
+        updateRegion(child); // This line is the crucial fix.
+    }
+
     @Override
     public BrokerWithRegion getParentBroker() {
         SimulationBroker parentBroker = super.getParentBroker();

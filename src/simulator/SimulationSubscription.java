@@ -1,13 +1,15 @@
 package simulator;
 
-import subscribing.Subscription;
-
-public abstract class SimulationSubscription extends Subscription {
+/**
+ * Represents a generic subscription in the simulation.
+ */
+public class SimulationSubscription {
     private TreeNode source;
-    private boolean shouldForwardUpwards;
+    private TreeNode originalSource; // Added to track the true origin
 
     public SimulationSubscription() {
-        shouldForwardUpwards = true;
+        this.source = null;
+        this.originalSource = null;
     }
 
     public TreeNode getSource() {
@@ -18,13 +20,22 @@ public abstract class SimulationSubscription extends Subscription {
         this.source = source;
     }
 
-    public void disableUpwardsForwarding() {
-        shouldForwardUpwards = false;
+    public TreeNode getOriginalSource() {
+        return originalSource;
     }
 
-    public boolean isUpwardsForwardingEnabled() {
-        return shouldForwardUpwards;
+    public void setOriginalSource(TreeNode originalSource) {
+        this.originalSource = originalSource;
     }
 
-    public abstract SimulationSubscription getTableEntry();
+    /**
+     * Creates a shallow copy of the subscription.
+     * Subclasses should override to copy their specific fields.
+     */
+    public SimulationSubscription getSubscription() {
+        SimulationSubscription copy = new SimulationSubscription();
+        copy.setSource(this.source);
+        copy.setOriginalSource(this.originalSource);
+        return copy;
+    }
 }

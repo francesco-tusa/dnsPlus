@@ -1,6 +1,10 @@
 package simulator.regions;
 
 import simulator.Location;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -74,6 +78,44 @@ public class BaseRegion implements Comparable<BaseRegion> {
     public void setTopRight(Location topRight) {
         Objects.requireNonNull(topRight, "Top-right location cannot be null.");
         this.topRight = topRight;
+    }
+
+
+    /**
+     * Calculates a set of 9 key points representing the region's 2D bounding box.
+     * These points (corners, edge midpoints, center) are used by the location-based
+     * routing algorithm.
+     * @return A list of 9 key point Locations.
+     */
+    public List<Location> getKeyPoints() {
+        if (bottomLeft == null || topRight == null) {
+            return Collections.emptyList();
+        }
+        
+        List<Location> points = new ArrayList<>(9);
+        double minX = bottomLeft.getX();
+        double minY = bottomLeft.getY();
+        double maxX = topRight.getX();
+        double maxY = topRight.getY();
+        double midX = minX + (maxX - minX) / 2.0;
+        double midY = minY + (maxY - minY) / 2.0;
+        
+        // Corners
+        points.add(new Location(minX, minY, 0)); // Bottom-left
+        points.add(new Location(maxX, minY, 0)); // Bottom-right
+        points.add(new Location(minX, maxY, 0)); // Top-left
+        points.add(new Location(maxX, maxY, 0)); // Top-right
+        
+        // Midpoints of edges
+        points.add(new Location(midX, minY, 0)); // Mid-bottom
+        points.add(new Location(midX, maxY, 0)); // Mid-top
+        points.add(new Location(minX, midY, 0)); // Mid-left
+        points.add(new Location(maxX, midY, 0)); // Mid-right
+        
+        // Center
+        points.add(new Location(midX, midY, 0));
+        
+        return points;
     }
 
     // --- Basic Logic Methods (No Wrap Handling) ---

@@ -2,89 +2,82 @@ package simulator;
 
 import java.util.HashMap;
 import java.util.Map;
+import simulator.regions.BrokerWithRegion;
 
-import broker.GenericBroker;
+/**
+ * Represents a generic broker in the simulation.
+ */
+public abstract class SimulationBroker extends TreeNode {
 
-public abstract class SimulationBroker extends TreeNode implements GenericBroker<SimulationSubscription, SimulationPublication> {
-
-    private int nSubscriptions;
-    private int nPublications;
-    private final Map<TreeNode, SimulationSubscription> subscriptionsTable;
+    private final Map<TreeNode, SimulationSubscription> subscriptionsTable = new HashMap<>();
 
     public SimulationBroker(String name) {
         super(name);
-        this.nSubscriptions = 0;
-        this.nPublications = 0;
-        subscriptionsTable = new HashMap<>();
     }
 
-    public int getnSubscriptions() {
-        return nSubscriptions;
+    /**
+     * Retrieves the parent of this broker, if it is also a broker.
+     * @return The parent as a BrokerWithRegion, or null if there is no parent or it's not a broker.
+     */
+    public BrokerWithRegion getParentBroker() {
+        TreeNode parent = getParent();
+        if (parent instanceof BrokerWithRegion) {
+            return (BrokerWithRegion) parent;
+        }
+        return null;
     }
 
-    public int getnPublications() {
-        return nPublications;
+    public abstract SimulationSubscription matchPublication(SimulationPublication p);
+
+    public void processPublication(SimulationPublication p) {
+        matchPublication(p);
     }
 
-    public SimulationBroker getParentBroker() {
-        return (SimulationBroker) getParent();
+    /**
+     * Processes a subscription by adding it to the table and forwarding it to the parent.
+     * Subclasses can override to add more complex logic like downward propagation.
+     */
+    public void processSubscription(SimulationSubscription s) {
+        if (s.getOriginalSource() == null) {
+            s.setOriginalSource(s.getSource());
+        }
+        addSubscription(s);
+        BrokerWithRegion parent = getParentBroker();
+        if (parent != null) {
+            SimulationSubscription subscriptionToSend = s.getSubscription();
+            subscriptionToSend.setSource(this);
+            parent.processSubscription(subscriptionToSend);
+        }
+    }
+
+    /**
+     * Adds a subscription to this broker's local table.
+     * This is final to ensure consistent, non-recursive behavior.
+     */
+    public final void addSubscription(SimulationSubscription s) {
+        subscriptionsTable.put(s.getSource(), s);
+    }
+
+    public void printSubscriptionsTable() {
+        System.out.println("\n" + getName() + "'s Subscription Table:");
+        System.out.println("==============================");
+        System.out.println("  Source Node      -> Subscription Details");
+        System.out.println("  ---------------    --------------------");
+        if (subscriptionsTable.isEmpty()) {
+            System.out.println("  (empty)");
+        } else {
+            for (Map.Entry<TreeNode, SimulationSubscription> entry : subscriptionsTable.entrySet()) {
+                System.out.printf("  %-15s -> %s\n", entry.getKey().getName(), entry.getValue().toString());
+            }
+        }
+        System.out.println("==============================");
     }
 
     public Map<TreeNode, SimulationSubscription> getSubscriptionsTable() {
         return subscriptionsTable;
     }
 
-    @Override
-    public void processPublication(SimulationPublication p) {
-        System.out.println(getName() + ": processing publication " + p);
-        nPublications++;
-        matchPublication(p);
-    }
-
-    @Override
-    public void processSubscription(SimulationSubscription s) {
-        System.out.println();
-        System.out.println(getName() + ": processing subscription " + s);
-        nSubscriptions++;
-        addSubscription(s);
-        
-        SimulationBroker parentBroker = getParentBroker();
-        if (parentBroker != null && s.isUpwardsForwardingEnabled()) {
-            s.setSource(this);
-            parentBroker.processSubscription(s);
-        }
-    }
-
-    /**
-     * Adds a subscription to this broker's local table.
-     * This method is now protected and final to prevent incorrect overrides.
-     * @param s The subscription to add.
-     */
-    public final void addSubscription(SimulationSubscription s) {
-        getSubscriptionsTable().put(s.getSource(), s.getTableEntry());
-    }
-
-    @Override
-    public abstract SimulationSubscription matchPublication(SimulationPublication p);
-
-    public void printSubscriptionsTable() {
-        System.out.println("\n" + getName() + "'s Subscription Table:");
-        System.out.println("==============================");
-
-        if (subscriptionsTable.isEmpty()) {
-            System.out.println("  (Table is empty)");
-        } else {
-            String formatString = "  %-15s -> %s%n";
-
-            System.out.printf(formatString, "Source Node", "Subscription Details");
-            System.out.println("  ---------------   --------------------");
-
-            for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
-                TreeNode sourceNode = entry.getKey();
-                SimulationSubscription tableEntry = entry.getValue();
-                System.out.printf(formatString, sourceNode.getName(), tableEntry);
-            }
-        }
-        System.out.println("==============================");
+    public int getnSubscriptions() {
+        return getSubscriptionsTable().size();
     }
 }

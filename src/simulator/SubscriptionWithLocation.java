@@ -1,15 +1,18 @@
 package simulator;
 
-public final class SubscriptionWithLocation extends SimulationSubscription {
-    private Location location;
+/**
+ * Represents a subscription to a specific geographical location.
+ */
+public class SubscriptionWithLocation extends SimulationSubscription {
+
+    private final Location location;
 
     public SubscriptionWithLocation(Location location) {
+        super();
+        if (location == null) {
+            throw new IllegalArgumentException("Location cannot be null for a SubscriptionWithLocation.");
+        }
         this.location = location;
-    }
-
-    private SubscriptionWithLocation(SubscriptionWithLocation s) {
-        setSource(new TreeNode(s.getSource()));
-        this.location = new Location(s.getLocation());
     }
 
     public Location getLocation() {
@@ -17,12 +20,15 @@ public final class SubscriptionWithLocation extends SimulationSubscription {
     }
 
     @Override
-    public String toString() {
-        return "location=[" + location + "]";
+    public SimulationSubscription getSubscription() {
+        SubscriptionWithLocation copy = new SubscriptionWithLocation(this.location);
+        copy.setSource(this.getSource());
+        copy.setOriginalSource(this.getOriginalSource());
+        return copy;
     }
 
     @Override
-    public SimulationSubscription getTableEntry() {
-        return new SubscriptionWithLocation(this);
+    public String toString() {
+        return "location=" + location;
     }
 }

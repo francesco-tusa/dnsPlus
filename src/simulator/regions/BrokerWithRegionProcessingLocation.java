@@ -1,23 +1,21 @@
 package simulator.regions;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import simulator.Location;
 import simulator.PublicationWithLocation;
-import simulator.SimulationBroker;
 import simulator.SimulationPublication;
 import simulator.SimulationSubscription;
+import simulator.SubscriberWithLocation;
 import simulator.TreeNode;
 
 /**
- * A broker that implements a location-based subscription and publication propagation strategy.
+ * A broker that implements location-based routing. It uses a cache of key points
+ * to determine whether to propagate publications downwards.
  */
 public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
 
-    private final Map<Location, PublicationWithLocation> publicationCache = new HashMap<>();
-    private List<Location> keyPoints;
+    private final Map<Location, SimulationPublication> bestPublicationCache = new HashMap<>();
 
     public BrokerWithRegionProcessingLocation(String name) {
         super(name);
@@ -31,50 +29,57 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
     public SimulationSubscription matchPublication(SimulationPublication p) {
         System.out.println(getName() + ": processing publication from " + p.getSource().getName());
 
-        // Upward Propagation
-        SimulationBroker parent = getParentBroker();
-        if (parent != null) {
-            System.out.println(getName() + ": Propagating publication upwards to " + parent.getName());
+        // 1. Always propagate the publication upwards to the parent.
+        BrokerWithRegion parentBroker = getParentBroker();
+        if (parentBroker != null && p.getSource() != parentBroker) {
+            System.out.println(getName() + ": Propagating publication upwards to " + parentBroker.getName());
             SimulationPublication forwardedCopy = p.getPublication();
             forwardedCopy.setSource(this);
-            parent.processPublication(forwardedCopy);
+            parentBroker.processPublication(forwardedCopy);
         }
 
-        // Downward Propagation
-        processPublicationDownward(p);
-        return null; // This method is for routing, not returning a single match.
+        // 2. Process the publication for downward propagation.
+        System.out.println(getName() + ": Processing publication for downward propagation.");
+        if (p instanceof PublicationWithLocation pub) {
+            processPublicationDownward(pub);
+        }
+
+        return null;
     }
 
     /**
-     * Handles the downward propagation and caching logic for non-leaf brokers.
-     * Made protected so leaf brokers can override it.
-     * @param p The publication to process.
+     * This is the core logic for location-based routing. It checks if a new publication
+     * is an "improvement" for any of the key points in this broker's region.
      */
-    protected void processPublicationDownward(SimulationPublication p) {
-        System.out.println(getName() + ": Processing publication for downward propagation.");
-        PublicationWithLocation newPublication = (PublicationWithLocation) p;
-        boolean shouldForward = false;
-
-        if (keyPoints == null) {
-            this.keyPoints = calculateKeyPoints();
+    protected void processPublicationDownward(PublicationWithLocation pub) {
+        if (getRegion() == null) {
+            System.err.println(getName() + ": Cannot process downward propagation, region is not set.");
+            return;
         }
 
-        for (Location point : keyPoints) {
-            PublicationWithLocation cachedPub = publicationCache.get(point);
-            if (cachedPub == null || distanceSquared(newPublication.getLocation(), point) < distanceSquared(cachedPub.getLocation(), point)) {
-                System.out.println(getName() + ": New publication is closer to key point " + point + ". Caching and forwarding.");
-                publicationCache.put(point, newPublication);
-                shouldForward = true;
+        boolean isImprovement = false;
+        // Check the new publication against the cache for each key point.
+        for (Location keyPoint : getRegion().getKeyPoints()) {
+            SimulationPublication cachedPub = bestPublicationCache.get(keyPoint);
+
+            if (cachedPub == null || 
+                distanceSquared(pub.getLocation(), keyPoint) < distanceSquared(((PublicationWithLocation) cachedPub).getLocation(), keyPoint)) 
+            {
+                System.out.println(getName() + ": New publication is closer to key point " + keyPoint + ". Caching and forwarding.");
+                bestPublicationCache.put(keyPoint, pub);
+                isImprovement = true;
             }
         }
 
-        if (shouldForward) {
+        if (isImprovement) {
+            // If it's an improvement for at least one key point, forward it to all children
+            // except the one it came from.
             for (TreeNode child : getChildren()) {
-                if (child instanceof BrokerWithRegionProcessingLocation && child != p.getSource()) {
+                if (child instanceof BrokerWithRegion childBroker && child != pub.getSource()) {
                     System.out.println(getName() + ": Forwarding publication down to " + child.getName());
-                    SimulationPublication forwardedCopy = p.getPublication();
+                    SimulationPublication forwardedCopy = pub.getPublication();
                     forwardedCopy.setSource(this);
-                    ((BrokerWithRegionProcessingLocation) child).processPublication(forwardedCopy);
+                    childBroker.processPublication(forwardedCopy);
                 }
             }
         } else {
@@ -82,38 +87,14 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
         }
     }
 
-    private List<Location> calculateKeyPoints() {
-        List<Location> points = new ArrayList<>();
-        Region region = getRegion();
-        if (region == null || region.getBottomLeft() == null) return points;
-
-        double minX = region.getBottomLeft().getX();
-        double minY = region.getBottomLeft().getY();
-        double maxX = region.getTopRight().getX();
-        double maxY = region.getTopRight().getY();
-        double midX = minX + (maxX - minX) / 2;
-        double midY = minY + (maxY - minY) / 2;
-
-        points.add(new Location(minX, minY, 0));
-        points.add(new Location(maxX, minY, 0));
-        points.add(new Location(minX, maxY, 0));
-        points.add(new Location(maxX, maxY, 0));
-        points.add(new Location(midX, minY, 0));
-        points.add(new Location(midX, maxY, 0));
-        points.add(new Location(minX, midY, 0));
-        points.add(new Location(maxX, midY, 0));
-        points.add(new Location(midX, midY, 0));
-        
-        return points;
-    }
-
     /**
-     * Calculates the squared distance between two locations.
-     * Made protected so subclasses can access it.
+     * Calculates the squared Euclidean distance between two locations.
+     * Squared distance is used to avoid expensive square root operations for simple comparisons.
      */
     protected double distanceSquared(Location l1, Location l2) {
         double dx = l1.getX() - l2.getX();
         double dy = l1.getY() - l2.getY();
-        return (dx * dx) + (dy * dy);
+        double dz = l1.getZ() - l2.getZ();
+        return dx * dx + dy * dy + dz * dz;
     }
 }

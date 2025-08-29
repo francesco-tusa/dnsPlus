@@ -15,6 +15,7 @@ import simulator.topology.factories.BrokerFactory;
 
 /**
  * Generates a random tree-based topology using a BrokerFactory.
+ * This version correctly calculates and propagates region updates from the bottom up.
  */
 public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFactory<RegionRandomTopologyConfiguration, BrokerWithRegion> {
 
@@ -54,8 +55,8 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
 
         if (currentDepth == leafDepth) {
             for (int i = 0; i < numChildren; i++) {
-                // Leaf brokers need dummy locations for their regions initially.
-                BrokerWithRegion leafBroker = brokerFactory.createLeafBroker(generateLeafBrokerName(), new Location(0,0,0), new Location(0,0,0));
+                // Leaf brokers are created without a predefined region.
+                BrokerWithRegion leafBroker = brokerFactory.createLeafBroker(generateLeafBrokerName());
                 parent.addChild(leafBroker);
                 allLeafBrokers.add(leafBroker);
             }
@@ -69,6 +70,10 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
         }
     }
 
+    /**
+     * This is the main fix. The addChild method in BrokerWithRegion will now
+     * correctly trigger the bottom-up region calculation and propagation.
+     */
     @Override
     protected void attachSubscribers(BrokerWithRegion root) {
         for (int i = 0; i < allLeafBrokers.size(); i++) {
@@ -77,6 +82,7 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
             for (int j = 0; j < config.getSubscribersPerLeafNode(); j++) {
                 Location subLocation = generateLocationInRegion(regionDef);
                 SubscriberWithLocation subscriber = new SubscriberWithLocation(generateSubscriberName(), subLocation);
+                // Calling addChild will now correctly trigger the updateRegion logic.
                 leafBroker.addChild(subscriber);
             }
         }
@@ -121,9 +127,9 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
         double rangeX = tr.getX() - bl.getX() + 1;
         double rangeY = tr.getY() - bl.getY() + 1;
         double rangeZ = tr.getZ() - bl.getZ() + 1;
-        double randomX = bl.getX() + random.nextDouble(rangeX);
-        double randomY = bl.getY() + random.nextDouble(rangeY);
-        double randomZ = bl.getZ() + random.nextDouble(rangeZ);
+        double randomX = bl.getX() + random.nextDouble() * rangeX;
+        double randomY = bl.getY() + random.nextDouble() * rangeY;
+        double randomZ = bl.getZ() + random.nextDouble() * rangeZ;
         return new Location(randomX, randomY, randomZ);
     }
 }
