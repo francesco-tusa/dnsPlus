@@ -23,8 +23,10 @@ public class RegionBasedSimulationsMain {
         // --- Run all validation tests for REGION-based brokers ---
         // runManualTopologySanityCheck();
         // runManualTopologyOverlapValidation();
-           runManualTopologyComplexValidation();
-           runRandomTopologySanityCheck();
+        // runManualTopologyComplexValidation();
+        runManualTopologyFanOutTest();
+
+        // runRandomTopologySanityCheck();
 
         // --- Run performance tests for REGION-based brokers ---
         // runGridRegionPerformance();
@@ -37,11 +39,11 @@ public class RegionBasedSimulationsMain {
         System.out.println("==========================================================");
         GridTopologyConfiguration config = new GridTopologyConfiguration(10, 0.25, 4);
         GridTopologyGenerator factory = new GridTopologyGenerator(new RegionBrokerFactory());
-        ConfigurablePerformanceSimulation<GridTopologyConfiguration, GridTopologyGenerator> simulation = 
-            new ConfigurablePerformanceSimulation<>(1000, 5, 10.0, 0.2);
+        ConfigurablePerformanceSimulation<GridTopologyConfiguration, GridTopologyGenerator> simulation = new ConfigurablePerformanceSimulation<>(
+                1000, 5, 10.0, 0.2);
         simulation.run(factory, config);
     }
-    
+
     // --- Validation Scenarios ---
     public static void runManualTopologySanityCheck() {
         System.out.println("===============================================================");
@@ -49,19 +51,19 @@ public class RegionBasedSimulationsMain {
         System.out.println("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
-        ConfigurableValidationSimulation<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
-            new ConfigurableValidationSimulation<>(ManualTopologyRegionValidationTests.SANITY_CHECK_NO_OVERLAP, "Sanity Check (No Overlap)");
+        ConfigurableValidationSimulation<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation = new ConfigurableValidationSimulation<>(
+                ManualTopologyRegionValidationTests.SANITY_CHECK_NO_OVERLAP, "Sanity Check (No Overlap)");
         validation.run(factory, config);
     }
-    
+
     public static void runManualTopologyOverlapValidation() {
         System.out.println("===============================================================");
         System.out.println("  RUNNING (Validation): Manual Topology - Overlap Propagation (Region)");
         System.out.println("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
-        ConfigurableValidationSimulation<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
-            new ConfigurableValidationSimulation<>(ManualTopologyRegionValidationTests.CROSS_BRANCH_PROPAGATION, "Cross-Branch Propagation");
+        ConfigurableValidationSimulation<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation = new ConfigurableValidationSimulation<>(
+                ManualTopologyRegionValidationTests.CROSS_BRANCH_PROPAGATION, "Cross-Branch Propagation");
         validation.run(factory, config);
     }
 
@@ -71,8 +73,8 @@ public class RegionBasedSimulationsMain {
         System.out.println("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
-        ConfigurableValidationSimulation<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
-            new ConfigurableValidationSimulation<>(ManualTopologyRegionValidationTests.COMBINED_COMPLEX_SCENARIO, "Combined Complex Scenario");
+        ConfigurableValidationSimulation<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation = new ConfigurableValidationSimulation<>(
+                ManualTopologyRegionValidationTests.COMBINED_COMPLEX_SCENARIO, "Combined Complex Scenario");
         validation.run(factory, config);
     }
 
@@ -81,9 +83,21 @@ public class RegionBasedSimulationsMain {
         System.out.println("  RUNNING (Validation): Random Topology - Sanity Check (Region)");
         System.out.println("=======================================================");
         RegionRandomTopologyConfiguration config = new RegionRandomTopologyConfiguration(3, 4, 4, 3, 2);
-        RegionProcessingRandomTopologyGenerator factory = new RegionProcessingRandomTopologyGenerator(new RegionBrokerFactory());
-        ConfigurableValidationSimulation<RegionRandomTopologyConfiguration, BrokerWithRegion, RegionProcessingRandomTopologyGenerator> validation =
-            new ConfigurableValidationSimulation<>(RandomTopologyValidationTests.RANDOM_TOPOLOGY_SANITY_CHECK, "Random Topology Sanity Check");
+        RegionProcessingRandomTopologyGenerator factory = new RegionProcessingRandomTopologyGenerator(
+                new RegionBrokerFactory());
+        ConfigurableValidationSimulation<RegionRandomTopologyConfiguration, BrokerWithRegion, RegionProcessingRandomTopologyGenerator> validation = new ConfigurableValidationSimulation<>(
+                RandomTopologyValidationTests.RANDOM_TOPOLOGY_SANITY_CHECK, "Random Topology Sanity Check");
+        validation.run(factory, config);
+    }
+
+    public static void runManualTopologyFanOutTest() {
+        System.out.println("===============================================================");
+        System.out.println("  RUNNING (Validation): Manual Topology - Fan-Out Test (Region)");
+        System.out.println("===============================================================");
+        FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
+        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
+        ConfigurableValidationSimulation<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation = new ConfigurableValidationSimulation<>(
+                ManualTopologyRegionValidationTests.FAN_OUT_REDUNDANCY_TEST, "Fan-Out Redundancy Test");
         validation.run(factory, config);
     }
 }

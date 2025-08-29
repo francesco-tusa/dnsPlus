@@ -8,13 +8,13 @@ public class PublicationWithLocation extends SimulationPublication {
     }
 
     /**
-     * Copy constructor that now also preserves the original source.
+     * Copy constructor that preserves the original source.
      * @param p The publication to copy.
      */
     private PublicationWithLocation(PublicationWithLocation p) {
         // Copy the immediate source
         setSource(p.getSource() != null ? new TreeNode(p.getSource()) : null);
-        // **THE FIX**: Preserve the reference to the original source
+        // Preserve the reference to the original source
         setOriginalSource(p.getOriginalSource());
         this.location = new Location(p.location);
     }

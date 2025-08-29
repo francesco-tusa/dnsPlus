@@ -23,7 +23,7 @@ public class ManualTopologyRegionValidationTests {
         SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
         SubscriberWithLocation s5 = findNodeByName(root, "sub5", SubscriberWithLocation.class);
         PublisherWithLocation p1 = findNodeByName(root, "pub1", PublisherWithLocation.class);
-        
+
         if (s2 == null || s5 == null || p1 == null) {
             System.err.println("Test failed: Could not find required nodes (sub2, sub5, pub1).");
             return false;
@@ -39,7 +39,7 @@ public class ManualTopologyRegionValidationTests {
 
         return s2.getnPublications() == 1 && s5.getnPublications() == 0;
     };
-    
+
     public static final Predicate<BrokerWithRegion> CROSS_BRANCH_PROPAGATION = root -> {
         System.out.println("\n>>> SCENARIO: Testing downward propagation to an overlapping branch. <<<");
         SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
@@ -59,7 +59,7 @@ public class ManualTopologyRegionValidationTests {
 
         System.out.println("\n--- Final Check ---");
         System.out.println("  - Subscriber 's2' received: " + s2.getnPublications() + " publications. (Expected: 1)");
-        
+
         return s2.getnPublications() == 1;
     };
 
@@ -79,7 +79,8 @@ public class ManualTopologyRegionValidationTests {
         // Action 2: s5 sends a subscription that does NOT overlap with the publication.
         s5.send(new SubscriptionWithRegion(new Region(new Location(2, 2, 0), new Location(3, 3, 0))));
 
-        // Action 3: A publisher under grandchild1 sends a publication that SHOULD match s2.
+        // Action 3: A publisher under grandchild1 sends a publication that SHOULD match
+        // s2.
         PublisherWithLocation overlapPublisher = new PublisherWithLocation("pub-overlap-test", new Location(4, 2.5, 0));
         grandchild1.addChild(overlapPublisher);
         overlapPublisher.send(new PublicationWithLocation(overlapPublisher.getLocation()));
@@ -93,7 +94,8 @@ public class ManualTopologyRegionValidationTests {
     };
 
     private static <T extends TreeNode> T findNodeByName(TreeNode root, String name, Class<T> type) {
-        if (root == null || name == null) return null;
+        if (root == null || name == null)
+            return null;
         Queue<TreeNode> queue = new LinkedList<>();
         queue.offer(root);
 
@@ -108,4 +110,35 @@ public class ManualTopologyRegionValidationTests {
         }
         return null;
     }
+
+    public static final Predicate<BrokerWithRegion> FAN_OUT_REDUNDANCY_TEST = root -> {
+        System.out.println("\n>>> SCENARIO: Reproducing fan-out problem in the fixed topology. <<<");
+        SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
+        SubscriberWithLocation s8 = findNodeByName(root, "sub8", SubscriberWithLocation.class);
+        PublisherWithLocation p2 = findNodeByName(root, "pub2", PublisherWithLocation.class);
+
+        if (s2 == null || s8 == null || p2 == null) {
+            System.err.println("Test failed: Could not find required nodes (sub2, sub8, pub2).");
+            return false;
+        }
+
+        // s2 (under child2) subscribes to a region that contains the publisher's
+        // location.
+        s2.send(new SubscriptionWithRegion(new Region(new Location(16, 3, 0), new Location(19, 5, 0))));
+
+        // s8 (under child3) also subscribes to a region that contains the publisher's
+        // location.
+        s8.send(new SubscriptionWithRegion(new Region(new Location(17, 3, 0), new Location(19, 5, 0))));
+
+        // The publisher (under child3/grandchild4) sends one publication.
+        p2.send(new PublicationWithLocation(p2.getLocation())); // Location is (18, 4, 0)
+
+        System.out.println("\n--- Final Check ---");
+        System.out.println("  - Subscriber 's2' received: " + s2.getnPublications() + " publications. (Expected: 1)");
+        System.out.println("  - Subscriber 's8' received: " + s8.getnPublications()
+                + " publications. (Expected: >1 due to fan-out)");
+
+        // The test passes if s8 receives more than one copy of the same publication.
+        return s2.getnPublications() == 1 && s8.getnPublications() > 1;
+    };
 }

@@ -26,47 +26,38 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     @Override
     public void processSubscription(SimulationSubscription s) {
         System.out.println(getName() + ": processing a subscription received from " + s.getSource().getName());
-        
+
         addSubscription(s);
 
+        // If the subscription is from a parent, propagate it down to children.
         if (s.getSource() == getParentBroker()) {
             sendSubscriptionToChildren(s);
-        } else {
-            sendSubscriptionToChildren(s);
+        }
+        // If the subscription is from a client or a child, propagate it up to the
+        // parent.
+        else {
+            // The call to super.processSubscription handles the upward propagation.
             super.processSubscription(s);
         }
     }
 
-    /**
-     * This is the main fix. The logic is now separated to handle upward and
-     * downward propagation correctly, preventing routing loops.
-     */
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         System.out.println(getName() + ": processing a publication received from " + p.getSource().getName());
 
-        // A publication can only go UP from a child, or DOWN from a parent.
-        if (p.getSource() != getParentBroker()) {
-            // This is an UPWARD message from a child.
-            // Action: Propagate it further up to our parent.
-            propagatePublicationUpward(p);
-        } else {
-            // This is a DOWNWARD message from our parent.
-            // Action: Only check if our children or subscribers need this publication.
-            processPublicationForDownwardPropagation(p);
-        }
-        
-        return null;
-    }
-
-    private void propagatePublicationUpward(SimulationPublication p) {
+        // 1. Always propagate the publication upwards to the parent.
         BrokerWithRegion parentBroker = getParentBroker();
-        if (parentBroker != null) {
-            System.out.println(getName() + ": forwarding publication to parent " + parentBroker.getName());
+        if (parentBroker != null && p.getSource() != parentBroker) {
+            System.out.println(getName() + ": Propagating publication upwards to " + parentBroker.getName());
             SimulationPublication forwardedCopy = p.getPublication();
             forwardedCopy.setSource(this);
             parentBroker.processPublication(forwardedCopy);
         }
+
+        // 2. Always process the publication for downward propagation to children.
+        processPublicationForDownwardPropagation(p);
+        
+        return null;
     }
 
     private void processPublicationForDownwardPropagation(SimulationPublication p) {
