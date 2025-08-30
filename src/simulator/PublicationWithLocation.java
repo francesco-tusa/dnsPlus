@@ -14,8 +14,6 @@ public class PublicationWithLocation extends SimulationPublication {
     private PublicationWithLocation(PublicationWithLocation p) {
         // Copy the immediate source
         setSource(p.getSource() != null ? new TreeNode(p.getSource()) : null);
-        // Preserve the reference to the original source
-        setOriginalSource(p.getOriginalSource());
         this.location = new Location(p.location);
     }
     
@@ -26,8 +24,7 @@ public class PublicationWithLocation extends SimulationPublication {
     @Override
     public String toString() {
         // Now includes the original source for better logging
-        String origSourceName = (getOriginalSource() != null) ? getOriginalSource().getName() : "null";
-        return "[location=" + location + ", source=" + getSource() + ", originalSource=" + origSourceName + "]";
+        return "[location=" + location + ", source=" + getSource() + "]";
     }
 
     @Override

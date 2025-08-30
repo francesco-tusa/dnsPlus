@@ -23,7 +23,6 @@ public class SubscriptionWithLocation extends SimulationSubscription {
     public SimulationSubscription getSubscription() {
         SubscriptionWithLocation copy = new SubscriptionWithLocation(this.location);
         copy.setSource(this.getSource());
-        copy.setOriginalSource(this.getOriginalSource());
         return copy;
     }
 

@@ -36,7 +36,6 @@ public class SubscriptionWithRegion extends SimulationSubscription {
     public SimulationSubscription getSubscription() {
         SubscriptionWithRegion copy = new SubscriptionWithRegion(this.region);
         copy.setSource(this.getSource());
-        copy.setOriginalSource(this.getOriginalSource());
         return copy;
     }
 

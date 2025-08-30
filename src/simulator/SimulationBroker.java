@@ -34,14 +34,11 @@ public abstract class SimulationBroker extends TreeNode {
     }
 
     /**
-     * Processes a subscription by adding it to the table and forwarding it to the parent.
-     * Subclasses can override to add more complex logic like downward propagation.
+     * Propagates a subscription upwards to the parent broker.
+     * This method's sole responsibility is upward propagation. The subclass is
+     * responsible for adding the subscription to its own table first.
      */
     public void processSubscription(SimulationSubscription s) {
-        if (s.getOriginalSource() == null) {
-            s.setOriginalSource(s.getSource());
-        }
-        addSubscription(s);
         BrokerWithRegion parent = getParentBroker();
         if (parent != null) {
             SimulationSubscription subscriptionToSend = s.getSubscription();

@@ -8,11 +8,6 @@ import simulator.SimulationSubscription;
 import simulator.SubscriberWithLocation;
 import simulator.TreeNode;
 
-/**
- * A broker that implements region-based routing. It forwards subscriptions to
- * children with intersecting regions and forwards publications to nodes with
- * matching subscription regions.
- */
 public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
 
     public BrokerWithRegionProcessingRegion(String name) {
@@ -23,73 +18,72 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
         super(name, p1, p2);
     }
 
+    /**
+     * This is the corrected subscription logic. It distinguishes between
+     * subscriptions received from a parent and those from a child to prevent
+     * infinite loops, which was the cause of the StackOverflowError.
+     */
     @Override
     public void processSubscription(SimulationSubscription s) {
         System.out.println(getName() + ": processing a subscription received from " + s.getSource().getName());
-
         addSubscription(s);
 
-        // If the subscription is from a parent, propagate it down to children.
+        // If the subscription is from a parent, propagate it ONLY down to children.
         if (s.getSource() == getParentBroker()) {
             sendSubscriptionToChildren(s);
-        }
-        // If the subscription is from a client or a child, propagate it up to the
-        // parent.
+        } 
+        // If the subscription is from a client or a child, propagate it BOTH up and down.
         else {
-            // The call to super.processSubscription handles the upward propagation.
             super.processSubscription(s);
+            sendSubscriptionToChildren(s);
         }
     }
 
+    /**
+     * Correctly handles publication routing. It checks all subscription entries
+     * and forwards the publication to every matching node (parent or child),
+     * except for the immediate source of the message.
+     */
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         System.out.println(getName() + ": processing a publication received from " + p.getSource().getName());
-
-        // 1. Always propagate the publication upwards to the parent.
-        BrokerWithRegion parentBroker = getParentBroker();
-        if (parentBroker != null && p.getSource() != parentBroker) {
-            System.out.println(getName() + ": Propagating publication upwards to " + parentBroker.getName());
-            SimulationPublication forwardedCopy = p.getPublication();
-            forwardedCopy.setSource(this);
-            parentBroker.processPublication(forwardedCopy);
-        }
-
-        // 2. Always process the publication for downward propagation to children.
-        processPublicationForDownwardPropagation(p);
-        
-        return null;
-    }
-
-    private void processPublicationForDownwardPropagation(SimulationPublication p) {
         for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
             TreeNode nextNode = entry.getKey();
-            SimulationSubscription tableEntry = entry.getValue();
-
-            // Do not send the publication back to the parent who sent it to us.
-            if (nextNode == getParentBroker()) {
+            
+            // Do not forward the publication back to the immediate source.
+            if (nextNode == p.getSource()) {
                 continue;
             }
 
-            if (tableEntry instanceof SubscriptionWithRegion subRegion && p instanceof PublicationWithLocation pubLocation) {
+            if (entry.getValue() instanceof SubscriptionWithRegion subRegion && p instanceof PublicationWithLocation pubLocation) {
                 if (subRegion.getRegion().contains(pubLocation.getLocation())) {
-                    System.out.println(getName() + ": publication location is within " + nextNode.getName() + "'s subscribed region.");
+                    System.out.println(getName() + ": forwarding publication to " + nextNode.getName());
                     SimulationPublication forwardedCopy = p.getPublication();
                     forwardedCopy.setSource(this);
                     forwardPublicationToNode(forwardedCopy, nextNode);
                 }
             }
         }
+        return null;
     }
 
+    /**
+     * Forwards a subscription to all children with intersecting regions, crucially
+     * ensuring it does not send it back to the source child.
+     */
     protected void sendSubscriptionToChildren(SimulationSubscription newSubscription) {
         if (newSubscription instanceof SubscriptionWithRegion newSub) {
             for (TreeNode child : getChildren()) {
-                if (child instanceof BrokerWithRegion childBroker && child != newSub.getSource()) {
+                // The critical check to prevent infinite loops.
+                if (child == newSub.getSource()) {
+                    continue;
+                }
+
+                if (child instanceof BrokerWithRegion childBroker) {
                     if (childBroker.getRegion() != null && childBroker.getRegion().intersects(newSub.getRegion())) {
                         System.out.println(getName() + ": forwarding subscription to child " + childBroker.getName());
                         SubscriptionWithRegion subscriptionToSend = new SubscriptionWithRegion(newSub.getRegion());
                         subscriptionToSend.setSource(this);
-                        subscriptionToSend.setOriginalSource(newSub.getOriginalSource());
                         childBroker.processSubscription(subscriptionToSend);
                     }
                 }

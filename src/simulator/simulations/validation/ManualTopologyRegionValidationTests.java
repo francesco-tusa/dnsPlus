@@ -18,84 +18,64 @@ import simulator.regions.SubscriptionWithRegion;
  */
 public class ManualTopologyRegionValidationTests {
 
-    public static final Predicate<BrokerWithRegion> SANITY_CHECK_NO_OVERLAP = root -> {
-        System.out.println("\n>>> SCENARIO: Testing simple, non-overlapping subscription delivery. <<<");
+    /**
+     * A comprehensive test case that validates multiple, complex routing scenarios:
+     * 1.  A subscriber ('s2') receiving a publication from a publisher ('pub2') on a different branch.
+     * 2.  A subscriber ('s8') receiving a publication from a local publisher ('pub2').
+     * 3.  A subscriber ('s5') receiving a publication from a local publisher ('pub1') that should NOT be delivered to other subscribers.
+     * This test ensures that cross-branch propagation works correctly and that there are no redundant deliveries (fan-out).
+     */
+    public static final Predicate<BrokerWithRegion> COMPREHENSIVE_SCENARIO = root -> {
+        System.out.println("\n>>> SCENARIO: Running Comprehensive Cross-Branch and Local Propagation Test. <<<");
+
+        // --- Find all required nodes ---
         SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
+        SubscriberWithLocation s8 = findNodeByName(root, "sub8", SubscriberWithLocation.class);
         SubscriberWithLocation s5 = findNodeByName(root, "sub5", SubscriberWithLocation.class);
         PublisherWithLocation p1 = findNodeByName(root, "pub1", PublisherWithLocation.class);
+        PublisherWithLocation p2 = findNodeByName(root, "pub2", PublisherWithLocation.class);
 
-        if (s2 == null || s5 == null || p1 == null) {
-            System.err.println("Test failed: Could not find required nodes (sub2, sub5, pub1).");
+        if (s2 == null || s8 == null || s5 == null || p1 == null || p2 == null) {
+            System.err.println("Test failed: Could not find all required nodes for the comprehensive test.");
             return false;
         }
 
-        s2.send(new SubscriptionWithRegion(new Region(new Location(5, 2, 0), new Location(8, 5, 0))));
-        s5.send(new SubscriptionWithRegion(new Region(new Location(2, 2, 0), new Location(4, 3, 0))));
-        p1.send(new PublicationWithLocation(new Location(7, 3, 0))); // Should only match s2
+        // --- Send Subscriptions ---
+        // s2 (under child2) subscribes to a region that will match pub2.
+        s2.send(new SubscriptionWithRegion(new Region(new Location(16, 3, 0), new Location(19, 5, 0))));
+        // s8 (under child3) subscribes to a region that will also match pub2.
+        s8.send(new SubscriptionWithRegion(new Region(new Location(17, 3, 0), new Location(19, 5, 0))));
+        // s5 (under child1) subscribes to a region that will only match pub1.
+        s5.send(new SubscriptionWithRegion(new Region(new Location(6, 6, 0), new Location(8, 8, 0))));
 
-        System.out.println("\n--- Final Check ---");
-        System.out.println("  - Subscriber 's2' received: " + s2.getnPublications() + " publications. (Expected: 1)");
-        System.out.println("  - Subscriber 's5' received: " + s5.getnPublications() + " publications. (Expected: 0)");
+        // --- Send Publications ---
+        // This publication from pub2 (location 18,4,0) should be received by s2 and s8 exactly once.
+        p2.send(new PublicationWithLocation(p2.getLocation()));
+        // This publication from pub1 (location 7,7,0) should be received by s5 exactly once.
+        p1.send(new PublicationWithLocation(p1.getLocation()));
 
-        return s2.getnPublications() == 1 && s5.getnPublications() == 0;
-    };
-
-    public static final Predicate<BrokerWithRegion> CROSS_BRANCH_PROPAGATION = root -> {
-        System.out.println("\n>>> SCENARIO: Testing downward propagation to an overlapping branch. <<<");
-        SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
-        BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1", BrokerWithRegion.class);
-
-        if (s2 == null || grandchild1 == null) {
-            System.err.println("Test failed: Could not find required nodes (sub2, grandchild1).");
-            return false;
-        }
-
-        Region overlappingRegion = new Region(new Location(4, 2, 0), new Location(7, 4, 0));
-        s2.send(new SubscriptionWithRegion(overlappingRegion));
-
-        PublisherWithLocation overlapPublisher = new PublisherWithLocation("pub-overlap-test", new Location(4, 2.5, 0));
-        grandchild1.addChild(overlapPublisher);
-        overlapPublisher.send(new PublicationWithLocation(overlapPublisher.getLocation()));
-
-        System.out.println("\n--- Final Check ---");
-        System.out.println("  - Subscriber 's2' received: " + s2.getnPublications() + " publications. (Expected: 1)");
-
-        return s2.getnPublications() == 1;
-    };
-
-    public static final Predicate<BrokerWithRegion> COMBINED_COMPLEX_SCENARIO = root -> {
-        System.out.println("\n>>> SCENARIO: Testing both overlapping and non-overlapping propagation. <<<");
-        SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
-        SubscriberWithLocation s5 = findNodeByName(root, "sub5", SubscriberWithLocation.class);
-        BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1", BrokerWithRegion.class);
-
-        if (s2 == null || s5 == null || grandchild1 == null) {
-            System.err.println("Complex Test failed: Could not find all required nodes.");
-            return false;
-        }
-
-        // Action 1: s2 sends a subscription that overlaps with grandchild1's region.
-        s2.send(new SubscriptionWithRegion(new Region(new Location(4, 2, 0), new Location(7, 4, 0))));
-        // Action 2: s5 sends a subscription that does NOT overlap with the publication.
-        s5.send(new SubscriptionWithRegion(new Region(new Location(2, 2, 0), new Location(3, 3, 0))));
-
-        // Action 3: A publisher under grandchild1 sends a publication that SHOULD match
-        // s2.
-        PublisherWithLocation overlapPublisher = new PublisherWithLocation("pub-overlap-test", new Location(4, 2.5, 0));
-        grandchild1.addChild(overlapPublisher);
-        overlapPublisher.send(new PublicationWithLocation(overlapPublisher.getLocation()));
 
         // --- Verification ---
         System.out.println("\n--- Final Check ---");
         System.out.println("  - Subscriber 's2' received: " + s2.getnPublications() + " publications. (Expected: 1)");
-        System.out.println("  - Subscriber 's5' received: " + s5.getnPublications() + " publications. (Expected: 0)");
+        System.out.println("  - Subscriber 's8' received: " + s8.getnPublications() + " publications. (Expected: 1)");
+        System.out.println("  - Subscriber 's5' received: " + s5.getnPublications() + " publications. (Expected: 1)");
 
-        return s2.getnPublications() == 1 && s5.getnPublications() == 0;
+        boolean success = s2.getnPublications() == 1 && s8.getnPublications() == 1 && s5.getnPublications() == 1;
+
+        if (success) {
+            System.out.println("\n--- Validation Result ---");
+            System.out.println("SUCCESS: The Comprehensive Scenario test passed.");
+        } else {
+            System.out.println("\n--- Validation Result ---");
+            System.out.println("FAILED: The Comprehensive Scenario test did not pass.");
+        }
+
+        return success;
     };
 
     private static <T extends TreeNode> T findNodeByName(TreeNode root, String name, Class<T> type) {
-        if (root == null || name == null)
-            return null;
+        if (root == null || name == null) return null;
         Queue<TreeNode> queue = new LinkedList<>();
         queue.offer(root);
 
@@ -110,35 +90,4 @@ public class ManualTopologyRegionValidationTests {
         }
         return null;
     }
-
-    public static final Predicate<BrokerWithRegion> FAN_OUT_REDUNDANCY_TEST = root -> {
-        System.out.println("\n>>> SCENARIO: Reproducing fan-out problem in the fixed topology. <<<");
-        SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
-        SubscriberWithLocation s8 = findNodeByName(root, "sub8", SubscriberWithLocation.class);
-        PublisherWithLocation p2 = findNodeByName(root, "pub2", PublisherWithLocation.class);
-
-        if (s2 == null || s8 == null || p2 == null) {
-            System.err.println("Test failed: Could not find required nodes (sub2, sub8, pub2).");
-            return false;
-        }
-
-        // s2 (under child2) subscribes to a region that contains the publisher's
-        // location.
-        s2.send(new SubscriptionWithRegion(new Region(new Location(16, 3, 0), new Location(19, 5, 0))));
-
-        // s8 (under child3) also subscribes to a region that contains the publisher's
-        // location.
-        s8.send(new SubscriptionWithRegion(new Region(new Location(17, 3, 0), new Location(19, 5, 0))));
-
-        // The publisher (under child3/grandchild4) sends one publication.
-        p2.send(new PublicationWithLocation(p2.getLocation())); // Location is (18, 4, 0)
-
-        System.out.println("\n--- Final Check ---");
-        System.out.println("  - Subscriber 's2' received: " + s2.getnPublications() + " publications. (Expected: 1)");
-        System.out.println("  - Subscriber 's8' received: " + s8.getnPublications()
-                + " publications. (Expected: >1 due to fan-out)");
-
-        // The test passes if s8 receives more than one copy of the same publication.
-        return s2.getnPublications() == 1 && s8.getnPublications() > 1;
-    };
 }

@@ -27,7 +27,6 @@ public class PublisherWithLocation extends TreeNode {
         
         // Set both the immediate source and the original source
         p.setSource(this);
-        p.setOriginalSource(this);
         
         if (broker != null) {
             System.out.println();
