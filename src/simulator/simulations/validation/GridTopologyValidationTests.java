@@ -7,66 +7,73 @@ import simulator.Location;
 import simulator.PublicationWithLocation;
 import simulator.PublisherWithLocation;
 import simulator.SubscriberWithLocation;
-import simulator.SubscriptionWithLocation;
 import simulator.TreeNode;
 import simulator.regions.BrokerWithRegion;
+import simulator.regions.Region;
+import simulator.regions.SubscriptionWithRegion;
 
 /**
- * A utility class containing static validation tests specifically for Grid Topologies.
+ * A utility class containing static validation tests specifically for Grid Topologies
+ * using region-based processing brokers.
  */
 public class GridTopologyValidationTests {
 
     /**
-     * A basic sanity check for grid topologies. It places a publisher and subscriber
-     * at the same location on a leaf broker and verifies the publication is received.
+     * A validation test for a grid topology that checks if a publication
+     * sent from one corner of the grid is correctly received by a subscriber
+     * in the opposite corner. This validates the propagation of messages
+     * across the entire broker hierarchy.
      */
-    public static final Predicate<BrokerWithRegion> GUARANTEED_MATCH = root -> {
-        System.out.println("\n>>> SCENARIO: Testing guaranteed match on a grid topology leaf. <<<");
-        BrokerWithRegion leaf = findFirstLeafBroker(root);
-        if (leaf == null) {
-            System.err.println("Test failed: No leaf broker found in the topology.");
-            return false;
-        }
-        
-        Location testLocation = leaf.getRegion().getBottomLeft();
-        if (testLocation == null) {
-            System.err.println("Test failed: Leaf broker's region has no valid location.");
+    public static final Predicate<BrokerWithRegion> GRID_CROSS_CORNER_PROPAGATION = root -> {
+        System.out.println("\n>>> SCENARIO: Running Grid Topology Cross-Corner Propagation Test. <<<");
+
+        // --- Find corner nodes ---
+        // This test assumes a 3x3 grid, as configured in the main runner.
+        SubscriberWithLocation subscriber = findNodeByName(root, "sub-0-0-0", SubscriberWithLocation.class);
+        PublisherWithLocation publisher = findNodeByName(root, "pub-2-2-0", PublisherWithLocation.class);
+
+        if (subscriber == null || publisher == null) {
+            System.err.println("Test failed: Could not find required corner nodes (sub-0-0-0, pub-2-2-0). This test requires a 3x3 grid.");
             return false;
         }
 
-        SubscriberWithLocation subscriber = new SubscriberWithLocation("Sub-Test", testLocation);
-        leaf.addChild(subscriber);
-        subscriber.send(new SubscriptionWithLocation(subscriber.getLocation()));
+        // --- Send Subscription ---
+        // Subscriber at (0,0) subscribes to a region that specifically includes the publisher's location.
+        Location publisherLocation = publisher.getLocation();
+        subscriber.send(new SubscriptionWithRegion(new Region(publisherLocation, publisherLocation)));
 
-        PublisherWithLocation publisher = new PublisherWithLocation("Pub-Test", testLocation);
-        leaf.addChild(publisher);
+        // --- Send Publication ---
         publisher.send(new PublicationWithLocation(publisher.getLocation()));
 
+        // --- Verification ---
         System.out.println("\n--- Final Check ---");
-        System.out.println("  - Subscriber 'Sub-Test' received: " + subscriber.getnPublications() + " publications. (Expected: 1)");
+        System.out.println("  - Subscriber 'sub-0-0-0' received: " + subscriber.getnPublications() + " publications. (Expected: 1)");
 
-        return subscriber.getnPublications() == 1;
+        boolean success = subscriber.getnPublications() == 1;
+
+        if (success) {
+            System.out.println("\n--- Validation Result ---");
+            System.out.println("SUCCESS: The Grid Cross-Corner Propagation test passed.");
+        } else {
+            System.out.println("\n--- Validation Result ---");
+            System.out.println("FAILED: The Grid Cross-Corner Propagation test did not pass.");
+        }
+
+        return success;
     };
 
-    // --- Helper method to find the first leaf broker in a topology ---
-    private static BrokerWithRegion findFirstLeafBroker(TreeNode root) {
-        if (root == null) return null;
+    /**
+     * Helper method to find a node by its name within the topology tree.
+     */
+    private static <T extends TreeNode> T findNodeByName(TreeNode root, String name, Class<T> type) {
+        if (root == null || name == null) return null;
         Queue<TreeNode> queue = new LinkedList<>();
         queue.offer(root);
 
         while (!queue.isEmpty()) {
             TreeNode current = queue.poll();
-            if (current instanceof BrokerWithRegion) {
-                boolean hasBrokerChild = false;
-                for (TreeNode child : current.getChildren()) {
-                    if (child instanceof BrokerWithRegion) {
-                        hasBrokerChild = true;
-                        break;
-                    }
-                }
-                if (!hasBrokerChild) {
-                    return (BrokerWithRegion) current;
-                }
+            if (type.isInstance(current) && name.equals(current.getName())) {
+                return type.cast(current);
             }
             if (current.getChildren() != null) {
                 queue.addAll(current.getChildren());

@@ -70,10 +70,7 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
         }
     }
 
-    /**
-     * This is the main fix. The addChild method in BrokerWithRegion will now
-     * correctly trigger the bottom-up region calculation and propagation.
-     */
+
     @Override
     protected void attachSubscribers(BrokerWithRegion root) {
         for (int i = 0; i < allLeafBrokers.size(); i++) {
@@ -82,7 +79,6 @@ public class RegionProcessingRandomTopologyGenerator extends AbstractTopologyFac
             for (int j = 0; j < config.getSubscribersPerLeafNode(); j++) {
                 Location subLocation = generateLocationInRegion(regionDef);
                 SubscriberWithLocation subscriber = new SubscriberWithLocation(generateSubscriberName(), subLocation);
-                // Calling addChild will now correctly trigger the updateRegion logic.
                 leafBroker.addChild(subscriber);
             }
         }

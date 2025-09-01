@@ -2,11 +2,14 @@ package simulator;
 
 import simulator.regions.BrokerWithRegion;
 import simulator.simulations.validation.ConfigurableValidationSimulation;
+import simulator.simulations.validation.GridTopologyValidationTests;
 import simulator.simulations.validation.ManualTopologyRegionValidationTests;
 import simulator.simulations.validation.RandomTopologyValidationTests;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
+import simulator.topology.grid.GridTopologyConfiguration;
+import simulator.topology.grid.GridTopologyGenerator;
 import simulator.topology.random.RegionProcessingRandomTopologyGenerator;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
 
@@ -16,9 +19,10 @@ import simulator.topology.random.RegionRandomTopologyConfiguration;
 public class RegionBasedSimulationsMain {
 
     public static void main(String[] args) {
-        // --- Run the primary validation tests ---
+        // --- Run all validation tests ---
         runManualTopologyComprehensiveTest();
         runRandomTopologySanityCheck();
+        runGridTopologyTest();
     }
     
     /**
@@ -46,6 +50,24 @@ public class RegionBasedSimulationsMain {
         RegionProcessingRandomTopologyGenerator factory = new RegionProcessingRandomTopologyGenerator(new RegionBrokerFactory());
         ConfigurableValidationSimulation<RegionRandomTopologyConfiguration, BrokerWithRegion, RegionProcessingRandomTopologyGenerator> validation =
             new ConfigurableValidationSimulation<>(RandomTopologyValidationTests.RANDOM_TOPOLOGY_SANITY_CHECK, "Random Topology Sanity Check");
+        validation.run(factory, config);
+    }
+
+    /**
+     * Runs a validation test on a 3x3 grid topology.
+     */
+    public static void runGridTopologyTest() {
+        System.out.println("===============================================================");
+        System.out.println("  RUNNING (Validation): Grid Topology - Cross-Corner Test (Region)");
+        System.out.println("===============================================================");
+        
+        // This creates a 3x3 grid of leaf brokers with a tree depth of 3.
+        GridTopologyConfiguration config = new GridTopologyConfiguration(3, 0.0, 3);
+        GridTopologyGenerator factory = new GridTopologyGenerator(new RegionBrokerFactory());
+        
+        ConfigurableValidationSimulation<GridTopologyConfiguration, BrokerWithRegion, GridTopologyGenerator> validation =
+            new ConfigurableValidationSimulation<>(GridTopologyValidationTests.GRID_CROSS_CORNER_PROPAGATION, "Grid Cross-Corner Test");
+            
         validation.run(factory, config);
     }
 }

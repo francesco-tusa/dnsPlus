@@ -20,7 +20,6 @@ public class LocationBasedSimulationsMain {
     public static void main(String[] args) {
         // --- Run all validation tests for LOCATION-based brokers ---
         runManualTopologySanityCheck();
-        runGridGuaranteedMatchValidation();
 
         // --- Run performance tests for LOCATION-based brokers ---
         // runGridLocationPerformance();
@@ -47,17 +46,6 @@ public class LocationBasedSimulationsMain {
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new LocationBrokerFactory());
         ConfigurableValidationSimulation<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
             new ConfigurableValidationSimulation<>(ManualTopologyLocationValidationTests.SANITY_CHECK, "Manual Topology Sanity Check (Location)");
-        validation.run(factory, config);
-    }
-
-    public static void runGridGuaranteedMatchValidation() {
-        System.out.println("===========================================================");
-        System.out.println("  RUNNING (Validation): Grid Topology - Guaranteed Match (Location)");
-        System.out.println("===========================================================");
-        GridTopologyConfiguration config = new GridTopologyConfiguration(3, 0.1, 3);
-        GridTopologyGenerator factory = new GridTopologyGenerator(new LocationBrokerFactory());
-        ConfigurableValidationSimulation<GridTopologyConfiguration, BrokerWithRegion, GridTopologyGenerator> validation =
-            new ConfigurableValidationSimulation<>(GridTopologyValidationTests.GUARANTEED_MATCH, "Guaranteed Match Test");
         validation.run(factory, config);
     }
 }

@@ -299,6 +299,24 @@ public class Region extends BaseRegion {
         return updated;
     }
 
+    /**
+     * Generates a random location within the bounds of this region.
+     * Note: This is a simplified implementation for non-wrapping regions.
+     * @return A new Location object with random coordinates within the region.
+     */
+    public Location getRandomLocation() {
+        if (bottomLeft == null || topRight == null) {
+            // Return a default or handle as an error, depending on requirements.
+            return new Location(0, 0, 0); 
+        }
+
+        // Uses the correct getX(), getY(), getZ() methods from your Location class.
+        double lon = bottomLeft.getX() + (topRight.getX() - bottomLeft.getX()) * Math.random();
+        double lat = bottomLeft.getY() + (topRight.getY() - bottomLeft.getY()) * Math.random();
+        double alt = bottomLeft.getZ() + (topRight.getZ() - bottomLeft.getZ()) * Math.random();
+        
+        return new Location(lon, lat, alt);
+    }
 
     /**
      * Provides a string representation, indicating if the region wraps longitudinally.
