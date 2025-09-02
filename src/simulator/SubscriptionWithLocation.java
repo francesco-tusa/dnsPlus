@@ -20,13 +20,6 @@ public class SubscriptionWithLocation extends SimulationSubscription {
     }
 
     @Override
-    public SimulationSubscription getSubscription() {
-        SubscriptionWithLocation copy = new SubscriptionWithLocation(this.location);
-        copy.setSource(this.getSource());
-        return copy;
-    }
-
-    @Override
     public String toString() {
         return "location=" + location;
     }

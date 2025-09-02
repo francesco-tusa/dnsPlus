@@ -29,13 +29,13 @@ public class SubscriptionWithRegion extends SimulationSubscription {
         return region;
     }
 
-    /**
-     * Correctly overrides the superclass method to create a full copy of this subscription.
-     */
     @Override
     public SimulationSubscription getSubscription() {
         SubscriptionWithRegion copy = new SubscriptionWithRegion(this.region);
         copy.setSource(this.getSource());
+        for (String node : this.getPath()) {
+            copy.addToPath(node);
+        }
         return copy;
     }
 

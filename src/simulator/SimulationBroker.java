@@ -16,15 +16,12 @@ public abstract class SimulationBroker extends TreeNode {
     public abstract SimulationSubscription matchPublication(SimulationPublication p);
 
     public void processPublication(SimulationPublication p) {
-        // --- Generic Visualisation Hook for Heat Map ---
         TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
         if (visualizer != null) {
-            // Permanently set the edge to red to indicate it was used by a publication
             visualizer.setPublicationEdge(p.getSource().getName(), getName());
         }
-        // --- End Visualisation Hook ---
 
-        matchPublication(p); // Call the subclass-specific matching logic
+        matchPublication(p);
     }
 
     public void processSubscription(SimulationSubscription s) {
