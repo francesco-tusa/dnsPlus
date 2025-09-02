@@ -24,6 +24,23 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
         System.out.println(getName() + ": processing a subscription received from " + s.getSource().getName());
         addSubscription(s);
 
+        if (s instanceof SubscriptionWithRegion) {
+            SubscriptionWithRegion newSub = (SubscriptionWithRegion) s;
+            // Check for covering
+            for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
+                // We only check against subscriptions that have already been propagated from other children
+                if (entry.getKey() != getParentBroker() && entry.getKey() != s.getSource() && entry.getValue() instanceof SubscriptionWithRegion) {
+                    SubscriptionWithRegion existingSub = (SubscriptionWithRegion) entry.getValue();
+                    if (existingSub.getRegion().contains(newSub.getRegion())) {
+                        // This is the added log message for when a subscription is filtered
+                        System.out.println(getName() + ": Filtering subscription from " + s.getSource().getName() + ". Reason: Covered by existing subscription from " + entry.getKey().getName() + ".");
+                        return; // Stop propagation
+                    }
+                }
+            }
+        }
+
+
         // The visualiser hook is now called automatically by the superclass method
         if (s.getSource() == getParentBroker()) {
             sendSubscriptionToChildren(s);
@@ -67,7 +84,7 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
                         if (visualizer != null) {
                             visualizer.updateSubscriptionEdge(getName(), childBroker.getName());
                         }
-                                                
+
                         SubscriptionWithRegion subscriptionToSend = new SubscriptionWithRegion(newSub.getRegion());
                         subscriptionToSend.setSource(this);
                         childBroker.processSubscription(subscriptionToSend);

@@ -74,6 +74,53 @@ public class ManualTopologyRegionValidationTests {
         return success;
     };
 
+    /**
+     * Validates that subscription "covering" prevents redundant propagation. The test confirms
+     * that filtering happens at the first common ancestor broker, preventing the unnecessary
+     * subscription from continuing up the hierarchy.
+     */
+    public static final Predicate<BrokerWithRegion> SUBSCRIPTION_COVERING_SCENARIO = root -> {
+        System.out.println("\n>>> SCENARIO: Running Subscription Covering Test. <<<");
+
+        // --- Find required nodes ---
+        SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class); // Under grandchild2
+        SubscriberWithLocation s3 = findNodeByName(root, "sub3", SubscriberWithLocation.class); // Under grandchild3
+
+        if (s2 == null || s3 == null) {
+            System.err.println("Test failed: Could not find required subscribers (s2, s3).");
+            return false;
+        }
+
+        // --- Send Subscriptions ---
+        // 1. s2 sends a large subscription. It propagates grandchild2 -> child2 -> root.
+        System.out.println("s2 (under grandchild2) sends a large subscription for region [0,0] to [20,20].");
+        s2.send(new SubscriptionWithRegion(new Region(new Location(0, 0, 0), new Location(20, 20, 0))));
+
+        // 2. s3 sends a smaller, covered subscription. It should propagate grandchild3 -> child2, and STOP.
+        System.out.println("s3 (under grandchild3) sends a small, covered subscription for region [5,5] to [10,10].");
+        s3.send(new SubscriptionWithRegion(new Region(new Location(5, 5, 0), new Location(10, 10, 0))));
+
+        // --- Verification ---
+        System.out.println("\n--- Final Check ---");
+        // The root broker should only have ONE subscription: the original large one from the child2 branch.
+        // The subscription from the child3 branch (via s3) should have been filtered at child2.
+        int rootSubscriptionCount = root.getSubscriptionsTable().size();
+        System.out.println("  - Root broker's subscription table size: " + rootSubscriptionCount + " (Expected: 1)");
+
+        boolean success = (rootSubscriptionCount == 1);
+
+        if (success) {
+            System.out.println("\n--- Validation Result ---");
+            System.out.println("SUCCESS: The Subscription Covering test passed. Redundant subscription was correctly filtered before reaching the root.");
+        } else {
+            System.out.println("\n--- Validation Result ---");
+            System.out.println("FAILED: The Subscription Covering test did not pass.");
+        }
+
+        return success;
+    };
+
+
     private static <T extends TreeNode> T findNodeByName(TreeNode root, String name, Class<T> type) {
         if (root == null || name == null) return null;
         Queue<TreeNode> queue = new LinkedList<>();

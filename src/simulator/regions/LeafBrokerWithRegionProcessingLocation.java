@@ -6,41 +6,69 @@ import simulator.SimulationPublication;
 import simulator.SimulationSubscription;
 import simulator.SubscriberWithLocation;
 import simulator.TreeNode;
+import simulator.SubscriptionWithLocation;
 
 /**
  * A leaf broker that uses location-based routing. It receives publications from
  * its parent and delivers them to its directly connected subscribers.
  */
-public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProcessingLocation {
+public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProcessingLocation implements LeafBroker {
 
     public LeafBrokerWithRegionProcessingLocation(String name) {
         super(name);
     }
-    
+
     public LeafBrokerWithRegionProcessingLocation(String name, Location p1, Location p2) {
         super(name, p1, p2);
     }
-    
-    /**
-     * Correctly overrides the parent method. The logic for a leaf broker is to
-     * deliver the publication to its subscribers, not to propagate it further down.
-     */
+
     @Override
-    protected void processPublicationDownward(PublicationWithLocation pub) {
+    public SimulationSubscription matchPublication(SimulationPublication p) {
+        System.out.println(getName() + ": processing a publication received from " + p.getSource().getName());
+
+        if (p.getSource() != getParentBroker()) {
+            propagatePublicationUpward(p);
+        }
+
+        processPublicationForLocalDelivery(p);
+        
+        return null;
+    }
+
+    private void propagatePublicationUpward(SimulationPublication p) {
+        BrokerWithRegion parentBroker = getParentBroker();
+        if (parentBroker != null) {
+            System.out.println(getName() + ": forwarding publication to parent " + parentBroker.getName());
+            SimulationPublication forwardedCopy = p.getPublication();
+            forwardedCopy.setSource(this);
+            parentBroker.processPublication(forwardedCopy);
+        }
+    }
+    
+    @Override
+    public void processPublicationForLocalDelivery(SimulationPublication p) {
         System.out.println(getName() + ": Processing publication for delivery to subscribers.");
-        for (TreeNode child : getChildren()) {
-            if (child instanceof SubscriberWithLocation subscriber) {
-                // This is the check that was missing before.
-                // It ensures the publication location is within the subscriber's region of interest.
-                SimulationSubscription sub = getSubscriptionsTable().get(subscriber);
-                if (sub instanceof SubscriptionWithRegion subRegion) {
-                    if (subRegion.getRegion().contains(pub.getLocation())) {
-                        System.out.println(getName() + ": Delivering publication to subscriber " + subscriber.getName());
-                        subscriber.receive(pub);
-                    } else {
-                        System.out.println(getName() + ": Publication does NOT match subscription for " + subscriber.getName() + ". Filtering.");
-                    }
+        if (p instanceof PublicationWithLocation pub) {
+            for (TreeNode child : getChildren()) {
+                if (child instanceof SubscriberWithLocation subscriber) {
+                    PublicationWithLocation finalCopy = (PublicationWithLocation) pub.getPublication();
+                    finalCopy.setSource(this);
+                    deliverToSubscriber(subscriber, finalCopy);
                 }
+            }
+        }
+    }
+
+    private void deliverToSubscriber(SubscriberWithLocation subscriber, PublicationWithLocation pub) {
+        SimulationSubscription sub = getSubscriptionsTable().get(subscriber);
+        if (sub instanceof SubscriptionWithLocation) {
+            PublicationWithLocation lastPub = subscriber.getLastReceivedPublication();
+            if (lastPub == null ||
+                distanceSquared(pub.getLocation(), subscriber.getLocation()) < distanceSquared(lastPub.getLocation(), subscriber.getLocation())) {
+                System.out.println(getName() + ": Delivering publication to subscriber " + subscriber.getName() + " as it is an improvement.");
+                subscriber.receive(pub);
+            } else {
+                System.out.println(getName() + ": Publication is not an improvement for " + subscriber.getName() + ". Filtering.");
             }
         }
     }

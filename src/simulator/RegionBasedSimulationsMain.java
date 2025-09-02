@@ -2,9 +2,9 @@ package simulator;
 
 import simulator.regions.BrokerWithRegion;
 import simulator.simulations.validation.ConfigurableValidationSimulation;
-import simulator.simulations.validation.GridTopologyValidationTests;
+import simulator.simulations.validation.GridTopologyRegionValidationTests;
 import simulator.simulations.validation.ManualTopologyRegionValidationTests;
-import simulator.simulations.validation.RandomTopologyValidationTests;
+import simulator.simulations.validation.RandomTopologyRegionValidationTests;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
@@ -19,12 +19,13 @@ import simulator.topology.random.RegionRandomTopologyConfiguration;
 public class RegionBasedSimulationsMain {
 
     public static void main(String[] args) {
-        // --- Run all validation tests ---
-        //runManualTopologyComprehensiveTest();
+        // --- Run validation tests ---
+        runManualTopologyComprehensiveTest();
+        //runSubscriptionCoveringTest();
         //runRandomTopologySanityCheck();
-        runGridTopologyTest();
+        //runGridTopologyTest();
     }
-    
+
     /**
      * Runs the comprehensive validation test for the manually defined fixed topology.
      */
@@ -40,6 +41,20 @@ public class RegionBasedSimulationsMain {
     }
 
     /**
+     * Runs the validation test for the subscription covering feature.
+     */
+    public static void runSubscriptionCoveringTest() {
+        System.out.println("===============================================================");
+        System.out.println("  RUNNING (Validation): Manual Topology - Subscription Covering Test");
+        System.out.println("===============================================================");
+        FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
+        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
+        ConfigurableValidationSimulation<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
+            new ConfigurableValidationSimulation<>(ManualTopologyRegionValidationTests.SUBSCRIPTION_COVERING_SCENARIO, "Subscription Covering Test");
+        validation.run(factory, config);
+    }
+
+    /**
      * Runs a sanity check on a randomly generated topology.
      */
     public static void runRandomTopologySanityCheck() {
@@ -49,7 +64,7 @@ public class RegionBasedSimulationsMain {
         RegionRandomTopologyConfiguration config = new RegionRandomTopologyConfiguration(3, 4, 4, 3, 2);
         RegionProcessingRandomTopologyGenerator factory = new RegionProcessingRandomTopologyGenerator(new RegionBrokerFactory());
         ConfigurableValidationSimulation<RegionRandomTopologyConfiguration, BrokerWithRegion, RegionProcessingRandomTopologyGenerator> validation =
-            new ConfigurableValidationSimulation<>(RandomTopologyValidationTests.RANDOM_TOPOLOGY_SANITY_CHECK, "Random Topology Sanity Check");
+            new ConfigurableValidationSimulation<>(RandomTopologyRegionValidationTests.RANDOM_TOPOLOGY_SANITY_CHECK, "Random Topology Sanity Check");
         validation.run(factory, config);
     }
 
@@ -66,7 +81,7 @@ public class RegionBasedSimulationsMain {
         GridTopologyGenerator factory = new GridTopologyGenerator(new RegionBrokerFactory());
         
         ConfigurableValidationSimulation<GridTopologyConfiguration, BrokerWithRegion, GridTopologyGenerator> validation =
-            new ConfigurableValidationSimulation<>(GridTopologyValidationTests.GRID_CROSS_CORNER_PROPAGATION, "Grid Cross-Corner Test");
+            new ConfigurableValidationSimulation<>(GridTopologyRegionValidationTests.GRID_CROSS_CORNER_PROPAGATION, "Grid Cross-Corner Test");
             
         validation.run(factory, config);
     }

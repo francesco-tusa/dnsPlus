@@ -16,7 +16,7 @@ import simulator.regions.SubscriptionWithRegion;
  * A utility class containing static validation tests specifically for Grid Topologies
  * using region-based processing brokers.
  */
-public class GridTopologyValidationTests {
+public class GridTopologyRegionValidationTests {
 
     /**
      * A validation test for a grid topology that checks if a publication

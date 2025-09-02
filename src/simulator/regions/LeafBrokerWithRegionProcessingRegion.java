@@ -8,7 +8,7 @@ import simulator.SimulationSubscription;
 import simulator.SubscriberWithLocation;
 import simulator.TreeNode;
 
-public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProcessingRegion {
+public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProcessingRegion implements LeafBroker {
 
     public LeafBrokerWithRegionProcessingRegion(String name) {
         super(name);
@@ -54,7 +54,8 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
         }
     }
     
-    protected void processPublicationForLocalDelivery(SimulationPublication p) {
+    @Override
+    public void processPublicationForLocalDelivery(SimulationPublication p) {
         for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
             TreeNode nextNode = entry.getKey();
             if (nextNode instanceof SubscriberWithLocation) {

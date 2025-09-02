@@ -15,7 +15,7 @@ import simulator.regions.SubscriptionWithRegion;
 /**
  * A utility class containing static validation tests specifically for Random Topologies.
  */
-public class RandomTopologyValidationTests {
+public class RandomTopologyRegionValidationTests {
 
     /**
      * A basic sanity check for a randomly generated topology. It ensures that if a
