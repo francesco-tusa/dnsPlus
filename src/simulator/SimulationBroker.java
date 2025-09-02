@@ -3,10 +3,8 @@ package simulator;
 import java.util.HashMap;
 import java.util.Map;
 import simulator.regions.BrokerWithRegion;
+import simulator.visualisation.TopologyVisualiser;
 
-/**
- * Represents a generic broker in the simulation.
- */
 public abstract class SimulationBroker extends TreeNode {
 
     private final Map<TreeNode, SimulationSubscription> subscriptionsTable = new HashMap<>();
@@ -15,29 +13,20 @@ public abstract class SimulationBroker extends TreeNode {
         super(name);
     }
 
-    /**
-     * Retrieves the parent of this broker, if it is also a broker.
-     * @return The parent as a BrokerWithRegion, or null if there is no parent or it's not a broker.
-     */
-    public BrokerWithRegion getParentBroker() {
-        TreeNode parent = getParent();
-        if (parent instanceof BrokerWithRegion) {
-            return (BrokerWithRegion) parent;
-        }
-        return null;
-    }
-
     public abstract SimulationSubscription matchPublication(SimulationPublication p);
 
     public void processPublication(SimulationPublication p) {
-        matchPublication(p);
+        // --- Generic Visualisation Hook for Heat Map ---
+        TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
+        if (visualizer != null) {
+            // Permanently set the edge to red to indicate it was used by a publication
+            visualizer.setPublicationEdge(p.getSource().getName(), getName());
+        }
+        // --- End Visualisation Hook ---
+
+        matchPublication(p); // Call the subclass-specific matching logic
     }
 
-    /**
-     * Propagates a subscription upwards to the parent broker.
-     * This method's sole responsibility is upward propagation. The subclass is
-     * responsible for adding the subscription to its own table first.
-     */
     public void processSubscription(SimulationSubscription s) {
         BrokerWithRegion parent = getParentBroker();
         if (parent != null) {
@@ -47,10 +36,6 @@ public abstract class SimulationBroker extends TreeNode {
         }
     }
 
-    /**
-     * Adds a subscription to this broker's local table.
-     * This is final to ensure consistent, non-recursive behavior.
-     */
     public final void addSubscription(SimulationSubscription s) {
         subscriptionsTable.put(s.getSource(), s);
     }
@@ -70,10 +55,17 @@ public abstract class SimulationBroker extends TreeNode {
         System.out.println("==============================");
     }
 
+    // Unchanged getters
+    public BrokerWithRegion getParentBroker() {
+        TreeNode parent = getParent();
+        if (parent instanceof BrokerWithRegion) {
+            return (BrokerWithRegion) parent;
+        }
+        return null;
+    }
     public Map<TreeNode, SimulationSubscription> getSubscriptionsTable() {
         return subscriptionsTable;
     }
-
     public int getnSubscriptions() {
         return getSubscriptionsTable().size();
     }

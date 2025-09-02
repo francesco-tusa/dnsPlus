@@ -8,16 +8,20 @@ public class TreeNode {
     private String name;
     private TreeNode parent;
     private List<TreeNode> children;
-
+    private int nodeLevel; // Re-added for deterministic visualisation layout
 
     public TreeNode(String name) {
         this.name = name;
         this.children = new ArrayList<>();
+        this.parent = null;
+        this.nodeLevel = 0; // Root is at level 0
     }
 
     public TreeNode(TreeNode node) {
         this.name = node.name;
         this.children = new ArrayList<>();
+        this.parent = node.parent;
+        this.nodeLevel = node.nodeLevel;
     }
 
     public String getName() {
@@ -32,8 +36,13 @@ public class TreeNode {
         return children;
     }
     
+    public int getNodeLevel() {
+        return nodeLevel;
+    }
+
     public void addChild(TreeNode child) {
         child.parent = this;
+        child.nodeLevel = this.nodeLevel + 1; // Set level of child
         this.children.add(child);
     }
 

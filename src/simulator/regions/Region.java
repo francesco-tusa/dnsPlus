@@ -1,5 +1,9 @@
 package simulator.regions;
 
+import java.text.DecimalFormat;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import simulator.Location;
 
 /**
@@ -316,6 +320,23 @@ public class Region extends BaseRegion {
         double alt = bottomLeft.getZ() + (topRight.getZ() - bottomLeft.getZ()) * Math.random();
         
         return new Location(lon, lat, alt);
+    }
+
+    /**
+     * Provides a compact string representation of the region for display on the graph.
+     * @return A formatted string like "[x1,y1:x2,y2]".
+     */
+    @JsonIgnore
+    public String toShortString() {
+        if (bottomLeft == null || topRight == null) {
+            return "[]";
+        }
+        DecimalFormat df = new DecimalFormat("#.##");
+        return String.format("[%s,%s:%s,%s]", 
+                             df.format(bottomLeft.getX()), 
+                             df.format(bottomLeft.getY()), 
+                             df.format(topRight.getX()), 
+                             df.format(topRight.getY()));
     }
 
     /**

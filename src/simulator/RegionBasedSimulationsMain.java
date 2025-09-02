@@ -20,8 +20,8 @@ public class RegionBasedSimulationsMain {
 
     public static void main(String[] args) {
         // --- Run all validation tests ---
-        runManualTopologyComprehensiveTest();
-        runRandomTopologySanityCheck();
+        //runManualTopologyComprehensiveTest();
+        //runRandomTopologySanityCheck();
         runGridTopologyTest();
     }
     

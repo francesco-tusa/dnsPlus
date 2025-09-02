@@ -9,34 +9,29 @@ public class PublisherWithLocation extends TreeNode {
         this.location = location;
         this.nPublications = 0;
     }
-
-    public Location getLocation() {
-        return location;
-    }
-
-    public int getnPublications() {
-        return nPublications;
-    }
-
-    public SimulationBroker getBroker() {
-        return (SimulationBroker) getParent();
-    }
     
     public void send(SimulationPublication p) {
         SimulationBroker broker = getBroker();
-        
-        // Set both the immediate source and the original source
         p.setSource(this);
         
         if (broker != null) {
-            System.out.println();
-            System.out.println(getName() + ": sending publication " + p + " to " + broker.getName());
+            String pubInfo = "";
+            if (p instanceof PublicationWithLocation) {
+                PublicationWithLocation pl = (PublicationWithLocation) p;
+                pubInfo = " for location " + pl.getLocation();
+            }
+            System.out.println("\n" + getName() + ": sending publication" + pubInfo);
+            
             broker.processPublication(p);
             nPublications++;
-        } 
-        
+        }
         else {
             System.out.println(getName() + ": there is no broker to send the publication to");
         }
     }
+    
+    // Unchanged getters
+    public Location getLocation() { return location; }
+    public int getnPublications() { return nPublications; }
+    public SimulationBroker getBroker() { return (SimulationBroker) getParent(); }
 }

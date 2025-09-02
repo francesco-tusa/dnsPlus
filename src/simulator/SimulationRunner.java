@@ -2,26 +2,17 @@ package simulator;
 
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.TopologyFactory;
+import simulator.visualisation.TopologyVisualiser;
 
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Queue;
-
-/**
- * Abstract base class for running simulations.
- *
- * @param <C> The specific type of TopologyConfiguration used.
- * @param <R> The specific type of the root TreeNode generated.
- * @param <F> The specific type of TopologyFactory used, which must be compatible with C and R.
- */
 public abstract class SimulationRunner<
     C extends TopologyConfiguration,
     R extends TreeNode,
-    F extends TopologyFactory<C, R>> { // Corrected generic bounds
+    F extends TopologyFactory<C, R>> {
 
     protected F topologyFactory;
     protected C topologyConfig;
     protected R rootNode;
+    protected TopologyVisualiser visualiser;
 
     public final void run(F factory, C config) {
         try {
@@ -39,12 +30,8 @@ public abstract class SimulationRunner<
 
     protected void initialise(F factory, C config) {
         System.out.println("--- Initialising Simulation Runner ---");
-        if (factory == null) {
-            throw new IllegalArgumentException("TopologyFactory cannot be null.");
-        }
-        if (config == null) {
-            throw new IllegalArgumentException("TopologyConfiguration cannot be null.");
-        }
+        if (factory == null) throw new IllegalArgumentException("TopologyFactory cannot be null.");
+        if (config == null) throw new IllegalArgumentException("TopologyConfiguration cannot be null.");
         this.topologyFactory = factory;
         this.topologyConfig = config;
         System.out.println("Using Factory: " + factory.getClass().getSimpleName());
@@ -54,7 +41,6 @@ public abstract class SimulationRunner<
     @SuppressWarnings("unchecked")
     protected void generateTopology() {
         System.out.println("\n--- Generating Topology ---");
-        // The cast is no longer needed because the factory is now strongly typed
         this.rootNode = topologyFactory.generateTopology(topologyConfig);
         if (this.rootNode == null) {
             throw new IllegalStateException("Topology generation failed to produce a root node.");
