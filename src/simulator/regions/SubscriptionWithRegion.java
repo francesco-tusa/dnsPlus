@@ -1,6 +1,6 @@
 package simulator.regions;
 
-import simulator.SimulationSubscription;
+import simulator.events.SimulationSubscription;
 
 /**
  * Represents a subscription to a geographical region.

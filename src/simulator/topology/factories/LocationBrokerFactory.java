@@ -1,6 +1,6 @@
 package simulator.topology.factories;
 
-import simulator.Location;
+import simulator.core.Location;
 import simulator.regions.BrokerWithRegion;
 import simulator.regions.BrokerWithRegionProcessingLocation;
 import simulator.regions.LeafBrokerWithRegionProcessingLocation;

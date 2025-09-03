@@ -1,6 +1,6 @@
 package simulator.topology;
 
-import simulator.TreeNode;
+import simulator.core.TreeNode;
 
 /**
  * A generic interface for a factory that generates a simulation topology.

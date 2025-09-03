@@ -1,12 +1,13 @@
 package simulator.regions;
 
 import java.util.Map;
-import simulator.Location;
-import simulator.PublicationWithLocation;
-import simulator.SimulationPublication;
-import simulator.SimulationSubscription;
-import simulator.SubscriberWithLocation;
-import simulator.TreeNode;
+
+import simulator.core.Location;
+import simulator.core.TreeNode;
+import simulator.entities.SubscriberWithLocation;
+import simulator.events.PublicationWithLocation;
+import simulator.events.SimulationPublication;
+import simulator.events.SimulationSubscription;
 
 public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProcessingRegion implements LeafBroker {
 

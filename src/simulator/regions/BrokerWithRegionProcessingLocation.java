@@ -2,13 +2,14 @@ package simulator.regions;
 
 import java.util.HashMap;
 import java.util.Map;
-import simulator.Location;
-import simulator.PublicationWithLocation;
-import simulator.SimulationPublication;
-import simulator.SimulationSubscription;
-import simulator.SubscriberWithLocation;
-import simulator.SubscriptionWithLocation;
-import simulator.TreeNode;
+
+import simulator.core.Location;
+import simulator.core.TreeNode;
+import simulator.entities.SubscriberWithLocation;
+import simulator.events.PublicationWithLocation;
+import simulator.events.SimulationPublication;
+import simulator.events.SimulationSubscription;
+import simulator.events.SubscriptionWithLocation;
 
 /**
  * A broker that implements location-based routing. It uses a cache of key points

@@ -1,11 +1,11 @@
 package simulator.regions;
 
-import simulator.Location;
-import simulator.SimulationBroker;
-import simulator.SimulationPublication;
-import simulator.SimulationSubscription;
-import simulator.SubscriberWithLocation;
-import simulator.TreeNode;
+import simulator.core.Location;
+import simulator.core.TreeNode;
+import simulator.entities.SimulationBroker;
+import simulator.entities.SubscriberWithLocation;
+import simulator.events.SimulationPublication;
+import simulator.events.SimulationSubscription;
 import simulator.visualisation.TopologyVisualiser;
 
 public abstract class BrokerWithRegion extends SimulationBroker {

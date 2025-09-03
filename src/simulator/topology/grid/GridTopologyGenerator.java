@@ -1,8 +1,8 @@
 package simulator.topology.grid;
 
-import simulator.Location;
-import simulator.PublisherWithLocation;
-import simulator.SubscriberWithLocation;
+import simulator.core.Location;
+import simulator.entities.PublisherWithLocation;
+import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BrokerWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;

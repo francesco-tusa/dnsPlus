@@ -4,7 +4,8 @@ import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.Edge;
 import org.graphstream.graph.implementations.SingleGraph;
-import simulator.TreeNode;
+
+import simulator.core.TreeNode;
 import simulator.regions.BrokerWithRegion;
 
 public class TopologyVisualiser {
@@ -53,9 +54,9 @@ public class TopologyVisualiser {
             }
             node.setAttribute("ui.label", label);
 
-            if (treeNode instanceof simulator.SubscriberWithLocation) {
+            if (treeNode instanceof simulator.entities.SubscriberWithLocation) {
                 node.setAttribute("ui.class", "subscriber");
-            } else if (treeNode instanceof simulator.PublisherWithLocation) {
+            } else if (treeNode instanceof simulator.entities.PublisherWithLocation) {
                 node.setAttribute("ui.class", "publisher");
             } else {
                 node.setAttribute("ui.class", "broker");

@@ -1,12 +1,12 @@
 package simulator.regions;
 
-import simulator.Location;
-import simulator.PublicationWithLocation;
-import simulator.SimulationPublication;
-import simulator.SimulationSubscription;
-import simulator.SubscriberWithLocation;
-import simulator.TreeNode;
-import simulator.SubscriptionWithLocation;
+import simulator.core.Location;
+import simulator.core.TreeNode;
+import simulator.entities.SubscriberWithLocation;
+import simulator.events.PublicationWithLocation;
+import simulator.events.SimulationPublication;
+import simulator.events.SimulationSubscription;
+import simulator.events.SubscriptionWithLocation;
 
 /**
  * A leaf broker that uses location-based routing. It receives publications from

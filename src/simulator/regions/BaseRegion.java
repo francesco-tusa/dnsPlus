@@ -1,11 +1,11 @@
 package simulator.regions;
 
-import simulator.Location;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+
+import simulator.core.Location;
 
 /**
  * Represents a basic rectangular region in 3D space defined by two corner Locations.

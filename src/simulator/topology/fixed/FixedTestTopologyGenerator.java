@@ -1,9 +1,9 @@
 package simulator.topology.fixed;
 
-import simulator.Location;
-import simulator.PublisherWithLocation;
-import simulator.SubscriberWithLocation;
-import simulator.TreeNode;
+import simulator.core.Location;
+import simulator.core.TreeNode;
+import simulator.entities.PublisherWithLocation;
+import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BrokerWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;

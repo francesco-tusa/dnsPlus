@@ -21,36 +21,34 @@ import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 
 /**
- * A generic and configurable class for running a service replication
- * performance simulation.
+ * An abstract base class for running performance simulations.
+ * It uses a TopologyPopulator to handle client setup.
+ *
+ * @param <C> The specific type of TopologyConfiguration.
+ * @param <F> The specific type of AbstractTopologyFactory.
  */
-public class ConfigurablePerformanceSimulation<C extends TopologyConfiguration, F extends AbstractTopologyFactory<C, BrokerWithRegion>>
-        extends SimulationRunner<C, BrokerWithRegion, F> {
+public abstract class AbstractPerformanceSimulation<
+    C extends TopologyConfiguration, 
+    F extends AbstractTopologyFactory<C, BrokerWithRegion>
+> extends SimulationRunner<C, BrokerWithRegion, F> {
 
-    // --- Simulation Parameters ---
-    private final long totalSubscribers;
-    private final int numberOfReplicas;
-    private final double subscriptionRegionSize;
-    private final double remoteInterestProbability;
-
-    // --- Data Collection ---
     protected final List<SubscriberWithLocation> allSubscribers = new ArrayList<>();
     protected final List<PublisherWithLocation> allPublishers = new ArrayList<>();
     protected final Random random = new Random();
 
-    public ConfigurablePerformanceSimulation(long totalSubscribers, int numberOfReplicas, double subscriptionRegionSize,
-            double remoteInterestProbability) {
-        this.totalSubscribers = totalSubscribers;
-        this.numberOfReplicas = numberOfReplicas;
-        this.subscriptionRegionSize = subscriptionRegionSize;
-        this.remoteInterestProbability = remoteInterestProbability;
-    }
+    // --- Abstract Methods for Subclasses ---
+    protected abstract long getTotalSubscribers();
+    protected abstract int getNumberOfReplicas();
+    protected abstract double getSubscriptionRegionSize();
+    protected abstract double getRemoteInterestProbability();
+    protected abstract SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers);
+
 
     @Override
     protected void setupSimulation() {
-        System.out.println("\n--- Populating World for Performance Simulation ---");
+        System.out.println("\n--- Populating Topology for Performance Simulation ---");
         if (this.rootNode == null) {
-            System.err.println("Cannot populate world: Root node is null.");
+            System.err.println("Cannot populate topology: Root node is null.");
             return;
         }
 
@@ -60,11 +58,13 @@ public class ConfigurablePerformanceSimulation<C extends TopologyConfiguration, 
             return;
         }
 
+        // Use the new TopologyPopulator with the correct constructor
         TopologyPopulator populater = new TopologyPopulator(
-                new ProportionalSubscribersPlacement(),
-                new HubPublishersPlacement());
-        populater.populate(this.rootNode, leafBrokers, totalSubscribers, numberOfReplicas);
-
+            new ProportionalSubscribersPlacement(),
+            new HubPublishersPlacement()
+        );
+        populater.populate(this.rootNode, leafBrokers, getTotalSubscribers(), getNumberOfReplicas());
+        
         collectClients(leafBrokers);
     }
 
@@ -83,7 +83,7 @@ public class ConfigurablePerformanceSimulation<C extends TopologyConfiguration, 
         }
 
         List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
-
+        
         System.out.println("\n>>> Phase 1: Subscribers are sending subscriptions... <<<");
         for (SubscriberWithLocation subscriber : allSubscribers) {
             SubscriptionWithRegion subscription = generateSubscriptionForSubscriber(subscriber, leafBrokers);
@@ -91,31 +91,11 @@ public class ConfigurablePerformanceSimulation<C extends TopologyConfiguration, 
         }
 
         System.out.println("\n>>> Phase 2: All service replicas are sending their publications... <<<");
-        for (PublisherWithLocation publisher : allPublishers) {
+        for(PublisherWithLocation publisher : allPublishers) {
             publisher.send(new simulator.events.PublicationWithLocation(publisher.getLocation()));
         }
-
+        
         collectAndPrintMetrics();
-    }
-
-    private SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber,
-            List<BrokerWithRegion> allLeafBrokers) {
-        Location centerOfInterest;
-
-        if (random.nextDouble() < remoteInterestProbability) {
-            BrokerWithRegion remoteBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
-            centerOfInterest = getRandomLocationInRegion(remoteBroker.getRegion());
-        } else {
-            centerOfInterest = subscriber.getLocation();
-        }
-
-        Region subscriptionRegion = new Region(
-                new Location(centerOfInterest.getX() - (subscriptionRegionSize / 2),
-                        centerOfInterest.getY() - (subscriptionRegionSize / 2), 0),
-                new Location(centerOfInterest.getX() + (subscriptionRegionSize / 2),
-                        centerOfInterest.getY() + (subscriptionRegionSize / 2), 0));
-
-        return new SubscriptionWithRegion(subscriptionRegion);
     }
 
     private void collectClients(List<BrokerWithRegion> leafBrokers) {
@@ -130,17 +110,20 @@ public class ConfigurablePerformanceSimulation<C extends TopologyConfiguration, 
                 }
             }
         }
-        System.out.println(
-                "Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
+        System.out.println("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
     }
-
+    
+    /**
+     * Finds all leaf brokers in the topology. A leaf is a broker with no other brokers as children.
+     * @param root The root node to start the search from.
+     * @return A list of leaf brokers.
+     */
     protected List<BrokerWithRegion> findLeafBrokers(BrokerWithRegion root) {
         List<BrokerWithRegion> leaves = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
-        if (root != null)
-            queue.add(root);
-
-        while (!queue.isEmpty()) {
+        if (root != null) queue.add(root);
+        
+        while(!queue.isEmpty()) {
             TreeNode current = queue.poll();
             if (current instanceof BrokerWithRegion) {
                 boolean hasBrokerChild = false;
@@ -154,12 +137,11 @@ public class ConfigurablePerformanceSimulation<C extends TopologyConfiguration, 
                     leaves.add((BrokerWithRegion) current);
                 }
             }
-            if (current.getChildren() != null)
-                queue.addAll(current.getChildren());
+            if (current.getChildren() != null) queue.addAll(current.getChildren());
         }
         return leaves;
     }
-
+    
     private void collectAndPrintMetrics() {
         System.out.println("\n--- Simulation Metrics ---");
         long totalSubscriptionMessages = 0, totalRegionUpdates = 0, totalSubscriptionTableEntries = 0;
@@ -167,49 +149,40 @@ public class ConfigurablePerformanceSimulation<C extends TopologyConfiguration, 
 
         List<SimulationBroker> allBrokers = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
-        if (this.rootNode != null)
-            queue.add(this.rootNode);
-
+        if (this.rootNode != null) queue.add(this.rootNode);
+        
         while (!queue.isEmpty()) {
             TreeNode current = queue.poll();
-            if (current instanceof SimulationBroker)
-                allBrokers.add((SimulationBroker) current);
-            if (current.getChildren() != null)
-                queue.addAll(current.getChildren());
+            if (current instanceof SimulationBroker) allBrokers.add((SimulationBroker) current);
+            if (current.getChildren() != null) queue.addAll(current.getChildren());
         }
 
         for (SimulationBroker broker : allBrokers) {
             totalSubscriptionMessages += broker.getnSubscriptions();
             totalSubscriptionTableEntries += broker.getSubscriptionsTable().size();
-            if (broker instanceof BrokerWithRegion)
-                totalRegionUpdates += ((BrokerWithRegion) broker).getNumOfRegionUpdates();
+            if (broker instanceof BrokerWithRegion) totalRegionUpdates += ((BrokerWithRegion) broker).getNumOfRegionUpdates();
         }
-        for (SubscriberWithLocation subscriber : allSubscribers)
-            successfulNotifications += subscriber.getnPublications();
-        for (PublisherWithLocation publisher : allPublishers)
-            totalPublicationsSent += publisher.getnPublications();
+        for (SubscriberWithLocation subscriber : allSubscribers) successfulNotifications += subscriber.getnPublications();
+        for (PublisherWithLocation publisher : allPublishers) totalPublicationsSent += publisher.getnPublications();
 
         System.out.println("--- System Overhead Metrics ---");
         System.out.println("Total Subscription Messages Processed by Brokers: " + totalSubscriptionMessages);
-        System.out.println(
-                "Total Subscription Table Entries Created (Propagation Cost): " + totalSubscriptionTableEntries);
+        System.out.println("Total Subscription Table Entries Created (Propagation Cost): " + totalSubscriptionTableEntries);
         System.out.println("Total Region Boundary Updates: " + totalRegionUpdates);
         System.out.println("\n--- Service Delivery Metrics ---");
         System.out.println("Total Publications Sent by all Replicas: " + totalPublicationsSent);
         System.out.println("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
-
-        if (totalSubscribers > 0) {
-            double matchRate = (double) successfulNotifications / totalSubscribers * 100.0;
+        
+        if (getTotalSubscribers() > 0) {
+            double matchRate = (double) successfulNotifications / getTotalSubscribers() * 100.0;
             System.out.printf("Subscriber Match Rate: %.2f%%\n", matchRate);
         }
     }
 
     protected Location getRandomLocationInRegion(Region region) {
         Random rand = new Random();
-        double x = region.getBottomLeft().getX()
-                + (region.getTopRight().getX() - region.getBottomLeft().getX()) * rand.nextDouble();
-        double y = region.getBottomLeft().getY()
-                + (region.getTopRight().getY() - region.getBottomLeft().getY()) * rand.nextDouble();
+        double x = region.getBottomLeft().getX() + (region.getTopRight().getX() - region.getBottomLeft().getX()) * rand.nextDouble();
+        double y = region.getBottomLeft().getY() + (region.getTopRight().getY() - region.getBottomLeft().getY()) * rand.nextDouble();
         return new Location(x, y, 0);
     }
 }

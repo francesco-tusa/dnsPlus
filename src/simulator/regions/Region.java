@@ -4,7 +4,7 @@ import java.text.DecimalFormat;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-import simulator.Location;
+import simulator.core.Location;
 
 /**
  * Represents a rectangular region that handles longitude wrap-around at the

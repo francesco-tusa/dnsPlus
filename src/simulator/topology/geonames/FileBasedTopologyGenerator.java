@@ -2,9 +2,10 @@ package simulator.topology.geonames;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import simulator.Location;
+
 import simulator.regions.Region;
-import simulator.TreeNode;
+import simulator.core.Location;
+import simulator.core.TreeNode;
 import simulator.regions.BrokerWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;

@@ -1,6 +1,6 @@
 package simulator.regions;
 
-import simulator.SimulationPublication;
+import simulator.events.SimulationPublication;
 
 /**
  * An interface that defines the contract for a leaf broker.
