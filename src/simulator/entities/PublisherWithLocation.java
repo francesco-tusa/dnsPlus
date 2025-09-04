@@ -1,12 +1,16 @@
 package simulator.entities;
 
+import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
+import utils.CustomLogger;
 
 public class PublisherWithLocation extends TreeNode {
-    Location location;
+    private static final Logger logger = CustomLogger.getLogger(PublisherWithLocation.class.getName());
+    
+    private final Location location;
     private int nPublications;
 
     public PublisherWithLocation(String name, Location location) {
@@ -21,21 +25,19 @@ public class PublisherWithLocation extends TreeNode {
         
         if (broker != null) {
             String pubInfo = "";
-            if (p instanceof PublicationWithLocation) {
-                PublicationWithLocation pl = (PublicationWithLocation) p;
+            if (p instanceof PublicationWithLocation pl) {
                 pubInfo = " for location " + pl.getLocation();
             }
-            System.out.println("\n" + getName() + ": sending publication" + pubInfo);
+            logger.fine("\n" + getName() + ": sending publication" + pubInfo);
             
             broker.processPublication(p);
             nPublications++;
         }
         else {
-            System.out.println(getName() + ": there is no broker to send the publication to");
+            System.err.println(getName() + ": there is no broker to send the publication to");
         }
     }
     
-    // Unchanged getters
     public Location getLocation() { return location; }
     public int getnPublications() { return nPublications; }
     public SimulationBroker getBroker() { return (SimulationBroker) getParent(); }

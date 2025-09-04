@@ -1,20 +1,34 @@
 package simulator.core;
 
-import simulator.entities.PublisherWithLocation;
-import simulator.entities.SubscriberWithLocation;
+import java.util.logging.Level;
+import simulator.regions.BrokerWithRegion;
+import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.TopologyFactory;
-import simulator.visualisation.TopologyVisualiser;
+import utils.CustomLogger;
 
+/**
+ * Abstract base class for all simulation runners.
+ * @param <C> The specific type of TopologyConfiguration required.
+ * @param <R> The specific type of the root TreeNode, constrained to a BrokerWithRegion.
+ * @param <F> The specific type of the TopologyFactory.
+ */
 public abstract class SimulationRunner<
     C extends TopologyConfiguration,
-    R extends TreeNode,
-    F extends TopologyFactory<C, R>> {
+    R extends BrokerWithRegion,
+    F extends AbstractTopologyFactory<C, R>> {
 
     protected F topologyFactory;
     protected C topologyConfig;
     protected R rootNode;
-    protected TopologyVisualiser visualiser;
+
+    // --- Abstract Methods for Subclasses ---
+    protected abstract void executeScenarios();
+    
+    /**
+     * Specifies the desired logging level for this simulation run.
+     * @return The Level (e.g., FINE for functional, INFO for performance).
+     */
+    protected abstract Level getLogLevel();
 
     public final void run(F factory, C config) {
         try {
@@ -31,7 +45,9 @@ public abstract class SimulationRunner<
     }
 
     protected void initialise(F factory, C config) {
-        System.out.println("--- Initialising Simulation Runner ---");
+        CustomLogger.setGlobalLogLevel(getLogLevel());
+
+        System.out.println("\n--- Initialising Simulation Runner ---");
         if (factory == null) throw new IllegalArgumentException("TopologyFactory cannot be null.");
         if (config == null) throw new IllegalArgumentException("TopologyConfiguration cannot be null.");
         this.topologyFactory = factory;
@@ -50,52 +66,13 @@ public abstract class SimulationRunner<
         System.out.println("--- Topology Generation Complete ---");
         System.out.println("Root Node: " + rootNode.getName() + " (" + rootNode.getClass().getSimpleName() + ")");
         System.out.println();
-        printTopologyStructure();
     }
 
     protected void setupSimulation() {
         System.out.println("\n--- Performing Simulation Setup (Default: None) ---");
     }
-    
-    protected abstract void executeScenarios();
 
     protected void cleanup() {
         System.out.println("\n--- Simulation Run Finished ---");
-    }
-
-    protected void printTopologyStructure() {
-        if (rootNode != null) {
-            System.out.println("--- Generated Topology Structure ---");
-            printTree(rootNode, 0);
-            System.out.println("----------------------------------");
-            if (rootNode instanceof simulator.regions.BrokerWithRegion rootBroker) {
-                 System.out.println("Final Root Region: " + rootBroker.getRegion());
-            }
-             System.out.println();
-        } else {
-            System.out.println("Cannot print topology: Root node is null.");
-        }
-    }
-    
-    public static void printTree(TreeNode node, int level) {
-        if (node == null) return;
-        StringBuilder prefix = new StringBuilder();
-        for (int i = 0; i < level; i++) prefix.append("  ");
-        prefix.append("- [L").append(level).append("] ").append(node.getName()).append(" (").append(node.getClass().getSimpleName()).append(")");
-        
-        if (node instanceof simulator.regions.BrokerWithRegion broker) {
-             prefix.append(" Region: ").append(broker.getRegion());
-        } else if (node instanceof SubscriberWithLocation sub) {
-             prefix.append(" Location: ").append(sub.getLocation());
-        } else if (node instanceof PublisherWithLocation pub) {
-             prefix.append(" Location: ").append(pub.getLocation());
-        }
-        System.out.println(prefix.toString());
-        
-        if (node.getChildren() != null) {
-            for (TreeNode child : node.getChildren()) {
-                printTree(child, level + 1);
-            }
-        }
     }
 }

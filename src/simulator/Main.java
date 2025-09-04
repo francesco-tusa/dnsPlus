@@ -1,10 +1,6 @@
 package simulator;
 
 import java.util.Scanner;
-import simulator.simulations.functional.LocationFunctionalTestsMain;
-import simulator.simulations.functional.RegionFunctionalTestsMain;
-import simulator.simulations.performance.LocationPerformanceSimulationsMain;
-import simulator.simulations.performance.RegionPerformanceSimulationsMain;
 
 /**
  * Main entry point for the entire Pub/Sub Simulator.

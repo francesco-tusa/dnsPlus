@@ -1,14 +1,17 @@
 package simulator.regions;
 
+import java.util.logging.Logger;
 import simulator.core.Location;
-import simulator.core.TreeNode;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
-import simulator.events.SimulationPublication;
-import simulator.events.SimulationSubscription;
+import simulator.core.TreeNode;
 import simulator.visualisation.TopologyVisualiser;
+import utils.CustomLogger;
 
 public abstract class BrokerWithRegion extends SimulationBroker {
+    
+    private static final Logger logger = CustomLogger.getLogger(BrokerWithRegion.class.getName());
+
     private final Region region;
     private long numOfRegionUpdates;
     private long internetPopulation;
@@ -28,32 +31,15 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     }
 
     @Override
-    public void processSubscription(SimulationSubscription s) {
-        TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
-        if (visualizer != null) {
-            visualizer.updateSubscriptionEdge(s.getSource().getName(), getName());
-        }
-
-        super.processSubscription(s);
-    }
-
-    @Override
     public void addChild(TreeNode child) {
         super.addChild(child);
         updateRegion(child);
-    }
-
-    @Override
-    public BrokerWithRegion getParentBroker() {
-        return (BrokerWithRegion) super.getParentBroker();
     }
 
     public Region getRegion() { return region; }
     public long getInternetPopulation() { return internetPopulation; }
     public void setInternetPopulation(long internetPopulation) { this.internetPopulation = internetPopulation; }
     public long getNumOfRegionUpdates() { return numOfRegionUpdates; }
-    protected void increaseNumOfRegionUpdates() { numOfRegionUpdates++; }
-    public SimulationSubscription getSubscriptionEntry(TreeNode source) { return getSubscriptionsTable().get(source); }
 
     public void updateRegion(TreeNode child) {
         boolean regionChanged = false;
@@ -76,7 +62,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         }
 
         if (regionChanged) {
-            System.out.println(getName() + ": updated region to " + this.region);
+            logger.fine(getName() + ": updated region to " + this.region);
             numOfRegionUpdates++;
             BrokerWithRegion parentBroker = getParentBroker();
             if (parentBroker != null) {
@@ -84,7 +70,4 @@ public abstract class BrokerWithRegion extends SimulationBroker {
             }
         }
     }
-    
-    @Override
-    public abstract SimulationSubscription matchPublication(SimulationPublication p);
 }

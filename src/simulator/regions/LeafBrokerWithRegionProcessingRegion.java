@@ -1,15 +1,18 @@
 package simulator.regions;
 
 import java.util.Map;
-
+import java.util.logging.Logger;
 import simulator.core.Location;
-import simulator.core.TreeNode;
-import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
+import simulator.entities.SubscriberWithLocation;
+import simulator.core.TreeNode;
+import utils.CustomLogger;
 
 public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProcessingRegion implements LeafBroker {
+
+    private static final Logger logger = CustomLogger.getLogger(LeafBrokerWithRegionProcessingRegion.class.getName());
 
     public LeafBrokerWithRegionProcessingRegion(String name) {
         super(name);
@@ -19,22 +22,14 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
         super(name, p1, p2);
     }
 
-    /**
-     * Overrides the downward subscription propagation to stop it at the leaf.
-     * This is the critical base case that prevents infinite recursion.
-     */
     @Override
     protected void sendSubscriptionToChildren(SimulationSubscription newSubscription) {
-        System.out.println(getName() + ": I am a leaf broker and I do not have children to forward subscriptions to.");
+        logger.fine(getName() + ": I am a leaf broker and I do not have children to forward subscriptions to.");
     }
 
-    /**
-     * Correctly handles publication for a leaf broker. It propagates publications
-     * upward AND processes them for its own local subscribers.
-     */
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-        System.out.println(getName() + ": processing a publication received from " + p.getSource().getName());
+        logger.fine(getName() + ": processing a publication received from " + p.getSource().getName());
 
         if (p.getSource() != getParentBroker()) {
             propagatePublicationUpward(p);
@@ -48,7 +43,7 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
     private void propagatePublicationUpward(SimulationPublication p) {
         BrokerWithRegion parentBroker = getParentBroker();
         if (parentBroker != null) {
-            System.out.println(getName() + ": forwarding publication to parent " + parentBroker.getName());
+            logger.fine(getName() + ": forwarding publication to parent " + parentBroker.getName());
             SimulationPublication forwardedCopy = p.getPublication();
             forwardedCopy.setSource(this);
             parentBroker.processPublication(forwardedCopy);
@@ -62,7 +57,7 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
             if (nextNode instanceof SubscriberWithLocation) {
                 if (entry.getValue() instanceof SubscriptionWithRegion subRegion && p instanceof PublicationWithLocation pubLocation) {
                     if (subRegion.getRegion().contains(pubLocation.getLocation())) {
-                        System.out.println(getName() + ": Delivering publication to subscriber " + nextNode.getName());
+                        logger.fine(getName() + ": Delivering publication to subscriber " + nextNode.getName());
                         SimulationPublication forwardedCopy = p.getPublication();
                         forwardedCopy.setSource(this);
                         ((SubscriberWithLocation) nextNode).receive(forwardedCopy);

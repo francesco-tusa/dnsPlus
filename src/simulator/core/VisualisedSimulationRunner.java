@@ -1,13 +1,16 @@
 package simulator.core;
 
+import simulator.regions.BrokerWithRegion;
+import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.TopologyFactory;
 import simulator.visualisation.TopologyVisualiser;
 
 public abstract class VisualisedSimulationRunner<
     C extends TopologyConfiguration,
-    R extends TreeNode,
-    F extends TopologyFactory<C, R>> extends SimulationRunner<C, R, F> {
+    R extends BrokerWithRegion,
+    F extends AbstractTopologyFactory<C, R>> extends SimulationRunner<C, R, F> {
+
+    protected TopologyVisualiser visualiser;
 
     @Override
     protected void initialise(F factory, C config) {

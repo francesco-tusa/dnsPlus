@@ -5,6 +5,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Random;
+import java.util.logging.Level;
 import simulator.core.Location;
 import simulator.core.SimulationRunner;
 import simulator.core.TreeNode;
@@ -43,6 +44,15 @@ public abstract class AbstractPerformanceSimulation<
     protected abstract double getRemoteInterestProbability();
     protected abstract SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers);
 
+    /**
+     * Overrides the abstract method from the parent class.
+     * Performance tests should be quiet to avoid I/O overhead.
+     * @return The INFO log level.
+     */
+    @Override
+    protected Level getLogLevel() {
+        return Level.INFO;
+    }
 
     @Override
     protected void setupSimulation() {
@@ -58,9 +68,8 @@ public abstract class AbstractPerformanceSimulation<
             return;
         }
 
-        // Use the new TopologyPopulator with the correct constructor
         TopologyPopulator populater = new TopologyPopulator(
-            new ProportionalSubscribersPlacement(),
+            new ProportionalSubscribersPlacement(), 
             new HubPublishersPlacement()
         );
         populater.populate(this.rootNode, leafBrokers, getTotalSubscribers(), getNumberOfReplicas());
@@ -113,11 +122,6 @@ public abstract class AbstractPerformanceSimulation<
         System.out.println("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
     }
     
-    /**
-     * Finds all leaf brokers in the topology. A leaf is a broker with no other brokers as children.
-     * @param root The root node to start the search from.
-     * @return A list of leaf brokers.
-     */
     protected List<BrokerWithRegion> findLeafBrokers(BrokerWithRegion root) {
         List<BrokerWithRegion> leaves = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
@@ -158,7 +162,6 @@ public abstract class AbstractPerformanceSimulation<
         }
 
         for (SimulationBroker broker : allBrokers) {
-            totalSubscriptionMessages += broker.getnSubscriptions();
             totalSubscriptionTableEntries += broker.getSubscriptionsTable().size();
             if (broker instanceof BrokerWithRegion) totalRegionUpdates += ((BrokerWithRegion) broker).getNumOfRegionUpdates();
         }
@@ -166,7 +169,6 @@ public abstract class AbstractPerformanceSimulation<
         for (PublisherWithLocation publisher : allPublishers) totalPublicationsSent += publisher.getnPublications();
 
         System.out.println("--- System Overhead Metrics ---");
-        System.out.println("Total Subscription Messages Processed by Brokers: " + totalSubscriptionMessages);
         System.out.println("Total Subscription Table Entries Created (Propagation Cost): " + totalSubscriptionTableEntries);
         System.out.println("Total Region Boundary Updates: " + totalRegionUpdates);
         System.out.println("\n--- Service Delivery Metrics ---");

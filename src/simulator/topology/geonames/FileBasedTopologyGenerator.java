@@ -10,12 +10,14 @@ import simulator.regions.BrokerWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.factories.BrokerFactory;
+import utils.CustomLogger;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 /**
  * Generator for building broker topologies based on a JSON file definition.
@@ -24,6 +26,7 @@ import java.util.Objects;
 public class FileBasedTopologyGenerator
         extends AbstractTopologyFactory<FileBasedTopologyConfiguration, BrokerWithRegion> {
 
+    private static final Logger logger = CustomLogger.getLogger(FileBasedTopologyGenerator.class.getName());
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final BrokerFactory brokerFactory;
     private final List<BrokerWithRegion> allBrokers = new ArrayList<>();
@@ -52,13 +55,10 @@ public class FileBasedTopologyGenerator
         Objects.requireNonNull(this.config.getTopologyFilePath(), "Topology file path cannot be null in configuration.");
 
         this.brokerIdCounter = 0;
-        this.leafBrokerIdCounter = 0;
-        this.subscriberIdCounter = 0;
-        this.publisherIdCounter = 0;
         this.rootNode = null;
         this.allBrokers.clear();
 
-        System.out.println("FileBasedTopologyGenerator initialized with config: " + this.config);
+        logger.fine("FileBasedTopologyGenerator initialized with config: " + this.config);
     }
 
     @Override
@@ -82,38 +82,35 @@ public class FileBasedTopologyGenerator
 
             this.allBrokers.clear();
             addAllBrokersRecursively(this.rootNode);
-
             System.out.println("Successfully built core topology. Root: " + this.rootNode.getName() + ", Total brokers: " + this.allBrokers.size());
             return this.rootNode;
 
         } catch (IOException e) {
             throw new RuntimeException("Failed to read or parse topology file: " + filePath, e);
-        } catch (Exception e) {
-            throw new RuntimeException("Error building core topology from JSON file: " + filePath, e);
         }
     }
 
     @Override
     protected void attachSubscribers(BrokerWithRegion root) {
          if (root == null || this.rootNode == null || root != this.rootNode) {
-             System.err.println("Warning: Root node mismatch or null during attachSubscribers. Aborting subscriber attachment.");
+             logger.warning("Root node mismatch or null during attachSubscribers. Aborting subscriber attachment.");
              return;
          }
-        System.out.println("FileBasedTopologyGenerator: Subscriber attachment is handled by a dedicated generator class.");
+        logger.fine("FileBasedTopologyGenerator: Subscriber attachment is handled by a dedicated population class.");
     }
 
     @Override
     protected void attachPublishers(BrokerWithRegion root) {
          if (root == null || this.rootNode == null || root != this.rootNode) {
-             System.err.println("Warning: Root node mismatch or null during attachPublishers. Aborting publisher attachment.");
+             logger.warning("Root node mismatch or null during attachPublishers. Aborting publisher attachment.");
              return;
          }
-        System.out.println("FileBasedTopologyGenerator: Publisher attachment is handled by a dedicated generator class.");
+        logger.fine("FileBasedTopologyGenerator: Publisher attachment is handled by a dedicated population class.");
     }
 
-    private BrokerWithRegion buildBrokerFromJson(JsonNode jsonNode, BrokerWithRegion parent) throws IOException {
+    private BrokerWithRegion buildBrokerFromJson(JsonNode jsonNode, BrokerWithRegion parent) {
          if (jsonNode == null || !jsonNode.isObject()) {
-             System.err.println("Warning: Encountered invalid JSON node structure while building broker. Skipping.");
+             logger.warning("Encountered invalid JSON node structure while building broker. Skipping.");
              return null;
          }
 
@@ -126,31 +123,28 @@ public class FileBasedTopologyGenerator
          boolean isLeafNodeInJson = !childrenNode.isArray() || childrenNode.isEmpty();
 
          BrokerWithRegion currentBroker;
-          try {
-             Location p1 = region.getBottomLeft();
-             Location p2 = region.getTopRight();
+        Location p1 = region.getBottomLeft();
+        Location p2 = region.getTopRight();
 
-             if (p1 == null || p2 == null) {
-                 System.err.println("Warning: Region for broker " + brokerName + " has null corners. Using default point region.");
-                 Location defaultLoc = new Location(0.0, 0.0, 0.0);
-                 p1 = defaultLoc;
-                 p2 = defaultLoc;
-             }
+        if (p1 == null || p2 == null) {
+            logger.warning("Region for broker " + brokerName + " has null corners. Using default point region.");
+            Location defaultLoc = new Location(0.0, 0.0, 0.0);
+            p1 = defaultLoc;
+            p2 = defaultLoc;
+        }
 
-             if (isLeafNodeInJson) {
-                 currentBroker = brokerFactory.createLeafBroker(brokerName, p1, p2);
-             } else {
-                 currentBroker = brokerFactory.createBroker(brokerName);
-             }
-             
-             currentBroker.setInternetPopulation(internetPopulation);
-             System.out.println("  Created " + brokerName + " with Internet Population: " + internetPopulation);
-
-         } catch (Exception e) {
-             System.err.println("Error creating broker instance for " + brokerName + ". Error: " + e.getMessage());
-             e.printStackTrace();
-             return null;
-         }
+        if (isLeafNodeInJson) {
+            currentBroker = brokerFactory.createLeafBroker(brokerName, p1, p2);
+        } else {
+            currentBroker = brokerFactory.createBroker(brokerName);
+            // Non-leaf brokers still need their region set for routing logic that relies on it
+            currentBroker.getRegion().set(region);
+        }
+        
+        currentBroker.setInternetPopulation(internetPopulation);
+        // ** THE FIX IS HERE **
+        // This message is now logged at the FINE level, so it will not appear during performance simulations.
+        logger.fine("  Created " + brokerName + " with Internet Population: " + internetPopulation);
 
          if (!isLeafNodeInJson) {
              for (JsonNode childNode : childrenNode) {
@@ -165,19 +159,14 @@ public class FileBasedTopologyGenerator
 
     private Region parseRegion(JsonNode boundsNode) {
         if (boundsNode == null || !boundsNode.isObject()) {
-            System.err.println("Warning: Invalid or missing 'bounds' node. Using default Region (point at origin).");
             Location defaultPoint = new Location(0.0, 0.0, 0.0);
             return new Region(defaultPoint, defaultPoint);
         }
-
         double minLon = boundsNode.path(JSON_FIELD_MIN_LON).asDouble(0.0);
         double minLat = boundsNode.path(JSON_FIELD_MIN_LAT).asDouble(0.0);
         double maxLon = boundsNode.path(JSON_FIELD_MAX_LON).asDouble(0.0);
         double maxLat = boundsNode.path(JSON_FIELD_MAX_LAT).asDouble(0.0);
         
-        if (minLon > maxLon) maxLon = minLon;
-        if (minLat > maxLat) maxLat = minLat;
-
         Location bottomLeft = new Location(minLon, minLat, 0.0);
         Location topRight   = new Location(maxLon, maxLat, 0.0);
 

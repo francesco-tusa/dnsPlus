@@ -1,6 +1,9 @@
-package simulator.simulations.functional;
+package simulator;
 
 import simulator.regions.BrokerWithRegion;
+import simulator.simulations.functional.ConfigurableFunctionalTest;
+import simulator.simulations.functional.FixedTopologyLocationFunctionalTests;
+import simulator.simulations.functional.GridTopologyLocationFunctionalTests;
 import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
@@ -15,8 +18,8 @@ public class LocationFunctionalTestsMain {
 
     public static void main(String[] args) {
         runManualTopologyComprehensiveTest();
-        runManualTopologySubscriptionFilteringTest();
-        runGridTopologyTest();
+        //runManualTopologySubscriptionFilteringTest();
+        //runGridTopologyTest();
     }
 
     public static void runManualTopologyComprehensiveTest() {

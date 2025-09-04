@@ -1,18 +1,18 @@
 package simulator.regions;
 
+import java.util.logging.Logger;
 import simulator.core.Location;
-import simulator.core.TreeNode;
-import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
+import simulator.entities.SubscriberWithLocation;
+import simulator.core.TreeNode;
 import simulator.events.SubscriptionWithLocation;
+import utils.CustomLogger;
 
-/**
- * A leaf broker that uses location-based routing. It receives publications from
- * its parent and delivers them to its directly connected subscribers.
- */
 public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProcessingLocation implements LeafBroker {
+
+    private static final Logger logger = CustomLogger.getLogger(LeafBrokerWithRegionProcessingLocation.class.getName());
 
     public LeafBrokerWithRegionProcessingLocation(String name) {
         super(name);
@@ -24,7 +24,7 @@ public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProc
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-        System.out.println(getName() + ": processing a publication received from " + p.getSource().getName());
+        logger.fine(getName() + ": processing a publication received from " + p.getSource().getName());
 
         if (p.getSource() != getParentBroker()) {
             propagatePublicationUpward(p);
@@ -38,7 +38,7 @@ public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProc
     private void propagatePublicationUpward(SimulationPublication p) {
         BrokerWithRegion parentBroker = getParentBroker();
         if (parentBroker != null) {
-            System.out.println(getName() + ": forwarding publication to parent " + parentBroker.getName());
+            logger.fine(getName() + ": forwarding publication to parent " + parentBroker.getName());
             SimulationPublication forwardedCopy = p.getPublication();
             forwardedCopy.setSource(this);
             parentBroker.processPublication(forwardedCopy);
@@ -47,7 +47,7 @@ public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProc
     
     @Override
     public void processPublicationForLocalDelivery(SimulationPublication p) {
-        System.out.println(getName() + ": Processing publication for delivery to subscribers.");
+        logger.fine(getName() + ": Processing publication for delivery to subscribers.");
         if (p instanceof PublicationWithLocation pub) {
             for (TreeNode child : getChildren()) {
                 if (child instanceof SubscriberWithLocation subscriber) {
@@ -65,10 +65,10 @@ public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProc
             PublicationWithLocation lastPub = subscriber.getLastReceivedPublication();
             if (lastPub == null ||
                 distanceSquared(pub.getLocation(), subscriber.getLocation()) < distanceSquared(lastPub.getLocation(), subscriber.getLocation())) {
-                System.out.println(getName() + ": Delivering publication to subscriber " + subscriber.getName() + " as it is an improvement.");
+                logger.fine(getName() + ": Delivering publication to subscriber " + subscriber.getName() + " as it is an improvement.");
                 subscriber.receive(pub);
             } else {
-                System.out.println(getName() + ": Publication is not an improvement for " + subscriber.getName() + ". Filtering.");
+                logger.fine(getName() + ": Publication is not an improvement for " + subscriber.getName() + ". Filtering.");
             }
         }
     }

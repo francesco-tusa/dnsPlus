@@ -8,6 +8,8 @@ import simulator.regions.BrokerWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.factories.BrokerFactory;
+import utils.CustomLogger;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -21,6 +23,7 @@ import java.util.Queue;
  */
 public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTestTopologyConfiguration, BrokerWithRegion> {
 
+    private static final Logger logger = CustomLogger.getLogger(FixedTestTopologyGenerator.class.getName());
     private final BrokerFactory brokerFactory;
 
     public FixedTestTopologyGenerator(BrokerFactory brokerFactory) {
@@ -30,7 +33,7 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
 
     @Override
     protected void initialise(TopologyConfiguration genericConfig) {
-        System.out.println("Initialising FixedTopologyGenerator...");
+        logger.fine("Initialising FixedTopologyGenerator...");
         if (!(genericConfig instanceof FixedTestTopologyConfiguration)) {
             throw new IllegalArgumentException("Configuration must be an instance of FixedTestTopologyConfiguration.");
         }
@@ -39,7 +42,7 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
 
     @Override
     protected BrokerWithRegion buildCoreTopology() {
-        System.out.println("Building fixed core broker topology...");
+        logger.fine("Building fixed core broker topology...");
         BrokerWithRegion root = brokerFactory.createBroker("root");
         BrokerWithRegion child1 = brokerFactory.createBroker("child1");
         BrokerWithRegion child2 = brokerFactory.createBroker("child2");
@@ -58,13 +61,13 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
         child2.addChild(grandchild3);
         child3.addChild(grandchild4);
         
-        System.out.println("Core broker topology built.");
+        logger.fine("Core broker topology built.");
         return root;
     }
 
     @Override
     protected void attachSubscribers(BrokerWithRegion root) {
-        System.out.println("Attaching fixed subscribers...");
+        logger.fine("Attaching fixed subscribers...");
         BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1");
         BrokerWithRegion grandchild2 = findNodeByName(root, "grandchild2");
         BrokerWithRegion grandchild3 = findNodeByName(root, "grandchild3");
@@ -106,18 +109,18 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
         // After leaf regions are defined by subscribers, calculate the parent regions.
         calculateBrokerRegions(root);
         
-        System.out.println("Subscriber attachment complete.");
+        logger.fine("Subscriber attachment complete.");
     }
 
     @Override
     protected void attachPublishers(BrokerWithRegion root) {
-        System.out.println("Attaching fixed publishers...");
+        logger.fine("Attaching fixed publishers...");
         BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1");
         BrokerWithRegion grandchild4 = findNodeByName(root, "grandchild4");
         
         grandchild1.addChild(new PublisherWithLocation("pub1", new Location(7, 7, 0)));
         grandchild4.addChild(new PublisherWithLocation("pub2", new Location(18, 4, 0)));
-        System.out.println("Publisher attachment complete.");
+        logger.fine("Publisher attachment complete.");
     }
 
     /**
@@ -125,7 +128,7 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
      * This ensures parent regions are calculated based on the final leaf regions.
      */
     private void calculateBrokerRegions(BrokerWithRegion root) {
-        System.out.println("Calculating parent broker regions...");
+        logger.fine("Calculating parent broker regions...");
         List<BrokerWithRegion> leaves = findLeafBrokers(root);
         for (BrokerWithRegion leaf : leaves) {
             if (leaf.getParentBroker() != null) {

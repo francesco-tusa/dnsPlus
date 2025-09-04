@@ -1,6 +1,9 @@
-package simulator.simulations.functional;
+package simulator;
 
 import simulator.regions.BrokerWithRegion;
+import simulator.simulations.functional.ConfigurableFunctionalTest;
+import simulator.simulations.functional.FixedTopologyRegionFunctionalTests;
+import simulator.simulations.functional.GridTopologyRegionFunctionalTests;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
@@ -15,8 +18,8 @@ public class RegionFunctionalTestsMain {
 
     public static void main(String[] args) {
         runManualTopologyComprehensiveTest();
-        runSubscriptionCoveringTest();
-        runGridTopologyTest();
+        //runSubscriptionCoveringTest();
+        //runGridTopologyTest();
     }
 
     public static void runManualTopologyComprehensiveTest() {

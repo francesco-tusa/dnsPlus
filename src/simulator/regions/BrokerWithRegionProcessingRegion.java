@@ -1,7 +1,7 @@
 package simulator.regions;
 
 import java.util.Map;
-
+import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.SubscriberWithLocation;
@@ -9,8 +9,11 @@ import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.visualisation.TopologyVisualiser;
+import utils.CustomLogger;
 
 public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
+
+    private static final Logger logger = CustomLogger.getLogger(BrokerWithRegionProcessingRegion.class.getName());
 
     public BrokerWithRegionProcessingRegion(String name) {
         super(name);
@@ -22,48 +25,41 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
 
     @Override
     public void processSubscription(SimulationSubscription s) {
-        System.out.println(getName() + ": processing a subscription received from " + s.getSource().getName());
-        addSubscription(s);
-
-        if (s instanceof SubscriptionWithRegion) {
-            SubscriptionWithRegion newSub = (SubscriptionWithRegion) s;
-            // Check for covering
+        logger.fine(getName() + ": processing a subscription received from " + s.getSource().getName());
+        
+        if (s instanceof SubscriptionWithRegion newSub) {
             for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
-                // We only check against subscriptions that have already been propagated from other children
-                if (entry.getKey() != getParentBroker() && entry.getKey() != s.getSource() && entry.getValue() instanceof SubscriptionWithRegion) {
-                    SubscriptionWithRegion existingSub = (SubscriptionWithRegion) entry.getValue();
+                if (entry.getKey() != getParentBroker() && entry.getKey() != s.getSource() && entry.getValue() instanceof SubscriptionWithRegion existingSub) {
                     if (existingSub.getRegion().contains(newSub.getRegion())) {
-                        // This is the added log message for when a subscription is filtered
-                        System.out.println(getName() + ": Filtering subscription from " + s.getSource().getName() + ". Reason: Covered by existing subscription from " + entry.getKey().getName() + ".");
-                        return; // Stop propagation
+                        logger.fine(getName() + ": Filtering subscription from " + s.getSource().getName() + ". Reason: Covered by existing subscription from " + entry.getKey().getName() + ".");
+                        return;
                     }
                 }
             }
         }
 
+        addSubscription(s);
 
-        // The visualiser hook is now called automatically by the superclass method
         if (s.getSource() == getParentBroker()) {
             sendSubscriptionToChildren(s);
         } else {
-            super.processSubscription(s); // Propagate upwards (includes visualisation)
+            super.processSubscription(s);
             sendSubscriptionToChildren(s);
         }
     }
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-        System.out.println(getName() + ": processing a publication received from " + p.getSource().getName());
+        logger.fine(getName() + ": processing a publication received from " + p.getSource().getName());
         for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
             TreeNode nextNode = entry.getKey();
             if (nextNode == p.getSource()) continue;
 
             if (entry.getValue() instanceof SubscriptionWithRegion subRegion && p instanceof PublicationWithLocation pubLocation) {
                 if (subRegion.getRegion().contains(pubLocation.getLocation())) {
-                    System.out.println(getName() + ": forwarding publication to " + nextNode.getName());
+                    logger.fine(getName() + ": forwarding publication to " + nextNode.getName());
                     SimulationPublication forwardedCopy = p.getPublication();
                     forwardedCopy.setSource(this);
-                    // The processPublication method in SimulationBroker will handle highlighting
                     forwardPublicationToNode(forwardedCopy, nextNode);
                 }
             }
@@ -72,20 +68,16 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     }
 
     protected void sendSubscriptionToChildren(SimulationSubscription newSubscription) {
-        if (newSubscription instanceof SubscriptionWithRegion) {
-            SubscriptionWithRegion newSub = (SubscriptionWithRegion) newSubscription;
+        if (newSubscription instanceof SubscriptionWithRegion newSub) {
             for (TreeNode child : getChildren()) {
                 if (child == newSub.getSource()) continue;
-                if (child instanceof BrokerWithRegion) {
-                    BrokerWithRegion childBroker = (BrokerWithRegion) child;
+                if (child instanceof BrokerWithRegion childBroker) {
                     if (childBroker.getRegion() != null && childBroker.getRegion().intersects(newSub.getRegion())) {
-                        System.out.println(getName() + ": forwarding subscription to child " + childBroker.getName());
-
+                        logger.fine(getName() + ": forwarding subscription to child " + childBroker.getName());
                         TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
                         if (visualizer != null) {
                             visualizer.updateSubscriptionEdge(getName(), childBroker.getName());
                         }
-
                         SubscriptionWithRegion subscriptionToSend = new SubscriptionWithRegion(newSub.getRegion());
                         subscriptionToSend.setSource(this);
                         childBroker.processSubscription(subscriptionToSend);

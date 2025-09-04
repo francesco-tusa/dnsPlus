@@ -1,5 +1,6 @@
 package simulator.entities;
 
+import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.PublicationWithLocation;
@@ -8,9 +9,13 @@ import simulator.events.SimulationSubscription;
 import simulator.events.SubscriptionWithLocation;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.visualisation.TopologyVisualiser;
+import utils.CustomLogger;
 
 public class SubscriberWithLocation extends TreeNode {
-    private Location location;
+
+    private static final Logger logger = CustomLogger.getLogger(SubscriberWithLocation.class.getName());
+
+    private final Location location;
     private int nSubscriptions;
     private int nPublications;
     private PublicationWithLocation lastReceivedPublication;
@@ -24,16 +29,14 @@ public class SubscriberWithLocation extends TreeNode {
     }
 
     public void receive(SimulationPublication p) {
-        System.out.println(getName() + ": received publication " + p);
+        logger.fine(getName() + ": received publication " + p);
         nPublications++;
         if (p instanceof PublicationWithLocation) {
             this.lastReceivedPublication = (PublicationWithLocation) p;
         }
 
-        // --- Visualisation Hook for Heat Map ---
         TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
         if (visualizer != null) {
-            // Set the final edge of the publication path to red
             visualizer.setPublicationEdge(p.getSource().getName(), getName());
         }
     }
@@ -44,24 +47,21 @@ public class SubscriberWithLocation extends TreeNode {
 
         if (broker != null) {
             String subInfo = "";
-            if (s instanceof SubscriptionWithLocation) {
-                SubscriptionWithLocation sl = (SubscriptionWithLocation) s;
+            if (s instanceof SubscriptionWithLocation sl) {
                 subInfo = " for location " + sl.getLocation();
-            } else if (s instanceof SubscriptionWithRegion) {
-                SubscriptionWithRegion sr = (SubscriptionWithRegion) s;
+            } else if (s instanceof SubscriptionWithRegion sr) {
                 subInfo = " for region " + sr.getRegion().toShortString();
             }
-            System.out.println("\n" + getName() + ": sending subscription" + subInfo);
+            logger.fine("\n" + getName() + ": sending subscription" + subInfo);
 
             broker.processSubscription(s);
             nSubscriptions++;
         } 
         else {
-            System.out.println(getName() + ": topology error, there is no broker to send the subscription to");
+            logger.severe(getName() + ": topology error, there is no broker to send the subscription to");
         }
     }
     
-    // Unchanged getters
     public Location getLocation() { return location; }
     public int getnSubscriptions() { return nSubscriptions; }
     public int getnPublications() { return nPublications; }

@@ -2,21 +2,19 @@ package simulator.regions;
 
 import java.util.HashMap;
 import java.util.Map;
-
+import java.util.logging.Logger;
 import simulator.core.Location;
-import simulator.core.TreeNode;
-import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.events.SubscriptionWithLocation;
+import simulator.core.TreeNode;
+import utils.CustomLogger;
 
-/**
- * A broker that implements location-based routing. It uses a cache of key points
- * to determine whether to propagate publications downwards.
- */
 public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
 
+    private static final Logger logger = CustomLogger.getLogger(BrokerWithRegionProcessingLocation.class.getName());
+    
     private final Map<Location, SimulationPublication> bestPublicationCache = new HashMap<>();
     private final Map<Location, Boolean> propagatedSubscriptions = new HashMap<>();
 
@@ -36,7 +34,7 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
         if (s instanceof SubscriptionWithLocation) {
             SubscriptionWithLocation subLoc = (SubscriptionWithLocation) s;
             if (propagatedSubscriptions.containsKey(subLoc.getLocation())) {
-                System.out.println(getName() + ": Subscription for location " + subLoc.getLocation() + " already propagated. Stopping.");
+                logger.fine(getName() + ": Subscription for location " + subLoc.getLocation() + " already propagated. Stopping.");
                 return;
             }
             propagatedSubscriptions.put(subLoc.getLocation(), true);
@@ -55,7 +53,7 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-        System.out.println(getName() + ": processing publication from " + p.getSource().getName());
+        logger.fine(getName() + ": processing publication from " + p.getSource().getName());
 
         if (p.getSource() != getParentBroker()) {
             propagatePublicationUpward(p);
@@ -71,7 +69,7 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
     private void propagatePublicationUpward(SimulationPublication p) {
         BrokerWithRegion parentBroker = getParentBroker();
         if (parentBroker != null) {
-            System.out.println(getName() + ": Propagating publication upwards to " + parentBroker.getName());
+            logger.fine(getName() + ": Propagating publication upwards to " + parentBroker.getName());
             SimulationPublication forwardedCopy = p.getPublication();
             forwardedCopy.setSource(this);
             parentBroker.processPublication(forwardedCopy);
@@ -97,18 +95,16 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
         }
 
         if (isImprovement) {
-            System.out.println(getName() + ": Publication is an improvement, forwarding to children.");
+            logger.fine(getName() + ": Publication is an improvement, forwarding to children.");
             for (TreeNode child : getChildren()) {
                 if (child instanceof BrokerWithRegion childBroker && child != pub.getSource()) {
-                    // ** THE VISUALIZATION FIX IS HERE **
-                    // Create a copy and set the source to *this* broker before forwarding.
                     SimulationPublication forwardedCopy = pub.getPublication();
                     forwardedCopy.setSource(this);
                     childBroker.processPublication(forwardedCopy);
                 }
             }
         } else {
-            System.out.println(getName() + ": Publication is not an improvement for any key point. Stopping downward propagation.");
+            logger.fine(getName() + ": Publication is not an improvement for any key point. Stopping downward propagation.");
         }
     }
 

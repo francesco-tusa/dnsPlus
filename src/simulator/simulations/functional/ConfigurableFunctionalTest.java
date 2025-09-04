@@ -1,16 +1,12 @@
 package simulator.simulations.functional;
 
 import java.util.function.Predicate;
-
+import java.util.logging.Level;
 import simulator.core.VisualisedSimulationRunner;
 import simulator.regions.BrokerWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 
-/**
- * A generic, configurable class for running a validation simulation.
- * It now extends VisualisedSimulationRunner to automatically include the GUI.
- */
 public class ConfigurableFunctionalTest<
     C extends TopologyConfiguration,
     R extends BrokerWithRegion,
@@ -26,16 +22,21 @@ public class ConfigurableFunctionalTest<
     }
 
     @Override
+    protected Level getLogLevel() {
+        return Level.FINE;
+    }
+
+    @Override
     protected void executeScenarios() {
-        System.out.println("\n--- Executing Validation Scenario: " + this.validationTestName + " ---");
+        System.out.println("\n--- Executing Functional Test Scenario: " + this.validationTestName + " ---");
         if (this.rootNode == null) {
-            System.err.println("Validation failed: Root node is null.");
+            System.err.println("Functional test failed: Root node is null.");
             return;
         }
 
         boolean success = validationTest.test(this.rootNode);
 
-        System.out.println("\n--- Validation Result ---");
+        System.out.println("\n--- Functional Test Result ---");
         if (success) {
             System.out.println("SUCCESS: The '" + this.validationTestName + "' check passed.");
         } else {

@@ -1,4 +1,7 @@
-package simulator.simulations.performance;
+package simulator;
+
+import simulator.simulations.performance.GeoNamesBasedRegionPerformanceSimulation;
+import simulator.simulations.performance.RandomTopologyRegionPerformanceSimulation;
 
 /**
  * Main entry point for all PERFORMANCE simulations using REGION-BASED routing brokers.
