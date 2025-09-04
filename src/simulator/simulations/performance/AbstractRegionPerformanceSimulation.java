@@ -19,6 +19,7 @@ public abstract class AbstractRegionPerformanceSimulation<
     F extends AbstractTopologyFactory<C, BrokerWithRegion>
 > extends AbstractPerformanceSimulation<C, F> {
 
+    protected abstract double getRemoteInterestProbability();
     protected abstract double getSubscriptionRegionSize();
 
     @Override

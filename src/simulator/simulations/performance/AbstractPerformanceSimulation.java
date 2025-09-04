@@ -36,7 +36,6 @@ public abstract class AbstractPerformanceSimulation<
     // --- Abstract Methods for Subclasses ---
     protected abstract long getTotalSubscribers();
     protected abstract int getNumberOfReplicas();
-    protected abstract double getRemoteInterestProbability();
 
     @Override
     protected Level getLogLevel() {
@@ -133,11 +132,6 @@ public abstract class AbstractPerformanceSimulation<
         System.out.println("\n--- Service Delivery Metrics ---");
         System.out.println("Total Publications Sent by all Replicas: " + totalPublicationsSent);
         System.out.println("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
-        
-        if (getTotalSubscribers() > 0) {
-            double matchRate = (double) successfulNotifications / getTotalSubscribers() * 100.0;
-            System.out.printf("Subscriber Match Rate: %.2f%%\n", matchRate);
-        }
     }
 
     protected Location getRandomLocationInRegion(Region region) {

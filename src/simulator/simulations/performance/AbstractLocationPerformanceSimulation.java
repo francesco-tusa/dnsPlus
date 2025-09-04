@@ -20,8 +20,8 @@ public abstract class AbstractLocationPerformanceSimulation<
     protected final void executeScenarios() {
         System.out.println("\n--- Executing Location-Based Performance Scenario ---");
 
-        if (allSubscribers.isEmpty() || allPublishers.isEmpty()) {
-            System.err.println("No subscribers or publishers were created. Cannot run scenarios.");
+        if (allSubscribers.isEmpty()) {
+            System.err.println("No subscribers were created. Cannot run scenarios.");
             return;
         }
         
@@ -46,16 +46,24 @@ public abstract class AbstractLocationPerformanceSimulation<
     }
 
     protected SubscriptionWithLocation generateSubscriptionForSubscriber(SubscriberWithLocation subscriber) {
-        Location locationOfInterest;
-        if (random.nextDouble() < getRemoteInterestProbability()) {
-            if (!allPublishers.isEmpty()) {
-                locationOfInterest = allPublishers.get(random.nextInt(allPublishers.size())).getLocation();
-            } else {
-                locationOfInterest = subscriber.getLocation();
-            }
-        } else {
-            locationOfInterest = subscriber.getLocation();
+        return new SubscriptionWithLocation(subscriber.getLocation());
+    }
+
+    /**
+     * Overrides the metrics collection to provide output specific to the location-based algorithm.
+     */
+    @Override
+    protected void collectAndPrintMetrics() {
+        super.collectAndPrintMetrics(); // Prints the common overhead and delivery metrics
+
+        long successfulNotifications = 0;
+        for (SubscriberWithLocation subscriber : allSubscribers) {
+            successfulNotifications += subscriber.getnPublications();
         }
-        return new SubscriptionWithLocation(locationOfInterest);
+
+        if (!allSubscribers.isEmpty()) {
+            double averagePubsPerSub = (double) successfulNotifications / allSubscribers.size();
+            System.out.printf("Average Publications per Subscriber: %.2f\n", averagePubsPerSub);
+        }
     }
 }

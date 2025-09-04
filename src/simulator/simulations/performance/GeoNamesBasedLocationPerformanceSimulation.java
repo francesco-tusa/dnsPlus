@@ -16,16 +16,12 @@ public class GeoNamesBasedLocationPerformanceSimulation extends AbstractLocation
     // --- Simulation Parameters ---
     private static final long TOTAL_SUBSCRIBERS = 500_000;
     private static final int NUMBER_OF_REPLICAS = 20;
-    private static final double REMOTE_INTEREST_PROBABILITY = 0.1;
 
     @Override
     protected long getTotalSubscribers() { return TOTAL_SUBSCRIBERS; }
 
     @Override
     protected int getNumberOfReplicas() { return NUMBER_OF_REPLICAS; }
-    
-    @Override
-    protected double getRemoteInterestProbability() { return REMOTE_INTEREST_PROBABILITY; }
 
     public static void main(String[] args) {
         System.out.println("--- Starting GeoNames-Based Performance Simulation (Location-Based) ---");

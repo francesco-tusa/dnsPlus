@@ -16,7 +16,6 @@ public class RandomTopologyLocationPerformanceSimulation extends AbstractLocatio
     // --- Simulation Parameters ---
     private static final long TOTAL_SUBSCRIBERS = 1000;
     private static final int NUMBER_OF_REPLICAS = 10;
-    private static final double REMOTE_INTEREST_PROBABILITY = 0.2;
     
     // --- Topology Parameters ---
     private static final int TREE_DEPTH = 4;
@@ -28,9 +27,6 @@ public class RandomTopologyLocationPerformanceSimulation extends AbstractLocatio
 
     @Override
     protected int getNumberOfReplicas() { return NUMBER_OF_REPLICAS; }
-    
-    @Override
-    protected double getRemoteInterestProbability() { return REMOTE_INTEREST_PROBABILITY; }
 
     public static void main(String[] args) {
         System.out.println("--- Starting Random Topology Performance Simulation (Location-Based) ---");
