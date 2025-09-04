@@ -59,7 +59,7 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
     }
 
     @Override
-    protected void attachSubscribers(BrokerWithRegion root) {
+    public void attachSubscribers(BrokerWithRegion root) {
         if (leafBrokers == null) return;
         for (int i = 0; i < config.getGridDimension(); i++) {
             for (int j = 0; j < config.getGridDimension(); j++) {
@@ -75,7 +75,7 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
     }
 
     @Override
-    protected void attachPublishers(BrokerWithRegion root) {
+    public void attachPublishers(BrokerWithRegion root) {
         if (leafBrokers == null) return;
         for (int i = 0; i < config.getGridDimension(); i++) {
             for (int j = 0; j < config.getGridDimension(); j++) {

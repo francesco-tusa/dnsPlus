@@ -8,9 +8,6 @@ import utils.CustomLogger;
 
 /**
  * Abstract base class for all simulation runners.
- * @param <C> The specific type of TopologyConfiguration required.
- * @param <R> The specific type of the root TreeNode, constrained to a BrokerWithRegion.
- * @param <F> The specific type of the TopologyFactory.
  */
 public abstract class SimulationRunner<
     C extends TopologyConfiguration,
@@ -21,13 +18,7 @@ public abstract class SimulationRunner<
     protected C topologyConfig;
     protected R rootNode;
 
-    // --- Abstract Methods for Subclasses ---
     protected abstract void executeScenarios();
-    
-    /**
-     * Specifies the desired logging level for this simulation run.
-     * @return The Level (e.g., FINE for functional, INFO for performance).
-     */
     protected abstract Level getLogLevel();
 
     public final void run(F factory, C config) {
@@ -46,7 +37,6 @@ public abstract class SimulationRunner<
 
     protected void initialise(F factory, C config) {
         CustomLogger.setGlobalLogLevel(getLogLevel());
-
         System.out.println("\n--- Initialising Simulation Runner ---");
         if (factory == null) throw new IllegalArgumentException("TopologyFactory cannot be null.");
         if (config == null) throw new IllegalArgumentException("TopologyConfiguration cannot be null.");
@@ -56,7 +46,6 @@ public abstract class SimulationRunner<
         System.out.println("Using Configuration: " + config.getClass().getSimpleName());
     }
 
-    @SuppressWarnings("unchecked")
     protected void generateTopology() {
         System.out.println("\n--- Generating Topology ---");
         this.rootNode = topologyFactory.generateTopology(topologyConfig);
@@ -65,7 +54,6 @@ public abstract class SimulationRunner<
         }
         System.out.println("--- Topology Generation Complete ---");
         System.out.println("Root Node: " + rootNode.getName() + " (" + rootNode.getClass().getSimpleName() + ")");
-        System.out.println();
     }
 
     protected void setupSimulation() {

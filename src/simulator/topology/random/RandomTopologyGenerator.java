@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
-
 import simulator.core.Location;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
@@ -14,10 +13,6 @@ import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.factories.BrokerFactory;
 
-/**
- * Generates a random tree-based topology using a BrokerFactory.
- * This version correctly calculates and propagates region updates from the bottom up.
- */
 public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRandomTopologyConfiguration, BrokerWithRegion> {
 
     private final BrokerFactory brokerFactory;
@@ -28,6 +23,7 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
     private static final int MAX_X = 1000;
     private static final int MAX_Y = 1000;
     private static final int MAX_Z = 100;
+    private static final long MOCK_POPULATION = 10000;
 
     public RandomTopologyGenerator(BrokerFactory brokerFactory) {
         Objects.requireNonNull(brokerFactory, "BrokerFactory cannot be null.");
@@ -48,6 +44,7 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
     protected BrokerWithRegion buildCoreTopology() {
         BrokerWithRegion root = brokerFactory.createBroker(generateBrokerName());
         buildBrokerLevelRecursive(root, 0, config.getTreeDepth() - 1, config.getMaxBranchingFactor());
+        aggregateData(root);
         return root;
     }
 
@@ -56,8 +53,9 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
 
         if (currentDepth == leafDepth) {
             for (int i = 0; i < numChildren; i++) {
-                // Leaf brokers are created without a predefined region.
-                BrokerWithRegion leafBroker = brokerFactory.createLeafBroker(generateLeafBrokerName());
+                Region regionDef = leafRegionsDefinition.get(allLeafBrokers.size() % config.getNumRegions());
+                BrokerWithRegion leafBroker = brokerFactory.createLeafBroker(generateLeafBrokerName(), regionDef.getBottomLeft(), regionDef.getTopRight());
+                leafBroker.setInternetPopulation(MOCK_POPULATION);
                 parent.addChild(leafBroker);
                 allLeafBrokers.add(leafBroker);
             }
@@ -71,9 +69,22 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
         }
     }
 
-
+    private void aggregateData(BrokerWithRegion node) {
+        if (node.getChildren().stream().noneMatch(c -> c instanceof BrokerWithRegion)) {
+            return;
+        }
+        long aggregatedPopulation = 0;
+        for (Object childObj : node.getChildren()) {
+            if (childObj instanceof BrokerWithRegion childBroker) {
+                aggregateData(childBroker);
+                aggregatedPopulation += childBroker.getInternetPopulation();
+            }
+        }
+        node.setInternetPopulation(aggregatedPopulation);
+    }
+    
     @Override
-    protected void attachSubscribers(BrokerWithRegion root) {
+    public void attachSubscribers(BrokerWithRegion root) {
         for (int i = 0; i < allLeafBrokers.size(); i++) {
             BrokerWithRegion leafBroker = allLeafBrokers.get(i);
             Region regionDef = leafRegionsDefinition.get(i % config.getNumRegions());
@@ -86,7 +97,7 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
     }
 
     @Override
-    protected void attachPublishers(BrokerWithRegion root) {
+    public void attachPublishers(BrokerWithRegion root) {
         for (int i = 0; i < allLeafBrokers.size(); i++) {
             BrokerWithRegion leafBroker = allLeafBrokers.get(i);
             Region regionDef = leafRegionsDefinition.get(i % config.getNumRegions());
@@ -111,7 +122,7 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
             for (int col = 0; col < gridCols && regionsCreated < count; col++) {
                 int x1 = col * regionWidth;
                 int y1 = row * regionHeight;
-                regions.add(new Region(new Location(x1, y1, 0), new Location(x1 + regionWidth -1, y1 + regionHeight -1, MAX_Z)));
+                regions.add(new Region(new Location(x1, y1, 0), new Location(x1 + regionWidth - 1, y1 + regionHeight - 1, MAX_Z)));
                 regionsCreated++;
             }
         }
@@ -121,9 +132,9 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
     private Location generateLocationInRegion(Region region) {
         Location bl = region.getBottomLeft();
         Location tr = region.getTopRight();
-        double rangeX = tr.getX() - bl.getX() + 1;
-        double rangeY = tr.getY() - bl.getY() + 1;
-        double rangeZ = tr.getZ() - bl.getZ() + 1;
+        double rangeX = tr.getX() - bl.getX();
+        double rangeY = tr.getY() - bl.getY();
+        double rangeZ = tr.getZ() - bl.getZ();
         double randomX = bl.getX() + random.nextDouble() * rangeX;
         double randomY = bl.getY() + random.nextDouble() * rangeY;
         double randomZ = bl.getZ() + random.nextDouble() * rangeZ;

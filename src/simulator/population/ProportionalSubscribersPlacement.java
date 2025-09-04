@@ -8,9 +8,6 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
 
-/**
- * A strategy for placing subscribers proportionally to the internet population of leaf brokers.
- */
 public class ProportionalSubscribersPlacement implements SubscribersPlacementStrategy {
 
     private final Random random = new Random();
@@ -48,7 +45,7 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
 
             if (chosenBroker != null) {
                 Region brokerRegion = chosenBroker.getRegion();
-                if (brokerRegion == null) continue;
+                if (brokerRegion == null || brokerRegion.getBottomLeft() == null) continue;
 
                 Location subLocation = generateLocationInRegion(brokerRegion);
                 SubscriberWithLocation subscriber = new SubscriberWithLocation(generateSubscriberName(), subLocation);
@@ -82,7 +79,7 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
             BrokerWithRegion chosenBroker = leafBrokers.get(random.nextInt(leafBrokers.size()));
 
             Region brokerRegion = chosenBroker.getRegion();
-            if (brokerRegion == null) continue;
+            if (brokerRegion == null || brokerRegion.getBottomLeft() == null) continue;
 
             Location subLocation = generateLocationInRegion(brokerRegion);
             SubscriberWithLocation subscriber = new SubscriberWithLocation(generateSubscriberName(), subLocation);
@@ -93,22 +90,14 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
     }
 
     private Location generateLocationInRegion(Region region) {
-        Objects.requireNonNull(region, "Region cannot be null");
         Location bl = region.getBottomLeft();
         Location tr = region.getTopRight();
-        Objects.requireNonNull(bl, "Region's bottom-left corner cannot be null");
-        Objects.requireNonNull(tr, "Region's top-right corner cannot be null");
-
-        double minX = bl.getX();
-        double rangeX = tr.getX() - minX;
-        double randomX = (rangeX > 0) ? minX + (random.nextDouble() * rangeX) : minX;
-
-        double minY = bl.getY();
-        double rangeY = tr.getY() - minY;
-        double randomY = (rangeY > 0) ? minY + (random.nextDouble() * rangeY) : minY;
-        
-        double randomZ = bl.getZ();
-
+        double rangeX = tr.getX() - bl.getX();
+        double rangeY = tr.getY() - bl.getY();
+        double rangeZ = tr.getZ() - bl.getZ();
+        double randomX = bl.getX() + random.nextDouble() * rangeX;
+        double randomY = bl.getY() + random.nextDouble() * rangeY;
+        double randomZ = bl.getZ() + random.nextDouble() * rangeZ;
         return new Location(randomX, randomY, randomZ);
     }
 

@@ -66,7 +66,7 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     }
 
     @Override
-    protected void attachSubscribers(BrokerWithRegion root) {
+    public void attachSubscribers(BrokerWithRegion root) {
         logger.fine("Attaching fixed subscribers...");
         BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1");
         BrokerWithRegion grandchild2 = findNodeByName(root, "grandchild2");
@@ -113,7 +113,7 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     }
 
     @Override
-    protected void attachPublishers(BrokerWithRegion root) {
+    public void attachPublishers(BrokerWithRegion root) {
         logger.fine("Attaching fixed publishers...");
         BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1");
         BrokerWithRegion grandchild4 = findNodeByName(root, "grandchild4");

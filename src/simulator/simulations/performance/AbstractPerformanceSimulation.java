@@ -17,16 +17,12 @@ import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
-import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 
 /**
  * An abstract base class for running performance simulations.
  * It uses a TopologyPopulator to handle client setup.
- *
- * @param <C> The specific type of TopologyConfiguration.
- * @param <F> The specific type of AbstractTopologyFactory.
  */
 public abstract class AbstractPerformanceSimulation<
     C extends TopologyConfiguration, 
@@ -40,15 +36,8 @@ public abstract class AbstractPerformanceSimulation<
     // --- Abstract Methods for Subclasses ---
     protected abstract long getTotalSubscribers();
     protected abstract int getNumberOfReplicas();
-    protected abstract double getSubscriptionRegionSize();
     protected abstract double getRemoteInterestProbability();
-    protected abstract SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers);
 
-    /**
-     * Overrides the abstract method from the parent class.
-     * Performance tests should be quiet to avoid I/O overhead.
-     * @return The INFO log level.
-     */
     @Override
     protected Level getLogLevel() {
         return Level.INFO;
@@ -75,36 +64,6 @@ public abstract class AbstractPerformanceSimulation<
         populater.populate(this.rootNode, leafBrokers, getTotalSubscribers(), getNumberOfReplicas());
         
         collectClients(leafBrokers);
-    }
-
-    @Override
-    protected void executeScenarios() {
-        System.out.println("\n--- Executing Performance Scenario with Replicas ---");
-
-        if (allSubscribers.isEmpty()) {
-            System.err.println("No subscribers were created. Cannot run scenarios.");
-            return;
-        }
-
-        if (allPublishers.isEmpty()) {
-            System.err.println("No publishers (replicas) were placed. Aborting.");
-            return;
-        }
-
-        List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
-        
-        System.out.println("\n>>> Phase 1: Subscribers are sending subscriptions... <<<");
-        for (SubscriberWithLocation subscriber : allSubscribers) {
-            SubscriptionWithRegion subscription = generateSubscriptionForSubscriber(subscriber, leafBrokers);
-            subscriber.send(subscription);
-        }
-
-        System.out.println("\n>>> Phase 2: All service replicas are sending their publications... <<<");
-        for(PublisherWithLocation publisher : allPublishers) {
-            publisher.send(new simulator.events.PublicationWithLocation(publisher.getLocation()));
-        }
-        
-        collectAndPrintMetrics();
     }
 
     private void collectClients(List<BrokerWithRegion> leafBrokers) {
@@ -146,9 +105,9 @@ public abstract class AbstractPerformanceSimulation<
         return leaves;
     }
     
-    private void collectAndPrintMetrics() {
+    protected void collectAndPrintMetrics() {
         System.out.println("\n--- Simulation Metrics ---");
-        long totalSubscriptionMessages = 0, totalRegionUpdates = 0, totalSubscriptionTableEntries = 0;
+        long totalSubscriptionTableEntries = 0, totalRegionUpdates = 0;
         long successfulNotifications = 0, totalPublicationsSent = 0;
 
         List<SimulationBroker> allBrokers = new ArrayList<>();

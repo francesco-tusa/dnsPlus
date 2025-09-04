@@ -91,7 +91,7 @@ public class FileBasedTopologyGenerator
     }
 
     @Override
-    protected void attachSubscribers(BrokerWithRegion root) {
+    public void attachSubscribers(BrokerWithRegion root) {
          if (root == null || this.rootNode == null || root != this.rootNode) {
              logger.warning("Root node mismatch or null during attachSubscribers. Aborting subscriber attachment.");
              return;
@@ -100,7 +100,7 @@ public class FileBasedTopologyGenerator
     }
 
     @Override
-    protected void attachPublishers(BrokerWithRegion root) {
+    public void attachPublishers(BrokerWithRegion root) {
          if (root == null || this.rootNode == null || root != this.rootNode) {
              logger.warning("Root node mismatch or null during attachPublishers. Aborting publisher attachment.");
              return;

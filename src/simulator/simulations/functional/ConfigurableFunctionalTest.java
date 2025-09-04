@@ -25,6 +25,17 @@ public class ConfigurableFunctionalTest<
     protected Level getLogLevel() {
         return Level.FINE;
     }
+    
+    /**
+     * For functional tests, the setup involves attaching the hardcoded clients
+     * from the topology generator.
+     */
+    @Override
+    protected void setupSimulation() {
+        System.out.println("\n--- Attaching clients for functional test ---");
+        topologyFactory.attachSubscribers(this.rootNode);
+        topologyFactory.attachPublishers(this.rootNode);
+    }
 
     @Override
     protected void executeScenarios() {
