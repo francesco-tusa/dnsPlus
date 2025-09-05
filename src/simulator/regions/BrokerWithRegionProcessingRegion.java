@@ -26,24 +26,39 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     @Override
     public void processSubscription(SimulationSubscription s) {
         logger.fine(getName() + ": processing a subscription received from " + s.getSource().getName());
-        
-        if (s instanceof SubscriptionWithRegion newSub) {
+
+        boolean isCovered = false;
+        // Check for coverage only if the subscription is coming from below.
+        if (s instanceof SubscriptionWithRegion newSub && s.getSource() != getParentBroker()) {
             for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
-                if (entry.getKey() != getParentBroker() && entry.getKey() != s.getSource() && entry.getValue() instanceof SubscriptionWithRegion existingSub) {
+                // Check against other subscriptions that also came from below.
+                if (entry.getKey() != getParentBroker()
+                        && entry.getValue() instanceof SubscriptionWithRegion existingSub) {
                     if (existingSub.getRegion().contains(newSub.getRegion())) {
-                        logger.fine(getName() + ": Filtering subscription from " + s.getSource().getName() + ". Reason: Covered by existing subscription from " + entry.getKey().getName() + ".");
-                        return;
+                        logger.fine(getName() + ": Filtering upward propagation for subscription from "
+                                + s.getSource().getName() + ". Reason: Covered by existing subscription from "
+                                + entry.getKey().getName() + ".");
+                        isCovered = true;
+                        break; // A covering subscription was found.
                     }
                 }
             }
         }
 
+        // Crucially, always add the subscription to the local table for routing
+        // publications.
         addSubscription(s);
 
         if (s.getSource() == getParentBroker()) {
+            // If the subscription came from the parent, only propagate it downwards.
             sendSubscriptionToChildren(s);
         } else {
-            super.processSubscription(s);
+            // If the subscription came from a client or child...
+            // ...only propagate it upwards if it was not covered.
+            if (!isCovered) {
+                super.processSubscription(s); // This propagates to the parent.
+            }
+            // ...and always propagate it downwards to other interested children.
             sendSubscriptionToChildren(s);
         }
     }
@@ -53,9 +68,11 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
         logger.fine(getName() + ": processing a publication received from " + p.getSource().getName());
         for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
             TreeNode nextNode = entry.getKey();
-            if (nextNode == p.getSource()) continue;
+            if (nextNode == p.getSource())
+                continue;
 
-            if (entry.getValue() instanceof SubscriptionWithRegion subRegion && p instanceof PublicationWithLocation pubLocation) {
+            if (entry.getValue() instanceof SubscriptionWithRegion subRegion
+                    && p instanceof PublicationWithLocation pubLocation) {
                 if (subRegion.getRegion().contains(pubLocation.getLocation())) {
                     logger.fine(getName() + ": forwarding publication to " + nextNode.getName());
                     SimulationPublication forwardedCopy = p.getPublication();
@@ -70,7 +87,8 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     protected void sendSubscriptionToChildren(SimulationSubscription newSubscription) {
         if (newSubscription instanceof SubscriptionWithRegion newSub) {
             for (TreeNode child : getChildren()) {
-                if (child == newSub.getSource()) continue;
+                if (child == newSub.getSource())
+                    continue;
                 if (child instanceof BrokerWithRegion childBroker) {
                     if (childBroker.getRegion() != null && childBroker.getRegion().intersects(newSub.getRegion())) {
                         logger.fine(getName() + ": forwarding subscription to child " + childBroker.getName());

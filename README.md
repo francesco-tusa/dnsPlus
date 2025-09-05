@@ -251,15 +251,11 @@ The simulator is organised into several packages, each with a distinct responsib
 
 #### Region-Based Routing
 
-This algorithm operates on the principle of subscriptions to geographical areas.
-
-  * **How it works**: A `SubscriberWithLocation` creates a `SubscriptionWithRegion` defining an area of interest. This is propagated up the broker hierarchy, with redundant, overlapping subscriptions being filtered out. When a `PublicationWithLocation` is sent, brokers forward it to children whose subscription regions contain the publication's location.
+This algorithm operates on the principle of subscriptions to geographical areas. A `SubscriberWithLocation` creates a `SubscriptionWithRegion` defining an area of interest. This is propagated up the broker hierarchy, with redundant, overlapping subscriptions being filtered out. When a `PublicationWithLocation` is sent, brokers forward it to children whose subscription regions contain the publication's location.
 
 #### Location-Based Routing
 
-This algorithm is designed to deliver the *closest* publication to a subscriber.
-
-  * **How it works**: A `SubscriberWithLocation` sends a `SubscriptionWithLocation` containing its own location. As a `PublicationWithLocation` travels down the broker tree, each broker maintains a cache of the closest publication it has seen and only forwards the publication if it is an "improvement" for its region.
+This algorithm is designed to deliver the *closest* publication to a subscriber. A `SubscriberWithLocation` sends a `SubscriptionWithLocation` containing its own location. As a `PublicationWithLocation` travels down the broker tree, each broker maintains a cache of the closest publication it has seen and only forwards the publication if it is an "improvement" for its region.
 
 ### Executing Simulations and Tests
 
@@ -280,11 +276,7 @@ The simulator can generate several types of network topologies:
 
 ### The Topology Visualiser
 
-The simulator includes a powerful visualisation tool to help understand the system's behaviour.
-
-  * **Role**: The `TopologyVisualiser` uses the `GraphStream` library to create a graphical representation of the broker network.
-  * **Functionality**: It visualises the network structure and traces the flow of messages (subscriptions and publications) by highlighting their paths.
-  * **Usage**: The visualiser is intended for **functional tests**, where its step-by-step view is invaluable for debugging and verification. It is enabled by using the `VisualisedSimulationRunner`.
+The simulator includes a powerful visualisation tool to help understand the system's behaviour. The `TopologyVisualiser` uses the `GraphStream` library to create a graphical representation of the broker network. It visualises the network structure and traces the flow of messages (subscriptions and publications) by highlighting their paths. The visualiser is intended for **functional tests**, where its step-by-step view is invaluable for debugging and verification. It is enabled by using the `VisualisedSimulationRunner`.
 
 ### Extending the Simulator
 
@@ -293,3 +285,78 @@ The simulator's modular design makes it straightforward to extend:
   * **Adding a New Routing Algorithm**: Create new `Broker` and `LeafBroker` classes, and a new `BrokerFactory` to instantiate them.
   * **Adding a New Topology**: Extend `AbstractTopologyFactory` and implement the required methods to build your custom network structure.
   * **Adding a New Client Placement Strategy**: Implement the `SubscribersPlacementStrategy` or `PublishersPlacementStrategy` interface and provide your new strategy to the `TopologyPopulator`.
+
+### Running a Geographical Simulation
+
+The easiest way to run a simulation is through the main menu provided in `simulator.Main`. When you run this class, it presents a text-based menu in the console, allowing you to choose from pre-configured functional tests and performance simulations.
+
+For more **customised runs**, you can use the placeholder `main` methods provided in the simulation suite classes. These classes act as direct entry points for specific types of simulations.
+
+  * **Functional Tests**: To run these, you can modify and execute `RegionFunctionalTestsMain.java` or `LocationFunctionalTestsMain.java`.
+  * **Performance Simulations**: For these, you can modify and execute `RegionPerformanceSimulationsMain.java` or `LocationPerformanceSimulationsMain.java`.
+
+To **run a simulation**, open one of the main simulation classes, such as `RegionPerformanceSimulationsMain.java`. These classes often contain commented-out calls to different simulation configurations, making it easy to switch between them.
+
+```java
+public class RegionPerformanceSimulationsMain {
+    public static void main(String[] args) {
+        // Run a smaller-scale performance test on a random topology
+        //RandomTopologyRegionPerformanceSimulation.main(args);
+        
+        // Uncomment the line below to run the full-scale, realistic performance test
+        GeoNamesBasedRegionPerformanceSimulation.main(args);
+    }
+}
+```
+
+If needed, open the specific simulation class being called (e.g., `GeoNamesBasedRegionPerformanceSimulation.java`) and **adjust its parameters**, such as the number of subscribers. Then rebuild the project (if changes were made to the source code) with `ant jar` and run the main class you selected (e.g., `RegionPerformanceSimulationsMain`) from the command line.
+
+```console
+# To run the placeholder for region-based performance simulations
+$ java -cp build/jar/DNSPlus.jar simulator.RegionPerformanceSimulationsMain
+```
+
+The simulation will execute and print its results to the console.
+
+```console
+--- Starting Random Topology Performance Simulation (Region-Based) ---
+--- Setting Global Log Level to: INFO ---
+
+--- Initialising Simulation Runner ---
+Using Factory: RandomTopologyGenerator
+Using Configuration: RegionRandomTopologyConfiguration
+
+--- Generating Topology ---
+--- Topology Generation Complete ---
+Root Node: Broker-0 (BrokerWithRegionProcessingRegion)
+
+--- Populating Topology for Performance Simulation ---
+
+--- Starting Proportional Subscriber Placement ---
+Distributing 1000 total subscribers...
+--- Proportional Subscriber Placement Complete. Total subscribers created: 1000 ---
+
+--- Starting Hub-Based Publisher Placement (for Global Services) ---
+Distributing 10 publishers among 1 hub regions...
+--- Hub-Based Publisher Placement Complete. Total publishers created: 10 ---
+Collected 1000 subscribers and 10 publishers.
+
+--- Executing Region-Based Performance Scenario ---
+
+>>> Phase 1: Subscribers are sending region-based subscriptions... <<<
+  ... all subscriptions sent.
+
+>>> Phase 2: All service replicas are sending their publications... <<<
+
+--- Simulation Metrics ---
+--- System Overhead Metrics ---
+Total Subscription Table Entries Created (Propagation Cost): 1037
+Total Region Boundary Updates: 25
+
+--- Service Delivery Metrics ---
+Total Publications Sent by all Replicas: 10
+Total Successful Notifications Received by Subscribers: 40
+Subscriber Match Rate: 0.40%
+
+--- Simulation Run Finished ---
+```

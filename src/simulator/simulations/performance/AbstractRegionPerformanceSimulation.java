@@ -70,6 +70,19 @@ public abstract class AbstractRegionPerformanceSimulation<
         }
         return new SubscriptionWithRegion(subscriptionRegion);
     }
+
+    @Override
+    protected void collectAndPrintMetrics() {
+        super.collectAndPrintMetrics(); // This calls the base method to print the other metrics.
+
+        // Use getTotalSubscribers() to ensure we calculate against the configured total.
+        if (getTotalSubscribers() > 0) {
+            // Calculate how many individual subscribers received at least one publication.
+            long matchedSubscribers = allSubscribers.stream().filter(s -> s.getnPublications() > 0).count();
+            double matchRate = (double) matchedSubscribers / getTotalSubscribers() * 100.0;
+            System.out.printf("Subscriber Match Rate: %.2f%%\n", matchRate);
+        }
+    }
     
     protected List<BrokerWithRegion> findHubs(List<BrokerWithRegion> leafBrokers, int numHubs) {
         return leafBrokers.stream()

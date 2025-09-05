@@ -18,18 +18,27 @@ public abstract class VisualisedSimulationRunner<
         this.visualiser = TopologyVisualiser.getInstance();
     }
 
+    /**
+     * Overrides the setup method to call a new, dedicated method for attaching clients
+     * and then visualizing the topology. This ensures the correct order of operations.
+     */
     @Override
-    protected void generateTopology() {
-        super.generateTopology();
+    protected void setupSimulation() {
+        super.setupSimulation();
+        attachClientsAndVisualize();
+    }
+
+    /**
+     * This method is designed to be overridden by subclasses. The base implementation
+     * handles the visualization. Subclasses should call this base method *after*
+     * they have attached their clients.
+     */
+    protected void attachClientsAndVisualize() {
         if (this.rootNode != null) {
             visualizeTopology(this.rootNode);
         }
     }
 
-    /**
-     * Overrides the cleanup method to make the visualiser window visible
-     * at the end of the simulation run.
-     */
     @Override
     protected void cleanup() {
         super.cleanup();

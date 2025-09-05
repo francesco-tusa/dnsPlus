@@ -2,7 +2,6 @@ package simulator.entities;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import simulator.core.TreeNode;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
@@ -21,14 +20,18 @@ public abstract class SimulationBroker extends TreeNode {
 
     public void processPublication(SimulationPublication p) {
         TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
-        if (visualizer != null) {
+        if (visualizer != null && p.getSource() != null) {
             visualizer.setPublicationEdge(p.getSource().getName(), getName());
         }
-
         matchPublication(p);
     }
 
     public void processSubscription(SimulationSubscription s) {
+        TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
+        if (visualizer != null && s.getSource() != null) {
+            visualizer.updateSubscriptionEdge(s.getSource().getName(), getName());
+        }
+
         BrokerWithRegion parent = getParentBroker();
         if (parent != null) {
             SimulationSubscription subscriptionToSend = s.getSubscription();
@@ -41,22 +44,6 @@ public abstract class SimulationBroker extends TreeNode {
         subscriptionsTable.put(s.getSource(), s);
     }
 
-    public void printSubscriptionsTable() {
-        System.out.println("\n" + getName() + "'s Subscription Table:");
-        System.out.println("==============================");
-        System.out.println("  Source Node      -> Subscription Details");
-        System.out.println("  ---------------    --------------------");
-        if (subscriptionsTable.isEmpty()) {
-            System.out.println("  (empty)");
-        } else {
-            for (Map.Entry<TreeNode, SimulationSubscription> entry : subscriptionsTable.entrySet()) {
-                System.out.printf("  %-15s -> %s\n", entry.getKey().getName(), entry.getValue().toString());
-            }
-        }
-        System.out.println("==============================");
-    }
-
-    // Unchanged getters
     public BrokerWithRegion getParentBroker() {
         TreeNode parent = getParent();
         if (parent instanceof BrokerWithRegion) {
@@ -64,10 +51,8 @@ public abstract class SimulationBroker extends TreeNode {
         }
         return null;
     }
+    
     public Map<TreeNode, SimulationSubscription> getSubscriptionsTable() {
         return subscriptionsTable;
-    }
-    public int getnSubscriptions() {
-        return getSubscriptionsTable().size();
     }
 }

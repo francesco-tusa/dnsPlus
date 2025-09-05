@@ -17,8 +17,8 @@ import simulator.topology.grid.GridTopologyGenerator;
 public class RegionFunctionalTestsMain {
 
     public static void main(String[] args) {
-        runManualTopologyComprehensiveTest();
-        //runSubscriptionCoveringTest();
+        //runManualTopologyComprehensiveTest();
+        runSubscriptionCoveringTest();
         //runGridTopologyTest();
     }
 

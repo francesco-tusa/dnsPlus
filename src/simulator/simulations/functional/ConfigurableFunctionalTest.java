@@ -27,14 +27,17 @@ public class ConfigurableFunctionalTest<
     }
     
     /**
-     * For functional tests, the setup involves attaching the hardcoded clients
-     * from the topology generator.
+     * Overrides the new hook method. It first attaches the clients needed for the
+     * functional test, and then calls the parent method to trigger the visualization.
      */
     @Override
-    protected void setupSimulation() {
+    protected void attachClientsAndVisualize() {
         System.out.println("\n--- Attaching clients for functional test ---");
         topologyFactory.attachSubscribers(this.rootNode);
         topologyFactory.attachPublishers(this.rootNode);
+        
+        // After clients are attached, call the parent to draw the graph.
+        super.attachClientsAndVisualize();
     }
 
     @Override

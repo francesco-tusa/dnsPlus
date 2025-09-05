@@ -1,5 +1,11 @@
 package simulator.topology.fixed;
 
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
@@ -9,18 +15,7 @@ import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.factories.BrokerFactory;
 import utils.CustomLogger;
-import java.util.logging.Logger;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Queue;
 
-/**
- * Generates a specific, hardcoded topology defined manually.
- * Now uses a BrokerFactory to remain agnostic of the broker implementation and
- * correctly calculates parent regions after subscribers are attached.
- */
 public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTestTopologyConfiguration, BrokerWithRegion> {
 
     private static final Logger logger = CustomLogger.getLogger(FixedTestTopologyGenerator.class.getName());
@@ -68,12 +63,13 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     @Override
     public void attachSubscribers(BrokerWithRegion root) {
         logger.fine("Attaching fixed subscribers...");
-        BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1");
-        BrokerWithRegion grandchild2 = findNodeByName(root, "grandchild2");
-        BrokerWithRegion grandchild3 = findNodeByName(root, "grandchild3");
-        BrokerWithRegion grandchild4 = findNodeByName(root, "grandchild4");
+        BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1", BrokerWithRegion.class);
+        BrokerWithRegion grandchild2 = findNodeByName(root, "grandchild2", BrokerWithRegion.class);
+        BrokerWithRegion grandchild3 = findNodeByName(root, "grandchild3", BrokerWithRegion.class);
+        BrokerWithRegion grandchild4 = findNodeByName(root, "grandchild4", BrokerWithRegion.class);
 
-        // Attach subscribers and immediately update the leaf broker's region
+        // ** THE FIX IS HERE **
+        // After adding a subscriber, we must explicitly update the leaf broker's region.
         SubscriberWithLocation sub1 = new SubscriberWithLocation("sub1", new Location(0, 0, 0));
         grandchild1.addChild(sub1);
         grandchild1.updateRegion(sub1);
@@ -106,27 +102,21 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
         grandchild4.addChild(sub8);
         grandchild4.updateRegion(sub8);
         
-        // After leaf regions are defined by subscribers, calculate the parent regions.
         calculateBrokerRegions(root);
-        
         logger.fine("Subscriber attachment complete.");
     }
 
     @Override
     public void attachPublishers(BrokerWithRegion root) {
         logger.fine("Attaching fixed publishers...");
-        BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1");
-        BrokerWithRegion grandchild4 = findNodeByName(root, "grandchild4");
+        BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1", BrokerWithRegion.class);
+        BrokerWithRegion grandchild4 = findNodeByName(root, "grandchild4", BrokerWithRegion.class);
         
         grandchild1.addChild(new PublisherWithLocation("pub1", new Location(7, 7, 0)));
         grandchild4.addChild(new PublisherWithLocation("pub2", new Location(18, 4, 0)));
         logger.fine("Publisher attachment complete.");
     }
 
-    /**
-     * Manually triggers the region calculation for all parent brokers, starting from the leaves.
-     * This ensures parent regions are calculated based on the final leaf regions.
-     */
     private void calculateBrokerRegions(BrokerWithRegion root) {
         logger.fine("Calculating parent broker regions...");
         List<BrokerWithRegion> leaves = findLeafBrokers(root);
@@ -136,7 +126,7 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
             }
         }
     }
-
+    
     private List<BrokerWithRegion> findLeafBrokers(BrokerWithRegion root) {
         List<BrokerWithRegion> leaves = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
@@ -161,15 +151,15 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
         return leaves;
     }
 
-    private BrokerWithRegion findNodeByName(TreeNode root, String name) {
+    private <T extends TreeNode> T findNodeByName(TreeNode root, String name, Class<T> type) {
         if (root == null || name == null) return null;
         Queue<TreeNode> queue = new LinkedList<>();
         queue.offer(root);
 
         while (!queue.isEmpty()) {
             TreeNode current = queue.poll();
-            if (name.equals(current.getName()) && current instanceof BrokerWithRegion) {
-                return (BrokerWithRegion) current;
+            if (type.isInstance(current) && name.equals(current.getName())) {
+                return type.cast(current);
             }
             if (current.getChildren() != null) {
                 queue.addAll(current.getChildren());

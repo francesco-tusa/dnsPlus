@@ -10,9 +10,9 @@ public class RegionPerformanceSimulationsMain {
 
     public static void main(String[] args) {
         // Run a smaller-scale performance test on a random topology
-        //RandomTopologyRegionPerformanceSimulation.main(args);
+        RandomTopologyRegionPerformanceSimulation.main(args);
         
         // Uncomment the line below to run the full-scale, realistic performance test
-        GeoNamesBasedRegionPerformanceSimulation.main(args);
+        //GeoNamesBasedRegionPerformanceSimulation.main(args);
     }
 }

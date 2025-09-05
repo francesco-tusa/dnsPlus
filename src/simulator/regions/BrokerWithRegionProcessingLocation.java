@@ -14,10 +14,9 @@ import utils.CustomLogger;
 public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
 
     private static final Logger logger = CustomLogger.getLogger(BrokerWithRegionProcessingLocation.class.getName());
-    
+
     private final Map<Location, SimulationPublication> bestPublicationCache = new HashMap<>();
     private final Map<Location, Boolean> propagatedSubscriptions = new HashMap<>();
-
 
     public BrokerWithRegionProcessingLocation(String name) {
         super(name);
@@ -29,27 +28,34 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
 
     @Override
     public void processSubscription(SimulationSubscription s) {
+        // Always add the original subscription to the local table for downward
+        // delivery.
         addSubscription(s);
 
         if (s instanceof SubscriptionWithLocation) {
-            SubscriptionWithLocation subLoc = (SubscriptionWithLocation) s;
-            if (propagatedSubscriptions.containsKey(subLoc.getLocation())) {
-                logger.fine(getName() + ": Subscription for location " + subLoc.getLocation() + " already propagated. Stopping.");
-                return;
-            }
-            propagatedSubscriptions.put(subLoc.getLocation(), true);
+            // Use the broker's own center as the proxy location for filtering upward
+            // propagation.
+            Location proxyLocation = getRegion().getKeyPoints().get(8); // Index 8 is the center.
 
-            if (getRegion() != null && getRegion().getBottomLeft() != null) {
-                Location center = getRegion().getKeyPoints().get(8);
-                
-                SubscriptionWithLocation proxySubscription = new SubscriptionWithLocation(center);
-                proxySubscription.setSource(s.getSource());
-                s = proxySubscription;
+            if (propagatedSubscriptions.containsKey(proxyLocation)) {
+                logger.fine(getName() + ": Proxy subscription for location " + proxyLocation
+                        + " already propagated. Stopping upward propagation.");
+                return; // Stop here. Do not send another proxy sub upwards.
             }
+
+            // If this is the first subscription for this proxy location, record it and
+            // propagate it.
+            propagatedSubscriptions.put(proxyLocation, true);
+
+            // Create the proxy subscription to send to the parent.
+            SubscriptionWithLocation proxySubscription = new SubscriptionWithLocation(proxyLocation);
+            proxySubscription.setSource(this); // The source of the proxy is this broker.
+            super.processSubscription(proxySubscription); // This calls the parent's processSubscription.
+        } else {
+            // Fallback for other subscription types, if any.
+            super.processSubscription(s);
         }
-        super.processSubscription(s);
     }
-
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
@@ -65,7 +71,7 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
 
         return null;
     }
-    
+
     private void propagatePublicationUpward(SimulationPublication p) {
         BrokerWithRegion parentBroker = getParentBroker();
         if (parentBroker != null) {
@@ -87,8 +93,8 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
             SimulationPublication cachedPub = bestPublicationCache.get(keyPoint);
 
             if (cachedPub == null ||
-                distanceSquared(pub.getLocation(), keyPoint) < distanceSquared(((PublicationWithLocation) cachedPub).getLocation(), keyPoint))
-            {
+                    distanceSquared(pub.getLocation(), keyPoint) < distanceSquared(
+                            ((PublicationWithLocation) cachedPub).getLocation(), keyPoint)) {
                 bestPublicationCache.put(keyPoint, pub);
                 isImprovement = true;
             }
@@ -104,7 +110,8 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
                 }
             }
         } else {
-            logger.fine(getName() + ": Publication is not an improvement for any key point. Stopping downward propagation.");
+            logger.fine(getName()
+                    + ": Publication is not an improvement for any key point. Stopping downward propagation.");
         }
     }
 
