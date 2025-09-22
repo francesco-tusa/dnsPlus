@@ -1,6 +1,7 @@
 package simulator.simulations.functional;
 
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Queue;
 import java.util.function.Predicate;
 import simulator.core.Location;
@@ -8,7 +9,9 @@ import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
+import simulator.events.SimulationSubscription;
 import simulator.regions.BrokerWithRegion;
+import simulator.regions.BrokerWithRegionProcessingRegion;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 
@@ -32,6 +35,10 @@ public class FixedTopologyRegionFunctionalTests {
         s8.send(new SubscriptionWithRegion(new Region(new Location(17, 3, 0), new Location(19, 5, 0))));
         s5.send(new SubscriptionWithRegion(new Region(new Location(6, 6, 0), new Location(8, 8, 0))));
 
+        System.out.println("\n--- Broker Subscription Tables State (Post-Subscription) ---");
+        FunctionalTestUtils.printAllSubscriptionTables(root);
+        System.out.println();
+
         p2.send(new PublicationWithLocation(p2.getLocation()));
         p1.send(new PublicationWithLocation(p1.getLocation()));
 
@@ -54,56 +61,55 @@ public class FixedTopologyRegionFunctionalTests {
     };
 
     /**
-     * Validates that subscription "covering" prevents redundant propagation, but
-     * still
-     * ensures correct delivery to all interested subscribers.
+     * Validates that the `propagatedSubscriptions` table is correctly used to
+     * prevent redundant upward subscription propagation, while still ensuring 
+     * correct delivery.
      */
     public static final Predicate<BrokerWithRegion> SUBSCRIPTION_COVERING_SCENARIO = root -> {
-        System.out.println("\n>>> SCENARIO: Running Subscription Covering Test with Delivery Verification. <<<");
+        System.out.println(
+                "\n>>> SCENARIO: Running Subscription Covering Test with Explicit Propagation Table Verification. <<<");
 
         // --- Find required nodes ---
-        SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class); // Under grandchild2
-        SubscriberWithLocation s3 = findNodeByName(root, "sub3", SubscriberWithLocation.class); // Under grandchild3
-        PublisherWithLocation p1 = findNodeByName(root, "pub1", PublisherWithLocation.class); // Publisher for the test
-        BrokerWithRegion child2 = findNodeByName(root, "child2", BrokerWithRegion.class); // Common ancestor for
-                                                                                          // filtering
+        SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
+        SubscriberWithLocation s3 = findNodeByName(root, "sub3", SubscriberWithLocation.class);
+        PublisherWithLocation p1 = findNodeByName(root, "pub1", PublisherWithLocation.class);
+        BrokerWithRegionProcessingRegion child2 = findNodeByName(root, "child2",
+                BrokerWithRegionProcessingRegion.class);
 
-        if (s2 == null || s3 == null || p1 == null || child2 == null || root == null) {
-            System.err.println("Test failed: Could not find required nodes (s2, s3, p1, child2, root).");
+        if (s2 == null || s3 == null || p1 == null || child2 == null) {
+            System.err.println("Test failed: Could not find required nodes for the test.");
             return false;
         }
 
         // --- Send Subscriptions ---
-        // 1. s2 sends a large subscription. It propagates grandchild2 -> child2 ->
-        // root.
-        System.out.println("s2 (under grandchild2) sends a large subscription for region [0,0] to [20,20].");
         s2.send(new SubscriptionWithRegion(new Region(new Location(0, 0, 0), new Location(20, 20, 0))));
-
-        // 2. s3 sends a smaller, covered subscription. It should be added to child2's
-        // table but NOT propagated to root.
-        System.out.println("s3 (under grandchild3) sends a small, covered subscription for region [5,5] to [10,10].");
         s3.send(new SubscriptionWithRegion(new Region(new Location(5, 5, 0), new Location(10, 10, 0))));
 
-        // --- Verification Part 1: Check if filtering and local storage happened
-        // correctly ---
-        int intermediateBrokerSubscriptionCount = child2.getSubscriptionsTable().size();
-        long rootSubscriptionsFromChild2 = root.getSubscriptionsTable().keySet().stream()
-                .filter(node -> node.getName().equals("child2"))
+        // --- Verification Part 1: ---
+        // We get the propagatedSubscriptions table from child2.
+        Map<TreeNode, SimulationSubscription> propagatedSubs = child2.getPropagatedSubscriptions();
+
+        // We count how many times a subscription
+        // was propagated to the parent broker. This should only happen once.
+        long upwardPropagations = propagatedSubs.keySet().stream()
+                .filter(node -> node == child2.getParentBroker())
                 .count();
 
         System.out.println("\n--- Mid-point Check ---");
-        System.out.println("  - Intermediate broker 'child2' subscription table size: "
-                + intermediateBrokerSubscriptionCount + " (Expected: 2)");
-        System.out.println(
-                "  - Root broker subscriptions from 'child2': " + rootSubscriptionsFromChild2 + " (Expected: 1)");
+        System.out.println("  - Broker 'child2' subscriptions table size: " + child2.getSubscriptionsTable().size()
+                + " (Expected: 2)");
+        System.out
+                .println("  - Broker 'child2' upward propagations to parent: " + upwardPropagations + " (Expected: 1)");
 
-        boolean filteringSuccess = (intermediateBrokerSubscriptionCount == 2) && (rootSubscriptionsFromChild2 == 1);
+        boolean filteringSuccess = (child2.getSubscriptionsTable().size() == 2) && (upwardPropagations == 1);
+
+        System.out.println("\n--- Broker Subscription Tables State (Post-Subscription) ---");
+        FunctionalTestUtils.printAllSubscriptionTables(root);
+        System.out.println();
+
 
         // --- Send Publication ---
-        // 3. Send a publication that is inside the SMALLER (covered) region.
         Location publicationLocation = new Location(7, 7, 0);
-        System.out.println(
-                "\np1 sends a publication from " + publicationLocation + ", which should match both subscribers.");
         p1.send(new PublicationWithLocation(publicationLocation));
 
         // --- Verification Part 2: Check delivery ---
@@ -118,7 +124,7 @@ public class FixedTopologyRegionFunctionalTests {
         if (finalSuccess) {
             System.out.println("\n--- Validation Result ---");
             System.out.println(
-                    "SUCCESS: The Subscription Covering test passed. Filtering, local storage, and delivery were all correct.");
+                    "SUCCESS: The Subscription Covering test passed. Propagation table and delivery were correct.");
         } else {
             System.out.println("\n--- Validation Result ---");
             System.out.println("FAILED: The Subscription Covering test did not pass. Filtering success: "

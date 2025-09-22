@@ -1,7 +1,5 @@
 package simulator.simulations.performance;
 
-import java.util.List;
-import simulator.core.Location;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.SubscriptionWithLocation;
 import simulator.regions.BrokerWithRegion;

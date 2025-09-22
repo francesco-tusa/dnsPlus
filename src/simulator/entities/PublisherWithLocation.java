@@ -5,6 +5,7 @@ import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
+import simulator.visualisation.TopologyVisualiser;
 import utils.CustomLogger;
 
 public class PublisherWithLocation extends TreeNode {
@@ -30,6 +31,12 @@ public class PublisherWithLocation extends TreeNode {
             }
             logger.fine("\n" + getName() + ": sending publication" + pubInfo);
             
+            // Set this publisher's node to active (bold) before sending.
+            TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
+            if (visualizer != null) {
+                visualizer.setNodeActive(getName());
+            }
+
             broker.processPublication(p);
             nPublications++;
         }

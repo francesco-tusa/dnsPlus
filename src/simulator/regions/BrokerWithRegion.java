@@ -5,7 +5,6 @@ import simulator.core.Location;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
 import simulator.core.TreeNode;
-import simulator.visualisation.TopologyVisualiser;
 import utils.CustomLogger;
 
 public abstract class BrokerWithRegion extends SimulationBroker {

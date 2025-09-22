@@ -1,19 +1,28 @@
 package simulator.regions;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
+
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
-import simulator.visualisation.TopologyVisualiser;
 import utils.CustomLogger;
 
 public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
 
     private static final Logger logger = CustomLogger.getLogger(BrokerWithRegionProcessingRegion.class.getName());
+
+    /**
+     * Tracks which subscription regions have already been propagated to parent or
+     * child brokers to prevent sending redundant messages.
+     * Key: The TreeNode (parent or child) the subscription was sent to.
+     * Value: The SimulationSubscription that was sent.
+     */
+    private final Map<TreeNode, SimulationSubscription> propagatedSubscriptions = new HashMap<>();
 
     public BrokerWithRegionProcessingRegion(String name) {
         super(name);
@@ -23,43 +32,77 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
         super(name, p1, p2);
     }
 
-    @Override
-    public void processSubscription(SimulationSubscription s) {
-        logger.fine(getName() + ": processing a subscription received from " + s.getSource().getName());
+    public Map<TreeNode, SimulationSubscription> getPropagatedSubscriptions() {
+        return propagatedSubscriptions;
+    }
 
-        boolean isCovered = false;
-        // Check for coverage only if the subscription is coming from below.
-        if (s instanceof SubscriptionWithRegion newSub && s.getSource() != getParentBroker()) {
-            for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
-                // Check against other subscriptions that also came from below.
-                if (entry.getKey() != getParentBroker()
-                        && entry.getValue() instanceof SubscriptionWithRegion existingSub) {
-                    if (existingSub.getRegion().contains(newSub.getRegion())) {
-                        logger.fine(getName() + ": Filtering upward propagation for subscription from "
-                                + s.getSource().getName() + ". Reason: Covered by existing subscription from "
-                                + entry.getKey().getName() + ".");
-                        isCovered = true;
-                        break; // A covering subscription was found.
-                    }
-                }
-            }
+    /**
+     * This method now correctly implements the abstract method from
+     * SimulationBroker.
+     * It contains the specific routing logic for region-based subscriptions.
+     */
+    @Override
+    protected void propagateSubscription(SimulationSubscription s) {
+        logger.fine(String.format("%s (Region: %s): processing a subscription received from %s",
+                getName(), getRegion().toShortString(), s.getSource().getName()));
+
+        if (!(s instanceof SubscriptionWithRegion newSub)) {
+            // If it's not a region subscription, we can simply stop or handle differently.
+            // Based on current logic, we can just return.
+            return;
         }
 
-        // Crucially, always add the subscription to the local table for routing
-        // publications.
-        addSubscription(s);
+        addSubscription(newSub);
 
-        if (s.getSource() == getParentBroker()) {
-            // If the subscription came from the parent, only propagate it downwards.
-            sendSubscriptionToChildren(s);
-        } else {
-            // If the subscription came from a client or child...
-            // ...only propagate it upwards if it was not covered.
-            if (!isCovered) {
-                super.processSubscription(s); // This propagates to the parent.
+        if (s.getSource() != getParentBroker()) {
+            propagateSubscriptionUpward(newSub);
+        }
+
+        propagateSubscriptionDownward(newSub);
+    }
+
+    private void propagateSubscriptionUpward(SubscriptionWithRegion newSub) {
+        BrokerWithRegion parent = getParentBroker();
+        if (parent == null)
+            return;
+
+        SubscriptionWithRegion existingSubForParent = (SubscriptionWithRegion) propagatedSubscriptions.get(parent);
+        if (existingSubForParent != null && existingSubForParent.getRegion().contains(newSub.getRegion())) {
+            logger.fine(getName() + ": Filtering upward propagation for " + newSub.getRegion().toShortString() +
+                    ". Reason: Covered by existing propagated subscription to parent.");
+            return;
+        }
+
+        logger.fine(getName() + ": Propagating subscription upwards to parent " + parent.getName());
+        SimulationSubscription subscriptionToSend = newSub.getSubscription();
+        subscriptionToSend.setSource(this);
+        parent.processSubscription(subscriptionToSend);
+        propagatedSubscriptions.put(parent, subscriptionToSend);
+    }
+
+    private void propagateSubscriptionDownward(SubscriptionWithRegion newSub) {
+        for (TreeNode child : getChildren()) {
+            if (child == newSub.getSource() || !(child instanceof BrokerWithRegion childBroker)) {
+                continue;
             }
-            // ...and always propagate it downwards to other interested children.
-            sendSubscriptionToChildren(s);
+
+            if (childBroker.getRegion() != null && childBroker.getRegion().intersects(newSub.getRegion())) {
+                logger.fine(String.format("%s: Subscription region %s intersects with child %s's region %s. Forwarding...",
+                        getName(), newSub.getRegion().toShortString(), childBroker.getName(), childBroker.getRegion().toShortString()));
+
+                SubscriptionWithRegion existingSubForChild = (SubscriptionWithRegion) propagatedSubscriptions
+                        .get(childBroker);
+                if (existingSubForChild != null && existingSubForChild.getRegion().contains(newSub.getRegion())) {
+                    logger.fine(getName() + ": Filtering downward propagation to " + childBroker.getName() +
+                            ". Reason: Covered by existing propagated subscription.");
+                    continue;
+                }
+
+                SubscriptionWithRegion subscriptionToSend = new SubscriptionWithRegion(newSub.getRegion());
+                subscriptionToSend.setSource(this);
+                childBroker.processSubscription(subscriptionToSend);
+                propagatedSubscriptions.put(childBroker, subscriptionToSend);
+            }
         }
     }
 
@@ -84,6 +127,12 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
         return null;
     }
 
+    /**
+     * This method is now redundant and should not be used.
+     * The logic has been moved to propagateSubscriptionDownward and the visualiser
+     * calls are handled by the parent SimulationBroker.
+     */
+    @Deprecated
     protected void sendSubscriptionToChildren(SimulationSubscription newSubscription) {
         if (newSubscription instanceof SubscriptionWithRegion newSub) {
             for (TreeNode child : getChildren()) {
@@ -92,10 +141,6 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
                 if (child instanceof BrokerWithRegion childBroker) {
                     if (childBroker.getRegion() != null && childBroker.getRegion().intersects(newSub.getRegion())) {
                         logger.fine(getName() + ": forwarding subscription to child " + childBroker.getName());
-                        TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
-                        if (visualizer != null) {
-                            visualizer.updateSubscriptionEdge(getName(), childBroker.getName());
-                        }
                         SubscriptionWithRegion subscriptionToSend = new SubscriptionWithRegion(newSub.getRegion());
                         subscriptionToSend.setSource(this);
                         childBroker.processSubscription(subscriptionToSend);

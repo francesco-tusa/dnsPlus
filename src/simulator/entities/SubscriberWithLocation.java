@@ -36,8 +36,10 @@ public class SubscriberWithLocation extends TreeNode {
         }
 
         TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
-        if (visualizer != null) {
-            visualizer.setPublicationEdge(p.getSource().getName(), getName());
+        if (visualizer != null && p.getSource() != null) {
+            // We now call updatePublicationEdge and specify the direction as 'false' (downward).
+            boolean isUpward = false; // Delivery to a subscriber is always a downward event.
+            visualizer.updatePublicationEdge(p.getSource().getName(), getName(), isUpward);
         }
     }
     
@@ -56,8 +58,14 @@ public class SubscriberWithLocation extends TreeNode {
 
             broker.processSubscription(s);
             nSubscriptions++;
-        } 
-        else {
+
+            TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
+            if (visualizer != null) {
+                visualizer.setNodeActive(getName());
+                visualizer.updateSubscriberLabel(this, s);
+            }
+
+        } else {
             logger.severe(getName() + ": topology error, there is no broker to send the subscription to");
         }
     }

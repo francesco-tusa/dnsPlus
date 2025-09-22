@@ -37,6 +37,10 @@ public class FixedTopologyLocationFunctionalTests {
         // s8 subscribes with its location.
         s8.send(new SubscriptionWithLocation(s8.getLocation()));
 
+        System.out.println("\n--- Broker Subscription Tables State (Post-Subscription) ---");
+        FunctionalTestUtils.printAllSubscriptionTables(root);
+        System.out.println();
+
         // --- Send multiple publications ---
         // 1. A first publication from the publisher's default location. This should be
         // received.
@@ -126,6 +130,11 @@ public class FixedTopologyLocationFunctionalTests {
                 + " (Expected: 1)");
 
         boolean filteringSuccess = (intermediateBrokerSubscriptionCount == 2) && (rootSubscriptionsFromChild2 == 1);
+
+        System.out.println("\n--- Broker Subscription Tables State (Post-Subscription) ---");
+        FunctionalTestUtils.printAllSubscriptionTables(root);
+        System.out.println();
+
 
         // --- Phase 3: Publication and Delivery ---
         System.out.println("\n--- Phase 3: Testing Publication Delivery to both branches ---");

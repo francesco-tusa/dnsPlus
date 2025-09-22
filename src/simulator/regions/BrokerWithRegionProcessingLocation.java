@@ -26,34 +26,41 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
         super(name, p1, p2);
     }
 
+    /**
+     * This method now correctly implements the abstract method from
+     * SimulationBroker.
+     * It contains the specific routing logic for location-based subscriptions.
+     */
     @Override
-    public void processSubscription(SimulationSubscription s) {
-        // Always add the original subscription to the local table for downward
-        // delivery.
+    protected void propagateSubscription(SimulationSubscription s) {
+        logger.fine(getName() + ": processing a subscription received from " + s.getSource().getName());
+        
         addSubscription(s);
 
         if (s instanceof SubscriptionWithLocation) {
-            // Use the broker's own center as the proxy location for filtering upward
-            // propagation.
-            Location proxyLocation = getRegion().getKeyPoints().get(8); // Index 8 is the center.
+            Location proxyLocation = getRegion().getKeyPoints().get(8);
 
             if (propagatedSubscriptions.containsKey(proxyLocation)) {
                 logger.fine(getName() + ": Proxy subscription for location " + proxyLocation
                         + " already propagated. Stopping upward propagation.");
-                return; // Stop here. Do not send another proxy sub upwards.
+                return;
             }
 
-            // If this is the first subscription for this proxy location, record it and
-            // propagate it.
             propagatedSubscriptions.put(proxyLocation, true);
-
-            // Create the proxy subscription to send to the parent.
             SubscriptionWithLocation proxySubscription = new SubscriptionWithLocation(proxyLocation);
-            proxySubscription.setSource(this); // The source of the proxy is this broker.
-            super.processSubscription(proxySubscription); // This calls the parent's processSubscription.
+            proxySubscription.setSource(this);
+
+            if (getParentBroker() != null) {
+                logger.fine(getName() + ": Propagating proxy subscription upwards to parent " + getParentBroker().getName());
+                getParentBroker().processSubscription(proxySubscription);
+            }
+
         } else {
             // Fallback for other subscription types, if any.
-            super.processSubscription(s);
+            if (getParentBroker() != null) {
+                logger.fine(getName() + ": Propagating non-location subscription upwards to parent " + getParentBroker().getName());
+                getParentBroker().processSubscription(s);
+            }
         }
     }
 
