@@ -1,5 +1,6 @@
 package simulator.core;
 
+import java.text.DecimalFormat;
 import java.util.Objects;
 
 /**
@@ -64,6 +65,16 @@ public final class Location implements Comparable<Location> {
         // Format doubles for clarity if desired, otherwise default toString is fine
         return String.format("(%.4f, %.4f, %.4f)", x, y, z); // Example formatting
         // return "(" + x + ", " + y + ", " + z + ")"; // Default double toString
+    }
+
+    /**
+     * Provides a compact string representation of the location for display purposes,
+     * showing coordinates as integers.
+     * @return A formatted string like "[x,y]".
+     */
+    public String toShortString() {
+        DecimalFormat df = new DecimalFormat("#");
+        return String.format("[%s,%s]", df.format(this.x), df.format(this.y));
     }
 
     /**

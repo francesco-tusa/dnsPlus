@@ -6,7 +6,9 @@ import org.graphstream.graph.Edge;
 import org.graphstream.graph.implementations.SingleGraph;
 import org.graphstream.ui.view.Viewer;
 import simulator.core.TreeNode;
+import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
+import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
 import simulator.events.SubscriptionWithLocation;
 import simulator.regions.BrokerWithRegion;
@@ -121,6 +123,22 @@ public class TopologyVisualiser {
             } else if (subscription instanceof SubscriptionWithLocation subLocation) {
                 label += " " + subLocation.getLocation().toString();
             }
+            node.setAttribute("ui.label", label);
+        }
+    }
+
+    /**
+     * A new method to update the label of a publisher node to display
+     * the location of the publication it is sending.
+     * @param publisher The publisher node whose label is to be updated.
+     * @param publication The publication containing the location to display.
+     */
+    public void updatePublisherLabel(PublisherWithLocation publisher, PublicationWithLocation publication) {
+        if (publisher == null || publication == null) return;
+        
+        Node node = graph.getNode(publisher.getName());
+        if (node != null) {
+            String label = String.format("%s %s", publisher.getName(), publication.getLocation().toShortString());
             node.setAttribute("ui.label", label);
         }
     }

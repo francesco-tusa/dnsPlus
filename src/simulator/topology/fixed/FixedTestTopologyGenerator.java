@@ -112,7 +112,7 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
         BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1", BrokerWithRegion.class);
         BrokerWithRegion grandchild4 = findNodeByName(root, "grandchild4", BrokerWithRegion.class);
         
-        grandchild1.addChild(new PublisherWithLocation("pub1", new Location(7, 7, 0)));
+        grandchild1.addChild(new PublisherWithLocation("pub1", new Location(1, 1, 0)));
         grandchild4.addChild(new PublisherWithLocation("pub2", new Location(18, 4, 0)));
         logger.fine("Publisher attachment complete.");
     }

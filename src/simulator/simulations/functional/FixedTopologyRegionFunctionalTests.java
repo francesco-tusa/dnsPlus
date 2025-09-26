@@ -33,7 +33,7 @@ public class FixedTopologyRegionFunctionalTests {
 
         s2.send(new SubscriptionWithRegion(new Region(new Location(16, 3, 0), new Location(19, 5, 0))));
         s8.send(new SubscriptionWithRegion(new Region(new Location(17, 3, 0), new Location(19, 5, 0))));
-        s5.send(new SubscriptionWithRegion(new Region(new Location(6, 6, 0), new Location(8, 8, 0))));
+        s5.send(new SubscriptionWithRegion(new Region(new Location(0, 0, 0), new Location(2, 2, 0))));
 
         System.out.println("\n--- Broker Subscription Tables State (Post-Subscription) ---");
         FunctionalTestUtils.printAllSubscriptionTables(root);

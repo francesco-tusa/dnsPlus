@@ -31,10 +31,13 @@ public class PublisherWithLocation extends TreeNode {
             }
             logger.fine("\n" + getName() + ": sending publication" + pubInfo);
             
-            // Set this publisher's node to active (bold) before sending.
             TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
             if (visualizer != null) {
                 visualizer.setNodeActive(getName());
+                // If this is a publication with a location, update the label.
+                if (p instanceof PublicationWithLocation pl) {
+                    visualizer.updatePublisherLabel(this, pl);
+                }
             }
 
             broker.processPublication(p);
