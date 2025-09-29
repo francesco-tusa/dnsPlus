@@ -36,6 +36,11 @@ public class SubscriptionWithLocation extends SimulationSubscription {
     }
 
     @Override
+    public String toDisplayString() {
+        return location.toShortString();
+    }
+
+    @Override
     public String toString() {
         return "location=" + location;
     }

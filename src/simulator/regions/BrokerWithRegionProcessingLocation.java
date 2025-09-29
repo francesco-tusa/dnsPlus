@@ -1,6 +1,7 @@
 package simulator.regions;
 
 import java.util.HashMap;
+import java.util.List; // Add import
 import java.util.Map;
 import java.util.logging.Logger;
 import simulator.core.Location;
@@ -17,6 +18,9 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
 
     private final Map<Location, SimulationPublication> bestPublicationCache = new HashMap<>();
     private final Map<Location, Boolean> propagatedSubscriptions = new HashMap<>();
+    
+    // A cache to store the calculated key points for this broker's region.
+    private List<Location> keyPointsCache = null;
 
     public BrokerWithRegionProcessingLocation(String name) {
         super(name);
@@ -25,44 +29,53 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
     public BrokerWithRegionProcessingLocation(String name, Location p1, Location p2) {
         super(name, p1, p2);
     }
+    
+    /**
+     * A new private helper method that returns the cached key points.
+     * If the cache is empty, it calculates them, stores them, and then returns them.
+     */
+    private List<Location> getOrCalculateKeyPoints() {
+        if (this.keyPointsCache == null) {
+            this.keyPointsCache = getRegion().getKeyPoints();
+        }
+        return this.keyPointsCache;
+    }
 
     /**
-     * This method now correctly implements the abstract method from
-     * SimulationBroker.
-     * It contains the specific routing logic for location-based subscriptions.
+     * This is the propagation logic for an intermediate broker.
+     * It does not create a new proxy location, but forwards the one it receives.
      */
     @Override
     protected void propagateSubscription(SimulationSubscription s) {
         logger.fine(getName() + ": processing a subscription received from " + s.getSource().getName());
-        
         addSubscription(s);
 
-        if (s instanceof SubscriptionWithLocation) {
-            Location proxyLocation = getRegion().getKeyPoints().get(8);
+        if (s instanceof SubscriptionWithLocation sub) {
+            // It uses the location from the INCOMING subscription for filtering.
+            Location proxyLocation = sub.getLocation();
+            logger.fine(String.format("%s: Received and processing proxy subscription for location %s.",
+                    getName(), proxyLocation.toShortString()));
 
             if (propagatedSubscriptions.containsKey(proxyLocation)) {
-                logger.fine(getName() + ": Proxy subscription for location " + proxyLocation
+                logger.fine(getName() + ": Proxy subscription for location " + proxyLocation.toShortString()
                         + " already propagated. Stopping upward propagation.");
                 return;
             }
 
             propagatedSubscriptions.put(proxyLocation, true);
-            SubscriptionWithLocation proxySubscription = new SubscriptionWithLocation(proxyLocation);
-            proxySubscription.setSource(this);
-
+            
             if (getParentBroker() != null) {
-                logger.fine(getName() + ": Propagating proxy subscription upwards to parent " + getParentBroker().getName());
-                getParentBroker().processSubscription(proxySubscription);
-            }
-
-        } else {
-            // Fallback for other subscription types, if any.
-            if (getParentBroker() != null) {
-                logger.fine(getName() + ": Propagating non-location subscription upwards to parent " + getParentBroker().getName());
+                logger.fine(getName() + ": Forwarding proxy subscription upwards to parent " + getParentBroker().getName());
+                // It forwards the original subscription object 's', preserving the proxy location.
+                s.setSource(this);
                 getParentBroker().processSubscription(s);
             }
+        } else if (getParentBroker() != null) {
+             // Fallback for other subscription types
+            getParentBroker().processSubscription(s);
         }
     }
+
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
@@ -96,17 +109,20 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
         }
 
         boolean isImprovement = false;
-        for (Location keyPoint : getRegion().getKeyPoints()) {
-            SimulationPublication cachedPub = bestPublicationCache.get(keyPoint);
+        // The key points are used for publication filtering.
+        for (Location keyPoint : getOrCalculateKeyPoints()) {
+            PublicationWithLocation cachedPub = (PublicationWithLocation) bestPublicationCache.get(keyPoint);
 
+            String cachedLocationStr = (cachedPub == null) ? "none" : cachedPub.getLocation().toShortString();
             if (cachedPub == null ||
-                    distanceSquared(pub.getLocation(), keyPoint) < distanceSquared(
-                            ((PublicationWithLocation) cachedPub).getLocation(), keyPoint)) {
+                    distanceSquared(pub.getLocation(), keyPoint) < distanceSquared(cachedPub.getLocation(), keyPoint)) {
+                logger.fine(String.format("%s: New pub %s is an improvement over cached pub %s for key point %s.",
+                        getName(), pub.getLocation().toShortString(), cachedLocationStr, keyPoint.toShortString()));
                 bestPublicationCache.put(keyPoint, pub);
                 isImprovement = true;
             }
         }
-
+        
         if (isImprovement) {
             logger.fine(getName() + ": Publication is an improvement, forwarding to children.");
             for (TreeNode child : getChildren()) {

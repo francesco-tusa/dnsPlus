@@ -3,7 +3,6 @@ package simulator.simulations.functional;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.function.Predicate;
-
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
@@ -12,65 +11,68 @@ import simulator.events.PublicationWithLocation;
 import simulator.events.SubscriptionWithLocation;
 import simulator.regions.BrokerWithRegion;
 
-/**
- * A utility class containing static validation tests specifically for the Fixed
- * Topology when using LOCATION-based brokers.
- */
 public class FixedTopologyLocationFunctionalTests {
 
     /**
-     * A comprehensive test to verify the core "improvement" filtering logic at a
-     * leaf broker, including cross-branch propagation. A subscriber receives three 
-     * publications and should only accept the ones that are closer than what it 
-     * has previously received.
+     * An comprehensive test to verify the "closest publication" logic.
+     * It involves multiple subscribers and publishers across different branches
+     * of the topology to demonstrate that the network correctly tracks the best
+     * publication for each subscriber independently.
      */
     public static final Predicate<BrokerWithRegion> COMPREHENSIVE_SCENARIO = root -> {
-        System.out.println("\n>>> SCENARIO: Testing Comprehensive Publication Improvement Filtering (Location). <<<");
-        SubscriberWithLocation s8 = findNodeByName(root, "sub8", SubscriberWithLocation.class);
-        PublisherWithLocation p2 = findNodeByName(root, "pub2", PublisherWithLocation.class);
+        System.out.println("\n>>> SCENARIO: Testing Multi-Client Closest Publication Filtering (Location). <<<");
 
-        if (s8 == null || p2 == null) {
-            System.err.println("Test failed: Could not find required nodes (sub8, pub2).");
+        // --- Find required nodes ---
+        SubscriberWithLocation sub2 = findNodeByName(root, "sub2", SubscriberWithLocation.class); // Location: (5, 2)
+        SubscriberWithLocation sub8 = findNodeByName(root, "sub8", SubscriberWithLocation.class); // Location: (20, 5)
+        PublisherWithLocation p1 = findNodeByName(root, "pub1", PublisherWithLocation.class); // Location: (7, 7)
+        PublisherWithLocation p2 = findNodeByName(root, "pub2", PublisherWithLocation.class); // Location: (18, 4)
+
+        if (sub2 == null || sub8 == null || p1 == null || p2 == null) {
+            System.err.println("Test failed: Could not find all required nodes for the comprehensive test.");
             return false;
         }
 
-        // s8 subscribes with its location.
-        s8.send(new SubscriptionWithLocation(s8.getLocation()));
+        // --- Phase 1: Subscriptions ---
+        sub2.send(new SubscriptionWithLocation(sub2.getLocation()));
+        sub8.send(new SubscriptionWithLocation(sub8.getLocation()));
 
-        System.out.println("\n--- Broker Subscription Tables State (Post-Subscription) ---");
-        FunctionalTestUtils.printAllSubscriptionTables(root);
-        System.out.println();
+        // --- Phase 2: Publications (in a controlled order) ---
+        // 1. Send initial, relevant publications to establish a baseline for each
+        // subscriber.
+        System.out.println("\n--- Establishing Baselines ---");
+        p1.send(new PublicationWithLocation(p1.getLocation())); // This is the baseline for sub2.
+        p2.send(new PublicationWithLocation(p2.getLocation())); // This is the baseline for sub8.
 
-        // --- Send multiple publications ---
-        // 1. A first publication from the publisher's default location. This should be
-        // received.
-        System.out.println("Sending first publication from " + p2.getLocation());
-        p2.send(new PublicationWithLocation(p2.getLocation()));
+        // 2. Send an improvement for sub2. This should be delivered to sub2 but
+        // filtered for sub8.
+        System.out.println("\n--- Sending Improvement for sub2 ---");
+        p1.send(new PublicationWithLocation(new Location(6.0, 3.0, 0.0)));
 
-        // 2. A second, farther away publication. This should be filtered out by the
-        // leaf broker.
-        Location fartherLocation = new Location(25, 10, 0); // Farther from s8 at (20, 5, 0)
-        System.out.println("Sending second, farther publication from " + fartherLocation);
-        p2.send(new PublicationWithLocation(fartherLocation));
+        // 3. Send an improvement for sub8. This should be delivered to sub8 but
+        // filtered for sub2.
+        System.out.println("\n--- Sending Improvement for sub8 ---");
+        p2.send(new PublicationWithLocation(new Location(19.0, 5.0, 0.0)));
 
-        // 3. A third, closer publication. This should be an improvement and be
-        // delivered.
-        Location closerLocation = new Location(19.5, 5.0, 0); // Closer to s8
-        System.out.println("Sending third, closer publication from " + closerLocation);
-        p2.send(new PublicationWithLocation(closerLocation));
+        // 4. Send a publication that is NOT an improvement for either subscriber.
+        System.out.println("\n--- Sending Farther Publication (should be filtered) ---");
+        p1.send(new PublicationWithLocation(new Location(15.0, 15.0, 0.0)));
 
+        // --- Verification ---
         System.out.println("\n--- Final Check ---");
-        System.out.println("  - Subscriber 's8' received: " + s8.getnPublications() + " publications. (Expected: 2)");
+        System.out
+                .println("  - Subscriber 'sub2' received: " + sub2.getnPublications() + " publications. (Expected: 2)");
+        System.out
+                .println("  - Subscriber 'sub8' received: " + sub8.getnPublications() + " publications. (Expected: 3)");
 
-        boolean success = s8.getnPublications() == 2;
+        boolean success = sub2.getnPublications() == 2 && sub8.getnPublications() == 3;
 
         if (success) {
             System.out.println("\n--- Validation Result ---");
-            System.out.println(
-                    "SUCCESS: The Comprehensive Scenario (Location) test passed. Correctly received 2 of 3 publications.");
+            System.out.println("SUCCESS: The Multi-Client Closest Publication test passed.");
         } else {
             System.out.println("\n--- Validation Result ---");
-            System.out.println("FAILED: The Comprehensive Scenario (Location) test did not pass.");
+            System.out.println("FAILED: The Multi-Client Closest Publication test did not pass.");
         }
 
         return success;
@@ -134,7 +136,6 @@ public class FixedTopologyLocationFunctionalTests {
         System.out.println("\n--- Broker Subscription Tables State (Post-Subscription) ---");
         FunctionalTestUtils.printAllSubscriptionTables(root);
         System.out.println();
-
 
         // --- Phase 3: Publication and Delivery ---
         System.out.println("\n--- Phase 3: Testing Publication Delivery to both branches ---");

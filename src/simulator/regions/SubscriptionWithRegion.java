@@ -40,6 +40,11 @@ public class SubscriptionWithRegion extends SimulationSubscription {
     }
 
     @Override
+    public String toDisplayString() {
+        return region.toShortString();
+    }
+
+    @Override
     public String toString() {
         return "region=" + region;
     }

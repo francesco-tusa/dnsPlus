@@ -34,6 +34,16 @@ public class SimulationSubscription {
     }
 
     /**
+     * A method to provide a consistent, short string representation for any subscription type.
+     * This will be overridden by subclasses to provide specific details.
+     * @return A string formatted for display in the visualiser.
+     */
+    public String toDisplayString() {
+        return ""; // Default implementation returns an empty string.
+    }
+
+
+    /**
      * Creates a shallow copy of the subscription.
      * Subclasses should override to copy their specific fields.
      */

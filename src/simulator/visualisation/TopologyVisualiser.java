@@ -2,6 +2,9 @@ package simulator.visualisation;
 
 import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
+
+import java.util.stream.Collectors;
+
 import org.graphstream.graph.Edge;
 import org.graphstream.graph.implementations.SingleGraph;
 import org.graphstream.ui.view.Viewer;
@@ -117,31 +120,26 @@ public class TopologyVisualiser {
         
         Node node = graph.getNode(subscriber.getName());
         if (node != null) {
-            String label = subscriber.getName();
-            if (subscription instanceof SubscriptionWithRegion subRegion) {
-                label += " " + subRegion.getRegion().toShortString();
-            } else if (subscription instanceof SubscriptionWithLocation subLocation) {
-                label += " " + subLocation.getLocation().toString();
-            }
+            String label = String.format("%s %s", subscriber.getName(), subscription.toDisplayString());
             node.setAttribute("ui.label", label);
         }
     }
 
-    /**
-     * A new method to update the label of a publisher node to display
-     * the location of the publication it is sending.
-     * @param publisher The publisher node whose label is to be updated.
-     * @param publication The publication containing the location to display.
-     */
-    public void updatePublisherLabel(PublisherWithLocation publisher, PublicationWithLocation publication) {
-        if (publisher == null || publication == null) return;
+    public void updatePublisherLabel(PublisherWithLocation publisher) {
+        if (publisher == null) return;
         
         Node node = graph.getNode(publisher.getName());
         if (node != null) {
-            String label = String.format("%s %s", publisher.getName(), publication.getLocation().toShortString());
+            // Get the list of locations and format them into a comma-separated string
+            String locations = publisher.getSentPublications().stream()
+                .map(p -> p.getLocation().toShortString())
+                .collect(Collectors.joining(", "));
+            
+            String label = String.format("%s %s", publisher.getName(), locations);
             node.setAttribute("ui.label", label);
         }
     }
+
 
     private void updateEdgeStyle(Edge edge) {
         boolean hasSub = edge.getAttribute("has_subscription", Boolean.class);

@@ -68,7 +68,6 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
         BrokerWithRegion grandchild3 = findNodeByName(root, "grandchild3", BrokerWithRegion.class);
         BrokerWithRegion grandchild4 = findNodeByName(root, "grandchild4", BrokerWithRegion.class);
 
-        // ** THE FIX IS HERE **
         // After adding a subscriber, we must explicitly update the leaf broker's region.
         SubscriberWithLocation sub1 = new SubscriberWithLocation("sub1", new Location(0, 0, 0));
         grandchild1.addChild(sub1);
