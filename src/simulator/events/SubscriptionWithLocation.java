@@ -29,9 +29,7 @@ public class SubscriptionWithLocation extends SimulationSubscription {
     public SimulationSubscription getSubscription() {
         SubscriptionWithLocation copy = new SubscriptionWithLocation(this.location);
         copy.setSource(this.getSource());
-        for (String node : this.getPath()) {
-            copy.addToPath(node);
-        }
+        copy.hopCount = this.hopCount;
         return copy;
     }
 

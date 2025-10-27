@@ -108,6 +108,13 @@ public abstract class AbstractPerformanceSimulation<
         System.out.println("\n--- Simulation Metrics ---");
         long totalSubscriptionTableEntries = 0, totalRegionUpdates = 0;
         long successfulNotifications = 0, totalPublicationsSent = 0;
+        
+        // New metric lists - These now collect from ALL brokers
+        List<Integer> allSubscriptionHops = new ArrayList<>();
+        List<Integer> allPublicationHops = new ArrayList<>(); // Correctly aggregated now
+        
+        // Metric list for delivered publications (collected from subscribers)
+        List<Integer> allDeliveredPubHops = new ArrayList<>();
 
         List<SimulationBroker> allBrokers = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
@@ -119,25 +126,93 @@ public abstract class AbstractPerformanceSimulation<
             if (current.getChildren() != null) queue.addAll(current.getChildren());
         }
 
+        // Aggregate hop counts from ALL brokers
         for (SimulationBroker broker : allBrokers) {
             totalSubscriptionTableEntries += broker.getSubscriptionsTable().size();
             if (broker instanceof BrokerWithRegion) totalRegionUpdates += ((BrokerWithRegion) broker).getNumOfRegionUpdates();
+            
+            // Aggregate the hop distributions from all brokers
+            allSubscriptionHops.addAll(broker.getAllProcessedSubscriptionHops());
+            allPublicationHops.addAll(broker.getAllProcessedPublicationHops()); // Correctly aggregating now
         }
-        for (SubscriberWithLocation subscriber : allSubscribers) successfulNotifications += subscriber.getnPublications();
-        for (PublisherWithLocation publisher : allPublishers) totalPublicationsSent += publisher.getnPublications();
+        
+        // Aggregate delivered publication details from subscribers
+        for (SubscriberWithLocation subscriber : allSubscribers) {
+            successfulNotifications += subscriber.getnPublications();
+            allDeliveredPubHops.addAll(subscriber.getReceivedPublicationHops());
+        }
+        // Count total publications sent
+        for (PublisherWithLocation publisher : allPublishers) {
+            totalPublicationsSent += publisher.getnPublications();
+        }
 
         System.out.println("--- System Overhead Metrics ---");
         System.out.println("Total Subscription Table Entries Created (Propagation Cost): " + totalSubscriptionTableEntries);
         System.out.println("Total Region Boundary Updates: " + totalRegionUpdates);
+        // Print new hop stats for *all* network traversal events
+        printStats("All Subscription Hops (Network Load)", allSubscriptionHops);
+        printStats("All Publication Hops (Network Load)", allPublicationHops); // Correctly printing stats
+        
         System.out.println("\n--- Service Delivery Metrics ---");
         System.out.println("Total Publications Sent by all Replicas: " + totalPublicationsSent);
         System.out.println("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
+        // Print stats specifically for *delivered* publications (path length to subscriber)
+        printStats("Delivered Publication Hops (Path Length)", allDeliveredPubHops);
+    }
+    
+    /**
+     * Helper method to calculate and print statistics for a list of numbers.
+     * Includes Mean (Avg), Standard Deviation, Variance (Mean Squared Error relative to Mean), and N.
+     * @param name The name of the metric.
+     * @param data A list of integer data points.
+     */
+    protected void printStats(String name, List<Integer> data) {
+        if (data == null || data.isEmpty()) {
+            System.out.printf("%s: N/A (no data)%n", name);
+            return;
+        }
+        // Use double for sum to avoid overflow on large N
+        double sum = 0;
+        for (int val : data) {
+            sum += val;
+        }
+        double mean = sum / data.size();
+
+        double sumSqDiff = 0;
+        for (int val : data) {
+            sumSqDiff += (val - mean) * (val - mean);
+        }
+        // Variance (Mean Squared Error relative to the mean)
+        // Use data.size() for population variance, which is fine for large N
+        double variance = sumSqDiff / data.size(); 
+        double stdDev = Math.sqrt(variance); 
+
+        // Added Variance (Mean Squared Error) to the output
+        System.out.printf("%s: Avg=%.2f, StdDev=%.2f, Variance=%.2f (N=%d)%n", 
+                          name, mean, stdDev, variance, data.size());
     }
 
     protected Location getRandomLocationInRegion(Region region) {
         Random rand = new Random();
-        double x = region.getBottomLeft().getX() + (region.getTopRight().getX() - region.getBottomLeft().getX()) * rand.nextDouble();
-        double y = region.getBottomLeft().getY() + (region.getTopRight().getY() - region.getBottomLeft().getY()) * rand.nextDouble();
+        // Ensure bottomLeft and topRight are not null before accessing coordinates
+        if (region == null || region.getBottomLeft() == null || region.getTopRight() == null) {
+            // Handle error or return a default location
+            System.err.println("Warning: Attempted to get random location in null or incomplete region.");
+            return new Location(0, 0, 0); // Default location
+        }
+        double minX = region.getBottomLeft().getX();
+        double maxX = region.getTopRight().getX();
+        double minY = region.getBottomLeft().getY();
+        double maxY = region.getTopRight().getY();
+        
+        // Basic handling for non-wrapping case. Needs adjustment if regions can wrap.
+        double rangeX = maxX - minX;
+        double rangeY = maxY - minY;
+
+        double x = minX + (rangeX > 0 ? rand.nextDouble() * rangeX : 0);
+        double y = minY + (rangeY > 0 ? rand.nextDouble() * rangeY : 0);
+        
+        // Assuming Z is 0 for performance simulations based on previous context
         return new Location(x, y, 0);
     }
 }

@@ -3,16 +3,9 @@ package simulator.events;
 import publishing.Publication;
 import simulator.core.TreeNode;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public abstract class SimulationPublication extends Publication {
     private TreeNode source; // The immediate sender of this message copy
-    private List<String> path; // To trace the route for visualisation
-
-    public SimulationPublication() {
-        this.path = new ArrayList<>();
-    }
+    protected int hopCount = 0; // New metric: counts broker hops
 
     public TreeNode getSource() {
         return source;
@@ -21,13 +14,20 @@ public abstract class SimulationPublication extends Publication {
     public void setSource(TreeNode source) {
         this.source = source;
     }
-
-    public List<String> getPath() {
-        return path;
+    
+    /**
+     * Increments the hop count for this message.
+     */
+    public void incrementHops() {
+        hopCount++;
     }
 
-    public void addToPath(String nodeName) {
-        this.path.add(nodeName);
+    /**
+     * Gets the total hop count for this message.
+     * @return The hop count.
+     */
+    public int getHopCount() {
+        return hopCount;
     }
 
     public abstract SimulationPublication getPublication();

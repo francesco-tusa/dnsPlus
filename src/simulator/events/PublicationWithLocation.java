@@ -11,13 +11,14 @@ public class PublicationWithLocation extends SimulationPublication {
     }
 
     /**
-     * Copy constructor that preserves the original source.
+     * Copy constructor that preserves the original source and hop count.
      * @param p The publication to copy.
      */
     private PublicationWithLocation(PublicationWithLocation p) {
         // Copy the immediate source
         setSource(p.getSource() != null ? new TreeNode(p.getSource()) : null);
         this.location = new Location(p.location);
+        this.hopCount = p.hopCount; // Copy the hop count
     }
     
     public Location getLocation() {

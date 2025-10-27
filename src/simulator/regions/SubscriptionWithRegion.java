@@ -23,6 +23,7 @@ public class SubscriptionWithRegion extends SimulationSubscription {
     public SubscriptionWithRegion(SubscriptionWithRegion s) {
         super();
         this.region = new Region(s.getRegion());
+        this.hopCount = s.hopCount;
     }
 
     public Region getRegion() {
@@ -33,9 +34,8 @@ public class SubscriptionWithRegion extends SimulationSubscription {
     public SimulationSubscription getSubscription() {
         SubscriptionWithRegion copy = new SubscriptionWithRegion(this.region);
         copy.setSource(this.getSource());
-        for (String node : this.getPath()) {
-            copy.addToPath(node);
-        }
+        copy.hopCount = this.hopCount;
+
         return copy;
     }
 

@@ -1,5 +1,7 @@
 package simulator.entities;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
@@ -19,6 +21,9 @@ public class SubscriberWithLocation extends TreeNode {
     private int nSubscriptions;
     private int nPublications;
     private PublicationWithLocation lastReceivedPublication;
+    
+    // Stores the hop count of each publication received
+    private final List<Integer> receivedPublicationHops = new ArrayList<>();
 
     public SubscriberWithLocation(String name, Location location) {
         super(name);
@@ -31,6 +36,8 @@ public class SubscriberWithLocation extends TreeNode {
     public void receive(SimulationPublication p) {
         logger.fine(getName() + ": received publication " + p);
         nPublications++;
+        receivedPublicationHops.add(p.getHopCount()); // Store the hop count
+        
         if (p instanceof PublicationWithLocation) {
             this.lastReceivedPublication = (PublicationWithLocation) p;
         }
@@ -75,4 +82,12 @@ public class SubscriberWithLocation extends TreeNode {
     public int getnPublications() { return nPublications; }
     public SimulationBroker getBroker() { return (SimulationBroker) getParent(); }
     public PublicationWithLocation getLastReceivedPublication() { return lastReceivedPublication; }
+    
+    /**
+     * Gets the list of hop counts for all publications delivered to this subscriber.
+     * @return A list of hop count integers.
+     */
+    public List<Integer> getReceivedPublicationHops() {
+        return receivedPublicationHops;
+    }
 }
