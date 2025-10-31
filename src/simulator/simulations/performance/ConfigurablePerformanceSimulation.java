@@ -12,7 +12,7 @@ import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
-import simulator.population.HubPublishersPlacement;
+import simulator.population.DataCenterPublishersPlacement;
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BrokerWithRegion;
@@ -76,7 +76,7 @@ public class ConfigurablePerformanceSimulation<
 
         TopologyPopulator populater = new TopologyPopulator(
             new ProportionalSubscribersPlacement(), 
-            new HubPublishersPlacement()
+            new DataCenterPublishersPlacement()
         );
         populater.populate(this.rootNode, leafBrokers, totalSubscribers, numberOfReplicas);
         

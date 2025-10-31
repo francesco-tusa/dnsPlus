@@ -11,16 +11,32 @@ import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 
-/**
- * An abstract base class for performance simulations using REGION-BASED routing.
- */
 public abstract class AbstractRegionPerformanceSimulation<
     C extends TopologyConfiguration,
     F extends AbstractTopologyFactory<C, BrokerWithRegion>
 > extends AbstractPerformanceSimulation<C, F> {
 
-    protected abstract double getRemoteInterestProbability();
-    protected abstract double getSubscriptionRegionSize();
+    protected final double subscriptionRegionSize;
+    protected final double remoteInterestProbability;
+
+    /**
+     * Constructor accepting ratio-based parameters.
+     * @param numberOfReplicas Total number of publisher replicas.
+     * @param subscribersPerReplica Subscribers per replica ratio.
+     * @param subscriptionRegionSize The size of subscription regions.
+     * @param remoteInterestProbability Probability of subscribing to a remote DC.
+     */
+    public AbstractRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
+                                               double subscriptionRegionSize, double remoteInterestProbability) {
+        super(numberOfReplicas, subscribersPerReplica);
+        if (subscriptionRegionSize <= 0) throw new IllegalArgumentException("Subscription region size must be positive.");
+        if (remoteInterestProbability < 0.0 || remoteInterestProbability > 1.0) throw new IllegalArgumentException("Remote interest probability must be between 0.0 and 1.0.");
+        this.subscriptionRegionSize = subscriptionRegionSize;
+        this.remoteInterestProbability = remoteInterestProbability;
+    }
+
+    protected double getSubscriptionRegionSize() { return subscriptionRegionSize; }
+    protected double getRemoteInterestProbability() { return remoteInterestProbability; }
 
     @Override
     protected void executeScenarios() {
@@ -34,16 +50,15 @@ public abstract class AbstractRegionPerformanceSimulation<
         List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
         
         System.out.println("\n>>> Phase 1: Subscribers are sending region-based subscriptions... <<<");
-        final int PROGRESS_INTERVAL = 10000;
+        final int PROGRESS_INTERVAL = (int) Math.max(1000, getTotalSubscribers() / 10);
         for (int i = 0; i < allSubscribers.size(); i++) {
             SubscriberWithLocation subscriber = allSubscribers.get(i);
             SubscriptionWithRegion subscription = generateSubscriptionForSubscriber(subscriber, leafBrokers);
             subscriber.send(subscription);
-            if ((i + 1) % PROGRESS_INTERVAL == 0) {
+            if ((i + 1) % PROGRESS_INTERVAL == 0 || (i+1) == allSubscribers.size()) {
                 System.out.printf("  ... processed %d / %d subscriptions.%n", (i + 1), allSubscribers.size());
             }
         }
-        System.out.println("  ... all subscriptions sent.");
 
         System.out.println("\n>>> Phase 2: All service replicas are sending their publications... <<<");
         for(var publisher : allPublishers) {
@@ -56,38 +71,44 @@ public abstract class AbstractRegionPerformanceSimulation<
     protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers) {
         Region subscriptionRegion;
         if (random.nextDouble() < getRemoteInterestProbability()) {
-            List<BrokerWithRegion> hubBrokers = findHubs(allLeafBrokers, getNumberOfReplicas());
-            BrokerWithRegion remoteHub = hubBrokers.get(random.nextInt(hubBrokers.size()));
-            subscriptionRegion = new Region(remoteHub.getRegion());
+            // Use the new DataCenter strategy logic to find remote hubs
+            // We can reuse the DataCenterPublishersPlacement logic conceptually here
+            // to find the top N regions to subscribe to remotely.
+            List<BrokerWithRegion> hubs = findTopDataCenters(allLeafBrokers, 30); // Assume same top 30
+             if (hubs.isEmpty()) {
+                 BrokerWithRegion randomBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
+                 subscriptionRegion = new Region(randomBroker.getRegion());
+            } else {
+                 BrokerWithRegion remoteHub = hubs.get(random.nextInt(hubs.size()));
+                 subscriptionRegion = new Region(remoteHub.getRegion());
+            }
         } else {
             Location centerOfInterest = subscriber.getLocation();
+            double halfSize = getSubscriptionRegionSize() / 2.0;
             subscriptionRegion = new Region(
-                new Location(centerOfInterest.getX() - (getSubscriptionRegionSize() / 2),
-                             centerOfInterest.getY() - (getSubscriptionRegionSize() / 2), 0),
-                new Location(centerOfInterest.getX() + (getSubscriptionRegionSize() / 2),
-                             centerOfInterest.getY() + (getSubscriptionRegionSize() / 2), 0)
+                new Location(centerOfInterest.getX() - halfSize, centerOfInterest.getY() - halfSize, 0),
+                new Location(centerOfInterest.getX() + halfSize, centerOfInterest.getY() + halfSize, 0)
             );
         }
         return new SubscriptionWithRegion(subscriptionRegion);
     }
 
+    // Helper to find Data Centers for remote subscription
+    protected List<BrokerWithRegion> findTopDataCenters(List<BrokerWithRegion> leafBrokers, int maxDCs) {
+         return leafBrokers.stream()
+            .sorted(Comparator.comparingLong(BrokerWithRegion::getInternetPopulation).reversed())
+            .limit(Math.min(leafBrokers.size(), maxDCs))
+            .collect(Collectors.toList());
+    }
+
     @Override
     protected void collectAndPrintMetrics() {
-        super.collectAndPrintMetrics(); // This calls the base method to print the other metrics.
-
-        // Use getTotalSubscribers() to ensure we calculate against the configured total.
+        super.collectAndPrintMetrics();
         if (getTotalSubscribers() > 0) {
-            // Calculate how many individual subscribers received at least one publication.
             long matchedSubscribers = allSubscribers.stream().filter(s -> s.getnPublications() > 0).count();
             double matchRate = (double) matchedSubscribers / getTotalSubscribers() * 100.0;
-            System.out.printf("Subscriber Match Rate: %.2f%%\n", matchRate);
+            System.out.printf("Subscriber Match Rate: %.2f%% (%d / %d)%n", 
+                              matchRate, matchedSubscribers, getTotalSubscribers());
         }
-    }
-    
-    protected List<BrokerWithRegion> findHubs(List<BrokerWithRegion> leafBrokers, int numHubs) {
-        return leafBrokers.stream()
-            .sorted(Comparator.comparingLong(BrokerWithRegion::getInternetPopulation).reversed())
-            .limit(numHubs)
-            .collect(Collectors.toList());
     }
 }

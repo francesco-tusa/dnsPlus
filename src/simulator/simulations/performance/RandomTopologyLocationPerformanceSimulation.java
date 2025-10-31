@@ -7,32 +7,47 @@ import simulator.topology.random.RegionRandomTopologyConfiguration;
 /**
  * A concrete simulation that runs a performance scenario on a
  * dynamically generated, random topology using location-based brokers.
+ * Parameters are now set in main().
  */
 public class RandomTopologyLocationPerformanceSimulation extends AbstractLocationPerformanceSimulation<
     RegionRandomTopologyConfiguration,
     RandomTopologyGenerator
 > {
 
-    // --- Simulation Parameters ---
-    private static final long TOTAL_SUBSCRIBERS = 1000;
-    private static final int NUMBER_OF_REPLICAS = 10;
-    
-    // --- Topology Parameters ---
-    private static final int TREE_DEPTH = 4;
-    private static final int MAX_BRANCHING = 3;
-    private static final int NUM_REGIONS = 5;
+    /**
+     * Constructor for the location-based random simulation.
+     * @param numberOfReplicas Total number of publisher replicas.
+     * @param subscribersPerReplica Number of subscribers for every replica.
+     */
+    public RandomTopologyLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
+        super(numberOfReplicas, subscribersPerReplica); // Pass parameters to new abstract constructor
+    }
 
-    @Override
-    protected long getTotalSubscribers() { return TOTAL_SUBSCRIBERS; }
-
-    @Override
-    protected int getNumberOfReplicas() { return NUMBER_OF_REPLICAS; }
+    // Old constants and overridden getter methods are removed.
 
     public static void main(String[] args) {
         System.out.println("--- Starting Random Topology Performance Simulation (Location-Based) ---");
-        RegionRandomTopologyConfiguration config = new RegionRandomTopologyConfiguration(TREE_DEPTH, MAX_BRANCHING, NUM_REGIONS, 0, 0);
+        
+        // --- EASILY ADJUSTABLE PARAMETERS ---
+        int simNumberOfReplicas = 10;       // Number of Replicas
+        int simSubscribersPerReplica = 100; // Ratio: 100 subs per replica (Total = 1000)
+
+        // --- Topology Parameters ---
+        int topologyTreeDepth = 4;
+        int topologyMaxBranching = 3;
+        int topologyNumRegions = 5;
+
+        // --- Create Configuration and Factory ---
+        RegionRandomTopologyConfiguration config = new RegionRandomTopologyConfiguration(
+            topologyTreeDepth, topologyMaxBranching, topologyNumRegions, 0, 0);
+            
         RandomTopologyGenerator factory = new RandomTopologyGenerator(new LocationBrokerFactory());
-        RandomTopologyLocationPerformanceSimulation simulation = new RandomTopologyLocationPerformanceSimulation();
+        
+        // --- Create and Run the Simulation ---
+        RandomTopologyLocationPerformanceSimulation simulation = new RandomTopologyLocationPerformanceSimulation(
+            simNumberOfReplicas, simSubscribersPerReplica
+        );
+        
         simulation.run(factory, config);
     }
 }

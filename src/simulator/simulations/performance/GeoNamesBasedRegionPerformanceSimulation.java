@@ -7,35 +7,44 @@ import simulator.topology.geonames.FileBasedTopologyGenerator;
 /**
  * A concrete simulation that runs a performance scenario on the
  * full, data-driven topology generated from GeoNames data using region-based brokers.
+ * Parameters are now set in main().
  */
 public class GeoNamesBasedRegionPerformanceSimulation extends AbstractRegionPerformanceSimulation<
     FileBasedTopologyConfiguration,
     FileBasedTopologyGenerator
 > {
 
-    // --- Simulation Parameters ---
-    private static final long TOTAL_SUBSCRIBERS = 50_000;
-    private static final int NUMBER_OF_REPLICAS = 20;
-    private static final double SUBSCRIPTION_REGION_SIZE = 1.0;
-    private static final double REMOTE_INTEREST_PROBABILITY = 0.1;
-
-    @Override
-    protected long getTotalSubscribers() { return TOTAL_SUBSCRIBERS; }
-
-    @Override
-    protected int getNumberOfReplicas() { return NUMBER_OF_REPLICAS; }
+    /**
+     * Constructor for the region-based GeoNames simulation.
+     * @param numberOfReplicas Total number of publisher replicas.
+     * @param subscribersPerReplica Number of subscribers for every replica.
+     * @param subscriptionRegionSize The size of subscription regions.
+     * @param remoteInterestProbability Probability of subscribing to a remote DC.
+     */
+    public GeoNamesBasedRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
+                                                    double subscriptionRegionSize, double remoteInterestProbability) {
+        super(numberOfReplicas, subscribersPerReplica, subscriptionRegionSize, remoteInterestProbability);
+    }
     
-    @Override
-    protected double getRemoteInterestProbability() { return REMOTE_INTEREST_PROBABILITY; }
-
-    @Override
-    protected double getSubscriptionRegionSize() { return SUBSCRIPTION_REGION_SIZE; }
 
     public static void main(String[] args) {
         System.out.println("--- Starting GeoNames-Based Performance Simulation (Region-Based) ---");
+        
+        // --- EASILY ADJUSTABLE PARAMETERS ---
+        int simNumberOfReplicas = 20;         // Number of Data Center Replicas
+        int simSubscribersPerReplica = 2500;  // Ratio: 2.5k subs per replica (Total = 50,000)
+        double simSubscriptionRegionSize = 1.0;  // Decimal degrees (approx. 111km)
+        double simRemoteInterestProbability = 0.1; // 10% chance of remote interest
+
+        // --- Create Configuration and Factory ---
         FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration("output/geonames_topology.json");
         FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new RegionBrokerFactory());
-        GeoNamesBasedRegionPerformanceSimulation simulation = new GeoNamesBasedRegionPerformanceSimulation();
+        
+        // --- Create and Run the Simulation ---
+        GeoNamesBasedRegionPerformanceSimulation simulation = new GeoNamesBasedRegionPerformanceSimulation(
+            simNumberOfReplicas, simSubscribersPerReplica, simSubscriptionRegionSize, simRemoteInterestProbability
+        );
+        
         simulation.run(factory, config);
     }
 }

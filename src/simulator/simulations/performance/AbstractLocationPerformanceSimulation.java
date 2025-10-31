@@ -8,11 +8,24 @@ import simulator.topology.TopologyConfiguration;
 
 /**
  * An abstract base class for performance simulations using LOCATION-BASED routing.
+ * Now accepts ratio-based parameters.
  */
 public abstract class AbstractLocationPerformanceSimulation<
     C extends TopologyConfiguration,
     F extends AbstractTopologyFactory<C, BrokerWithRegion>
-> extends AbstractPerformanceSimulation<C, F> {
+> extends AbstractPerformanceSimulation<C, F> { // Extends the refactored base class
+
+    /**
+     * Constructor accepting ratio-based parameters.
+     * @param numberOfReplicas Total number of publisher replicas.
+     * @param subscribersPerReplica Number of subscribers for every replica.
+     */
+    public AbstractLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
+        super(numberOfReplicas, subscribersPerReplica); // Pass parameters up
+    }
+
+    // Abstract getTotalSubscribers() and getNumberOfReplicas() are no longer needed
+    // as they are implemented in the base class.
 
     @Override
     protected final void executeScenarios() {
@@ -24,16 +37,16 @@ public abstract class AbstractLocationPerformanceSimulation<
         }
         
         System.out.println("\n>>> Phase 1: Subscribers are sending location-based subscriptions... <<<");
-        final int PROGRESS_INTERVAL = 10000;
+        final int PROGRESS_INTERVAL = (int) Math.max(1000, getTotalSubscribers() / 10);
         for (int i = 0; i < allSubscribers.size(); i++) {
             SubscriberWithLocation subscriber = allSubscribers.get(i);
             SubscriptionWithLocation subscription = generateSubscriptionForSubscriber(subscriber);
             subscriber.send(subscription);
-            if ((i + 1) % PROGRESS_INTERVAL == 0) {
+            if ((i + 1) % PROGRESS_INTERVAL == 0 || (i + 1) == allSubscribers.size()) {
                 System.out.printf("  ... processed %d / %d subscriptions.%n", (i + 1), allSubscribers.size());
             }
         }
-        System.out.println("  ... all subscriptions sent.");
+        // System.out.println("  ... all subscriptions sent."); // Redundant
 
         System.out.println("\n>>> Phase 2: All service replicas are sending their publications... <<<");
         for(var publisher : allPublishers) {
@@ -44,6 +57,7 @@ public abstract class AbstractLocationPerformanceSimulation<
     }
 
     protected SubscriptionWithLocation generateSubscriptionForSubscriber(SubscriberWithLocation subscriber) {
+        // Location-based subscriptions are just for the subscriber's own location.
         return new SubscriptionWithLocation(subscriber.getLocation());
     }
 
@@ -54,6 +68,7 @@ public abstract class AbstractLocationPerformanceSimulation<
     protected void collectAndPrintMetrics() {
         super.collectAndPrintMetrics(); // Prints the common overhead and delivery metrics
 
+        // This metric is specific to location-based routing
         long successfulNotifications = 0;
         for (SubscriberWithLocation subscriber : allSubscribers) {
             successfulNotifications += subscriber.getnPublications();

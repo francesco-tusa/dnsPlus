@@ -12,7 +12,7 @@ import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
-import simulator.population.HubPublishersPlacement;
+import simulator.population.DataCenterPublishersPlacement;
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BrokerWithRegion;
@@ -22,7 +22,7 @@ import simulator.topology.TopologyConfiguration;
 
 /**
  * An abstract base class for running performance simulations.
- * It uses a TopologyPopulator to handle client setup.
+ * uses ratio-based parameters for subscribers and replicas.
  */
 public abstract class AbstractPerformanceSimulation<
     C extends TopologyConfiguration, 
@@ -33,9 +33,27 @@ public abstract class AbstractPerformanceSimulation<
     protected final List<PublisherWithLocation> allPublishers = new ArrayList<>();
     protected final Random random = new Random();
 
-    // --- Abstract Methods for Subclasses ---
-    protected abstract long getTotalSubscribers();
-    protected abstract int getNumberOfReplicas();
+    // Ratio-based Simulation parameters
+    protected final int numberOfReplicas;
+    protected final int subscribersPerReplica;
+    protected final long totalSubscribers; // Calculated
+
+    /**
+     * Constructor accepting ratio-based parameters.
+     * @param numberOfReplicas Total number of publisher replicas to simulate.
+     * @param subscribersPerReplica Number of subscribers for every replica.
+     */
+    public AbstractPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
+        if (numberOfReplicas <= 0) throw new IllegalArgumentException("Number of replicas must be positive.");
+        if (subscribersPerReplica < 0) throw new IllegalArgumentException("Subscribers per replica cannot be negative.");
+        
+        this.numberOfReplicas = numberOfReplicas;
+        this.subscribersPerReplica = subscribersPerReplica;
+        this.totalSubscribers = (long) numberOfReplicas * subscribersPerReplica;
+    }
+
+    protected long getTotalSubscribers() { return totalSubscribers; }
+    protected int getNumberOfReplicas() { return numberOfReplicas; }
 
     @Override
     protected Level getLogLevel() {
@@ -45,6 +63,9 @@ public abstract class AbstractPerformanceSimulation<
     @Override
     protected void setupSimulation() {
         System.out.println("\n--- Populating Topology for Performance Simulation ---");
+        System.out.printf("Setup: %d Replicas, %d Subscribers/Replica (Total Subscribers: %d)%n", 
+                          numberOfReplicas, subscribersPerReplica, totalSubscribers);
+
         if (this.rootNode == null) {
             System.err.println("Cannot populate topology: Root node is null.");
             return;
@@ -56,15 +77,17 @@ public abstract class AbstractPerformanceSimulation<
             return;
         }
 
+        // Use the new DataCenter placement strategy
         TopologyPopulator populater = new TopologyPopulator(
             new ProportionalSubscribersPlacement(), 
-            new HubPublishersPlacement()
+            new DataCenterPublishersPlacement(30) // Configure max 30 major data centers
         );
         populater.populate(this.rootNode, leafBrokers, getTotalSubscribers(), getNumberOfReplicas());
         
         collectClients(leafBrokers);
     }
-
+    
+    // ... (rest of the file: collectClients, findLeafBrokers, collectAndPrintMetrics, printStats, getRandomLocationInRegion remain unchanged)
     private void collectClients(List<BrokerWithRegion> leafBrokers) {
         allSubscribers.clear();
         allPublishers.clear();
@@ -109,11 +132,8 @@ public abstract class AbstractPerformanceSimulation<
         long totalSubscriptionTableEntries = 0, totalRegionUpdates = 0;
         long successfulNotifications = 0, totalPublicationsSent = 0;
         
-        // New metric lists - These now collect from ALL brokers
         List<Integer> allSubscriptionHops = new ArrayList<>();
-        List<Integer> allPublicationHops = new ArrayList<>(); // Correctly aggregated now
-        
-        // Metric list for delivered publications (collected from subscribers)
+        List<Integer> allPublicationHops = new ArrayList<>();
         List<Integer> allDeliveredPubHops = new ArrayList<>();
 
         List<SimulationBroker> allBrokers = new ArrayList<>();
@@ -126,22 +146,17 @@ public abstract class AbstractPerformanceSimulation<
             if (current.getChildren() != null) queue.addAll(current.getChildren());
         }
 
-        // Aggregate hop counts from ALL brokers
         for (SimulationBroker broker : allBrokers) {
             totalSubscriptionTableEntries += broker.getSubscriptionsTable().size();
             if (broker instanceof BrokerWithRegion) totalRegionUpdates += ((BrokerWithRegion) broker).getNumOfRegionUpdates();
-            
-            // Aggregate the hop distributions from all brokers
             allSubscriptionHops.addAll(broker.getAllProcessedSubscriptionHops());
-            allPublicationHops.addAll(broker.getAllProcessedPublicationHops()); // Correctly aggregating now
+            allPublicationHops.addAll(broker.getAllProcessedPublicationHops());
         }
         
-        // Aggregate delivered publication details from subscribers
         for (SubscriberWithLocation subscriber : allSubscribers) {
             successfulNotifications += subscriber.getnPublications();
             allDeliveredPubHops.addAll(subscriber.getReceivedPublicationHops());
         }
-        // Count total publications sent
         for (PublisherWithLocation publisher : allPublishers) {
             totalPublicationsSent += publisher.getnPublications();
         }
@@ -149,29 +164,20 @@ public abstract class AbstractPerformanceSimulation<
         System.out.println("--- System Overhead Metrics ---");
         System.out.println("Total Subscription Table Entries Created (Propagation Cost): " + totalSubscriptionTableEntries);
         System.out.println("Total Region Boundary Updates: " + totalRegionUpdates);
-        // Print new hop stats for *all* network traversal events
         printStats("All Subscription Hops (Network Load)", allSubscriptionHops);
-        printStats("All Publication Hops (Network Load)", allPublicationHops); // Correctly printing stats
+        printStats("All Publication Hops (Network Load)", allPublicationHops);
         
         System.out.println("\n--- Service Delivery Metrics ---");
         System.out.println("Total Publications Sent by all Replicas: " + totalPublicationsSent);
         System.out.println("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
-        // Print stats specifically for *delivered* publications (path length to subscriber)
         printStats("Delivered Publication Hops (Path Length)", allDeliveredPubHops);
     }
     
-    /**
-     * Helper method to calculate and print statistics for a list of numbers.
-     * Includes Mean (Avg), Standard Deviation, Variance (Mean Squared Error relative to Mean), and N.
-     * @param name The name of the metric.
-     * @param data A list of integer data points.
-     */
     protected void printStats(String name, List<Integer> data) {
         if (data == null || data.isEmpty()) {
             System.out.printf("%s: N/A (no data)%n", name);
             return;
         }
-        // Use double for sum to avoid overflow on large N
         double sum = 0;
         for (int val : data) {
             sum += val;
@@ -182,37 +188,27 @@ public abstract class AbstractPerformanceSimulation<
         for (int val : data) {
             sumSqDiff += (val - mean) * (val - mean);
         }
-        // Variance (Mean Squared Error relative to the mean)
-        // Use data.size() for population variance, which is fine for large N
-        double variance = sumSqDiff / data.size(); 
+        double variance = sumSqDiff / data.size();
         double stdDev = Math.sqrt(variance); 
 
-        // Added Variance (Mean Squared Error) to the output
         System.out.printf("%s: Avg=%.2f, StdDev=%.2f, Variance=%.2f (N=%d)%n", 
                           name, mean, stdDev, variance, data.size());
     }
 
     protected Location getRandomLocationInRegion(Region region) {
         Random rand = new Random();
-        // Ensure bottomLeft and topRight are not null before accessing coordinates
         if (region == null || region.getBottomLeft() == null || region.getTopRight() == null) {
-            // Handle error or return a default location
             System.err.println("Warning: Attempted to get random location in null or incomplete region.");
-            return new Location(0, 0, 0); // Default location
+            return new Location(0, 0, 0);
         }
         double minX = region.getBottomLeft().getX();
         double maxX = region.getTopRight().getX();
         double minY = region.getBottomLeft().getY();
         double maxY = region.getTopRight().getY();
-        
-        // Basic handling for non-wrapping case. Needs adjustment if regions can wrap.
         double rangeX = maxX - minX;
         double rangeY = maxY - minY;
-
         double x = minX + (rangeX > 0 ? rand.nextDouble() * rangeX : 0);
         double y = minY + (rangeY > 0 ? rand.nextDouble() * rangeY : 0);
-        
-        // Assuming Z is 0 for performance simulations based on previous context
         return new Location(x, y, 0);
     }
 }
