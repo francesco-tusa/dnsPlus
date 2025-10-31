@@ -8,6 +8,7 @@ import utils.CustomLogger;
 
 /**
  * Abstract base class for all simulation runners.
+ * Now includes a setter to override the default log level.
  */
 public abstract class SimulationRunner<
     C extends TopologyConfiguration,
@@ -17,9 +18,20 @@ public abstract class SimulationRunner<
     protected F topologyFactory;
     protected C topologyConfig;
     protected R rootNode;
+    
+    // New field to hold a log level set via the setter
+    private Level overrideLogLevel = null;
 
     protected abstract void executeScenarios();
-    protected abstract Level getLogLevel();
+    protected abstract Level getLogLevel(); // This remains for the default level
+
+    /**
+     * Public setter to allow overriding the log level before running.
+     * @param level The new global log level (e.g., Level.FINE for verbose).
+     */
+    public void setLogLevel(Level level) {
+        this.overrideLogLevel = level;
+    }
 
     public final void run(F factory, C config) {
         try {
@@ -36,7 +48,10 @@ public abstract class SimulationRunner<
     }
 
     protected void initialise(F factory, C config) {
-        CustomLogger.setGlobalLogLevel(getLogLevel());
+        // Use the override level if it was set, otherwise use the default.
+        Level levelToUse = (this.overrideLogLevel != null) ? this.overrideLogLevel : getLogLevel();
+        CustomLogger.setGlobalLogLevel(levelToUse);
+        
         System.out.println("\n--- Initialising Simulation Runner ---");
         if (factory == null) throw new IllegalArgumentException("TopologyFactory cannot be null.");
         if (config == null) throw new IllegalArgumentException("TopologyConfiguration cannot be null.");

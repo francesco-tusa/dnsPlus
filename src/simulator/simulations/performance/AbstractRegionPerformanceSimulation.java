@@ -34,7 +34,7 @@ public abstract class AbstractRegionPerformanceSimulation<
         this.subscriptionRegionSize = subscriptionRegionSize;
         this.remoteInterestProbability = remoteInterestProbability;
     }
-
+    
     protected double getSubscriptionRegionSize() { return subscriptionRegionSize; }
     protected double getRemoteInterestProbability() { return remoteInterestProbability; }
 
@@ -71,10 +71,7 @@ public abstract class AbstractRegionPerformanceSimulation<
     protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers) {
         Region subscriptionRegion;
         if (random.nextDouble() < getRemoteInterestProbability()) {
-            // Use the new DataCenter strategy logic to find remote hubs
-            // We can reuse the DataCenterPublishersPlacement logic conceptually here
-            // to find the top N regions to subscribe to remotely.
-            List<BrokerWithRegion> hubs = findTopDataCenters(allLeafBrokers, 30); // Assume same top 30
+            List<BrokerWithRegion> hubs = findTopDataCenters(allLeafBrokers, 30);
              if (hubs.isEmpty()) {
                  BrokerWithRegion randomBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
                  subscriptionRegion = new Region(randomBroker.getRegion());
@@ -93,7 +90,6 @@ public abstract class AbstractRegionPerformanceSimulation<
         return new SubscriptionWithRegion(subscriptionRegion);
     }
 
-    // Helper to find Data Centers for remote subscription
     protected List<BrokerWithRegion> findTopDataCenters(List<BrokerWithRegion> leafBrokers, int maxDCs) {
          return leafBrokers.stream()
             .sorted(Comparator.comparingLong(BrokerWithRegion::getInternetPopulation).reversed())

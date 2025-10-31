@@ -13,7 +13,7 @@ import simulator.topology.TopologyConfiguration;
 public abstract class AbstractLocationPerformanceSimulation<
     C extends TopologyConfiguration,
     F extends AbstractTopologyFactory<C, BrokerWithRegion>
-> extends AbstractPerformanceSimulation<C, F> { // Extends the refactored base class
+> extends AbstractPerformanceSimulation<C, F> {
 
     /**
      * Constructor accepting ratio-based parameters.
@@ -23,9 +23,7 @@ public abstract class AbstractLocationPerformanceSimulation<
     public AbstractLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
         super(numberOfReplicas, subscribersPerReplica); // Pass parameters up
     }
-
-    // Abstract getTotalSubscribers() and getNumberOfReplicas() are no longer needed
-    // as they are implemented in the base class.
+    
 
     @Override
     protected final void executeScenarios() {
@@ -46,7 +44,6 @@ public abstract class AbstractLocationPerformanceSimulation<
                 System.out.printf("  ... processed %d / %d subscriptions.%n", (i + 1), allSubscribers.size());
             }
         }
-        // System.out.println("  ... all subscriptions sent."); // Redundant
 
         System.out.println("\n>>> Phase 2: All service replicas are sending their publications... <<<");
         for(var publisher : allPublishers) {
@@ -57,18 +54,13 @@ public abstract class AbstractLocationPerformanceSimulation<
     }
 
     protected SubscriptionWithLocation generateSubscriptionForSubscriber(SubscriberWithLocation subscriber) {
-        // Location-based subscriptions are just for the subscriber's own location.
         return new SubscriptionWithLocation(subscriber.getLocation());
     }
 
-    /**
-     * Overrides the metrics collection to provide output specific to the location-based algorithm.
-     */
     @Override
     protected void collectAndPrintMetrics() {
-        super.collectAndPrintMetrics(); // Prints the common overhead and delivery metrics
+        super.collectAndPrintMetrics(); 
 
-        // This metric is specific to location-based routing
         long successfulNotifications = 0;
         for (SubscriberWithLocation subscriber : allSubscribers) {
             successfulNotifications += subscriber.getnPublications();

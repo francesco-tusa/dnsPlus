@@ -2,11 +2,14 @@ package simulator.population;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.logging.Level; // Import Level
+import java.util.logging.Logger; // Import Logger
 import java.util.stream.Collectors;
 import simulator.core.Location;
 import simulator.entities.PublisherWithLocation;
 import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
+import utils.CustomLogger; // Import CustomLogger
 
 /**
  * Places publishers (replicas) in regions that act as proxies for major data centers.
@@ -16,7 +19,8 @@ import simulator.regions.Region;
  */
 public class DataCenterPublishersPlacement extends AbstractPublisherGenerator implements PublishersPlacementStrategy {
 
-    // Default to ~30 major global regions, similar to major cloud providers
+    private static final Logger logger = CustomLogger.getLogger(DataCenterPublishersPlacement.class.getName());
+
     private int maxDataCenters = 30;
 
     public DataCenterPublishersPlacement() {
@@ -36,8 +40,6 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
             return;
         }
         
-        // 1. Identify potential Data Center regions (Top N by internet population)
-        // We cap this at 'maxDataCenters' to mimic a realistic, finite set of cloud regions.
         int numPotentialDCs = Math.min(leafBrokers.size(), maxDataCenters);
         
         List<BrokerWithRegion> dataCenterBrokers = leafBrokers.stream()
@@ -46,13 +48,21 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
             .collect(Collectors.toList());
 
         System.out.println("Identified top " + dataCenterBrokers.size() + " regions as Data Center locations based on internet population.");
+        
+        if (logger.isLoggable(Level.FINE)) {
+            logger.fine("  --- DEBUG: Top Data Center Regions ---");
+            for (int i = 0; i < dataCenterBrokers.size(); i++) {
+                BrokerWithRegion dc = dataCenterBrokers.get(i);
+                logger.fine(String.format("  [%d] %s (Pop: %d, Region: %s)", 
+                                  i + 1, dc.getName(), dc.getInternetPopulation(), dc.getRegion().toShortString()));
+            }
+            logger.fine("  --------------------------------------");
+        }
+
         System.out.println("Distributing " + totalPublishersToCreate + " replicas among these Data Centers...");
 
-        // 2. Distribute replicas among these Data Centers
         long publishersCreated = 0;
         for (long i = 0; i < totalPublishersToCreate; i++) {
-            // Randomly select one of the Data Center regions for this replica
-            // (Allows multiple replicas per DC if totalPublishers > maxDataCenters)
             BrokerWithRegion chosenDC = dataCenterBrokers.get(random.nextInt(dataCenterBrokers.size()));
             Region dcRegion = chosenDC.getRegion();
             
@@ -62,6 +72,11 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
             PublisherWithLocation publisher = new PublisherWithLocation(generatePublisherName(), pubLocation);
             chosenDC.addChild(publisher);
             publishersCreated++;
+            
+            if (logger.isLoggable(Level.FINE)) {
+                logger.fine(String.format("  DEBUG: Placed %s at %s in Data Center %s (Region: %s)",
+                                  publisher.getName(), pubLocation.toShortString(), chosenDC.getName(), dcRegion.toShortString()));
+            }
         }
         System.out.println("--- Data Center Placement Complete. Total replicas placed: " + publishersCreated + " ---");
     }

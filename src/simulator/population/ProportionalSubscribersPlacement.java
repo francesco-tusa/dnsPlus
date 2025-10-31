@@ -1,18 +1,27 @@
 package simulator.population;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
+import java.util.logging.Level; // Import Level
+import java.util.logging.Logger; // Import Logger
 import simulator.core.Location;
 import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
+import utils.CustomLogger; // Import CustomLogger
 
 public class ProportionalSubscribersPlacement implements SubscribersPlacementStrategy {
 
+    private static final Logger logger = CustomLogger.getLogger(ProportionalSubscribersPlacement.class.getName());
+
     private final Random random = new Random();
     private int subscriberIdCounter = 0;
+    private static final int DEBUG_SAMPLE_SIZE = 10; // Log this many placements
 
+    public ProportionalSubscribersPlacement() {
+        // Default constructor, no debug flag needed
+    }
+    
     @Override
     public void generateAndAttach(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalSubscribersToCreate) {
         System.out.println("\n--- Starting Proportional Subscriber Placement ---");
@@ -38,6 +47,11 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
             cumulativeWeights[i] = runningTotal;
         }
 
+        boolean isDebug = logger.isLoggable(Level.FINE);
+        if (isDebug) {
+            logger.fine("  --- DEBUG: Subscriber Placement (Sample) ---");
+        }
+
         long subscribersCreated = 0;
         for (long i = 0; i < totalSubscribersToCreate; i++) {
             long randomWeight = (long) (random.nextDouble() * worldTotalInternetPopulation);
@@ -51,8 +65,19 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
                 SubscriberWithLocation subscriber = new SubscriberWithLocation(generateSubscriberName(), subLocation);
                 chosenBroker.addChild(subscriber);
                 subscribersCreated++;
+                
+                if (isDebug && i < DEBUG_SAMPLE_SIZE) {
+                     logger.fine(String.format("  DEBUG: Placed %s at %s in Region %s (Pop: %d)",
+                                      subscriber.getName(), subLocation.toShortString(), chosenBroker.getName(), chosenBroker.getInternetPopulation()));
+                }
             }
         }
+        
+        if (isDebug && totalSubscribersToCreate > DEBUG_SAMPLE_SIZE) {
+             logger.fine(String.format("  DEBUG: ... (logged first %d of %d subscribers)", DEBUG_SAMPLE_SIZE, totalSubscribersToCreate));
+             logger.fine("  --------------------------------------------");
+        }
+        
         System.out.println("--- Proportional Subscriber Placement Complete. Total subscribers created: " + subscribersCreated + " ---");
     }
 

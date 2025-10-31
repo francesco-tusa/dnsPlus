@@ -37,7 +37,7 @@ public abstract class AbstractPerformanceSimulation<
     protected final int numberOfReplicas;
     protected final int subscribersPerReplica;
     protected final long totalSubscribers; // Calculated
-
+    
     /**
      * Constructor accepting ratio-based parameters.
      * @param numberOfReplicas Total number of publisher replicas to simulate.
@@ -77,17 +77,15 @@ public abstract class AbstractPerformanceSimulation<
             return;
         }
 
-        // Use the new DataCenter placement strategy
         TopologyPopulator populater = new TopologyPopulator(
             new ProportionalSubscribersPlacement(), 
-            new DataCenterPublishersPlacement(30) // Configure max 30 major data centers
+            new DataCenterPublishersPlacement(30) // Uses parameterless constructors
         );
         populater.populate(this.rootNode, leafBrokers, getTotalSubscribers(), getNumberOfReplicas());
         
         collectClients(leafBrokers);
     }
     
-    // ... (rest of the file: collectClients, findLeafBrokers, collectAndPrintMetrics, printStats, getRandomLocationInRegion remain unchanged)
     private void collectClients(List<BrokerWithRegion> leafBrokers) {
         allSubscribers.clear();
         allPublishers.clear();
