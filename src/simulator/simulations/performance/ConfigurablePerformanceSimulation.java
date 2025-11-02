@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 import java.util.logging.Level;
+import java.util.logging.Logger; // Import Logger
 import simulator.core.Location;
 import simulator.core.SimulationRunner;
 import simulator.core.TreeNode;
@@ -20,8 +21,7 @@ import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-// Note: This class appears to be an older version of AbstractPerformanceSimulation.
-// The fix is applied here as requested.
+import utils.CustomLogger; // Import CustomLogger
 
 /**
  * A generic and configurable class for running a service replication performance simulation.
@@ -33,6 +33,8 @@ public class ConfigurablePerformanceSimulation<
     C extends TopologyConfiguration,
     F extends AbstractTopologyFactory<C, BrokerWithRegion>
 > extends SimulationRunner<C, BrokerWithRegion, F> {
+
+    private static final Logger logger = CustomLogger.getLogger(ConfigurablePerformanceSimulation.class.getName()); // Get logger
 
     // --- Simulation Parameters ---
     private final long totalSubscribers;
@@ -64,15 +66,15 @@ public class ConfigurablePerformanceSimulation<
 
     @Override
     protected void setupSimulation() {
-        System.out.println("\n--- Populating Topology for Performance Simulation ---");
+        logger.info("\n--- Populating Topology for Performance Simulation ---");
         if (this.rootNode == null) {
-            System.err.println("Cannot populate topology: Root node is null.");
+            logger.severe("Cannot populate topology: Root node is null.");
             return;
         }
 
         List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
         if (leafBrokers.isEmpty()) {
-            System.err.println("Error: No leaf brokers found. Cannot attach clients.");
+            logger.severe("Error: No leaf brokers found. Cannot attach clients.");
             return;
         }
 
@@ -88,27 +90,27 @@ public class ConfigurablePerformanceSimulation<
 
     @Override
     protected void executeScenarios() {
-        System.out.println("\n--- Executing Performance Scenario with Replicas ---");
+        logger.info("\n--- Executing Performance Scenario with Replicas ---");
 
         if (allSubscribers.isEmpty()) {
-            System.err.println("No subscribers were created. Cannot run scenarios.");
+            logger.warning("No subscribers were created. Cannot run scenarios.");
             return;
         }
 
         if (allPublishers.isEmpty()) {
-            System.err.println("No publishers (replicas) were placed. Aborting.");
+            logger.warning("No publishers (replicas) were placed. Aborting.");
             return;
         }
 
         List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
         
-        System.out.println("\n>>> Phase 1: Subscribers are sending subscriptions... <<<");
+        logger.info("\n>>> Phase 1: Subscribers are sending subscriptions... <<<");
         for (SubscriberWithLocation subscriber : allSubscribers) {
             SubscriptionWithRegion subscription = generateSubscriptionForSubscriber(subscriber, leafBrokers);
             subscriber.send(subscription);
         }
 
-        System.out.println("\n>>> Phase 2: All service replicas are sending their publications... <<<");
+        logger.info("\n>>> Phase 2: All service replicas are sending their publications... <<<");
         for(PublisherWithLocation publisher : allPublishers) {
             publisher.send(new simulator.events.PublicationWithLocation(publisher.getLocation()));
         }
@@ -148,7 +150,7 @@ public class ConfigurablePerformanceSimulation<
                 }
             }
         }
-        System.out.println("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
+        logger.info("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
     }
     
     protected List<BrokerWithRegion> findLeafBrokers(BrokerWithRegion root) {
@@ -176,7 +178,7 @@ public class ConfigurablePerformanceSimulation<
     }
     
     private void collectAndPrintMetrics() {
-        System.out.println("\n--- Simulation Metrics ---");
+        logger.info("\n--- Simulation Metrics ---");
         long totalSubscriptionTableEntries = 0, totalRegionUpdates = 0;
         long successfulNotifications = 0, totalPublicationsSent = 0;
 
@@ -197,16 +199,16 @@ public class ConfigurablePerformanceSimulation<
         for (SubscriberWithLocation subscriber : allSubscribers) successfulNotifications += subscriber.getnPublications();
         for (PublisherWithLocation publisher : allPublishers) totalPublicationsSent += publisher.getnPublications();
 
-        System.out.println("--- System Overhead Metrics ---");
-        System.out.println("Total Subscription Table Entries Created (Propagation Cost): " + totalSubscriptionTableEntries);
-        System.out.println("Total Region Boundary Updates: " + totalRegionUpdates);
-        System.out.println("\n--- Service Delivery Metrics ---");
-        System.out.println("Total Publications Sent by all Replicas: " + totalPublicationsSent);
-        System.out.println("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
+        logger.info("--- System Overhead Metrics ---");
+        logger.info("Total Subscription Table Entries Created (Propagation Cost): " + totalSubscriptionTableEntries);
+        logger.info("Total Region Boundary Updates: " + totalRegionUpdates);
+        logger.info("\n--- Service Delivery Metrics ---");
+        logger.info("Total Publications Sent by all Replicas: " + totalPublicationsSent);
+        logger.info("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
         
         if (totalSubscribers > 0) {
             double matchRate = (double) successfulNotifications / totalSubscribers * 100.0;
-            System.out.printf("Subscriber Match Rate: %.2f%%\n", matchRate);
+            logger.info(String.format("Subscriber Match Rate: %.2f%%", matchRate));
         }
     }
 

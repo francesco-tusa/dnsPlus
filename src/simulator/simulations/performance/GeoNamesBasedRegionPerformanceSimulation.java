@@ -1,14 +1,18 @@
 package simulator.simulations.performance;
 
 import java.util.logging.Level;
+import java.util.logging.Logger; // Import Logger
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyGenerator;
+import utils.CustomLogger; // Import CustomLogger
 
 public class GeoNamesBasedRegionPerformanceSimulation extends AbstractRegionPerformanceSimulation<
     FileBasedTopologyConfiguration,
     FileBasedTopologyGenerator
 > {
+
+    private static final Logger logger = CustomLogger.getLogger(GeoNamesBasedRegionPerformanceSimulation.class.getName()); // Get logger
 
     public GeoNamesBasedRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
                                                     double subscriptionRegionSize, double remoteInterestProbability,
@@ -23,7 +27,7 @@ public class GeoNamesBasedRegionPerformanceSimulation extends AbstractRegionPerf
     }
     
     public static void main(String[] args) {
-        System.out.println("--- Starting GeoNames-Based Performance Simulation (Region-Based) ---");
+        logger.info("--- Starting GeoNames-Based Performance Simulation (Region-Based) ---");
         
         int simNumberOfReplicas = 20;
         int simSubscribersPerReplica = 2500;
@@ -49,6 +53,7 @@ public class GeoNamesBasedRegionPerformanceSimulation extends AbstractRegionPerf
         
         if (enableVerboseLogs) {
             simulation.setLogLevel(Level.FINE);
+            logger.info("--- Verbose logging enabled. Writing FINE logs to: " + CustomLogger.getLogFilePath() + " ---");
         }
         
         simulation.run(factory, config);

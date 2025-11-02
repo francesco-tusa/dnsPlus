@@ -1,31 +1,34 @@
 package simulator.population;
 
 import java.util.List;
-
+import java.util.logging.Logger; // Import Logger
 import simulator.core.Location;
 import simulator.entities.PublisherWithLocation;
 import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
+import utils.CustomLogger; // Import CustomLogger
 
 /**
  * Generates publishers for local/niche services proportionally to the internet population.
  */
 public class ProportionalPublishersPlacement extends AbstractPublisherGenerator {
 
+    private static final Logger logger = CustomLogger.getLogger(ProportionalPublishersPlacement.class.getName()); // Get logger
+
     @Override
     public void generateAndAttach(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalPublishersToCreate) {
-        System.out.println("\n--- Starting Proportional Publisher Generation (for Local Services) ---");
-        System.out.println("Distributing " + totalPublishersToCreate + " total publishers...");
+        logger.info("\n--- Starting Proportional Publisher Generation (for Local Services) ---");
+        logger.info("Distributing " + totalPublishersToCreate + " total publishers...");
 
         if (leafBrokers == null || leafBrokers.isEmpty()) {
-            System.err.println("Error: The provided list of leaf brokers is empty. Cannot generate publishers.");
+            logger.severe("Error: The provided list of leaf brokers is empty. Cannot generate publishers.");
             return;
         }
 
         long totalInternetPopulation = rootNode.getInternetPopulation();
 
         if (totalInternetPopulation <= 0) {
-            System.err.println("Warning: Total internet population is " + totalInternetPopulation + ". Falling back to uniform random distribution.");
+            logger.warning("Warning: Total internet population is " + totalInternetPopulation + ". Falling back to uniform random distribution.");
             generateAndAttachUniformly(leafBrokers, totalPublishersToCreate);
             return;
         }
@@ -37,7 +40,7 @@ public class ProportionalPublishersPlacement extends AbstractPublisherGenerator 
             cumulativeWeights[i] = runningTotal;
         }
 
-        System.out.println("Created cumulative distribution for " + leafBrokers.size() + " leaf brokers for publisher placement.");
+        logger.info("Created cumulative distribution for " + leafBrokers.size() + " leaf brokers for publisher placement.");
 
         long publishersCreated = 0;
         for (long i = 0; i < totalPublishersToCreate; i++) {
@@ -54,7 +57,7 @@ public class ProportionalPublishersPlacement extends AbstractPublisherGenerator 
                 publishersCreated++;
             }
         }
-        System.out.println("--- Proportional Publisher Generation Complete. Total publishers created: " + publishersCreated + " ---");
+        logger.info("--- Proportional Publisher Generation Complete. Total publishers created: " + publishersCreated + " ---");
     }
 
     private BrokerWithRegion findBrokerForWeight(long weight, List<BrokerWithRegion> brokers, long[] cumulativeWeights) {
@@ -85,6 +88,6 @@ public class ProportionalPublishersPlacement extends AbstractPublisherGenerator 
             chosenBroker.addChild(publisher);
             publishersCreated++;
         }
-         System.out.println("--- Uniform Publisher Generation Complete. Total publishers created: " + publishersCreated + " ---");
+         logger.info("--- Uniform Publisher Generation Complete. Total publishers created: " + publishersCreated + " ---");
     }
 }

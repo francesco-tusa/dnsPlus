@@ -46,7 +46,7 @@ public class PublisherWithLocation extends TreeNode {
             nPublications++;
         }
         else {
-            System.err.println(getName() + ": there is no broker to send the publication to");
+            logger.severe(getName() + ": there is no broker to send the publication to");
         }
     }
     

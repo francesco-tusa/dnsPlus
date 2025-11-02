@@ -5,6 +5,8 @@ import java.text.DecimalFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import simulator.core.Location;
+import java.util.logging.Logger;
+import utils.CustomLogger;
 
 /**
  * Represents a rectangular region that handles longitude wrap-around at the
@@ -14,6 +16,8 @@ import simulator.core.Location;
  * produce the geographically smallest bounding box with this implementation.
  */
 public class Region extends BaseRegion {
+
+    private static final Logger logger = CustomLogger.getLogger(Region.class.getName());
 
     // --- Constructors ---
     public Region() {
@@ -176,7 +180,7 @@ public class Region extends BaseRegion {
                     newMaxLon = lon2;
                 }
                 if (newMinLon <= newMaxLon) {
-                     System.out.println("Warning: Expanding wrapped region resulted in unwrap. Assuming full longitude coverage [-180, 180].");
+                     logger.warning("Expanding wrapped region resulted in unwrap. Assuming full longitude coverage [-180, 180].");
                      newMinLon = -180.0;
                      newMaxLon = 180.0;
                 }

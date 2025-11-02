@@ -20,66 +20,31 @@ public final class CustomLogger {
     private static final Map<String, Logger> loggers = new HashMap<>();
     private static Level globalLevel = Level.INFO; // Default global level
     private static FileHandler fileHandler = null; // Single file handler for all loggers
+    private static String logFilePath = ""; // Store the path
 
-    /**
-     * Sets the global logging level and configures handlers.
-     * @param newLevel The new level to apply.
-     * @param simulationTimestamp A timestamp used to create a unique log file name if needed.
-     */
-    public static synchronized void setGlobalLogLevel(Level newLevel, String simulationTimestamp) {
-        System.out.println("--- Setting Global Log Level to: " + newLevel.getName() + " ---");
-        globalLevel = newLevel;
-
-        // Get the root logger to configure handlers
+    // Initialize the root logger once
+    static {
         Logger rootLogger = Logger.getLogger("");
-
-        // 1. Remove all existing handlers to prevent duplicates
+        // Remove all existing handlers to prevent duplicates
         Handler[] handlers = rootLogger.getHandlers();
         for (Handler handler : handlers) {
-            handler.close(); // Close existing file/stream handlers
+            handler.close();
             rootLogger.removeHandler(handler);
         }
         
-        // 2. Add the Console Handler for INFO messages
+        // Add our custom console handler (defaults to INFO)
         try {
             Handler consoleHandler = new LoggerConsoleHandler(System.out, new CustomFormatter());
-            // The console handler ONLY logs INFO and above
             consoleHandler.setLevel(Level.INFO); 
             rootLogger.addHandler(consoleHandler);
         } catch (Exception e) {
+            // This is a critical failure, use System.err as a last resort
             System.err.println("Failed to create console handler: " + e.getMessage());
         }
-
-        // 3. Add a File Handler ONLY IF the requested level is FINE or lower (verbose mode)
-        if (newLevel.intValue() <= Level.FINE.intValue()) {
-            try {
-                // Ensure output directory exists
-                String logDir = "output/logs";
-                new File(logDir).mkdirs();
-                
-                String logFilePath = logDir + "/simulation-" + simulationTimestamp + ".log";
-                System.out.println("--- Verbose logging enabled. Writing FINE logs to: " + logFilePath + " ---");
-                
-                fileHandler = new FileHandler(logFilePath, 0, 1, true);
-                fileHandler.setFormatter(new SimpleFileFormatter());
-                // The file handler logs EVERYTHING (if the global level is set this low)
-                fileHandler.setLevel(Level.ALL); 
-                rootLogger.addHandler(fileHandler);
-                
-            } catch (IOException | SecurityException e) {
-                System.err.println("Failed to create log file handler: " + e.getMessage());
-            }
-        }
-
-        // 4. Set the root logger's level to the requested global level
-        rootLogger.setLevel(globalLevel);
-
-        // Update all existing loggers to use the new level
-        for (Logger logger : loggers.values()) {
-            logger.setLevel(globalLevel);
-        }
+        
+        rootLogger.setLevel(globalLevel); // Set root to default
     }
-    
+
     /**
      * Gets a logger instance. It will be configured with the current global log level
      * and handlers.
@@ -87,15 +52,70 @@ public final class CustomLogger {
      * @return A configured Logger instance.
      */
     public static Logger getLogger(String className) {
-        // Use computeIfAbsent to create and configure the logger only if it doesn't exist
         return loggers.computeIfAbsent(className, k -> {
             Logger logger = Logger.getLogger(k);
-            // We only need to set the level. Handlers are managed by the root logger.
-            logger.setLevel(globalLevel); 
-            // Prevent logs from being passed up to the root's handlers twice
-            logger.setUseParentHandlers(true); 
+            logger.setLevel(globalLevel); // Set to current global level
+            logger.setUseParentHandlers(true); // Let the root logger handle output
             return logger;
         });
+    }
+
+    /**
+     * Sets the global logging level and configures handlers.
+     * @param newLevel The new level to apply.
+     * @param simulationTimestamp A timestamp used to create a unique log file name if needed.
+     */
+    public static synchronized void setGlobalLogLevel(Level newLevel, String simulationTimestamp) {
+        Logger rootLogger = Logger.getLogger(""); // Get the root logger
+        
+        // Log the change using the logger itself *before* changing levels
+        Logger selfLogger = getLogger(CustomLogger.class.getName());
+        selfLogger.info("--- Setting Global Log Level to: " + newLevel.getName() + " ---");
+
+        globalLevel = newLevel;
+
+        // 1. Remove old file handler if it exists
+        if (fileHandler != null) {
+            rootLogger.removeHandler(fileHandler);
+            fileHandler.close();
+            fileHandler = null;
+            logFilePath = "";
+        }
+
+        // 2. Add a File Handler ONLY IF the requested level is FINE or lower
+        if (newLevel.intValue() <= Level.FINE.intValue()) {
+            try {
+                String logDir = "output/logs";
+                new File(logDir).mkdirs();
+                
+                logFilePath = logDir + "/simulation-" + simulationTimestamp + ".log";
+                selfLogger.info("--- Verbose logging enabled. Writing FINE logs to: " + logFilePath + " ---");
+                
+                fileHandler = new FileHandler(logFilePath, 0, 1, true);
+                fileHandler.setFormatter(new SimpleFileFormatter());
+                fileHandler.setLevel(Level.ALL); // The handler captures all levels
+                rootLogger.addHandler(fileHandler);
+                
+            } catch (IOException | SecurityException e) {
+                selfLogger.log(Level.SEVERE, "Failed to create log file handler", e);
+            }
+        }
+
+        // 3. Set the root logger's level to the requested global level
+        rootLogger.setLevel(globalLevel);
+
+        // 4. Update all existing loggers to use the new level
+        for (Logger logger : loggers.values()) {
+            logger.setLevel(globalLevel);
+        }
+    }
+    
+    /**
+     * Gets the file path of the current log file.
+     * @return The file path, or an empty string if no file logger is active.
+     */
+    public static String getLogFilePath() {
+        return logFilePath;
     }
     
     public static Level getLevel() {

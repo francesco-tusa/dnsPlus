@@ -1,12 +1,16 @@
 package simulator.simulations.performance;
 
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.random.RandomTopologyGenerator;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
+import utils.CustomLogger;
 
 public class RandomTopologyRegionPerformanceSimulation
         extends AbstractRegionPerformanceSimulation<RegionRandomTopologyConfiguration, RandomTopologyGenerator> {
+
+    private static final Logger logger = CustomLogger.getLogger(RandomTopologyRegionPerformanceSimulation.class.getName());
 
     public RandomTopologyRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
             double subscriptionRegionSize, double remoteInterestProbability,
@@ -22,7 +26,7 @@ public class RandomTopologyRegionPerformanceSimulation
     }
 
     public static void main(String[] args) {
-        System.out.println("--- Starting Random Topology Performance Simulation (Region-Based) ---");
+        logger.info("--- Starting Random Topology Performance Simulation (Region-Based) ---");
 
         // --- EASILY ADJUSTABLE PARAMETERS ---
 
@@ -35,7 +39,7 @@ public class RandomTopologyRegionPerformanceSimulation
         double simWorldHeight = 100.0; // The world is 100 units tall
 
         // This is now an ABSOLUTE size (e.g., 10.0 for a 10x10 region)
-        double simSubscriptionRegionSize = 10.0;
+        double simSubscriptionRegionSize = 30.0;
 
         double simRemoteInterestProbability = 0.0;
 
@@ -65,6 +69,7 @@ public class RandomTopologyRegionPerformanceSimulation
 
         if (enableVerboseLogs) {
             simulation.setLogLevel(Level.FINE);
+            logger.info("--- Verbose logging enabled. Writing FINE logs to: " + CustomLogger.getLogFilePath() + " ---");
         }
 
         simulation.run(factory, config);

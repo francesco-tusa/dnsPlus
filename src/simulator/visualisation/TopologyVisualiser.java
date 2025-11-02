@@ -1,24 +1,25 @@
 package simulator.visualisation;
 
-import org.graphstream.graph.Graph;
-import org.graphstream.graph.Node;
-
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.graphstream.graph.Edge;
+import org.graphstream.graph.Graph;
+import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.SingleGraph;
 import org.graphstream.ui.view.Viewer;
+
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
-import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
-import simulator.events.SubscriptionWithLocation;
 import simulator.regions.BrokerWithRegion;
-import simulator.regions.SubscriptionWithRegion;
+import utils.CustomLogger;
 
 public class TopologyVisualiser {
 
+    private static final Logger logger = CustomLogger.getLogger(TopologyVisualiser.class.getName());
     private static TopologyVisualiser instance;
     private final Graph graph;
 
@@ -48,7 +49,11 @@ public class TopologyVisualiser {
     }
 
     public void displayGraph() {
-        graph.display().setCloseFramePolicy(Viewer.CloseFramePolicy.EXIT);
+        try {
+            graph.display().setCloseFramePolicy(Viewer.CloseFramePolicy.EXIT);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "GraphStream UI failed to start", e);
+        }
     }
     
     public void addNode(TreeNode treeNode) {

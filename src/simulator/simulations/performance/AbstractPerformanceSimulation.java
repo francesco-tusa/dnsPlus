@@ -28,7 +28,6 @@ public abstract class AbstractPerformanceSimulation<
     F extends AbstractTopologyFactory<C, BrokerWithRegion>
 > extends SimulationRunner<C, BrokerWithRegion, F> {
 
-    // --- NEW: Add a logger instance to this class ---
     private static final Logger logger = CustomLogger.getLogger(AbstractPerformanceSimulation.class.getName());
 
     protected final List<SubscriberWithLocation> allSubscribers = new ArrayList<>();
@@ -64,24 +63,23 @@ public abstract class AbstractPerformanceSimulation<
 
     @Override
     protected void setupSimulation() {
-        System.out.println("\n--- Populating Topology for Performance Simulation ---");
-        System.out.printf("Setup: %d Replicas, %d Subscribers/Replica (Total Subscribers: %d)%n", 
-                          numberOfReplicas, subscribersPerReplica, totalSubscribers);
+        logger.info("\n--- Populating Topology for Performance Simulation ---");
+        logger.info(String.format("Setup: %d Replicas, %d Subscribers/Replica (Total Subscribers: %d)", 
+                                  numberOfReplicas, subscribersPerReplica, totalSubscribers));
 
         if (this.rootNode == null) {
-            System.err.println("Cannot populate topology: Root node is null.");
+            logger.severe("Cannot populate topology: Root node is null.");
             return;
         }
 
         List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
         if (leafBrokers.isEmpty()) {
-            System.err.println("Error: No leaf brokers found. Cannot attach clients.");
+            logger.severe("Error: No leaf brokers found. Cannot attach clients.");
             return;
         }
 
         if (logger.isLoggable(Level.FINE)) {
             logger.fine("--- DEBUG: Final Broker Hierarchy and Regions ---");
-            // Call the new helper method, starting from the root
             logBrokerHierarchy(this.rootNode, "  ");
             logger.fine("-------------------------------------------------");
         }
@@ -104,12 +102,10 @@ public abstract class AbstractPerformanceSimulation<
     private void logBrokerHierarchy(TreeNode node, String indent) {
         if (node == null) return;
         
-        // Only log nodes that are brokers
         if (node instanceof BrokerWithRegion broker) {
             Region region = broker.getRegion();
             String regionInfo = "N/A";
             
-            // Check if region and its points are valid before trying to format
             if (region != null && region.getBottomLeft() != null && region.getTopRight() != null) {
                 regionInfo = String.format("Region: %s (W: %.2f, H: %.2f)",
                                             region.toShortString(),
@@ -119,13 +115,10 @@ public abstract class AbstractPerformanceSimulation<
 
             logger.fine(String.format("%s%s [%s]", indent, broker.getName(), regionInfo));
 
-            // Recurse for all children
             for (TreeNode child : broker.getChildren()) {
                 logBrokerHierarchy(child, indent + "  ");
             }
         }
-        // We stop recursing if the node is not a broker 
-        // (e.g., if it's a SubscriberWithLocation)
     }
 
     
@@ -141,7 +134,7 @@ public abstract class AbstractPerformanceSimulation<
                 }
             }
         }
-        System.out.println("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
+        logger.info("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
     }
     
     protected List<BrokerWithRegion> findLeafBrokers(BrokerWithRegion root) {
@@ -169,7 +162,7 @@ public abstract class AbstractPerformanceSimulation<
     }
     
     protected void collectAndPrintMetrics() {
-        System.out.println("\n--- Simulation Metrics ---");
+        logger.info("\n--- Simulation Metrics ---");
         long totalSubscriptionTableEntries = 0, totalRegionUpdates = 0;
         long successfulNotifications = 0, totalPublicationsSent = 0;
         
@@ -205,16 +198,16 @@ public abstract class AbstractPerformanceSimulation<
             totalPublicationsSent += publisher.getnPublications();
         }
 
-        System.out.println("--- System Overhead Metrics ---");
-        System.out.println("Total Subscription Table Entries Created (Storage Cost): " + totalSubscriptionTableEntries);
-        System.out.println("Total Region Boundary Updates: " + totalRegionUpdates);
+        logger.info("--- System Overhead Metrics ---");
+        logger.info("Total Subscription Table Entries Created (Storage Cost): " + totalSubscriptionTableEntries);
+        logger.info("Total Region Boundary Updates: " + totalRegionUpdates);
         printStats("All Subscription Hops (Network Load)", allSubscriptionHops);
         printStats("All Publication Hops (Network Load)", allPublicationHops);
         printStatsLong("Publication Processing Cost (CPU Load)", allPublicationProcessingCosts);
         
-        System.out.println("\n--- Service Delivery Metrics ---");
-        System.out.println("Total Publications Sent by all Replicas: " + totalPublicationsSent);
-        System.out.println("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
+        logger.info("\n--- Service Delivery Metrics ---");
+        logger.info("Total Publications Sent by all Replicas: " + totalPublicationsSent);
+        logger.info("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
         printStats("Delivered Publication Hops (Path Length)", allDeliveredPubHops);
         
         if (enableCsvOutput) {
@@ -225,7 +218,7 @@ public abstract class AbstractPerformanceSimulation<
     private void writeMetricsToCsv(List<Integer> subHops, List<Integer> pubHops, List<Long> pubCosts, List<Integer> deliveredHops) {
         String timestamp = this.simulationTimestamp; 
         String outputDir = "output/metrics/";
-        System.out.println("\n--- Writing raw metrics to CSV files (Run ID: " + timestamp + ") ---");
+        logger.info("\n--- Writing raw metrics to CSV files (Run ID: " + timestamp + ") ---");
         
         CsvMetricWriter.writeListToCsv(
             outputDir + timestamp + "_subscription_hops.csv", 
@@ -250,7 +243,7 @@ public abstract class AbstractPerformanceSimulation<
     
     protected void printStats(String name, List<Integer> data) {
         if (data == null || data.isEmpty()) {
-            System.out.printf("%s: N/A (no data)%n", name);
+            logger.info(String.format("%s: N/A (no data)", name));
             return;
         }
         double sum = 0;
@@ -266,13 +259,13 @@ public abstract class AbstractPerformanceSimulation<
         double variance = sumSqDiff / data.size();
         double stdDev = Math.sqrt(variance); 
 
-        System.out.printf("%s: Avg=%.2f, StdDev=%.2f, Variance=%.2f (N=%d)%n", 
-                          name, mean, stdDev, variance, data.size());
+        logger.info(String.format("%s: Avg=%.2f, StdDev=%.2f, Variance=%.2f (N=%d)", 
+                                  name, mean, stdDev, variance, data.size()));
     }
     
     protected void printStatsLong(String name, List<Long> data) {
         if (data == null || data.isEmpty()) {
-            System.out.printf("%s: N/A (no data)%n", name);
+            logger.info(String.format("%s: N/A (no data)", name));
             return;
         }
         double sum = 0;
@@ -288,15 +281,15 @@ public abstract class AbstractPerformanceSimulation<
         double variance = sumSqDiff / data.size();
         double stdDev = Math.sqrt(variance); 
 
-        System.out.printf("%s: Avg=%.2f, StdDev=%.2f, Variance=%.2f (N=%d)%n", 
-                          name, mean, stdDev, variance, data.size());
+        logger.info(String.format("%s: Avg=%.2f, StdDev=%.2f, Variance=%.2f (N=%d)", 
+                                  name, mean, stdDev, variance, data.size()));
     }
 
 
     protected Location getRandomLocationInRegion(Region region) {
         Random rand = new Random();
         if (region == null || region.getBottomLeft() == null || region.getTopRight() == null) {
-            System.err.println("Warning: Attempted to get random location in null or incomplete region.");
+            logger.warning("Attempted to get random location in null or incomplete region.");
             return new Location(0, 0, 0);
         }
         double minX = region.getBottomLeft().getX();

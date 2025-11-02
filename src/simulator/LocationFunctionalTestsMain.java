@@ -1,5 +1,6 @@
 package simulator;
 
+import java.util.logging.Logger; // Import Logger
 import simulator.regions.BrokerWithRegion;
 import simulator.simulations.functional.ConfigurableFunctionalTest;
 import simulator.simulations.functional.FixedTopologyLocationFunctionalTests;
@@ -9,12 +10,15 @@ import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
 import simulator.topology.grid.GridTopologyConfiguration;
 import simulator.topology.grid.GridTopologyGenerator;
+import utils.CustomLogger; // Import CustomLogger
 
 /**
  * Main entry point for all FUNCTIONAL validation tests using LOCATION-BASED routing brokers.
  * These tests use deterministic topologies (fixed, grid) to verify algorithm correctness.
  */
 public class LocationFunctionalTestsMain {
+
+    private static final Logger logger = CustomLogger.getLogger(LocationFunctionalTestsMain.class.getName());
 
     public static void main(String[] args) {
         runManualTopologyComprehensiveTest();
@@ -23,9 +27,9 @@ public class LocationFunctionalTestsMain {
     }
 
     public static void runManualTopologyComprehensiveTest() {
-        System.out.println("===============================================================");
-        System.out.println("  RUNNING (Functional): Manual Topology - Comprehensive Scenario (Location)");
-        System.out.println("===============================================================");
+        logger.info("===============================================================");
+        logger.info("  RUNNING (Functional): Manual Topology - Comprehensive Scenario (Location)");
+        logger.info("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new LocationBrokerFactory());
         ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
@@ -34,9 +38,9 @@ public class LocationFunctionalTestsMain {
     }
 
     public static void runManualTopologySubscriptionFilteringTest() {
-        System.out.println("===============================================================");
-        System.out.println("  RUNNING (Functional): Manual Topology - Subscription Filtering (Location)");
-        System.out.println("===============================================================");
+        logger.info("===============================================================");
+        logger.info("  RUNNING (Functional): Manual Topology - Subscription Filtering (Location)");
+        logger.info("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new LocationBrokerFactory());
         ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
@@ -45,9 +49,9 @@ public class LocationFunctionalTestsMain {
     }
 
     public static void runGridTopologyTest() {
-        System.out.println("===============================================================");
-        System.out.println("  RUNNING (Functional): Grid Topology - Cross-Corner Test (Location)");
-        System.out.println("===============================================================");
+        logger.info("===============================================================");
+        logger.info("  RUNNING (Functional): Grid Topology - Cross-Corner Test (Location)");
+        logger.info("===============================================================");
         GridTopologyConfiguration config = new GridTopologyConfiguration(3, 0.0, 3);
         GridTopologyGenerator factory = new GridTopologyGenerator(new LocationBrokerFactory());
         ConfigurableFunctionalTest<GridTopologyConfiguration, BrokerWithRegion, GridTopologyGenerator> validation =

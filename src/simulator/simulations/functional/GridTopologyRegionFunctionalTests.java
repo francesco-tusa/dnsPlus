@@ -3,7 +3,7 @@ package simulator.simulations.functional;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.function.Predicate;
-
+import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
@@ -12,12 +12,15 @@ import simulator.events.PublicationWithLocation;
 import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
+import utils.CustomLogger;
 
 /**
  * A utility class containing static validation tests specifically for Grid Topologies
  * using region-based processing brokers.
  */
 public class GridTopologyRegionFunctionalTests {
+
+    private static final Logger logger = CustomLogger.getLogger(GridTopologyRegionFunctionalTests.class.getName());
 
     /**
      * A validation test for a grid topology that checks if a publication
@@ -26,7 +29,7 @@ public class GridTopologyRegionFunctionalTests {
      * across the entire broker hierarchy.
      */
     public static final Predicate<BrokerWithRegion> GRID_CROSS_CORNER_PROPAGATION = root -> {
-        System.out.println("\n>>> SCENARIO: Running Grid Topology Cross-Corner Propagation Test. <<<");
+        logger.info("\n>>> SCENARIO: Running Grid Topology Cross-Corner Propagation Test. <<<");
 
         // --- Find corner nodes ---
         // This test assumes a 3x3 grid, as configured in the main runner.
@@ -34,7 +37,7 @@ public class GridTopologyRegionFunctionalTests {
         PublisherWithLocation publisher = findNodeByName(root, "pub-2-2-0", PublisherWithLocation.class);
 
         if (subscriber == null || publisher == null) {
-            System.err.println("Test failed: Could not find required corner nodes (sub-0-0-0, pub-2-2-0). This test requires a 3x3 grid.");
+            logger.severe("Test failed: Could not find required corner nodes (sub-0-0-0, pub-2-2-0). This test requires a 3x3 grid.");
             return false;
         }
 
@@ -47,17 +50,17 @@ public class GridTopologyRegionFunctionalTests {
         publisher.send(new PublicationWithLocation(publisher.getLocation()));
 
         // --- Verification ---
-        System.out.println("\n--- Final Check ---");
-        System.out.println("  - Subscriber 'sub-0-0-0' received: " + subscriber.getnPublications() + " publications. (Expected: 1)");
+        logger.info("\n--- Final Check ---");
+        logger.info("  - Subscriber 'sub-0-0-0' received: " + subscriber.getnPublications() + " publications. (Expected: 1)");
 
         boolean success = subscriber.getnPublications() == 1;
 
         if (success) {
-            System.out.println("\n--- Validation Result ---");
-            System.out.println("SUCCESS: The Grid Cross-Corner Propagation test passed.");
+            logger.info("\n--- Validation Result ---");
+            logger.info("SUCCESS: The Grid Cross-Corner Propagation test passed.");
         } else {
-            System.out.println("\n--- Validation Result ---");
-            System.out.println("FAILED: The Grid Cross-Corner Propagation test did not pass.");
+            logger.info("\n--- Validation Result ---");
+            logger.info("FAILED: The Grid Cross-Corner Propagation test did not pass.");
         }
 
         return success;

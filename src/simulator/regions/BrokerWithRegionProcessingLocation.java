@@ -104,7 +104,7 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
 
     protected void processPublicationDownward(PublicationWithLocation pub) {
         if (getRegion() == null) {
-            System.err.println(getName() + ": Cannot process downward propagation, region is not set.");
+            logger.severe(getName() + ": Cannot process downward propagation, region is not set.");
             return;
         }
 

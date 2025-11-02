@@ -2,6 +2,7 @@ package simulator.simulations.performance;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.logging.Logger; // Import Logger
 import java.util.stream.Collectors;
 import simulator.core.Location;
 import simulator.entities.SubscriberWithLocation;
@@ -10,11 +11,15 @@ import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
+import utils.CustomLogger; // Import CustomLogger
 
 public abstract class AbstractRegionPerformanceSimulation<
     C extends TopologyConfiguration,
     F extends AbstractTopologyFactory<C, BrokerWithRegion>
 > extends AbstractPerformanceSimulation<C, F> {
+
+    // --- NEW: Add a logger instance to this class ---
+    private static final Logger logger = CustomLogger.getLogger(AbstractRegionPerformanceSimulation.class.getName());
 
     protected final double subscriptionRegionSize; 
     
@@ -55,25 +60,25 @@ public abstract class AbstractRegionPerformanceSimulation<
 
     @Override
     protected void executeScenarios() {
-        System.out.println("\n--- Executing Region-Based Performance Scenario ---");
+        logger.info("\n--- Executing Region-Based Performance Scenario ---");
         if (allSubscribers.isEmpty() || allPublishers.isEmpty()) {
-            System.err.println("No subscribers or publishers were created. Cannot run scenarios.");
+            logger.severe("No subscribers or publishers were created. Cannot run scenarios.");
             return;
         }
         List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
         
-        System.out.println("\n>>> Phase 1: Subscribers are sending region-based subscriptions... <<<");
+        logger.info("\n>>> Phase 1: Subscribers are sending region-based subscriptions... <<<");
         final int PROGRESS_INTERVAL = (int) Math.max(1000, getTotalSubscribers() / 10);
         for (int i = 0; i < allSubscribers.size(); i++) {
             SubscriberWithLocation subscriber = allSubscribers.get(i);
             SubscriptionWithRegion subscription = generateSubscriptionForSubscriber(subscriber, leafBrokers);
             subscriber.send(subscription);
             if ((i + 1) % PROGRESS_INTERVAL == 0 || (i+1) == allSubscribers.size()) {
-                System.out.printf("  ... processed %d / %d subscriptions.%n", (i + 1), allSubscribers.size());
+                logger.info(String.format("  ... processed %d / %d subscriptions.", (i + 1), allSubscribers.size()));
             }
         }
 
-        System.out.println("\n>>> Phase 2: All service replicas are sending their publications... <<<");
+        logger.info("\n>>> Phase 2: All service replicas are sending their publications... <<<");
         for(var publisher : allPublishers) {
             publisher.send(new simulator.events.PublicationWithLocation(publisher.getLocation()));
         }
@@ -119,8 +124,8 @@ public abstract class AbstractRegionPerformanceSimulation<
         if (getTotalSubscribers() > 0) {
             long matchedSubscribers = allSubscribers.stream().filter(s -> s.getnPublications() > 0).count();
             double matchRate = (double) matchedSubscribers / getTotalSubscribers() * 100.0;
-            System.out.printf("Subscriber Match Rate: %.2f%% (%d / %d)%n", 
-                              matchRate, matchedSubscribers, getTotalSubscribers());
+            logger.info(String.format("Subscriber Match Rate: %.2f%% (%d / %d)", 
+                                      matchRate, matchedSubscribers, getTotalSubscribers()));
         }
     }
 }

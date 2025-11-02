@@ -32,10 +32,10 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
 
     @Override
     public void generateAndAttach(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalPublishersToCreate) {
-        System.out.println("\n--- Starting Data Center Publisher Placement ---");
+        logger.info("\n--- Starting Data Center Publisher Placement ---");
 
         if (leafBrokers == null || leafBrokers.isEmpty()) {
-            System.err.println("Error: No leaf brokers found.");
+            logger.severe("Error: No leaf brokers found.");
             return;
         }
         
@@ -49,11 +49,11 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
             .collect(Collectors.toList());
 
         if (dataCenterBrokers.isEmpty()) {
-            System.err.println("Error: No data center brokers found (list of leaves was empty).");
+            logger.severe("Error: No data center brokers found (list of leaves was empty).");
             return;
         }
 
-        System.out.println("Identified top " + dataCenterBrokers.size() + " regions as Data Center locations based on internet population.");
+        logger.info("Identified top " + dataCenterBrokers.size() + " regions as Data Center locations based on internet population.");
         
         if (logger.isLoggable(Level.FINE)) {
             logger.fine("  --- DEBUG: Top Data Center Regions ---");
@@ -66,7 +66,7 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
             logger.fine("  --------------------------------------");
         }
 
-        System.out.println("Distributing " + totalPublishersToCreate + " replicas among these Data Centers...");
+        logger.info("Distributing " + totalPublishersToCreate + " replicas among these Data Centers...");
 
         long publishersCreated = 0;
         for (long i = 0; i < totalPublishersToCreate; i++) {
@@ -89,6 +89,6 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
                                   publisher.getName(), pubLocation.toShortString(), chosenDC.getName(), dcRegion.toShortString()));
             }
         }
-        System.out.println("--- Data Center Placement Complete. Total replicas placed: " + publishersCreated + " ---");
+        logger.info("--- Data Center Placement Complete. Total replicas placed: " + publishersCreated + " ---");
     }
 }

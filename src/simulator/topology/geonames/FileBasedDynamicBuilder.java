@@ -24,12 +24,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 // --- Jackson Imports ---
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+
+import utils.CustomLogger;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 // This class is part of FileBasedDynamicBuilder.java
@@ -155,6 +160,8 @@ class GeonameEntry {
     double latitude = Double.NaN;
     double longitude = Double.NaN;
 
+    private static final Logger logger = CustomLogger.getLogger(GeonameEntry.class.getName());
+
     public GeonameEntry(String[] parts) {
         try {
             final int ID_IDX = 0;
@@ -209,7 +216,7 @@ class GeonameEntry {
                 }
             }
         } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-            System.err.println("Critical parse error: " + String.join("|", parts) + " - " + e.getMessage());
+            logger.log(Level.WARNING, "Critical parse error: " + String.join("|", parts), e);
             this.geonameId = -1;
         }
     }
@@ -331,6 +338,8 @@ class RelevantAdminInfo {
  */
 public class FileBasedDynamicBuilder {
 
+    private static final Logger logger = CustomLogger.getLogger(FileBasedDynamicBuilder.class.getName());
+
     // --- Maps for reference data ---
     Map<String, Integer> admin1CodeToIdMap = new HashMap<>();
     Map<String, Integer> admin2CodeToIdMap = new HashMap<>();
@@ -357,7 +366,7 @@ public class FileBasedDynamicBuilder {
     // --- Loading Methods ---
     void loadAdminCodes(String filePath, Map<String, Integer> map, String adminLevelName) {
         int count = 0;
-        System.out.println("Loading " + adminLevelName + " codes from " + filePath + "...");
+        logger.info("Loading " + adminLevelName + " codes from " + filePath + "...");
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -371,16 +380,14 @@ public class FileBasedDynamicBuilder {
                         map.put(key, geonameId);
                         count++;
                     } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-                        System.err.println(
-                                "Skipping invalid " + adminLevelName + " line: " + line + " - " + e.getMessage());
+                        logger.log(Level.WARNING, "Skipping invalid " + adminLevelName + " line: " + line, e);
                     }
                 }
             }
         } catch (IOException e) {
-            System.err.println("Error reading " + adminLevelName + " codes file: " + filePath);
-            e.printStackTrace(); // Consider more robust error handling or re-throwing
+            logger.log(Level.SEVERE, "Error reading " + adminLevelName + " codes file: " + filePath, e);
         }
-        System.out.println("Loaded " + count + " " + adminLevelName + " code mappings.");
+        logger.info("Loaded " + count + " " + adminLevelName + " code mappings.");
     }
 
     void loadCountryInfo(String filePath) {
@@ -388,7 +395,7 @@ public class FileBasedDynamicBuilder {
         final int CONTINENT_CODE_IDX = 8;
         final int GEONAMEID_IDX = 16;
         final int MIN_COUNTRY_PARTS = 17;
-        System.out.println("Loading country info from " + filePath + "...");
+        logger.info("Loading country info from " + filePath + "...");
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -407,29 +414,28 @@ public class FileBasedDynamicBuilder {
                             int geonameId = Integer.parseInt(geonameIdStr);
                             countryCodeToIdMap.put(isoCode, geonameId);
                         } catch (NumberFormatException e) {
-                            System.err.println("Skipping country line due to invalid Geoname ID: " + line);
+                            logger.warning("Skipping country line due to invalid Geoname ID: " + line);
                         }
                     }
                 } else {
-                    System.err.println("Skipping short country info line: " + line);
+                    logger.warning("Skipping short country info line: " + line);
                 }
             }
         } catch (IOException e) {
-            System.err.println("Error reading country info file: " + filePath);
-            e.printStackTrace(); // Consider more robust error handling
+            logger.log(Level.SEVERE, "Error reading country info file: " + filePath, e);
         }
-        System.out.println("Loaded " + countryToContinentMap.size() + " country->continent mappings.");
-        System.out.println("Loaded " + countryCodeToIdMap.size() + " country ISO2->GeonameID mappings.");
+        logger.info("Loaded " + countryToContinentMap.size() + " country->continent mappings.");
+        logger.info("Loaded " + countryCodeToIdMap.size() + " country ISO2->GeonameID mappings.");
     }
 
     void loadInternetPenetration(String filePath) {
-        System.out.println("Loading Internet Penetration data from " + filePath + "...");
+        logger.info("Loading Internet Penetration data from " + filePath + "...");
         countryIsoToPenetrationMap.clear();
         int validRatesLoaded = 0;
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line = reader.readLine();
             if (line == null) {
-                System.err.println("Error: Internet penetration file is empty.");
+                logger.severe("Error: Internet penetration file is empty.");
                 return;
             }
             String[] headers = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)", -1);
@@ -450,11 +456,11 @@ public class FileBasedDynamicBuilder {
                 }
             }
             if (isoCodeIndex == -1) {
-                System.err.println("Error: Could not find 'ISO2 Code' column in penetration file.");
+                logger.severe("Error: Could not find 'ISO2 Code' column in penetration file.");
                 return;
             }
             if (yearIndices.isEmpty()) {
-                System.err.println("Error: Could not find any valid year columns in penetration file.");
+                logger.severe("Error: Could not find any valid year columns in penetration file.");
                 return;
             }
             while ((line = reader.readLine()) != null) {
@@ -484,15 +490,14 @@ public class FileBasedDynamicBuilder {
                 }
             }
         } catch (IOException e) {
-            System.err.println("Error reading internet penetration file: " + filePath);
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Error reading internet penetration file: " + filePath, e);
         }
-        System.out.println("Loaded latest internet penetration rates for " + validRatesLoaded + " countries.");
+        logger.info("Loaded latest internet penetration rates for " + validRatesLoaded + " countries.");
     }
 
     // --- Processing Passes ---
     void processAllCountriesPass1(String filePath) {
-        System.out.println("Starting Pass 1: Processing " + filePath + "...");
+        logger.info("Starting Pass 1: Processing " + filePath + "...");
         int lineCount = 0, pplCount = 0, pcliCount = 0, adm1Count = 0, adm2Count = 0;
         long totalPplPop = 0;
         long skippedPplPop = 0;
@@ -572,21 +577,19 @@ public class FileBasedDynamicBuilder {
                     }
                 }
                 if (lineCount % 1000000 == 0) {
-                    System.out.println("  Processed " + lineCount + " lines...");
+                    logger.info("  Processed " + lineCount + " lines...");
                 }
             }
         } catch (IOException e) {
-            System.err.println("Error reading geonames file in Pass 1: " + filePath);
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Error reading geonames file in Pass 1: " + filePath, e);
         }
 
-        System.out
-                .println("Pass 1 Complete. Found PCLI: " + pcliCount + ", ADM1: " + adm1Count + ", ADM2: " + adm2Count);
-        System.out.println("Aggregated population from " + pplCount + " PPLs: " + totalPplPop + " into "
+        logger.info("Pass 1 Complete. Found PCLI: " + pcliCount + ", ADM1: " + adm1Count + ", ADM2: " + adm2Count);
+        logger.info("Aggregated population from " + pplCount + " PPLs: " + totalPplPop + " into "
                 + adm1PopulationMap.size() + " ADM1 & " + adm2PopulationMap.size() + " ADM2 regions.");
-        System.out.println("Skipped " + skippedPplCount + " PPLs with total population " + skippedPplPop
+        logger.info("Skipped " + skippedPplCount + " PPLs with total population " + skippedPplPop
                 + " due to missing/unmatched ADM1 link.");
-        System.out.println(
+        logger.info(
                 "Stored official population for " + countryIdToOfficialPopulationMap.size() + " PCLI entries.");
     }
 
@@ -604,7 +607,7 @@ public class FileBasedDynamicBuilder {
     }
 
     TreeNode buildInitialAdm1Hierarchy() {
-        System.out.println("Starting Pass 2: Building initial hierarchy (World -> Continent -> Country -> ADM1)...");
+        logger.info("Starting Pass 2: Building initial hierarchy (World -> Continent -> Country -> ADM1)...");
         TreeNode worldRoot = new TreeNode("World", TreeNode.NodeType.WORLD, "WORLD");
         Map<String, TreeNode> continentNodes = new HashMap<>();
         nodeMap.clear();
@@ -618,20 +621,20 @@ public class FileBasedDynamicBuilder {
                     if (officialPop != null && officialPop > 0) {
                         node.officialPopulation = officialPop;
                     } else {
-                        System.err.println("Warning: Country " + node.name + " has missing/zero official population.");
+                        logger.warning("Warning: Country " + node.name + " has missing/zero official population.");
                     }
                     Double penetrationRate = countryIsoToPenetrationMap.get(node.code);
                     if (penetrationRate != null && penetrationRate > 0.0) {
                         node.internetPenetrationRate = penetrationRate;
                     } else {
-                        System.err.println(
+                        logger.warning(
                                 "Warning: Country " + node.name + " has missing/zero internet penetration rate.");
                     }
                 }
                 nodeMap.put(info.geonameId, node);
             }
         }
-        System.out.println("  Created " + (nodeMap.size() - 1) + " initial TreeNodes (PCLI + ADM1).");
+        logger.info("  Created " + (nodeMap.size() - 1) + " initial TreeNodes (PCLI + ADM1).");
 
         int countryLinks = 0, adm1Links = 0, failedLinks = 0;
         for (RelevantAdminInfo info : relevantAdminMap.values()) {
@@ -649,7 +652,7 @@ public class FileBasedDynamicBuilder {
                     adm1Links++;
                 } else {
                     failedLinks++;
-                    System.err.println("Failed to link ADM1: " + childNode.name + " - Parent country (ISO: "
+                    logger.warning("Failed to link ADM1: " + childNode.name + " - Parent country (ISO: "
                             + info.countryCode + ") not found or invalid.");
                 }
             } else if (childNode.type == TreeNode.NodeType.COUNTRY) {
@@ -672,14 +675,14 @@ public class FileBasedDynamicBuilder {
                     });
                 } else {
                     parentNode = worldRoot;
-                    System.err.println(
+                    logger.warning(
                             "Warning: Continent not found for country: " + childNode.name + ". Linking to World.");
                 }
                 parentNode.addChild(childNode);
                 countryLinks++;
             }
         }
-        System.out.println("Initial hierarchy linking complete. Country links: " + countryLinks + ", ADM1 links: "
+        logger.info("Initial hierarchy linking complete. Country links: " + countryLinks + ", ADM1 links: "
                 + adm1Links + ", Failed links: " + failedLinks);
         return worldRoot;
     }
@@ -708,16 +711,16 @@ public class FileBasedDynamicBuilder {
     }
 
     void addAdm2Layer(List<TreeNode> nodesToExpand) {
-        System.out.println("Starting Pass 4: Adding ADM2 layer for " + nodesToExpand.size() + " ADM1 nodes...");
+        logger.info("Starting Pass 4: Adding ADM2 layer for " + nodesToExpand.size() + " ADM1 nodes...");
         int adm2Added = 0;
         if (relevantAdminMap == null || nodeMap == null || adm2PopulationMap == null || adm2BoundsMap == null) {
-            System.err.println("Error: Maps not initialized for ADM2 layer addition.");
+            logger.severe("Error: Maps not initialized for ADM2 layer addition.");
             return;
         }
         for (TreeNode adm1Node : nodesToExpand) {
             RelevantAdminInfo adm1NodeInfo = relevantAdminMap.get(adm1Node.geonameId);
             if (adm1NodeInfo == null || adm1NodeInfo.countryCode == null) {
-                System.err.println(
+                logger.warning(
                         "Warning: Could not find info for ADM1 node: " + adm1Node.name + ". Skipping ADM2 expansion.");
                 continue;
             }
@@ -735,16 +738,16 @@ public class FileBasedDynamicBuilder {
                         adm1Node.addChild(adm2Node);
                         adm2Added++;
                     } else {
-                        System.err.println("Warning: ADM2 Node already exists in map: " + adm2Info.name);
+                        logger.warning("Warning: ADM2 Node already exists in map: " + adm2Info.name);
                     }
                 }
             }
         }
-        System.out.println("Pass 4 Complete. Added " + adm2Added + " ADM2 nodes.");
+        logger.info("Pass 4 Complete. Added " + adm2Added + " ADM2 nodes.");
     }
 
     void distributeAdm1Population(List<TreeNode> expandedAdm1Nodes) {
-        System.out.println(
+        logger.info(
                 "Starting Pass 5: Distributing remaining initial ADM1 population to zero-pop ADM2 children...");
         int adm2PopDistributed = 0;
         long totalPopDistributed = 0;
@@ -768,7 +771,7 @@ public class FileBasedDynamicBuilder {
             if (numZeroPopAdm2 > 0) {
                 long remainingAdm1Pop = totalAdm1PopFromPPLs - sumCurrentAdm2Pop;
                 if (remainingAdm1Pop < 0) {
-                    System.err.println("Warning: ADM2 populations sum exceeds ADM1 PPL-aggregated population for "
+                    logger.warning("Warning: ADM2 populations sum exceeds ADM1 PPL-aggregated population for "
                             + adm1Node.name + ". Cannot distribute negative remainder.");
                     remainingAdm1Pop = 0;
                 }
@@ -785,16 +788,16 @@ public class FileBasedDynamicBuilder {
                 }
             }
         }
-        System.out.println("Pass 5 complete. Assigned estimated population (" + totalPopDistributed + ") to "
+        logger.info("Pass 5 complete. Assigned estimated population (" + totalPopDistributed + ") to "
                 + adm2PopDistributed + " previously zero-pop ADM2 nodes.");
     }
 
     void estimateMissingAdm2Bounds(List<TreeNode> expandedAdm1Nodes) {
-        System.out.println("Starting Pass 6: Estimating missing bounds for ADM2 children...");
+        logger.info("Starting Pass 6: Estimating missing bounds for ADM2 children...");
         int boundsEstimated = 0;
         for (TreeNode adm1Node : expandedAdm1Nodes) {
             if (adm1Node.bounds == null || !adm1Node.bounds.isValid()) {
-                System.err.println("Warning: Cannot estimate ADM2 bounds for children of " + adm1Node.name
+                logger.warning("Warning: Cannot estimate ADM2 bounds for children of " + adm1Node.name
                         + " - parent bounds invalid.");
                 continue;
             }
@@ -819,7 +822,7 @@ public class FileBasedDynamicBuilder {
             for (int i = 0; i < totalAdm2ToEstimate; i++) {
                 TreeNode adm2ChildNode = adm2ChildrenMissingBounds.get(i);
                 if (!estimationLogged) {
-                    System.out.println("  Estimating bounds for ADM2 children under " + adm1Node.name);
+                    logger.info("  Estimating bounds for ADM2 children under " + adm1Node.name);
                     estimationLogged = true;
                 }
                 int r = i / gridCols;
@@ -845,7 +848,7 @@ public class FileBasedDynamicBuilder {
                 boundsEstimated++;
             }
         }
-        System.out.println("Pass 6 complete. Estimated bounds for " + boundsEstimated + " ADM2 nodes.");
+        logger.info("Pass 6 complete. Estimated bounds for " + boundsEstimated + " ADM2 nodes.");
     }
 
     private long sumCurrentPopulation(TreeNode node) {
@@ -887,10 +890,10 @@ public class FileBasedDynamicBuilder {
     }
 
     void scaleAndCalculateInternetPop(TreeNode root) {
-        System.out.println("Starting Pass 7: Scaling populations and calculating internet population...");
+        logger.info("Starting Pass 7: Scaling populations and calculating internet population...");
         int countriesProcessed = 0;
         if (root == null || root.children.isEmpty()) {
-            System.err.println("Error: Root node is null or has no children.");
+            logger.severe("Error: Root node is null or has no children.");
             return;
         }
         for (TreeNode continent : root.children) {
@@ -904,14 +907,14 @@ public class FileBasedDynamicBuilder {
                 double penetrationRate = (country.internetPenetrationRate != null) ? country.internetPenetrationRate
                         : 0.0;
                 if (officialPop <= 0) {
-                    System.err.println("Warning: Skipping scaling for country " + country.name
+                    logger.warning("Warning: Skipping scaling for country " + country.name
                             + " - zero/missing official population.");
                     applyScalingAndInternetPop(country, 1.0, penetrationRate);
                     continue;
                 }
                 long currentAggregatedTotal = sumCurrentPopulation(country);
                 if (currentAggregatedTotal <= 0) {
-                    System.err.println("Warning: Skipping scaling for country " + country.name
+                    logger.warning("Warning: Skipping scaling for country " + country.name
                             + " - zero current aggregated population.");
                     applyScalingAndInternetPop(country, 1.0, penetrationRate);
                     continue;
@@ -920,7 +923,7 @@ public class FileBasedDynamicBuilder {
                 applyScalingAndInternetPop(country, scaleFactor, penetrationRate);
             }
         }
-        System.out.println("Pass 7 Complete. Processed population scaling and internet population calculation for "
+        logger.info("Pass 7 Complete. Processed population scaling and internet population calculation for "
                 + countriesProcessed + " countries.");
     }
 
@@ -930,7 +933,7 @@ public class FileBasedDynamicBuilder {
             return false;
         }
         if (leafNode.bounds == null || !leafNode.bounds.isValid()) {
-            System.err.println("Warning: Cannot expand leaf node " + leafNode.name + " - invalid bounds.");
+            logger.warning("Warning: Cannot expand leaf node " + leafNode.name + " - invalid bounds.");
             return false;
         }
         long parentPop = leafNode.aggregatedPopulation;
@@ -997,19 +1000,19 @@ public class FileBasedDynamicBuilder {
             leafNode.addChild(childNode);
         }
         if (popSumCheck != parentPop) {
-            System.err.printf("WARN: Total Pop distribution error for %s. Orig: %d, Dist: %d%n", leafNode.name,
-                    parentPop, popSumCheck);
+            logger.warning(String.format("WARN: Total Pop distribution error for %s. Orig: %d, Dist: %d", leafNode.name,
+                    parentPop, popSumCheck));
         }
         if (internetPopSumCheck != parentInternetPop) {
-            System.err.printf("WARN: Internet Pop distribution error for %s. Orig: %d, Dist: %d%n", leafNode.name,
-                    parentInternetPop, internetPopSumCheck);
+            logger.warning(String.format("WARN: Internet Pop distribution error for %s. Orig: %d, Dist: %d", leafNode.name,
+                    parentInternetPop, internetPopSumCheck));
         }
         return true;
     }
 
     void findAndExpandLeaves(TreeNode startNode, long threshold, boolean distributeEqually,
             TreeNode.NodeType artificialChildType, String passIdentifier) {
-        System.out.println("Starting " + passIdentifier + ": Expanding Leaves with Population > " + threshold + "...");
+        logger.info("Starting " + passIdentifier + ": Expanding Leaves with Population > " + threshold + "...");
         List<TreeNode> leavesToExpand = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
         if (startNode != null) {
@@ -1023,14 +1026,14 @@ public class FileBasedDynamicBuilder {
                 queue.addAll(current.children);
             }
         }
-        System.out.println("  Found " + leavesToExpand.size() + " leaves exceeding threshold " + threshold + ".");
+        logger.info("  Found " + leavesToExpand.size() + " leaves exceeding threshold " + threshold + ".");
         int expandedCount = 0;
         for (TreeNode leaf : leavesToExpand) {
             if (expandLeafNodeIfNeeded(leaf, threshold, distributeEqually, artificialChildType)) {
                 expandedCount++;
             }
         }
-        System.out.println(passIdentifier + " Complete. Expanded " + expandedCount + " leaves.");
+        logger.info(passIdentifier + " Complete. Expanded " + expandedCount + " leaves.");
     }
 
     long finalAggregateTotalPopulation(TreeNode node) {
@@ -1059,10 +1062,10 @@ public class FileBasedDynamicBuilder {
         }
         node.internetPopulation = totalInternetPopulation;
         if (node.internetPopulation > node.aggregatedPopulation) {
-            System.err.printf("WARN: Final aggregation internetPop > totalPop for %s. Clamping.%n", node.name);
+            logger.warning(String.format("WARN: Final aggregation internetPop > totalPop for %s. Clamping.", node.name));
             node.internetPopulation = node.aggregatedPopulation;
         }
-        return node.internetPopulation;
+        return totalInternetPopulation;
     }
 
     BoundingBox finalAggregateBounds(TreeNode node) {
@@ -1086,20 +1089,19 @@ public class FileBasedDynamicBuilder {
      * Checks if required GeoNames data files exist in the resources directory.
      * If a file is missing, attempts to download it from the official GeoNames
      * source.
-     * 
-     * @param resourcesDirName The name of the resources directory.
+     * * @param resourcesDirName The name of the resources directory.
      * @return true if all required files are present or successfully downloaded,
-     *         false otherwise.
+     * false otherwise.
      */
     private boolean ensureDataFilesExist(String resourcesDirName) {
-        System.out.println("\n--- Checking for required GeoNames data files ---");
+        logger.info("\n--- Checking for required GeoNames data files ---");
 
         // Create the resources directory if it doesn't exist
         File resourcesDir = new File(resourcesDirName);
         if (!resourcesDir.exists()) {
-            System.out.println("Creating directory: " + resourcesDir.getAbsolutePath());
+            logger.info("Creating directory: " + resourcesDir.getAbsolutePath());
             if (!resourcesDir.mkdirs()) {
-                System.err.println("Error: Failed to create resources directory: " + resourcesDir.getAbsolutePath());
+                logger.severe("Error: Failed to create resources directory: " + resourcesDir.getAbsolutePath());
                 return false; // Cannot proceed without resources directory
             }
         }
@@ -1123,29 +1125,29 @@ public class FileBasedDynamicBuilder {
             Path destinationPath = Paths.get(resourcesDirName, fileName);
 
             if (!Files.exists(destinationPath)) {
-                System.out.println("File not found: " + destinationPath + ". Attempting download...");
+                logger.info("File not found: " + destinationPath + ". Attempting download...");
                 boolean success = downloadAndExtractFile(fileUrl, destinationPath, isZipped, zipEntryName);
                 if (!success) {
-                    System.err.println("Failed to download or extract: " + fileName);
+                    logger.severe("Failed to download or extract: " + fileName);
                     allFilesOk = false; // Mark as failure but continue checking other files
                 }
             } else {
-                System.out.println("File found: " + destinationPath);
+                logger.info("File found: " + destinationPath);
             }
         }
 
         // Final check for the manually provided CSV file
         Path penetrationPath = Paths.get(resourcesDirName, "internet_penetration_iso2.csv");
         if (!Files.exists(penetrationPath)) {
-            System.err.println("Error: Required file internet_penetration_iso2.csv not found in " + resourcesDirName);
-            System.err.println("Please add this file manually to the resources directory.");
+            logger.severe("Error: Required file internet_penetration_iso2.csv not found in " + resourcesDirName);
+            logger.severe("Please add this file manually to the resources directory.");
             allFilesOk = false;
         } else {
-            System.out.println("File found: " + penetrationPath);
+            logger.info("File found: " + penetrationPath);
         }
 
         if (!allFilesOk) {
-            System.err.println("One or more required data files are missing or could not be downloaded.");
+            logger.severe("One or more required data files are missing or could not be downloaded.");
         }
         return allFilesOk;
     }
@@ -1153,14 +1155,13 @@ public class FileBasedDynamicBuilder {
     /**
      * Downloads a file from a URL, optionally extracting a specific entry if it's a
      * zip file.
-     * 
-     * @param fileUrl         URL to download from.
+     * * @param fileUrl         URL to download from.
      * @param destinationPath Path where the final file should be saved.
      * @param isZipped        True if the URL points to a zip file.
      * @param zipEntryName    The name of the file to extract from the zip (required
-     *                        if isZipped is true).
+     * if isZipped is true).
      * @return true if the file was successfully downloaded/extracted, false
-     *         otherwise.
+     * otherwise.
      */
     private boolean downloadAndExtractFile(String fileUrl, Path destinationPath, boolean isZipped,
             String zipEntryName) {
@@ -1181,9 +1182,9 @@ public class FileBasedDynamicBuilder {
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 inputStream = connection.getInputStream();
                 long fileSize = connection.getContentLengthLong();
-                System.out.printf("  Downloading %s (Size: %s)...%n",
+                logger.info(String.format("  Downloading %s (Size: %s)...",
                         destinationPath.getFileName(),
-                        fileSize > 0 ? String.format("%,d bytes", fileSize) : "Unknown");
+                        fileSize > 0 ? String.format("%,d bytes", fileSize) : "Unknown"));
 
                 if (isZipped) {
                     // Download zip to a temporary file first
@@ -1191,7 +1192,7 @@ public class FileBasedDynamicBuilder {
                     Files.copy(inputStream, tempZipPath, StandardCopyOption.REPLACE_EXISTING);
                     inputStream.close(); // Close stream after copy
 
-                    System.out.println("  Extracting " + zipEntryName + " from " + tempZipPath.getFileName() + "...");
+                    logger.info("  Extracting " + zipEntryName + " from " + tempZipPath.getFileName() + "...");
                     // Extract the required entry from the temporary zip file
                     try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(tempZipPath))) {
                         ZipEntry entry;
@@ -1206,14 +1207,14 @@ public class FileBasedDynamicBuilder {
                                         fos.write(buffer, 0, len);
                                     }
                                 }
-                                System.out.println("  Successfully extracted to " + destinationPath);
+                                logger.info("  Successfully extracted to " + destinationPath);
                                 entryFound = true;
                                 break; // Stop after finding the entry
                             }
                             zis.closeEntry(); // Close current entry
                         }
                         if (!entryFound) {
-                            System.err.println(
+                            logger.severe(
                                     "Error: Entry '" + zipEntryName + "' not found in downloaded zip file: " + fileUrl);
                             return false;
                         }
@@ -1221,19 +1222,18 @@ public class FileBasedDynamicBuilder {
                 } else {
                     // Download non-zip file directly to destination
                     Files.copy(inputStream, destinationPath, StandardCopyOption.REPLACE_EXISTING);
-                    System.out.println("  Successfully downloaded to " + destinationPath);
+                    logger.info("  Successfully downloaded to " + destinationPath);
                 }
                 return true; // Success
 
             } else {
-                System.err.println("Error: Failed to download file. Server responded with code: " + responseCode
+                logger.severe("Error: Failed to download file. Server responded with code: " + responseCode
                         + " for URL: " + fileUrl);
                 return false;
             }
 
         } catch (IOException e) {
-            System.err.println("Error during download/extraction for " + fileUrl + ": " + e.getMessage());
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Error during download/extraction for " + fileUrl, e);
             return false;
         } finally {
             // Clean up resources
@@ -1251,7 +1251,7 @@ public class FileBasedDynamicBuilder {
                 try {
                     Files.deleteIfExists(tempZipPath);
                 } catch (IOException e) {
-                    System.err.println("Warning: Failed to delete temporary file: " + tempZipPath);
+                    logger.warning("Warning: Failed to delete temporary file: " + tempZipPath);
                 }
             }
         }
@@ -1259,6 +1259,9 @@ public class FileBasedDynamicBuilder {
 
     // --- Main Execution Logic ---
     public static void main(String[] args) {
+        // Set a default log level for the builder utility itself
+        CustomLogger.setGlobalLogLevel(Level.INFO, "geonames-builder");
+
         // Define input/output directories relative to project root
         String resourcesDirName = "resources/world";
         String outputDirName = "output";
@@ -1287,12 +1290,12 @@ public class FileBasedDynamicBuilder {
 
         // --- Ensure Data Files Exist (Download if necessary) ---
         if (!builder.ensureDataFilesExist(resourcesDirName)) {
-            System.err.println("Cannot proceed without required data files. Exiting.");
+            logger.severe("Cannot proceed without required data files. Exiting.");
             return; // Stop execution if files are missing and couldn't be downloaded
         }
 
         // --- Load Reference Data ---
-        System.out.println("\n--- Loading Index & Data Files ---");
+        logger.info("\n--- Loading Index & Data Files ---");
         builder.loadCountryInfo(countryInfoFilePath);
         builder.loadAdminCodes(admin1FilePath, builder.admin1CodeToIdMap, "ADM1");
         builder.loadAdminCodes(admin2FilePath, builder.admin2CodeToIdMap, "ADM2");
@@ -1300,67 +1303,67 @@ public class FileBasedDynamicBuilder {
         // Basic check if maps loaded correctly
         if (builder.countryToContinentMap.isEmpty() || builder.admin1CodeToIdMap.isEmpty()
                 || builder.admin2CodeToIdMap.isEmpty() || builder.countryIsoToPenetrationMap.isEmpty()) {
-            System.err.println("Failed to load essential index/data files after checking/downloading. Exiting.");
+            logger.severe("Failed to load essential index/data files after checking/downloading. Exiting.");
             return;
         }
 
         // --- Execute Processing Passes (1-10) ---
-        System.out.println("\n--- Pass 1: Processing " + geonamesFileName + " ---");
+        logger.info("\n--- Pass 1: Processing " + geonamesFileName + " ---");
         long startTime = System.currentTimeMillis();
         builder.processAllCountriesPass1(geonamesFilePath);
-        System.out.println("Pass 1 finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
+        logger.info("Pass 1 finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds.");
         if (builder.relevantAdminMap.isEmpty()) {
-            System.err.println("No relevant PCLI/ADM1/ADM2 features found. Exiting.");
+            logger.severe("No relevant PCLI/ADM1/ADM2 features found. Exiting.");
             return;
         }
-        System.out.println("\n--- Pass 2: Building Initial ADM1 Hierarchy ---");
+        logger.info("\n--- Pass 2: Building Initial ADM1 Hierarchy ---");
         startTime = System.currentTimeMillis();
         TreeNode root = builder.buildInitialAdm1Hierarchy();
-        System.out.println("Pass 2 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
+        logger.info("Pass 2 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
         if (root == null || root.children.isEmpty()) {
-            System.err.println("Initial hierarchy building failed. Exiting.");
+            logger.severe("Initial hierarchy building failed. Exiting.");
             return;
         }
-        System.out.println("\n--- Pass 3: Assigning Initial PPL-Aggregated Pop/Bounds & Identifying Nodes > 1M ---");
+        logger.info("\n--- Pass 3: Assigning Initial PPL-Aggregated Pop/Bounds & Identifying Nodes > 1M ---");
         startTime = System.currentTimeMillis();
         List<TreeNode> nodesToExpand1M = new ArrayList<>();
         builder.assignInitialPopBoundsAndIdentifyExpansions(root, nodesToExpand1M);
-        System.out.println("Pass 3 finished in " + (System.currentTimeMillis() - startTime) + " ms. Identified "
+        logger.info("Pass 3 finished in " + (System.currentTimeMillis() - startTime) + " ms. Identified "
                 + nodesToExpand1M.size() + " ADM1 nodes > 1M initial pop.");
-        System.out.println("\n--- Pass 4: Adding ADM2 Layer ---");
+        logger.info("\n--- Pass 4: Adding ADM2 Layer ---");
         startTime = System.currentTimeMillis();
         builder.addAdm2Layer(nodesToExpand1M);
-        System.out.println("Pass 4 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
-        System.out.println("\n--- Pass 5: Distributing Initial ADM1 Population to ADM2s ---");
+        logger.info("Pass 4 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
+        logger.info("\n--- Pass 5: Distributing Initial ADM1 Population to ADM2s ---");
         startTime = System.currentTimeMillis();
         builder.distributeAdm1Population(nodesToExpand1M);
-        System.out.println("Pass 5 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
-        System.out.println("\n--- Pass 6: Estimating Missing ADM2 Bounding Boxes ---");
+        logger.info("Pass 5 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
+        logger.info("\n--- Pass 6: Estimating Missing ADM2 Bounding Boxes ---");
         startTime = System.currentTimeMillis();
         builder.estimateMissingAdm2Bounds(nodesToExpand1M);
-        System.out.println("Pass 6 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
-        System.out.println("\n--- Pass 7: Population Scaling and Internet Population Calculation ---");
+        logger.info("Pass 6 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
+        logger.info("\n--- Pass 7: Population Scaling and Internet Population Calculation ---");
         startTime = System.currentTimeMillis();
         builder.scaleAndCalculateInternetPop(root);
-        System.out.println("Pass 7 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
-        System.out.println("\n--- Pass 8: Expanding Leaves with Population > 1,000,000 ---");
+        logger.info("Pass 7 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
+        logger.info("\n--- Pass 8: Expanding Leaves with Population > 1,000,000 ---");
         startTime = System.currentTimeMillis();
         builder.findAndExpandLeaves(root, builder.POPULATION_THRESHOLD_1M, false, TreeNode.NodeType.S_ADM3, "Pass 8");
-        System.out.println("Pass 8 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
-        System.out.println("\n--- Pass 9: Expanding Leaves with Population > 10,000 ---");
+        logger.info("Pass 8 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
+        logger.info("\n--- Pass 9: Expanding Leaves with Population > 10,000 ---");
         startTime = System.currentTimeMillis();
         builder.findAndExpandLeaves(root, builder.POPULATION_THRESHOLD_10K, true, TreeNode.NodeType.S_ADM4, "Pass 9");
-        System.out.println("Pass 9 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
-        System.out.println("\n--- Pass 10: Final Recalculation of Aggregated Data ---");
+        logger.info("Pass 9 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
+        logger.info("\n--- Pass 10: Final Recalculation of Aggregated Data ---");
         startTime = System.currentTimeMillis();
         builder.finalAggregateTotalPopulation(root);
         builder.finalAggregateInternetPopulation(root);
         builder.finalAggregateBounds(root);
-        System.out.println("Pass 10 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
+        logger.info("Pass 10 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
 
         // --- Write Output JSON ---
-        System.out.println("\n--- Writing Final Hierarchy to JSON File ---");
-        System.out.println("Output JSON file: " + outputJsonFilePath);
+        logger.info("\n--- Writing Final Hierarchy to JSON File ---");
+        logger.info("Output JSON file: " + outputJsonFilePath);
         if (root != null) {
             ObjectMapper objectMapper = new ObjectMapper();
             objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -1370,46 +1373,42 @@ public class FileBasedDynamicBuilder {
                 File outputFile = new File(outputJsonFilePath);
                 File outputDir = outputFile.getParentFile();
                 if (outputDir != null && !outputDir.exists()) {
-                    System.out.println("Creating output directory: " + outputDir.getAbsolutePath());
+                    logger.info("Creating output directory: " + outputDir.getAbsolutePath());
                     if (!outputDir.mkdirs()) {
-                        System.err.println("Error: Failed to create output directory: " + outputDir.getAbsolutePath());
+                        logger.severe("Error: Failed to create output directory: " + outputDir.getAbsolutePath());
                     }
                 }
                 if (outputDir == null || outputDir.exists()) {
                     objectMapper.writeValue(outputFile, root);
-                    System.out.println("Successfully wrote hierarchy to " + outputJsonFilePath);
+                    logger.info("Successfully wrote hierarchy to " + outputJsonFilePath);
                 }
             } catch (IOException e) {
-                System.err.println("Error writing hierarchy to JSON file: " + e.getMessage());
-                e.printStackTrace();
+                logger.log(Level.SEVERE, "Error writing hierarchy to JSON file", e);
                 // Fallback to Text Output
-                System.out.println("\n--- JSON writing failed. Falling back to Text Output ---");
-                System.out.println("Output Text file: " + outputTextFilePath);
+                logger.info("\n--- JSON writing failed. Falling back to Text Output ---");
+                logger.info("Output Text file: " + outputTextFilePath);
                 try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(outputTextFilePath)))) {
                     File textOutputFile = new File(outputTextFilePath);
                     File textOutputDir = textOutputFile.getParentFile();
                     if (textOutputDir != null && !textOutputDir.exists()) {
-                        System.out.println(
+                        logger.info(
                                 "Creating output directory for text fallback: " + textOutputDir.getAbsolutePath());
                         if (!textOutputDir.mkdirs()) {
-                            System.err.println("Error: Failed to create output directory for text fallback.");
+                            logger.severe("Error: Failed to create output directory for text fallback.");
                         }
                     }
                     if (textOutputDir == null || textOutputDir.exists()) {
                         root.printTree(writer, "");
-                        System.out.println("Successfully wrote hierarchy to text file: " + outputTextFilePath);
+                        logger.info("Successfully wrote hierarchy to text file: " + outputTextFilePath);
                     }
                 } catch (IOException textEx) {
-                    System.err.println("Error writing hierarchy to fallback text file: " + textEx.getMessage());
-                    textEx.printStackTrace();
+                    logger.log(Level.SEVERE, "Error writing hierarchy to fallback text file", textEx);
                 }
             }
-        } else {
-            System.err.println("Root node is null, cannot write output.");
         }
 
         // --- Finish ---
         long overallEndTime = System.currentTimeMillis();
-        System.out.println("\nTotal execution time: " + (overallEndTime - overallStartTime) / 1000.0 + " seconds.");
+        logger.info("\nTotal execution time: " + (overallEndTime - overallStartTime) / 1000.0 + " seconds.");
     }
 }

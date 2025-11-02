@@ -26,18 +26,18 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
 
     @Override
     public void generateAndAttach(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalSubscribersToCreate) {
-        System.out.println("\n--- Starting Proportional Subscriber Placement ---");
-        System.out.println("Distributing " + totalSubscribersToCreate + " total subscribers...");
+        logger.info("\n--- Starting Proportional Subscriber Placement ---");
+        logger.info("Distributing " + totalSubscribersToCreate + " total subscribers...");
 
         if (leafBrokers == null || leafBrokers.isEmpty()) {
-            System.err.println("Error: The provided list of leaf brokers is empty. Cannot generate subscribers.");
+            logger.severe("Error: The provided list of leaf brokers is empty. Cannot generate subscribers.");
             return;
         }
 
         long worldTotalInternetPopulation = rootNode.getInternetPopulation();
 
         if (worldTotalInternetPopulation == 0) {
-            System.err.println("Warning: Total internet population is zero. Using uniform random distribution.");
+            logger.warning("Warning: Total internet population is zero. Using uniform random distribution.");
             generateAndAttachUniformly(leafBrokers, totalSubscribersToCreate);
             return;
         }
@@ -83,7 +83,7 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
              logger.fine("  --------------------------------------------");
         }
         
-        System.out.println("--- Proportional Subscriber Placement Complete. Total subscribers created: " + subscribersCreated + " ---");
+        logger.info("--- Proportional Subscriber Placement Complete. Total subscribers created: " + subscribersCreated + " ---");
     }
 
     private BrokerWithRegion findBrokerForWeight(long weight, List<BrokerWithRegion> brokers, long[] cumulativeWeights) {
@@ -116,7 +116,7 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
             chosenBroker.addChild(subscriber);
             subscribersCreated++;
         }
-         System.out.println("--- Uniform Subscriber Placement Complete. Total subscribers created: " + subscribersCreated + " ---");
+         logger.info("--- Uniform Subscriber Placement Complete. Total subscribers created: " + subscribersCreated + " ---");
     }
 
     private Location generateLocationInRegion(Region region) {

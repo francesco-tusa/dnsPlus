@@ -1,14 +1,18 @@
 package simulator.simulations.performance;
 
 import java.util.logging.Level;
+import java.util.logging.Logger; // Import Logger
 import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.random.RandomTopologyGenerator;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
+import utils.CustomLogger; // Import CustomLogger
 
 public class RandomTopologyLocationPerformanceSimulation extends AbstractLocationPerformanceSimulation<
     RegionRandomTopologyConfiguration,
     RandomTopologyGenerator
 > {
+
+    private static final Logger logger = CustomLogger.getLogger(RandomTopologyLocationPerformanceSimulation.class.getName()); // Get logger
 
     public RandomTopologyLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
                                                        boolean enableCsvOutput) { 
@@ -21,7 +25,7 @@ public class RandomTopologyLocationPerformanceSimulation extends AbstractLocatio
     }
 
     public static void main(String[] args) {
-        System.out.println("--- Starting Random Topology Performance Simulation (Location-Based) ---");
+        logger.info("--- Starting Random Topology Performance Simulation (Location-Based) ---");
         
         int simNumberOfReplicas = 10;
         int simSubscribersPerReplica = 100;
@@ -53,6 +57,7 @@ public class RandomTopologyLocationPerformanceSimulation extends AbstractLocatio
         
         if (enableVerboseLogs) {
             simulation.setLogLevel(Level.FINE);
+            logger.info("--- Verbose logging enabled. Writing FINE logs to: " + CustomLogger.getLogFilePath() + " ---");
         }
         
         simulation.run(factory, config);

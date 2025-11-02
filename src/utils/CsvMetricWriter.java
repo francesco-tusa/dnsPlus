@@ -5,11 +5,14 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
+import java.util.logging.Logger; // Import Logger
 
 /**
  * A helper class to write lists of metrics to a CSV file.
  */
 public class CsvMetricWriter {
+
+    private static final Logger logger = CustomLogger.getLogger(CsvMetricWriter.class.getName()); // Get logger
 
     /**
      * Writes a list of numbers to a specified CSV file.
@@ -21,7 +24,7 @@ public class CsvMetricWriter {
      */
     public static void writeListToCsv(String filePath, String header, List<? extends Number> data) {
         if (data == null || data.isEmpty()) {
-            System.out.println("  Skipped writing " + filePath + " (no data)");
+            logger.info("  Skipped writing " + filePath + " (no data)");
             return;
         }
 
@@ -31,7 +34,7 @@ public class CsvMetricWriter {
             File parentDir = file.getParentFile();
             if (parentDir != null && !parentDir.exists()) {
                 if (!parentDir.mkdirs()) {
-                    System.err.println("Error: Could not create directory " + parentDir.getAbsolutePath());
+                    logger.severe("Error: Could not create directory " + parentDir.getAbsolutePath());
                     return;
                 }
             }
@@ -48,13 +51,12 @@ public class CsvMetricWriter {
                     pw.println(value.toString());
                 }
                 
-                System.out.println("  Successfully wrote " + data.size() + " data points to " + filePath);
+                logger.info("  Successfully wrote " + data.size() + " data points to " + filePath);
 
             } // pw and fw are auto-closed here
 
         } catch (IOException e) {
-            System.err.println("Error writing to CSV file " + filePath + ": " + e.getMessage());
-            e.printStackTrace();
+            logger.severe("Error writing to CSV file " + filePath + ": " + e.getMessage());
         }
     }
 }

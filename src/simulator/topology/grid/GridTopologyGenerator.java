@@ -1,5 +1,6 @@
 package simulator.topology.grid;
 
+import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
@@ -7,9 +8,11 @@ import simulator.regions.BrokerWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.factories.BrokerFactory;
+import utils.CustomLogger;
 
 public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyConfiguration, BrokerWithRegion> {
 
+    private static final Logger logger = CustomLogger.getLogger(GridTopologyGenerator.class.getName());
     private final BrokerFactory brokerFactory;
     private BrokerWithRegion[][] leafBrokers; // To store leaves for client attachment
 
@@ -34,7 +37,7 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
 
     @Override
     protected BrokerWithRegion buildCoreTopology() {
-        System.out.println("Building procedural grid-based core broker topology...");
+        logger.info("Building procedural grid-based core broker topology...");
         int dim = this.config.getGridDimension();
         this.leafBrokers = new BrokerWithRegion[dim][dim];
         double regionWidth = 360.0 / dim;
@@ -54,7 +57,7 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
         }
 
         BrokerWithRegion root = buildParentHierarchy(leafBrokers, this.config.getTreeDepth() - 1);
-        System.out.println("Core broker hierarchy with " + this.config.getNumberOfLeafBrokers() + " leaves created.");
+        logger.info("Core broker hierarchy with " + this.config.getNumberOfLeafBrokers() + " leaves created.");
         return root;
     }
 

@@ -1,13 +1,17 @@
 package simulator.population;
 
 import java.util.List;
+import java.util.logging.Logger; // Import Logger
 import simulator.regions.BrokerWithRegion;
+import utils.CustomLogger; // Import CustomLogger
 
 /**
  * A utility class to populate a given topology with subscribers and publishers
  * using specified placement strategies.
  */
 public class TopologyPopulator {
+
+    private static final Logger logger = CustomLogger.getLogger(TopologyPopulator.class.getName()); // Get logger
 
     private final SubscribersPlacementStrategy subscribersStrategy;
     private final PublishersPlacementStrategy publishersStrategy;
@@ -34,7 +38,7 @@ public class TopologyPopulator {
      */
     public void populate(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalSubscribers, int totalPublishers) {
         if (rootNode == null || leafBrokers == null || leafBrokers.isEmpty()) {
-            System.err.println("Cannot populate topology: root node or leaf brokers are null/empty.");
+            logger.severe("Cannot populate topology: root node or leaf brokers are null/empty.");
             return;
         }
 

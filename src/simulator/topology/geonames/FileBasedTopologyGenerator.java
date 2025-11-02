@@ -65,7 +65,7 @@ public class FileBasedTopologyGenerator
     protected BrokerWithRegion buildCoreTopology() {
         Objects.requireNonNull(this.config, "Configuration must be set during initialise before building topology.");
         String filePath = this.config.getTopologyFilePath();
-        System.out.println("Building core topology from file: " + filePath);
+        logger.info("Building core topology from file: " + filePath);
 
         try {
             File topologyFile = new File(filePath);
@@ -82,10 +82,11 @@ public class FileBasedTopologyGenerator
 
             this.allBrokers.clear();
             addAllBrokersRecursively(this.rootNode);
-            System.out.println("Successfully built core topology. Root: " + this.rootNode.getName() + ", Total brokers: " + this.allBrokers.size());
+            logger.info("Successfully built core topology. Root: " + this.rootNode.getName() + ", Total brokers: " + this.allBrokers.size());
             return this.rootNode;
 
         } catch (IOException e) {
+            logger.severe("Failed to read or parse topology file: " + filePath + " " + e.getMessage());
             throw new RuntimeException("Failed to read or parse topology file: " + filePath, e);
         }
     }
@@ -142,8 +143,6 @@ public class FileBasedTopologyGenerator
         }
         
         currentBroker.setInternetPopulation(internetPopulation);
-        // ** THE FIX IS HERE **
-        // This message is now logged at the FINE level, so it will not appear during performance simulations.
         logger.fine("  Created " + brokerName + " with Internet Population: " + internetPopulation);
 
          if (!isLeafNodeInJson) {

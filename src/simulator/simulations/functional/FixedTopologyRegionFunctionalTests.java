@@ -4,6 +4,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.function.Predicate;
+import java.util.logging.Logger; // Import Logger
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
@@ -14,11 +15,14 @@ import simulator.regions.BrokerWithRegion;
 import simulator.regions.BrokerWithRegionProcessingRegion;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
+import utils.CustomLogger; // Import CustomLogger
 
 public class FixedTopologyRegionFunctionalTests {
 
+    private static final Logger logger = CustomLogger.getLogger(FixedTopologyRegionFunctionalTests.class.getName()); // Get logger
+
     public static final Predicate<BrokerWithRegion> COMPREHENSIVE_SCENARIO = root -> {
-        System.out.println("\n>>> SCENARIO: Running Comprehensive Cross-Branch and Local Propagation Test. <<<");
+        logger.info("\n>>> SCENARIO: Running Comprehensive Cross-Branch and Local Propagation Test. <<<");
 
         SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
         SubscriberWithLocation s8 = findNodeByName(root, "sub8", SubscriberWithLocation.class);
@@ -27,7 +31,7 @@ public class FixedTopologyRegionFunctionalTests {
         PublisherWithLocation p2 = findNodeByName(root, "pub2", PublisherWithLocation.class);
 
         if (s2 == null || s8 == null || s5 == null || p1 == null || p2 == null) {
-            System.err.println("Test failed: Could not find all required nodes for the comprehensive test.");
+            logger.severe("Test failed: Could not find all required nodes for the comprehensive test.");
             return false;
         }
 
@@ -35,26 +39,26 @@ public class FixedTopologyRegionFunctionalTests {
         s8.send(new SubscriptionWithRegion(new Region(new Location(17, 3, 0), new Location(19, 5, 0))));
         s5.send(new SubscriptionWithRegion(new Region(new Location(0, 0, 0), new Location(2, 2, 0))));
 
-        System.out.println("\n--- Broker Subscription Tables State (Post-Subscription) ---");
+        logger.info("\n--- Broker Subscription Tables State (Post-Subscription) ---");
         FunctionalTestUtils.printAllSubscriptionTables(root);
-        System.out.println();
+        logger.info(""); // Add newline
 
         p2.send(new PublicationWithLocation(p2.getLocation()));
         p1.send(new PublicationWithLocation(p1.getLocation()));
 
-        System.out.println("\n--- Final Check ---");
-        System.out.println("  - Subscriber 's2' received: " + s2.getnPublications() + " publications. (Expected: 1)");
-        System.out.println("  - Subscriber 's8' received: " + s8.getnPublications() + " publications. (Expected: 1)");
-        System.out.println("  - Subscriber 's5' received: " + s5.getnPublications() + " publications. (Expected: 1)");
+        logger.info("\n--- Final Check ---");
+        logger.info("  - Subscriber 's2' received: " + s2.getnPublications() + " publications. (Expected: 1)");
+        logger.info("  - Subscriber 's8' received: " + s8.getnPublications() + " publications. (Expected: 1)");
+        logger.info("  - Subscriber 's5' received: " + s5.getnPublications() + " publications. (Expected: 1)");
 
         boolean success = s2.getnPublications() == 1 && s8.getnPublications() == 1 && s5.getnPublications() == 1;
 
         if (success) {
-            System.out.println("\n--- Validation Result ---");
-            System.out.println("SUCCESS: The Comprehensive Scenario test passed.");
+            logger.info("\n--- Validation Result ---");
+            logger.info("SUCCESS: The Comprehensive Scenario test passed.");
         } else {
-            System.out.println("\n--- Validation Result ---");
-            System.out.println("FAILED: The Comprehensive Scenario test did not pass.");
+            logger.info("\n--- Validation Result ---");
+            logger.info("FAILED: The Comprehensive Scenario test did not pass.");
         }
 
         return success;
@@ -66,7 +70,7 @@ public class FixedTopologyRegionFunctionalTests {
      * correct delivery.
      */
     public static final Predicate<BrokerWithRegion> SUBSCRIPTION_COVERING_SCENARIO = root -> {
-        System.out.println(
+        logger.info(
                 "\n>>> SCENARIO: Running Subscription Covering Test with Explicit Propagation Table Verification. <<<");
 
         // --- Find required nodes ---
@@ -77,7 +81,7 @@ public class FixedTopologyRegionFunctionalTests {
                 BrokerWithRegionProcessingRegion.class);
 
         if (s2 == null || s3 == null || p1 == null || child2 == null) {
-            System.err.println("Test failed: Could not find required nodes for the test.");
+            logger.severe("Test failed: Could not find required nodes for the test.");
             return false;
         }
 
@@ -95,17 +99,17 @@ public class FixedTopologyRegionFunctionalTests {
                 .filter(node -> node == child2.getParentBroker())
                 .count();
 
-        System.out.println("\n--- Mid-point Check ---");
-        System.out.println("  - Broker 'child2' subscriptions table size: " + child2.getSubscriptionsTable().size()
+        logger.info("\n--- Mid-point Check ---");
+        logger.info("  - Broker 'child2' subscriptions table size: " + child2.getSubscriptionsTable().size()
                 + " (Expected: 2)");
-        System.out
-                .println("  - Broker 'child2' upward propagations to parent: " + upwardPropagations + " (Expected: 1)");
+        logger.info(
+                "  - Broker 'child2' upward propagations to parent: " + upwardPropagations + " (Expected: 1)");
 
         boolean filteringSuccess = (child2.getSubscriptionsTable().size() == 2) && (upwardPropagations == 1);
 
-        System.out.println("\n--- Broker Subscription Tables State (Post-Subscription) ---");
+        logger.info("\n--- Broker Subscription Tables State (Post-Subscription) ---");
         FunctionalTestUtils.printAllSubscriptionTables(root);
-        System.out.println();
+        logger.info(""); // Add newline
 
 
         // --- Send Publication ---
@@ -113,21 +117,21 @@ public class FixedTopologyRegionFunctionalTests {
         p1.send(new PublicationWithLocation(publicationLocation));
 
         // --- Verification Part 2: Check delivery ---
-        System.out.println("\n--- Final Check ---");
-        System.out.println("  - Subscriber 's2' received: " + s2.getnPublications() + " publications. (Expected: 1)");
-        System.out.println("  - Subscriber 's3' (whose sub was filtered) received: " + s3.getnPublications()
+        logger.info("\n--- Final Check ---");
+        logger.info("  - Subscriber 's2' received: " + s2.getnPublications() + " publications. (Expected: 1)");
+        logger.info("  - Subscriber 's3' (whose sub was filtered) received: " + s3.getnPublications()
                 + " publications. (Expected: 1)");
 
         boolean deliverySuccess = s2.getnPublications() == 1 && s3.getnPublications() == 1;
         boolean finalSuccess = filteringSuccess && deliverySuccess;
 
         if (finalSuccess) {
-            System.out.println("\n--- Validation Result ---");
-            System.out.println(
+            logger.info("\n--- Validation Result ---");
+            logger.info(
                     "SUCCESS: The Subscription Covering test passed. Propagation table and delivery were correct.");
         } else {
-            System.out.println("\n--- Validation Result ---");
-            System.out.println("FAILED: The Subscription Covering test did not pass. Filtering success: "
+            logger.info("\n--- Validation Result ---");
+            logger.info("FAILED: The Subscription Covering test did not pass. Filtering success: "
                     + filteringSuccess + ", Delivery success: " + deliverySuccess);
         }
 
