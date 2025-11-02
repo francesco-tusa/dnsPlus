@@ -12,7 +12,7 @@ import utils.CustomLogger;
  */
 public class Main {
     
-    private static final Logger logger = CustomLogger.getLogger(Experiment.class.getName(), Level.INFO);
+    //private static final Logger logger = CustomLogger.getLogger(Experiment.class.getName());
     
     
     public static void main(String[] args) {

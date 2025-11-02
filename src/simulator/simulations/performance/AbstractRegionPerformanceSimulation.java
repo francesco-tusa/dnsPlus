@@ -16,23 +16,38 @@ public abstract class AbstractRegionPerformanceSimulation<
     F extends AbstractTopologyFactory<C, BrokerWithRegion>
 > extends AbstractPerformanceSimulation<C, F> {
 
-    protected final double subscriptionRegionSize;
+    protected final double subscriptionRegionSize; 
+    
     protected final double remoteInterestProbability;
 
     /**
-     * Constructor accepting ratio-based parameters.
+     * Main constructor with all flags.
      * @param numberOfReplicas Total number of publisher replicas.
      * @param subscribersPerReplica Subscribers per replica ratio.
-     * @param subscriptionRegionSize The size of subscription regions.
+     * @param subscriptionRegionSize The absolute size (e.g., 10.0 for a 10x10 box) of local subscription regions.
      * @param remoteInterestProbability Probability of subscribing to a remote DC.
+     * @param enableCsvOutput True to write raw metrics to CSV files.
+     */
+    public AbstractRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
+                                               double subscriptionRegionSize, double remoteInterestProbability,
+                                               boolean enableCsvOutput) {
+        super(numberOfReplicas, subscribersPerReplica, enableCsvOutput); 
+        
+        if (subscriptionRegionSize <= 0) 
+            throw new IllegalArgumentException("Subscription region size must be positive.");
+        this.subscriptionRegionSize = subscriptionRegionSize;
+        
+        if (remoteInterestProbability < 0.0 || remoteInterestProbability > 1.0) 
+            throw new IllegalArgumentException("Remote interest probability must be between 0.0 and 1.0.");
+        this.remoteInterestProbability = remoteInterestProbability;
+    }
+    
+    /**
+     * Constructor without CSV flag (defaults to false).
      */
     public AbstractRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
                                                double subscriptionRegionSize, double remoteInterestProbability) {
-        super(numberOfReplicas, subscribersPerReplica);
-        if (subscriptionRegionSize <= 0) throw new IllegalArgumentException("Subscription region size must be positive.");
-        if (remoteInterestProbability < 0.0 || remoteInterestProbability > 1.0) throw new IllegalArgumentException("Remote interest probability must be between 0.0 and 1.0.");
-        this.subscriptionRegionSize = subscriptionRegionSize;
-        this.remoteInterestProbability = remoteInterestProbability;
+        this(numberOfReplicas, subscribersPerReplica, subscriptionRegionSize, remoteInterestProbability, false);
     }
     
     protected double getSubscriptionRegionSize() { return subscriptionRegionSize; }
@@ -41,12 +56,10 @@ public abstract class AbstractRegionPerformanceSimulation<
     @Override
     protected void executeScenarios() {
         System.out.println("\n--- Executing Region-Based Performance Scenario ---");
-
         if (allSubscribers.isEmpty() || allPublishers.isEmpty()) {
             System.err.println("No subscribers or publishers were created. Cannot run scenarios.");
             return;
         }
-
         List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
         
         System.out.println("\n>>> Phase 1: Subscribers are sending region-based subscriptions... <<<");
@@ -71,6 +84,7 @@ public abstract class AbstractRegionPerformanceSimulation<
     protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers) {
         Region subscriptionRegion;
         if (random.nextDouble() < getRemoteInterestProbability()) {
+            // Remote interest logic (subscribing to a whole hub region) remains the same
             List<BrokerWithRegion> hubs = findTopDataCenters(allLeafBrokers, 30);
              if (hubs.isEmpty()) {
                  BrokerWithRegion randomBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
@@ -80,8 +94,10 @@ public abstract class AbstractRegionPerformanceSimulation<
                  subscriptionRegion = new Region(remoteHub.getRegion());
             }
         } else {
+            // Create a fixed-size region centered on the subscriber's location.
             Location centerOfInterest = subscriber.getLocation();
-            double halfSize = getSubscriptionRegionSize() / 2.0;
+            double halfSize = getSubscriptionRegionSize() / 2.0; // Use the absolute size
+            
             subscriptionRegion = new Region(
                 new Location(centerOfInterest.getX() - halfSize, centerOfInterest.getY() - halfSize, 0),
                 new Location(centerOfInterest.getX() + halfSize, centerOfInterest.getY() + halfSize, 0)

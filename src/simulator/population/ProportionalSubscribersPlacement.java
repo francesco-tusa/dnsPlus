@@ -1,17 +1,19 @@
 package simulator.population;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
-import java.util.logging.Level; // Import Level
-import java.util.logging.Logger; // Import Logger
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
-import utils.CustomLogger; // Import CustomLogger
+import utils.CustomLogger;
 
 public class ProportionalSubscribersPlacement implements SubscribersPlacementStrategy {
 
+    // Get the logger instance
     private static final Logger logger = CustomLogger.getLogger(ProportionalSubscribersPlacement.class.getName());
 
     private final Random random = new Random();
@@ -19,9 +21,9 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
     private static final int DEBUG_SAMPLE_SIZE = 10; // Log this many placements
 
     public ProportionalSubscribersPlacement() {
-        // Default constructor, no debug flag needed
+        // Removed debug flag
     }
-    
+
     @Override
     public void generateAndAttach(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalSubscribersToCreate) {
         System.out.println("\n--- Starting Proportional Subscriber Placement ---");
@@ -59,7 +61,10 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
 
             if (chosenBroker != null) {
                 Region brokerRegion = chosenBroker.getRegion();
-                if (brokerRegion == null || brokerRegion.getBottomLeft() == null) continue;
+                if (brokerRegion == null || brokerRegion.getBottomLeft() == null) {
+                    logger.warning("Skipping subscriber placement: Chosen broker " + chosenBroker.getName() + " has a null or incomplete region.");
+                    continue;
+                }
 
                 Location subLocation = generateLocationInRegion(brokerRegion);
                 SubscriberWithLocation subscriber = new SubscriberWithLocation(generateSubscriberName(), subLocation);
@@ -115,14 +120,22 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
     }
 
     private Location generateLocationInRegion(Region region) {
+        // Ensure region is valid before attempting to get location
+        Objects.requireNonNull(region, "Region cannot be null");
         Location bl = region.getBottomLeft();
         Location tr = region.getTopRight();
+        Objects.requireNonNull(bl, "Region's bottom-left corner cannot be null");
+        Objects.requireNonNull(tr, "Region's top-right corner cannot be null");
+
         double rangeX = tr.getX() - bl.getX();
         double rangeY = tr.getY() - bl.getY();
         double rangeZ = tr.getZ() - bl.getZ();
-        double randomX = bl.getX() + random.nextDouble() * rangeX;
-        double randomY = bl.getY() + random.nextDouble() * rangeY;
-        double randomZ = bl.getZ() + random.nextDouble() * rangeZ;
+        
+        // Handle cases where region is just a point or a line
+        double randomX = bl.getX() + (rangeX > 0 ? random.nextDouble() * rangeX : 0);
+        double randomY = bl.getY() + (rangeY > 0 ? random.nextDouble() * rangeY : 0);
+        double randomZ = bl.getZ() + (rangeZ > 0 ? random.nextDouble() * rangeZ : 0);
+        
         return new Location(randomX, randomY, randomZ);
     }
 

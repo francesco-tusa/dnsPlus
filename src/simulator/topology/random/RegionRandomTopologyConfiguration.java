@@ -9,12 +9,23 @@ package simulator.topology.random;
 public class RegionRandomTopologyConfiguration extends RandomTopologyConfiguration {
     private final int numRegions;
 
-    public RegionRandomTopologyConfiguration(int treeDepth, int maxBranchingFactor, int numRegions, int subscribersPerLeafBroker, int publishersPerLeafBroker) {
+    public RegionRandomTopologyConfiguration(int treeDepth, int maxBranchingFactor, int numRegions, 
+                                             int subscribersPerLeafBroker, int publishersPerLeafBroker) {
+        // Call parent constructor with default world size
         super(treeDepth, maxBranchingFactor, subscribersPerLeafBroker, publishersPerLeafBroker);
-
-        // Region-specific validation
         if (numRegions < 1) throw new IllegalArgumentException("Number of regions must be at least 1.");
+        this.numRegions = numRegions;
+    }
 
+    /**
+     * New constructor to pass world dimensions up to the parent class.
+     */
+    public RegionRandomTopologyConfiguration(int treeDepth, int maxBranchingFactor, int numRegions, 
+                                             int subscribersPerLeafBroker, int publishersPerLeafBroker,
+                                             double worldWidth, double worldHeight) {
+        // Call parent constructor with specified world size
+        super(treeDepth, maxBranchingFactor, subscribersPerLeafBroker, publishersPerLeafBroker, worldWidth, worldHeight);
+        if (numRegions < 1) throw new IllegalArgumentException("Number of regions must be at least 1.");
         this.numRegions = numRegions;
     }
 

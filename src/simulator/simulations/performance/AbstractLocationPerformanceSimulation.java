@@ -8,7 +8,7 @@ import simulator.topology.TopologyConfiguration;
 
 /**
  * An abstract base class for performance simulations using LOCATION-BASED routing.
- * Now accepts ratio-based parameters.
+ * Now accepts ratio-based parameters and CSV flag.
  */
 public abstract class AbstractLocationPerformanceSimulation<
     C extends TopologyConfiguration,
@@ -16,19 +16,25 @@ public abstract class AbstractLocationPerformanceSimulation<
 > extends AbstractPerformanceSimulation<C, F> {
 
     /**
-     * Constructor accepting ratio-based parameters.
+     * Main constructor with all flags.
      * @param numberOfReplicas Total number of publisher replicas.
      * @param subscribersPerReplica Number of subscribers for every replica.
+     * @param enableCsvOutput True to write raw metrics to CSV files.
      */
-    public AbstractLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
-        super(numberOfReplicas, subscribersPerReplica); // Pass parameters up
+    public AbstractLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica, boolean enableCsvOutput) {
+        super(numberOfReplicas, subscribersPerReplica, enableCsvOutput); // Pass CSV flag up
     }
     
+    /**
+     * Constructor without CSV flag (defaults to false).
+     */
+    public AbstractLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
+        this(numberOfReplicas, subscribersPerReplica, false);
+    }
 
     @Override
     protected final void executeScenarios() {
         System.out.println("\n--- Executing Location-Based Performance Scenario ---");
-
         if (allSubscribers.isEmpty()) {
             System.err.println("No subscribers were created. Cannot run scenarios.");
             return;
@@ -54,13 +60,15 @@ public abstract class AbstractLocationPerformanceSimulation<
     }
 
     protected SubscriptionWithLocation generateSubscriptionForSubscriber(SubscriberWithLocation subscriber) {
+        // Location-based subscriptions are just for the subscriber's own location.
         return new SubscriptionWithLocation(subscriber.getLocation());
     }
 
     @Override
     protected void collectAndPrintMetrics() {
-        super.collectAndPrintMetrics(); 
+        super.collectAndPrintMetrics(); // Prints the common overhead and delivery metrics
 
+        // This metric is specific to location-based routing
         long successfulNotifications = 0;
         for (SubscriberWithLocation subscriber : allSubscribers) {
             successfulNotifications += subscriber.getnPublications();

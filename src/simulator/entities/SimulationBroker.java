@@ -2,9 +2,9 @@
 
 package simulator.entities;
 
-import java.util.ArrayList; // Import added
+import java.util.ArrayList; 
 import java.util.HashMap;
-import java.util.List; // Import added
+import java.util.List; 
 import java.util.Map;
 import simulator.core.TreeNode;
 import simulator.events.SimulationPublication;
@@ -19,6 +19,10 @@ public abstract class SimulationBroker extends TreeNode {
     // Store hop counts for ALL processed messages
     private final List<Integer> allProcessedSubscriptionHops = new ArrayList<>();
     private final List<Integer> allProcessedPublicationHops = new ArrayList<>();
+    
+    // Store the table size for each publication processing event
+    private final List<Long> publicationProcessingCosts = new ArrayList<>();
+
 
     public SimulationBroker(String name) {
         super(name);
@@ -27,8 +31,13 @@ public abstract class SimulationBroker extends TreeNode {
     public abstract SimulationSubscription matchPublication(SimulationPublication p);
 
     public void processPublication(SimulationPublication p) {
-        p.incrementHops(); // Increment hop count for the publication
-        allProcessedPublicationHops.add(p.getHopCount()); // Store this hop event
+        p.incrementHops(); 
+        allProcessedPublicationHops.add(p.getHopCount());
+        
+        // --- NEW METRIC LOGIC ---
+        // Log the size of the table that this publication must be processed against.
+        publicationProcessingCosts.add((long) getSubscriptionsTable().size());
+        // --- END NEW METRIC LOGIC ---
         
         TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
         if (visualizer != null && p.getSource() != null) {
@@ -39,14 +48,11 @@ public abstract class SimulationBroker extends TreeNode {
     }
 
     public void processSubscription(SimulationSubscription s) {
-        s.incrementHops(); // Increment hop count for the subscription
-        allProcessedSubscriptionHops.add(s.getHopCount()); // Store this hop event
+        s.incrementHops(); 
+        allProcessedSubscriptionHops.add(s.getHopCount()); 
         
         TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
         if (visualizer != null && s.getSource() != null) {
-            
-            // A subscription is "upward" if its source is one of this broker's children.
-            // Otherwise, it must be coming "downward" from the parent.
             boolean isUpward = getChildren().contains(s.getSource());
             visualizer.updateSubscriptionEdge(s.getSource().getName(), getName(), isUpward);
         }
@@ -73,19 +79,19 @@ public abstract class SimulationBroker extends TreeNode {
         return subscriptionsTable;
     }
 
-    /**
-     * Gets the list of hop counts for every subscription message processed by this broker.
-     * @return A list of hop count integers.
-     */
     public List<Integer> getAllProcessedSubscriptionHops() {
         return allProcessedSubscriptionHops;
     }
 
-    /**
-     * Gets the list of hop counts for every publication message processed by this broker.
-     * @return A list of hop count integers.
-     */
     public List<Integer> getAllProcessedPublicationHops() {
         return allProcessedPublicationHops;
+    }
+    
+    /**
+     * Gets the list of subscription table sizes for every publication processed.
+     * @return A list of table size (long) data points.
+     */
+    public List<Long> getPublicationProcessingCosts() {
+        return publicationProcessingCosts;
     }
 }

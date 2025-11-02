@@ -1,6 +1,6 @@
 package simulator.simulations.performance;
 
-import java.util.logging.Level; // Import Level
+import java.util.logging.Level;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyGenerator;
@@ -11,8 +11,15 @@ public class GeoNamesBasedRegionPerformanceSimulation extends AbstractRegionPerf
 > {
 
     public GeoNamesBasedRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
+                                                    double subscriptionRegionSize, double remoteInterestProbability,
+                                                    boolean enableCsvOutput) {
+        super(numberOfReplicas, subscribersPerReplica, subscriptionRegionSize, remoteInterestProbability, enableCsvOutput);
+    }
+
+    // Legacy constructor
+    public GeoNamesBasedRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
                                                     double subscriptionRegionSize, double remoteInterestProbability) {
-        super(numberOfReplicas, subscribersPerReplica, subscriptionRegionSize, remoteInterestProbability);
+        this(numberOfReplicas, subscribersPerReplica, subscriptionRegionSize, remoteInterestProbability, false);
     }
     
     public static void main(String[] args) {
@@ -20,23 +27,28 @@ public class GeoNamesBasedRegionPerformanceSimulation extends AbstractRegionPerf
         
         int simNumberOfReplicas = 20;
         int simSubscribersPerReplica = 2500;
-        double simSubscriptionRegionSize = 1.0;
+        
+        // This is an ABSOLUTE size (e.g., 1.0 decimal degrees)
+        double simSubscriptionRegionSize = 1.0; 
+        
         double simRemoteInterestProbability = 0.1;
 
-        // --- New logging flag ---
-        boolean enableVerboseLogs = true; // Set to true to see debug placement logs
+        // --- CONTROL FLAGS ---
+        boolean enableVerboseLogs = false;
+        boolean enableCsvOutput = true;
 
         FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration("output/geonames_topology.json");
         FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new RegionBrokerFactory());
         
         GeoNamesBasedRegionPerformanceSimulation simulation = new GeoNamesBasedRegionPerformanceSimulation(
-            simNumberOfReplicas, simSubscribersPerReplica, simSubscriptionRegionSize, simRemoteInterestProbability
+            simNumberOfReplicas, simSubscribersPerReplica, 
+            simSubscriptionRegionSize, // Pass the absolute size
+            simRemoteInterestProbability,
+            enableCsvOutput
         );
         
-        // --- Use the new setter to enable verbose logs ---
         if (enableVerboseLogs) {
             simulation.setLogLevel(Level.FINE);
-            System.out.println("--- VERBOSE LOGGING ENABLED (Level.FINE) ---");
         }
         
         simulation.run(factory, config);

@@ -1,6 +1,6 @@
 package simulator.simulations.performance;
 
-import java.util.logging.Level; // Import Level
+import java.util.logging.Level;
 import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyGenerator;
@@ -10,8 +10,14 @@ public class GeoNamesBasedLocationPerformanceSimulation extends AbstractLocation
     FileBasedTopologyGenerator
 > {
 
+    public GeoNamesBasedLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
+                                                      boolean enableCsvOutput) { 
+        super(numberOfReplicas, subscribersPerReplica, enableCsvOutput); 
+    }
+    
+    // Legacy constructor
     public GeoNamesBasedLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
-        super(numberOfReplicas, subscribersPerReplica);
+        this(numberOfReplicas, subscribersPerReplica, false);
     }
 
     public static void main(String[] args) {
@@ -20,20 +26,20 @@ public class GeoNamesBasedLocationPerformanceSimulation extends AbstractLocation
         int simNumberOfReplicas = 20;
         int simSubscribersPerReplica = 25000;
         
-        // --- New logging flag ---
-        boolean enableVerboseLogs = true; // Set to true to see debug placement logs
+        // --- CONTROL FLAGS ---
+        boolean enableVerboseLogs = false; 
+        boolean enableCsvOutput = true; 
 
         FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration("output/geonames_topology.json");
         FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new LocationBrokerFactory());
         
         GeoNamesBasedLocationPerformanceSimulation simulation = new GeoNamesBasedLocationPerformanceSimulation(
-            simNumberOfReplicas, simSubscribersPerReplica
+            simNumberOfReplicas, simSubscribersPerReplica,
+            enableCsvOutput 
         );
         
-        // --- Use the new setter to enable verbose logs ---
         if (enableVerboseLogs) {
             simulation.setLogLevel(Level.FINE);
-            System.out.println("--- VERBOSE LOGGING ENABLED (Level.FINE) ---");
         }
         
         simulation.run(factory, config);

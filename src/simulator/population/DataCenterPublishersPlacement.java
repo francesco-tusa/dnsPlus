@@ -2,14 +2,14 @@ package simulator.population;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.logging.Level; // Import Level
-import java.util.logging.Logger; // Import Logger
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import simulator.core.Location;
 import simulator.entities.PublisherWithLocation;
 import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
-import utils.CustomLogger; // Import CustomLogger
+import utils.CustomLogger;
 
 /**
  * Places publishers (replicas) in regions that act as proxies for major data centers.
@@ -21,13 +21,12 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
 
     private static final Logger logger = CustomLogger.getLogger(DataCenterPublishersPlacement.class.getName());
 
-    private int maxDataCenters = 30;
-
-    public DataCenterPublishersPlacement() {
-        // Use default
-    }
+    private int maxDataCenters;
 
     public DataCenterPublishersPlacement(int maxDataCenters) {
+        if (maxDataCenters <= 0) {
+            throw new IllegalArgumentException("maxDataCenters must be positive.");
+        }
         this.maxDataCenters = maxDataCenters;
     }
 
@@ -40,12 +39,19 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
             return;
         }
         
+        // 1. Identify potential Data Center regions (Top N by internet population)
+        // We cap this at 'maxDataCenters' to mimic a realistic, finite set of cloud regions.
         int numPotentialDCs = Math.min(leafBrokers.size(), maxDataCenters);
         
         List<BrokerWithRegion> dataCenterBrokers = leafBrokers.stream()
             .sorted(Comparator.comparingLong(BrokerWithRegion::getInternetPopulation).reversed())
             .limit(numPotentialDCs)
             .collect(Collectors.toList());
+
+        if (dataCenterBrokers.isEmpty()) {
+            System.err.println("Error: No data center brokers found (list of leaves was empty).");
+            return;
+        }
 
         System.out.println("Identified top " + dataCenterBrokers.size() + " regions as Data Center locations based on internet population.");
         
@@ -54,7 +60,8 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
             for (int i = 0; i < dataCenterBrokers.size(); i++) {
                 BrokerWithRegion dc = dataCenterBrokers.get(i);
                 logger.fine(String.format("  [%d] %s (Pop: %d, Region: %s)", 
-                                  i + 1, dc.getName(), dc.getInternetPopulation(), dc.getRegion().toShortString()));
+                                  i + 1, dc.getName(), dc.getInternetPopulation(), 
+                                  dc.getRegion() != null ? dc.getRegion().toShortString() : "N/A"));
             }
             logger.fine("  --------------------------------------");
         }
@@ -63,10 +70,14 @@ public class DataCenterPublishersPlacement extends AbstractPublisherGenerator im
 
         long publishersCreated = 0;
         for (long i = 0; i < totalPublishersToCreate; i++) {
+            // Randomly select one of the Data Center regions for this replica
             BrokerWithRegion chosenDC = dataCenterBrokers.get(random.nextInt(dataCenterBrokers.size()));
             Region dcRegion = chosenDC.getRegion();
             
-            if (dcRegion == null) continue;
+            if (dcRegion == null) {
+                logger.warning("Skipping publisher placement: Chosen Data Center broker " + chosenDC.getName() + " has a null region.");
+                continue;
+            }
 
             Location pubLocation = generateLocationInRegion(dcRegion);
             PublisherWithLocation publisher = new PublisherWithLocation(generatePublisherName(), pubLocation);

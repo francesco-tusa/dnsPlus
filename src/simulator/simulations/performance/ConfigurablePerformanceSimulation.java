@@ -12,7 +12,7 @@ import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
-import simulator.population.DataCenterPublishersPlacement;
+import simulator.population.DataCenterPublishersPlacement; // Import the correct class
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BrokerWithRegion;
@@ -20,6 +20,8 @@ import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
+// Note: This class appears to be an older version of AbstractPerformanceSimulation.
+// The fix is applied here as requested.
 
 /**
  * A generic and configurable class for running a service replication performance simulation.
@@ -76,8 +78,9 @@ public class ConfigurablePerformanceSimulation<
 
         TopologyPopulator populater = new TopologyPopulator(
             new ProportionalSubscribersPlacement(), 
-            new DataCenterPublishersPlacement()
+            new DataCenterPublishersPlacement(30) // Provide 30 as the default maxDataCenters
         );
+        
         populater.populate(this.rootNode, leafBrokers, totalSubscribers, numberOfReplicas);
         
         collectClients(leafBrokers);
@@ -208,6 +211,9 @@ public class ConfigurablePerformanceSimulation<
     }
 
     protected Location getRandomLocationInRegion(Region region) {
+        if (region == null) {
+            return new Location(0, 0, 0); // Fallback
+        }
         Random rand = new Random();
         double x = region.getBottomLeft().getX() + (region.getTopRight().getX() - region.getBottomLeft().getX()) * rand.nextDouble();
         double y = region.getBottomLeft().getY() + (region.getTopRight().getY() - region.getBottomLeft().getY()) * rand.nextDouble();

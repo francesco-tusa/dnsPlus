@@ -1,6 +1,6 @@
 package simulator.simulations.performance;
 
-import java.util.logging.Level; // Import Level
+import java.util.logging.Level;
 import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.random.RandomTopologyGenerator;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
@@ -10,8 +10,14 @@ public class RandomTopologyLocationPerformanceSimulation extends AbstractLocatio
     RandomTopologyGenerator
 > {
 
+    public RandomTopologyLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
+                                                       boolean enableCsvOutput) { 
+        super(numberOfReplicas, subscribersPerReplica, enableCsvOutput); 
+    }
+    
+    // Legacy constructor
     public RandomTopologyLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
-        super(numberOfReplicas, subscribersPerReplica);
+        this(numberOfReplicas, subscribersPerReplica, false);
     }
 
     public static void main(String[] args) {
@@ -20,26 +26,33 @@ public class RandomTopologyLocationPerformanceSimulation extends AbstractLocatio
         int simNumberOfReplicas = 10;
         int simSubscribersPerReplica = 100;
         
-        // --- New logging flag ---
-        boolean enableVerboseLogs = true; // Set to true to see debug placement logs
+        // --- CONTROL FLAGS ---
+        boolean enableVerboseLogs = false; 
+        boolean enableCsvOutput = true; 
 
         int topologyTreeDepth = 4;
         int topologyMaxBranching = 3;
         int topologyNumRegions = 5;
+        
+        // Spatial Parameters (Location-based sim doesn't use sub region size)
+        double simWorldWidth = 100.0;
+        double simWorldHeight = 100.0; 
 
         RegionRandomTopologyConfiguration config = new RegionRandomTopologyConfiguration(
-            topologyTreeDepth, topologyMaxBranching, topologyNumRegions, 0, 0);
+            topologyTreeDepth, topologyMaxBranching, topologyNumRegions, 
+            0, 0,
+            simWorldWidth, simWorldHeight
+        );
             
         RandomTopologyGenerator factory = new RandomTopologyGenerator(new LocationBrokerFactory());
         
         RandomTopologyLocationPerformanceSimulation simulation = new RandomTopologyLocationPerformanceSimulation(
-            simNumberOfReplicas, simSubscribersPerReplica
+            simNumberOfReplicas, simSubscribersPerReplica,
+            enableCsvOutput 
         );
         
-        // --- Use the new setter to enable verbose logs ---
         if (enableVerboseLogs) {
             simulation.setLogLevel(Level.FINE);
-            System.out.println("--- VERBOSE LOGGING ENABLED (Level.FINE) ---");
         }
         
         simulation.run(factory, config);

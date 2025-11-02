@@ -5,10 +5,12 @@ import simulator.regions.BrokerWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import utils.CustomLogger;
+import utils.ExperimentTimestamp; // Import the timestamp utility
 
 /**
  * Abstract base class for all simulation runners.
- * Now includes a setter to override the default log level.
+ * Now includes a setter to override the default log level
+ * and a timestamp for unique run identification.
  */
 public abstract class SimulationRunner<
     C extends TopologyConfiguration,
@@ -19,8 +21,8 @@ public abstract class SimulationRunner<
     protected C topologyConfig;
     protected R rootNode;
     
-    // New field to hold a log level set via the setter
     private Level overrideLogLevel = null;
+    protected String simulationTimestamp; // For unique filenames
 
     protected abstract void executeScenarios();
     protected abstract Level getLogLevel(); // This remains for the default level
@@ -48,11 +50,16 @@ public abstract class SimulationRunner<
     }
 
     protected void initialise(F factory, C config) {
+        // --- NEW: Create a unique timestamp for this simulation run ---
+        this.simulationTimestamp = ExperimentTimestamp.getTimestamp();
+        
         // Use the override level if it was set, otherwise use the default.
         Level levelToUse = (this.overrideLogLevel != null) ? this.overrideLogLevel : getLogLevel();
-        CustomLogger.setGlobalLogLevel(levelToUse);
         
-        System.out.println("\n--- Initialising Simulation Runner ---");
+        // --- UPDATED: Pass timestamp to logger ---
+        CustomLogger.setGlobalLogLevel(levelToUse, this.simulationTimestamp);
+        
+        System.out.println("\n--- Initialising Simulation Runner (Run ID: " + this.simulationTimestamp + ") ---");
         if (factory == null) throw new IllegalArgumentException("TopologyFactory cannot be null.");
         if (config == null) throw new IllegalArgumentException("TopologyConfiguration cannot be null.");
         this.topologyFactory = factory;
@@ -76,6 +83,6 @@ public abstract class SimulationRunner<
     }
 
     protected void cleanup() {
-        System.out.println("\n--- Simulation Run Finished ---");
+        System.out.println("\n--- Simulation Run Finished (Run ID: " + this.simulationTimestamp + ") ---");
     }
 }
