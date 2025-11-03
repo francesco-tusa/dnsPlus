@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 import java.util.logging.Level;
-import java.util.logging.Logger; // Import Logger
+import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.SimulationRunner;
-import simulator.core.TreeNode; // Import TreeNode
+import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
@@ -17,7 +17,7 @@ import simulator.population.DataCenterPublishersPlacement;
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BrokerWithRegion;
-import simulator.regions.Region; // Import Region
+import simulator.regions.Region;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import utils.CsvMetricWriter;
@@ -78,6 +78,7 @@ public abstract class AbstractPerformanceSimulation<
             return;
         }
 
+        // This block is already correct, using logger.fine
         if (logger.isLoggable(Level.FINE)) {
             logger.fine("--- DEBUG: Final Broker Hierarchy and Regions ---");
             logBrokerHierarchy(this.rootNode, "  ");
@@ -166,6 +167,8 @@ public abstract class AbstractPerformanceSimulation<
         long totalSubscriptionTableEntries = 0, totalRegionUpdates = 0;
         long successfulNotifications = 0, totalPublicationsSent = 0;
         
+        long totalSubscriptionExpansions = 0;
+        
         List<Integer> allSubscriptionHops = new ArrayList<>();
         List<Integer> allPublicationHops = new ArrayList<>();
         List<Integer> allDeliveredPubHops = new ArrayList<>();
@@ -183,7 +186,11 @@ public abstract class AbstractPerformanceSimulation<
 
         for (SimulationBroker broker : allBrokers) {
             totalSubscriptionTableEntries += broker.getSubscriptionsTable().size();
-            if (broker instanceof BrokerWithRegion) totalRegionUpdates += ((BrokerWithRegion) broker).getNumOfRegionUpdates();
+            
+            if (broker instanceof BrokerWithRegion br) {
+                totalRegionUpdates += br.getNumOfRegionUpdates();
+                totalSubscriptionExpansions += br.getNumSubscriptionExpansions(); // Add this line
+            }
             
             allSubscriptionHops.addAll(broker.getAllProcessedSubscriptionHops());
             allPublicationHops.addAll(broker.getAllProcessedPublicationHops());
@@ -200,7 +207,10 @@ public abstract class AbstractPerformanceSimulation<
 
         logger.info("--- System Overhead Metrics ---");
         logger.info("Total Subscription Table Entries Created (Storage Cost): " + totalSubscriptionTableEntries);
-        logger.info("Total Region Boundary Updates: " + totalRegionUpdates);
+        logger.info("Total Region Boundary Updates (Topology CPU Cost): " + totalRegionUpdates);
+        
+        logger.info("Total Subscription Region Expansions (Subscription CPU Cost): " + totalSubscriptionExpansions);
+
         printStats("All Subscription Hops (Network Load)", allSubscriptionHops);
         printStats("All Publication Hops (Network Load)", allPublicationHops);
         printStatsLong("Publication Processing Cost (CPU Load)", allPublicationProcessingCosts);

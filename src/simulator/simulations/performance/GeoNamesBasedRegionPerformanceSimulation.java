@@ -33,9 +33,9 @@ public class GeoNamesBasedRegionPerformanceSimulation extends AbstractRegionPerf
         int simSubscribersPerReplica = 2500;
         
         // This is an ABSOLUTE size (e.g., 1.0 decimal degrees)
-        double simSubscriptionRegionSize = 1.0; 
+        double simSubscriptionRegionSize = 10.0; 
         
-        double simRemoteInterestProbability = 0.1;
+        double simRemoteInterestProbability = 0.0;
 
         // --- CONTROL FLAGS ---
         boolean enableVerboseLogs = false;

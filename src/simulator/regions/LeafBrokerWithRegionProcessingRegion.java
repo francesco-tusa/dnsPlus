@@ -34,8 +34,13 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
     public SimulationSubscription matchPublication(SimulationPublication p) {
         logger.fine(getName() + ": processing a publication received from " + p.getSource().getName());
 
-        // Call the method to handle conditional upward propagation.
-        propagatePublicationUpward(p);
+        // --- FIX: Only propagate upward if the publication came from a local child
+        // (e.g., a Publisher) ---
+        // --- and NOT from the parent broker. ---
+        if (p.getSource() != getParentBroker()) {
+            // Call the method to handle conditional upward propagation.
+            propagatePublicationUpward(p);
+        }
 
         // Call the method to handle local delivery to subscribers.
         processPublicationForLocalDelivery(p);

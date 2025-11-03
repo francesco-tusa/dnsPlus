@@ -1,6 +1,6 @@
 package simulator;
 
-import java.util.logging.Logger; // Import Logger
+import java.util.logging.Logger;
 import simulator.regions.BrokerWithRegion;
 import simulator.simulations.functional.ConfigurableFunctionalTest;
 import simulator.simulations.functional.FixedTopologyRegionFunctionalTests;
@@ -10,7 +10,7 @@ import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
 import simulator.topology.grid.GridTopologyConfiguration;
 import simulator.topology.grid.GridTopologyGenerator;
-import utils.CustomLogger; // Import CustomLogger
+import utils.CustomLogger;
 
 /**
  * Main entry point for all FUNCTIONAL validation tests using REGION-BASED routing brokers.
@@ -21,9 +21,10 @@ public class RegionFunctionalTestsMain {
     private static final Logger logger = CustomLogger.getLogger(RegionFunctionalTestsMain.class.getName());
 
     public static void main(String[] args) {
-        runManualTopologyComprehensiveTest();
+        // runManualTopologyComprehensiveTest();
         //runSubscriptionCoveringTest();
-        //runGridTopologyTest();
+        runSubscriptionExpansionTest();
+        // runGridTopologyTest();
     }
 
     public static void runManualTopologyComprehensiveTest() {
@@ -45,6 +46,17 @@ public class RegionFunctionalTestsMain {
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
         ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(FixedTopologyRegionFunctionalTests.SUBSCRIPTION_COVERING_SCENARIO, "Subscription Covering Test");
+        validation.run(factory, config);
+    }
+
+    public static void runSubscriptionExpansionTest() {
+        logger.info("===============================================================");
+        logger.info("  RUNNING (Functional): Manual Topology - Subscription EXPANSION Test");
+        logger.info("===============================================================");
+        FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
+        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
+        ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
+            new ConfigurableFunctionalTest<>(FixedTopologyRegionFunctionalTests.SUBSCRIPTION_EXPANSION_SCENARIO, "Subscription Expansion Test");
         validation.run(factory, config);
     }
 

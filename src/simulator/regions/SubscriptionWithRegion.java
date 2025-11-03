@@ -32,10 +32,11 @@ public class SubscriptionWithRegion extends SimulationSubscription {
 
     @Override
     public SimulationSubscription getSubscription() {
-        SubscriptionWithRegion copy = new SubscriptionWithRegion(this.region);
+
+        SubscriptionWithRegion copy = new SubscriptionWithRegion(this);
+
         copy.setSource(this.getSource());
         copy.hopCount = this.hopCount;
-
         return copy;
     }
 

@@ -19,6 +19,9 @@ public class Region extends BaseRegion {
 
     private static final Logger logger = CustomLogger.getLogger(Region.class.getName());
 
+    // Create the formatter only once and make it static to improve performance  ---
+    private static final DecimalFormat df = new DecimalFormat("#.##");
+
     // --- Constructors ---
     public Region() {
         super(); // Calls BaseRegion()
@@ -241,7 +244,7 @@ public class Region extends BaseRegion {
         if (bottomLeft == null || topRight == null) {
             return "[]";
         }
-        DecimalFormat df = new DecimalFormat("#.##");
+        // Use the static final formatter to improve performance ---
         return String.format("[%s,%s:%s,%s]", 
                              df.format(bottomLeft.getX()), 
                              df.format(bottomLeft.getY()), 

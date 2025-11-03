@@ -39,7 +39,7 @@ public class RandomTopologyRegionPerformanceSimulation
         double simWorldHeight = 100.0; // The world is 100 units tall
 
         // This is now an ABSOLUTE size (e.g., 10.0 for a 10x10 region)
-        double simSubscriptionRegionSize = 30.0;
+        double simSubscriptionRegionSize = 40.0;
 
         double simRemoteInterestProbability = 0.0;
 
