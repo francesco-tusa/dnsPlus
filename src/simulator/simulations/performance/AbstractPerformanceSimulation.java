@@ -25,6 +25,8 @@ import simulator.regions.BrokerWithRegion;
 import simulator.regions.Region;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
+import simulator.topology.geonames.FileBasedTopologyConfiguration;
+import simulator.topology.random.RegionRandomTopologyConfiguration;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
@@ -42,6 +44,7 @@ public abstract class AbstractPerformanceSimulation<
     protected final int numberOfReplicas;
     protected final int subscribersPerReplica;
     protected final long totalSubscribers;
+    protected long successfulNotifications = 0;
     protected final boolean enableCsvOutput;
 
     public AbstractPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica, boolean enableCsvOutput) {
@@ -69,8 +72,24 @@ public abstract class AbstractPerformanceSimulation<
     @Override
     protected void setupSimulation() {
         logger.info("\n--- Populating Topology for Performance Simulation ---");
-        logger.info(String.format("Setup: %d Replicas, %d Subscribers/Replica (Total Subscribers: %d)", 
+        
+        // Logs client counts (e.g., 20 Replicas, 2500 Subscribers/Replica)
+        logger.info(String.format("Client Setup: %d Replicas, %d Subscribers/Replica (Total Subscribers: %d)", 
                                   numberOfReplicas, subscribersPerReplica, totalSubscribers));
+
+        // Logs topology info (e.g., File: output/geonames_topology.json)
+        if (this.topologyConfig instanceof RegionRandomTopologyConfiguration config) {
+            logger.info(String.format(
+                "Topology Setup (Random): Depth=%d, MaxBranch=%d, NumRegions=%d, WorldSize=[%.1f x %.1f]",
+                config.getTreeDepth(),
+                config.getMaxBranchingFactor(),
+                config.getNumRegions(),
+                config.getWorldWidth(),
+                config.getWorldHeight()
+            ));
+        } else if (this.topologyConfig instanceof FileBasedTopologyConfiguration config) {
+            logger.info(String.format("Topology Setup (File): %s", config.getTopologyFilePath()));
+        }
 
         if (this.rootNode == null) {
             logger.severe("Cannot populate topology: Root node is null.");
@@ -375,9 +394,10 @@ public abstract class AbstractPerformanceSimulation<
     protected void collectAndPrintMetrics() {
         logger.info("\n--- Simulation Metrics ---");
         long totalSubscriptionTableEntries = 0, totalRegionUpdates = 0;
-        long successfulNotifications = 0, totalPublicationsSent = 0;
         
-        long totalSubscriptionExpansions = 0;
+        long totalPublicationsSent = 0;
+        long totalPropagationFilterExpansions = 0; 
+        long totalMainTableExpansions = 0; 
         
         List<Integer> allSubscriptionHops = new ArrayList<>();
         List<Integer> allPublicationHops = new ArrayList<>();
@@ -399,7 +419,8 @@ public abstract class AbstractPerformanceSimulation<
             
             if (broker instanceof BrokerWithRegion br) {
                 totalRegionUpdates += br.getNumOfRegionUpdates();
-                totalSubscriptionExpansions += br.getNumSubscriptionExpansions(); // Add this line
+                totalPropagationFilterExpansions += br.getNumPropagationFilterExpansions();
+                totalMainTableExpansions += br.getNumMainTableExpansions(); 
             }
             
             allSubscriptionHops.addAll(broker.getAllProcessedSubscriptionHops());
@@ -408,6 +429,7 @@ public abstract class AbstractPerformanceSimulation<
         }
         
         for (SubscriberWithLocation subscriber : allSubscribers) {
+            // --- Capture 'successfulNotifications' here ---
             successfulNotifications += subscriber.getnPublications();
             allDeliveredPubHops.addAll(subscriber.getReceivedPublicationHops());
         }
@@ -419,7 +441,8 @@ public abstract class AbstractPerformanceSimulation<
         logger.info("Total Subscription Table Entries Created (Storage Cost): " + totalSubscriptionTableEntries);
         logger.info("Total Region Boundary Updates (Topology CPU Cost): " + totalRegionUpdates);
         
-        logger.info("Total Subscription Region Expansions (Subscription CPU Cost): " + totalSubscriptionExpansions);
+        logger.info("Total Main Subscription Table Expansions (CPU Cost): " + totalMainTableExpansions);
+        logger.info("Total Propagation Filter Expansions (CPU Cost): " + totalPropagationFilterExpansions);
 
         printStats("All Subscription Hops (Network Load)", allSubscriptionHops);
         printStats("All Publication Hops (Network Load)", allPublicationHops);

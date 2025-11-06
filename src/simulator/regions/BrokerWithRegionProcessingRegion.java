@@ -89,7 +89,6 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     }
 
     /**
-     * REFACTORED HELPER METHOD
      * Checks if a new subscription is covered by an existing propagated subscription
      * for a given neighbor. If not, it expands the existing region and propagates
      * the new, larger subscription.
@@ -133,7 +132,7 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
             // The new subscription is not covered by what we sent before.
             // We must create a new, larger region that is the UNION of the old and new.
             
-            incrementSubscriptionExpansions(); // for performance metric
+            incrementPropagationFilterExpansions(); // for performance metric
             
             logger.fine(String.format("%s: Expanding %s propagated region for %s to include %s",
                     getName(), direction, neighbor.getName(), newSub.getRegion().toShortString()));
@@ -154,6 +153,54 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
 
             // 5. Store the new, larger subscription in our map, replacing the old one
             propagatedSubscriptions.put(neighbor, expandedSubscription);
+        }
+    }
+
+    /**
+     * Adds a subscription to the main table, implementing region-expansion logic.
+     * This logic is specific to region-based routing.
+     * @param s The subscription to add or merge.
+     */
+    @Override
+    public void addSubscription(SimulationSubscription s) {
+        if (s.getSource() == null) {
+            throw new IllegalArgumentException("Subscription source cannot be null");
+        }
+
+        Map<TreeNode, SimulationSubscription> mainTable = getSubscriptionsTable();
+        SimulationSubscription existingSub = mainTable.get(s.getSource());
+
+        if (existingSub == null) {
+            // --- Case 1: No existing subscription. Just add it. ---
+            logger.fine(String.format("%s: adding new subscription entry for %s", getName(), s.getSource().getName()));
+            mainTable.put(s.getSource(), s);
+
+        } else {
+            // --- Case 2: Entry exists. Check for region expansion. ---
+            if (existingSub instanceof SubscriptionWithRegion existingRegionSub &&
+                s instanceof SubscriptionWithRegion newRegionSub) {
+                
+                Region existingRegion = existingRegionSub.getRegion();
+                Region newRegion = newRegionSub.getRegion();
+
+                if (!existingRegion.contains(newRegion)) {
+                    // --- Increment the counter from the parent class ---
+                    incrementMainTableExpansions(); 
+                    
+                    logger.fine(String.format("%s: expanding existing subscription for %s to include %s",
+                            getName(), s.getSource().getName(), newRegion.toShortString()));
+                    
+                    existingRegion.expand(newRegion);
+                } else {
+                    logger.fine(String.format("%s: filtering redundant subscription from %s",
+                            getName(), s.getSource().getName()));
+                }
+
+            } else {
+                // Fallback for non-region types or mismatched types: just overwrite.
+                logger.fine(String.format("%s: overwriting existing subscription entry for %s", getName(), s.getSource().getName()));
+                mainTable.put(s.getSource(), s);
+            }
         }
     }
 

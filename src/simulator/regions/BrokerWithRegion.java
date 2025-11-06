@@ -15,14 +15,16 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     private long numOfRegionUpdates;
     private long internetPopulation;
     
-    private long numSubscriptionExpansions;
+    private long numPropagationFilterExpansions;
+    private long numMainTableExpansions;
 
     public BrokerWithRegion(String name) {
         super(name);
         region = new Region();
         numOfRegionUpdates = 0;
         internetPopulation = 0;
-        numSubscriptionExpansions = 0; 
+        numPropagationFilterExpansions = 0; 
+        numMainTableExpansions = 0;
     }
 
     public BrokerWithRegion(String name, Location p1, Location p2) {
@@ -30,7 +32,8 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         region = new Region(p1, p2);
         numOfRegionUpdates = 0;
         internetPopulation = 0;
-        numSubscriptionExpansions = 0; 
+        numPropagationFilterExpansions = 0;
+        numMainTableExpansions = 0;
     }
 
     @Override
@@ -44,12 +47,20 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     public void setInternetPopulation(long internetPopulation) { this.internetPopulation = internetPopulation; }
     public long getNumOfRegionUpdates() { return numOfRegionUpdates; }
 
-    public long getNumSubscriptionExpansions() {
-        return numSubscriptionExpansions;
+    public long getNumPropagationFilterExpansions() {
+        return numPropagationFilterExpansions;
     }
 
-    public void incrementSubscriptionExpansions() {
-        this.numSubscriptionExpansions++;
+    public void incrementPropagationFilterExpansions() {
+        this.numPropagationFilterExpansions++;
+    }
+
+    public long getNumMainTableExpansions() {
+        return numMainTableExpansions;
+    }
+
+    public void incrementMainTableExpansions() {
+        this.numMainTableExpansions++;
     }
 
     public void updateRegion(TreeNode child) {

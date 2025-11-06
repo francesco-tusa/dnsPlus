@@ -4,24 +4,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger; // Import Logger
 
 import simulator.core.TreeNode;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.regions.BrokerWithRegion;
 import simulator.visualisation.TopologyVisualiser;
-import utils.CustomLogger; // Import CustomLogger
-
-// Import the region classes to perform the expansion
-import simulator.regions.Region;
-import simulator.regions.SubscriptionWithRegion;
 
 
 public abstract class SimulationBroker extends TreeNode {
-
-    // Add logger
-    private static final Logger logger = CustomLogger.getLogger(SimulationBroker.class.getName());
 
     private final Map<TreeNode, SimulationSubscription> subscriptionsTable = new HashMap<>();
     
@@ -38,6 +29,10 @@ public abstract class SimulationBroker extends TreeNode {
     }
 
     public abstract SimulationSubscription matchPublication(SimulationPublication p);
+
+    public abstract void addSubscription(SimulationSubscription s);
+
+    protected abstract void propagateSubscription(SimulationSubscription s);
 
     public void processPublication(SimulationPublication p) {
         p.incrementHops(); 
@@ -67,59 +62,6 @@ public abstract class SimulationBroker extends TreeNode {
         propagateSubscription(s);
     }
 
-    // New abstract method to be implemented by subclasses
-    protected abstract void propagateSubscription(SimulationSubscription s);
-
-    /**
-     * Adds a subscription to the broker's main subscription table.
-     * This method now implements the "expand on update" logic
-     * as described in your design document.
-     *
-     * @param s The subscription to add or merge.
-     */
-    public final void addSubscription(SimulationSubscription s) {
-        if (s.getSource() == null) {
-            throw new IllegalArgumentException("Subscription source cannot be null");
-        }
-
-        // 1. Check if an entry from this source *already* exists.
-        SimulationSubscription existingSub = subscriptionsTable.get(s.getSource());
-
-        if (existingSub == null) {
-            // --- Case 1: No existing subscription. Just add it. ---
-            logger.fine(String.format("%s: adding new subscription entry for %s", getName(), s.getSource().getName()));
-            subscriptionsTable.put(s.getSource(), s);
-
-        } else {
-            // --- Case 2: Entry exists. We must expand it. ---
-            
-            // Check if both are region-based subscriptions
-            if (existingSub instanceof SubscriptionWithRegion existingRegionSub &&
-                s instanceof SubscriptionWithRegion newRegionSub) {
-                
-                // Get the regions
-                Region existingRegion = existingRegionSub.getRegion();
-                Region newRegion = newRegionSub.getRegion();
-
-                // Only expand if the new region isn't already covered
-                if (!existingRegion.contains(newRegion)) {
-                    logger.fine(String.format("%s: expanding existing subscription for %s to include %s",
-                            getName(), s.getSource().getName(), newRegion.toShortString()));
-                    
-                    existingRegion.expand(newRegion);
-                    // We don't need to 'put' again, as we modified the Region object in-place.
-                } else {
-                    logger.fine(String.format("%s: filtering redundant subscription from %s",
-                            getName(), s.getSource().getName()));
-                }
-
-            } else {
-                // Fallback for non-region types or mismatched types: just overwrite.
-                logger.fine(String.format("%s: overwriting existing subscription entry for %s", getName(), s.getSource().getName()));
-                subscriptionsTable.put(s.getSource(), s);
-            }
-        }
-    }
 
     public BrokerWithRegion getParentBroker() {
         TreeNode parent = getParent();

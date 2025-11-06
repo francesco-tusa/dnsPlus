@@ -76,6 +76,22 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
         }
     }
 
+    /**
+     * Adds a subscription to the main table. For location-based
+     * routing, the logic is to simply overwrite any existing subscription
+     * from the same source.
+     * @param s The subscription to add.
+     */
+    @Override
+    public void addSubscription(SimulationSubscription s) {
+        if (s.getSource() == null) {
+            throw new IllegalArgumentException("Subscription source cannot be null");
+        }
+        
+        // This is the explicit "overwrite" logic
+        getSubscriptionsTable().put(s.getSource(), s);
+    }
+
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
