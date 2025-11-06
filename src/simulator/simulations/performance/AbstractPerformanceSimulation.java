@@ -1,10 +1,15 @@
 package simulator.simulations.performance;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import simulator.core.Location;
@@ -72,13 +77,14 @@ public abstract class AbstractPerformanceSimulation<
             return;
         }
 
+        logTopologySummary(this.rootNode);
+
         List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
         if (leafBrokers.isEmpty()) {
             logger.severe("Error: No leaf brokers found. Cannot attach clients.");
             return;
         }
 
-        // This block is already correct, using logger.fine
         if (logger.isLoggable(Level.FINE)) {
             logger.fine("--- DEBUG: Final Broker Hierarchy and Regions ---");
             logBrokerHierarchy(this.rootNode, "  ");
@@ -121,6 +127,210 @@ public abstract class AbstractPerformanceSimulation<
             }
         }
     }
+
+
+/**
+     * Helper class for the Plane Sweep algorithm.
+     */
+    private static class SweepEvent implements Comparable<SweepEvent> {
+        enum EventType { START, END }
+        
+        final double x;
+        final EventType type;
+        final BrokerWithRegion broker;
+
+        SweepEvent(double x, EventType type, BrokerWithRegion broker) {
+            this.x = x;
+            this.type = type;
+            this.broker = broker;
+        }
+
+        @Override
+        public int compareTo(SweepEvent other) {
+            // Compare by x-coordinate
+            int xCompare = Double.compare(this.x, other.x);
+            if (xCompare != 0) {
+                return xCompare;
+            }
+            // If x is equal, START events come before END events
+            return this.type.compareTo(other.type);
+        }
+    }
+
+    /**
+     * Calculates overlapping sibling pairs using an efficient O(n log n) Plane Sweep algorithm.
+     * @param brokers The list of brokers at a single level.
+     * @return The total count of overlapping pairs.
+     */
+    private long calculateSiblingOverlaps(List<BrokerWithRegion> brokers) {
+        List<SweepEvent> events = new ArrayList<>(brokers.size() * 2);
+        
+        // 1. Create all START and END events
+        for (BrokerWithRegion broker : brokers) {
+            Region region = broker.getRegion();
+            if (region == null || region.getBottomLeft() == null || region.getTopRight() == null) {
+                continue; // Skip brokers with no valid region
+            }
+
+            double minLon = region.getBottomLeft().getX();
+            double maxLon = region.getTopRight().getX();
+
+            if (minLon <= maxLon) {
+                // Standard case: No wrap-around
+                events.add(new SweepEvent(minLon, SweepEvent.EventType.START, broker));
+                events.add(new SweepEvent(maxLon, SweepEvent.EventType.END, broker));
+            } else {
+                // Wrap-around case: Treat as two separate intervals
+                // [minLon, 180] and [-180, maxLon]
+                events.add(new SweepEvent(minLon, SweepEvent.EventType.START, broker));
+                events.add(new SweepEvent(180.0, SweepEvent.EventType.END, broker));
+                
+                events.add(new SweepEvent(-180.0, SweepEvent.EventType.START, broker));
+                events.add(new SweepEvent(maxLon, SweepEvent.EventType.END, broker));
+            }
+        }
+
+        // 2. Sort the events
+        Collections.sort(events);
+
+        // 3. Sweep the line
+        long overlapCount = 0;
+        // This map tracks active brokers and how many of their "segments" are active
+        Map<BrokerWithRegion, Integer> activeSegments = new HashMap<>();
+        // This set tracks unique pairs we've already counted to avoid double-counting
+        Set<String> countedPairs = new HashSet<>(); 
+
+        for (SweepEvent event : events) {
+            BrokerWithRegion eventBroker = event.broker;
+            Region r1 = eventBroker.getRegion();
+
+            if (event.type == SweepEvent.EventType.START) {
+                // A new region segment starts. Check it against all *other* active brokers.
+                for (BrokerWithRegion activeBroker : activeSegments.keySet()) {
+                    if (activeBroker == eventBroker) {
+                        continue; // Don't check against self
+                    }
+                    
+                    // Create a unique key for this pair
+                    String pairKey = (eventBroker.getName().compareTo(activeBroker.getName()) < 0)
+                                     ? eventBroker.getName() + "::" + activeBroker.getName()
+                                     : activeBroker.getName() + "::" + eventBroker.getName();
+
+                    if (countedPairs.contains(pairKey)) {
+                        continue; // Already counted this pair
+                    }
+
+                    // Check for Y-axis overlap (altitude/Z is ignored)
+                    Region r2 = activeBroker.getRegion();
+                    if (r1.getTopRight().getY() >= r2.getBottomLeft().getY() &&
+                        r1.getBottomLeft().getY() <= r2.getTopRight().getY()) {
+                        
+                        // We have a Y-overlap *and* an X-overlap. This is an intersection.
+                        overlapCount++;
+                        countedPairs.add(pairKey); // Mark this pair as counted
+                    }
+                }
+                // Add this segment to the active map
+                activeSegments.put(eventBroker, activeSegments.getOrDefault(eventBroker, 0) + 1);
+
+            } else { // event.type == END
+                // A region segment ends. Decrement its count.
+                int count = activeSegments.getOrDefault(eventBroker, 0);
+                if (count <= 1) {
+                    activeSegments.remove(eventBroker); // Last segment ended
+                } else {
+                    activeSegments.put(eventBroker, count - 1);
+                }
+            }
+        }
+        return overlapCount;
+    }
+
+    /**
+     * Traverses the broker topology and logs a summary of its structure,
+     * including broker count, average fan-out, and sibling region overlap
+     * per level, considering only broker-to-broker connections.
+     * @param root The root broker of the topology.
+     */
+    protected void logTopologySummary(BrokerWithRegion root) {
+        if (root == null) {
+            return;
+        }
+
+        logger.info("\n--- Broker Topology Structure Summary ---");
+        
+        Queue<BrokerWithRegion> queue = new LinkedList<>();
+        queue.add(root);
+
+        int currentLevel = 0;
+        
+        while (!queue.isEmpty()) {
+            int levelSize = queue.size(); 
+            long totalBrokerChildrenAtLevel = 0; 
+            
+            List<BrokerWithRegion> brokersAtThisLevel = new ArrayList<>(levelSize);
+
+            for (int i = 0; i < levelSize; i++) {
+                BrokerWithRegion broker = queue.poll();
+                if (broker == null) continue;
+                brokersAtThisLevel.add(broker); 
+
+                if (broker.getChildren() != null) {
+                    for (TreeNode child : broker.getChildren()) {
+                        if (child instanceof BrokerWithRegion childBroker) { 
+                            totalBrokerChildrenAtLevel++;
+                            queue.add(childBroker); 
+                        }
+                    }
+                }
+            }
+            
+            if (levelSize > 0) {
+                // Log basic stats
+                double avgFanOut = (totalBrokerChildrenAtLevel > 0) ? (double) totalBrokerChildrenAtLevel / levelSize : 0.0;
+                logger.info(String.format(
+                    "  Level %d: %d brokers, Avg. Fan-Out: %.2f",
+                    currentLevel,
+                    levelSize,
+                    avgFanOut
+                ));
+
+                // Run efficient overlap calculation
+                long totalPossiblePairs = (long) levelSize * (levelSize - 1) / 2;
+                if (totalPossiblePairs > 0) {
+                    long overlappingPairs = calculateSiblingOverlaps(brokersAtThisLevel);
+                    double overlapPercent = (double) overlappingPairs / totalPossiblePairs * 100.0;
+                    
+                    logger.info(String.format(
+                        "    -> Overlapping Sibling Pairs: %d / %d (%.4f%%)", 
+                        overlappingPairs,
+                        totalPossiblePairs,
+                        overlapPercent
+                    ));
+                }
+                
+                // Print details for Level 1 (Continents)
+                if (currentLevel == 1) {
+                    logger.info("  --- Detailed Region Info for Level 1 (Continents) ---");
+                    for (BrokerWithRegion broker : brokersAtThisLevel) {
+                        Region region = broker.getRegion();
+                        String regionInfo = "N/A";
+                        if (region != null && region.getBottomLeft() != null) {
+                            regionInfo = region.toShortString(); 
+                        }
+                        logger.info(String.format("    - %s: Region: %s",
+                                                  broker.getName(),
+                                                  regionInfo));
+                    }
+                    logger.info("  -----------------------------------------------------");
+                }
+                
+                currentLevel++;
+            }
+        }
+        logger.info("--- End of Topology Summary ---");
+    }
+
 
     
     private void collectClients(List<BrokerWithRegion> leafBrokers) {

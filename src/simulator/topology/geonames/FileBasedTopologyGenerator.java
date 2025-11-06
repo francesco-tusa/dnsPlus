@@ -143,7 +143,7 @@ public class FileBasedTopologyGenerator
         }
         
         currentBroker.setInternetPopulation(internetPopulation);
-        logger.fine("  Created " + brokerName + " with Internet Population: " + internetPopulation);
+        logger.finer("  Created " + brokerName + " with Internet Population: " + internetPopulation);
 
          if (!isLeafNodeInJson) {
              for (JsonNode childNode : childrenNode) {

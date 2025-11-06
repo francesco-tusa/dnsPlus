@@ -18,7 +18,6 @@ public abstract class AbstractRegionPerformanceSimulation<
     F extends AbstractTopologyFactory<C, BrokerWithRegion>
 > extends AbstractPerformanceSimulation<C, F> {
 
-    // --- NEW: Add a logger instance to this class ---
     private static final Logger logger = CustomLogger.getLogger(AbstractRegionPerformanceSimulation.class.getName());
 
     protected final double subscriptionRegionSize; 
