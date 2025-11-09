@@ -35,113 +35,13 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import utils.CustomLogger;
 
+// --- Imports for FIXED Bounding Box logic ---
+import simulator.core.Location;
+import simulator.regions.Region; 
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 // This class is part of FileBasedDynamicBuilder.java
-
-/**
- * Helper class to store and update bounding box coordinates.
- */
-class BoundingBox {
-    public double minLat = 91.0;  // Sentinel: higher than any valid latitude
-    public double maxLat = -91.0; // Sentinel: lower than any valid latitude
-    public double minLon = 181.0; // Sentinel: higher than any valid longitude
-    public double maxLon = -181.0;// Sentinel: lower than any valid longitude
-
-    public BoundingBox() {
-    }
-
-    /**
-     * Extends the bounding box to include the given latitude and longitude.
-     * @param lat The latitude of the point.
-     * @param lon The longitude of the point.
-     */
-    void extend(double lat, double lon) {
-        if (Double.isNaN(lat) || Double.isNaN(lon)) {
-            return; // Ignore NaN values
-        }
-        // Update minLat
-        if (lat < minLat) {
-            minLat = lat;
-        }
-        // Update maxLat
-        if (lat > maxLat) {
-            maxLat = lat;
-        }
-        // Update minLon
-        if (lon < minLon) {
-            minLon = lon;
-        }
-        // Update maxLon
-        if (lon > maxLon) {
-            maxLon = lon;
-        }
-    }
-
-    /**
-     * Extends this bounding box to include the 'other' bounding box.
-     * @param other The other BoundingBox to include.
-     */
-    void extend(BoundingBox other) {
-        if (other == null) {
-            return;
-        }
-        // If the 'other' box itself is uninitialized (still has sentinel values
-        // that make it invalid in the sense of min > max), we might choose to ignore it,
-        // or extend by its individual valid coordinates if any.
-        // However, the isValid() check below handles the case where 'other' might be
-        // partially valid but overall !isValid().
-        // A simpler approach is to extend by each coordinate if 'other' is not null.
-
-        // If 'other' is valid or partially valid (even if its own isValid() is false
-        // due to one bad coordinate like a stuck maxLon), we still try to incorporate its "better" parts.
-        if (other.minLat < this.minLat) {
-            this.minLat = other.minLat;
-        }
-        if (other.maxLat > this.maxLat) {
-            this.maxLat = other.maxLat;
-        }
-        if (other.minLon < this.minLon) {
-            this.minLon = other.minLon;
-        }
-        // *** CORRECTED LOGIC FOR MAXLON ***
-        if (other.maxLon > this.maxLon) {
-            this.maxLon = other.maxLon;
-        }
-    }
-
-    /**
-     * Checks if the bounding box has been initialized with valid, consistent coordinates.
-     * Valid means min <= max for both latitude and longitude, and coordinates are within
-     * standard geographic ranges.
-     * @return true if the bounds are valid, false otherwise.
-     */
-    boolean isValid() {
-        // Check if coordinates are within standard geographic ranges
-        boolean latRangeOk = minLat >= -90.0 && minLat <= 90.0 &&
-                             maxLat >= -90.0 && maxLat <= 90.0;
-        boolean lonRangeOk = minLon >= -180.0 && minLon <= 180.0 &&
-                             maxLon >= -180.0 && maxLon <= 180.0;
-
-        // Check for consistency (min <= max)
-        boolean latConsistent = minLat <= maxLat;
-        boolean lonConsistent = minLon <= maxLon;
-
-        return latRangeOk && lonRangeOk && latConsistent && lonConsistent;
-    }
-
-    @Override
-    public String toString() {
-        // Check against initial sentinel values to determine if it's truly uninitialized
-        if (minLat == 91.0 && maxLat == -91.0 && minLon == 181.0 && maxLon == -181.0) {
-            return "Uninitialized BBox";
-        }
-        if (!isValid()) { // Use the refined isValid()
-            return String.format("Invalid BBox [(%.4f, %.4f) - (%.4f, %.4f)]", minLat, minLon, maxLat, maxLon);
-        }
-        return String.format("[(%.4f, %.4f) - (%.4f, %.4f)]", minLat, minLon, maxLat, maxLon);
-    }
-}
 
 /**
  * Represents an entry parsed from a GeoNames data file (like allCountries.txt).
@@ -236,7 +136,7 @@ class TreeNode {
     public long internetPopulation; // Always present (calculated)
     public Long officialPopulation; // Use wrapper type, init to null
     public Double internetPenetrationRate; // Use wrapper type, init to null
-    public BoundingBox bounds;
+    public Region bounds;
     public List<TreeNode> children = new ArrayList<>();
 
     public TreeNode() {
@@ -272,7 +172,7 @@ class TreeNode {
 
     @Override
     public String toString() {
-        String boundsStr = (bounds != null && bounds.isValid()) ? ", bounds=" + bounds : "";
+        String boundsStr = (bounds != null && bounds.getBottomLeft() != null) ? ", bounds=" + bounds.toShortString() : "";
         String officialPopStr = (officialPopulation != null) ? ", officialPop=" + officialPopulation : "";
         String rateStr = (internetPenetrationRate != null) ? String.format(", rate=%.3f", internetPenetrationRate) : "";
         return name + " (" + type + (code != null && !code.isEmpty() ? ", code=" + code : "") + ", id=" + geonameId
@@ -345,15 +245,17 @@ public class FileBasedDynamicBuilder {
     Map<String, Integer> admin2CodeToIdMap = new HashMap<>();
     Map<String, String> countryToContinentMap = new HashMap<>();
     Map<String, Integer> countryCodeToIdMap = new HashMap<>();
+    // --- NEW: Map to store names for all country-level entities ---
+    Map<String, String> countryCodeToNameMap = new HashMap<>();
     Map<String, Double> countryIsoToPenetrationMap = new HashMap<>();
     Map<Integer, Long> countryIdToOfficialPopulationMap = new HashMap<>();
 
     // --- Maps for aggregated data from Pass 1 ---
     Map<Integer, RelevantAdminInfo> relevantAdminMap = new HashMap<>();
     Map<Integer, Long> adm1PopulationMap = new HashMap<>();
-    Map<Integer, BoundingBox> adm1BoundsMap = new HashMap<>();
+    Map<Integer, Region> adm1BoundsMap = new HashMap<>();
     Map<Integer, Long> adm2PopulationMap = new HashMap<>();
-    Map<Integer, BoundingBox> adm2BoundsMap = new HashMap<>();
+    Map<Integer, Region> adm2BoundsMap = new HashMap<>();
 
     // --- Final Tree structure ---
     Map<Integer, TreeNode> nodeMap = new HashMap<>();
@@ -390,8 +292,10 @@ public class FileBasedDynamicBuilder {
         logger.info("Loaded " + count + " " + adminLevelName + " code mappings.");
     }
 
+    // --- MODIFICATION: Updated to load country names ---
     void loadCountryInfo(String filePath) {
         final int ISO_CODE_IDX = 0;
+        final int ISO_NAME_IDX = 4; // Index of the country name
         final int CONTINENT_CODE_IDX = 8;
         final int GEONAMEID_IDX = 16;
         final int MIN_COUNTRY_PARTS = 17;
@@ -404,10 +308,15 @@ public class FileBasedDynamicBuilder {
                 String[] parts = line.split("\t", -1);
                 if (parts.length >= MIN_COUNTRY_PARTS) {
                     String isoCode = parts[ISO_CODE_IDX].trim();
+                    String countryName = parts[ISO_NAME_IDX].trim();
                     String continentCode = parts[CONTINENT_CODE_IDX].trim();
                     String geonameIdStr = parts[GEONAMEID_IDX].trim();
+
                     if (!isoCode.isEmpty() && !continentCode.isEmpty()) {
                         countryToContinentMap.put(isoCode, continentCode);
+                    }
+                    if (!isoCode.isEmpty() && !countryName.isEmpty()) {
+                        countryCodeToNameMap.put(isoCode, countryName); // Store name
                     }
                     if (!isoCode.isEmpty() && !geonameIdStr.isEmpty()) {
                         try {
@@ -426,6 +335,7 @@ public class FileBasedDynamicBuilder {
         }
         logger.info("Loaded " + countryToContinentMap.size() + " country->continent mappings.");
         logger.info("Loaded " + countryCodeToIdMap.size() + " country ISO2->GeonameID mappings.");
+        logger.info("Loaded " + countryCodeToNameMap.size() + " country ISO2->Name mappings.");
     }
 
     void loadInternetPenetration(String filePath) {
@@ -522,6 +432,7 @@ public class FileBasedDynamicBuilder {
                 if (type == TreeNode.NodeType.COUNTRY) {
                     RelevantAdminInfo info = new RelevantAdminInfo(entry, type);
                     relevantAdminMap.put(entry.geonameId, info);
+                    // --- This is key: we store the official population by GeonameID ---
                     if (entry.population > 0) {
                         countryIdToOfficialPopulationMap.put(entry.geonameId, entry.population);
                     }
@@ -566,13 +477,15 @@ public class FileBasedDynamicBuilder {
                         }
                     }
                     if (!Double.isNaN(entry.latitude) && !Double.isNaN(entry.longitude)) {
+                        Location point = new Location(entry.longitude, entry.latitude, 0);
+                        
                         if (parentAdm1Id != null) {
-                            BoundingBox bbox1 = adm1BoundsMap.computeIfAbsent(parentAdm1Id, k -> new BoundingBox());
-                            bbox1.extend(entry.latitude, entry.longitude);
+                            Region region1 = adm1BoundsMap.computeIfAbsent(parentAdm1Id, k -> new Region());
+                            region1.expand(point);
                         }
                         if (parentAdm2Id != null) {
-                            BoundingBox bbox2 = adm2BoundsMap.computeIfAbsent(parentAdm2Id, k -> new BoundingBox());
-                            bbox2.extend(entry.latitude, entry.longitude);
+                            Region region2 = adm2BoundsMap.computeIfAbsent(parentAdm2Id, k -> new Region());
+                            region2.expand(point);
                         }
                     }
                 }
@@ -606,57 +519,95 @@ public class FileBasedDynamicBuilder {
         return null;
     }
 
+    // --- MODIFICATION: This entire method is replaced ---
     TreeNode buildInitialAdm1Hierarchy() {
-        logger.info("Starting Pass 2: Building initial hierarchy (World -> Continent -> Country -> ADM1)...");
+        logger.info("Starting Pass 2: Building initial hierarchy (World -> Continent -> Country/Territory -> ADM1)...");
         TreeNode worldRoot = new TreeNode("World", TreeNode.NodeType.WORLD, "WORLD");
         Map<String, TreeNode> continentNodes = new HashMap<>();
         nodeMap.clear();
-        nodeMap.put(0, worldRoot);
+        nodeMap.put(0, worldRoot); // Add the root
 
+        // --- NEW Step A: Create nodes for ALL entries in countryInfo.txt (countries AND territories) ---
+        logger.info("  Creating " + countryCodeToIdMap.size() + " country-level nodes from countryInfo.txt...");
+        for (String isoCode : countryCodeToIdMap.keySet()) {
+            Integer geonameId = countryCodeToIdMap.get(isoCode);
+            if (geonameId == null) continue;
+
+            String name = countryCodeToNameMap.get(isoCode);
+            if (name == null || name.isEmpty()) name = isoCode; // Fallback to ISO code if name is missing
+
+            // Create the node with type COUNTRY (this now represents any country-level entity)
+            // The featureCode "COUNTRY_LEVEL" is arbitrary to distinguish from PCLI if needed
+            TreeNode node = new TreeNode(geonameId, name, TreeNode.NodeType.COUNTRY, isoCode, "COUNTRY_LEVEL");
+
+            // Check if this entity is an independent nation (PCLI) to get its official population
+            // We get this from the map populated in Pass 1
+            Long officialPop = countryIdToOfficialPopulationMap.get(geonameId);
+            if (officialPop != null && officialPop > 0) {
+                node.officialPopulation = officialPop;
+            }
+
+            // Get and set internet penetration rate
+            Double penetrationRate = countryIsoToPenetrationMap.get(isoCode);
+            if (penetrationRate != null && penetrationRate > 0.0) {
+                node.internetPenetrationRate = penetrationRate;
+            } else {
+                logger.warning(
+                        "Warning: Country/Territory " + node.name + " (" + isoCode + ") has missing/zero internet penetration rate.");
+            }
+
+            // Add the new Country/Territory node to the main map
+            nodeMap.put(geonameId, node);
+        }
+        logger.info("  Created " + (nodeMap.size() - 1) + " country-level TreeNodes.");
+
+        // --- NEW Step B: Create nodes for all ADM1s ---
+        int adm1NodesCreated = 0;
         for (RelevantAdminInfo info : relevantAdminMap.values()) {
-            if (info.type == TreeNode.NodeType.COUNTRY || info.type == TreeNode.NodeType.ADM1) {
-                TreeNode node = new TreeNode(info.geonameId, info.name, info.type, info.code, info.featureCode);
-                if (node.type == TreeNode.NodeType.COUNTRY) {
-                    Long officialPop = countryIdToOfficialPopulationMap.get(node.geonameId);
-                    if (officialPop != null && officialPop > 0) {
-                        node.officialPopulation = officialPop;
-                    } else {
-                        logger.warning("Warning: Country " + node.name + " has missing/zero official population.");
-                    }
-                    Double penetrationRate = countryIsoToPenetrationMap.get(node.code);
-                    if (penetrationRate != null && penetrationRate > 0.0) {
-                        node.internetPenetrationRate = penetrationRate;
-                    } else {
-                        logger.warning(
-                                "Warning: Country " + node.name + " has missing/zero internet penetration rate.");
-                    }
+            if (info.type == TreeNode.NodeType.ADM1) {
+                if (!nodeMap.containsKey(info.geonameId)) { // Avoid overwriting
+                    TreeNode node = new TreeNode(info.geonameId, info.name, info.type, info.code, info.featureCode);
+                    nodeMap.put(info.geonameId, node);
+                    adm1NodesCreated++;
                 }
-                nodeMap.put(info.geonameId, node);
             }
         }
-        logger.info("  Created " + (nodeMap.size() - 1) + " initial TreeNodes (PCLI + ADM1).");
+        logger.info("  Created " + adm1NodesCreated + " ADM1 TreeNodes.");
 
+
+        // --- NEW Step C: Link ADM1 nodes to their Country/Territory parents ---
         int countryLinks = 0, adm1Links = 0, failedLinks = 0;
         for (RelevantAdminInfo info : relevantAdminMap.values()) {
+            // Find the child node (must be ADM1)
+            if (info.type != TreeNode.NodeType.ADM1) continue;
+            
             TreeNode childNode = nodeMap.get(info.geonameId);
-            if (childNode == null)
-                continue;
+            if (childNode == null) continue; 
+
             TreeNode parentNode = null;
-            if (childNode.type == TreeNode.NodeType.ADM1) {
-                Integer parentCountryId = countryCodeToIdMap.get(info.countryCode);
-                if (parentCountryId != null) {
-                    parentNode = nodeMap.get(parentCountryId);
-                }
-                if (parentNode != null && parentNode.type == TreeNode.NodeType.COUNTRY) {
-                    parentNode.addChild(childNode);
-                    adm1Links++;
-                } else {
-                    failedLinks++;
-                    logger.warning("Failed to link ADM1: " + childNode.name + " - Parent country (ISO: "
-                            + info.countryCode + ") not found or invalid.");
-                }
-            } else if (childNode.type == TreeNode.NodeType.COUNTRY) {
-                String continentCode = countryToContinentMap.get(childNode.code);
+            // Find its parent (which is a COUNTRY_LEVEL node) using its countryCode
+            Integer parentCountryId = countryCodeToIdMap.get(info.countryCode);
+            if (parentCountryId != null) {
+                parentNode = nodeMap.get(parentCountryId);
+            }
+            
+            if (parentNode != null && parentNode.type == TreeNode.NodeType.COUNTRY) {
+                parentNode.addChild(childNode);
+                adm1Links++;
+            } else {
+                failedLinks++;
+                logger.warning("Failed to link ADM1: " + childNode.name + " - Parent country (ISO: "
+                        + info.countryCode + ") not found in nodeMap.");
+            }
+        }
+        
+        // --- NEW Step D: Link all COUNTRY_LEVEL nodes to their GEOGRAPHICAL Continents ---
+        for (TreeNode childNode : nodeMap.values()) {
+             if (childNode.type == TreeNode.NodeType.COUNTRY) {
+                // childNode.code is the ISO code (e.g., "FR", "GF", "PF")
+                String continentCode = countryToContinentMap.get(childNode.code); 
+                TreeNode parentNode = null;
+                
                 if (continentCode != null) {
                     parentNode = continentNodes.computeIfAbsent(continentCode, k -> {
                         String continentName = switch (k) {
@@ -674,35 +625,48 @@ public class FileBasedDynamicBuilder {
                         return newNode;
                     });
                 } else {
-                    parentNode = worldRoot;
-                    logger.warning(
-                            "Warning: Continent not found for country: " + childNode.name + ". Linking to World.");
+                    // Handle countries/territories with no continent code (e.g., Antarctica 'AQ')
+                    if ("AQ".equals(childNode.code)) {
+                         parentNode = continentNodes.computeIfAbsent("AN", k -> {
+                             TreeNode newNode = new TreeNode("Antarctica", TreeNode.NodeType.CONTINENT, "AN");
+                             worldRoot.addChild(newNode);
+                             return newNode;
+                         });
+                    } else {
+                        parentNode = worldRoot;
+                        logger.warning(
+                                "Warning: Continent not found for country: " + childNode.name + ". Linking to World.");
+                    }
                 }
                 parentNode.addChild(childNode);
                 countryLinks++;
             }
         }
-        logger.info("Initial hierarchy linking complete. Country links: " + countryLinks + ", ADM1 links: "
+
+        logger.info("Initial hierarchy linking complete. Country/Territory links to Continents: " + countryLinks + ", ADM1 links to Countries: "
                 + adm1Links + ", Failed links: " + failedLinks);
         return worldRoot;
     }
 
-    BoundingBox assignInitialPopBoundsAndIdentifyExpansions(TreeNode node, List<TreeNode> nodesToExpand) {
-        BoundingBox nodeBounds = new BoundingBox();
+    Region assignInitialPopBoundsAndIdentifyExpansions(TreeNode node, List<TreeNode> nodesToExpand) {
+        Region nodeBounds = new Region(); // Use new Region()
         long currentAggregatedPop = 0;
+
         if (node.type == TreeNode.NodeType.ADM1) {
             node.aggregatedPopulation = adm1PopulationMap.getOrDefault(node.geonameId, 0L);
-            node.bounds = adm1BoundsMap.get(node.geonameId);
+            node.bounds = adm1BoundsMap.get(node.geonameId); // This is a Region now
             if (node.aggregatedPopulation > POPULATION_THRESHOLD_1M) {
                 nodesToExpand.add(node);
             }
-            return node.bounds != null && node.bounds.isValid() ? node.bounds : new BoundingBox();
+            // Check if bounds are initialized
+            return node.bounds != null && node.bounds.getBottomLeft() != null ? node.bounds : new Region();
         }
+
         if (node.children != null && !node.children.isEmpty()) {
             for (TreeNode child : node.children) {
-                BoundingBox childBounds = assignInitialPopBoundsAndIdentifyExpansions(child, nodesToExpand);
+                Region childBounds = assignInitialPopBoundsAndIdentifyExpansions(child, nodesToExpand);
                 currentAggregatedPop += child.aggregatedPopulation;
-                nodeBounds.extend(childBounds);
+                nodeBounds.expand(childBounds); // Use Region.expand(BaseRegion)
             }
         }
         node.aggregatedPopulation = currentAggregatedPop;
@@ -792,63 +756,87 @@ public class FileBasedDynamicBuilder {
                 + adm2PopDistributed + " previously zero-pop ADM2 nodes.");
     }
 
+    /**
+     * Normalizes a longitude value to be within the [-180, 180] range.
+     * @param lon The longitude to normalize.
+     * @return The normalized longitude.
+     */
+    private double normalizeLongitude(double lon) {
+        while (lon <= -180.0) lon += 360.0;
+        while (lon > 180.0) lon -= 360.0;
+        return lon;
+    }
+
     void estimateMissingAdm2Bounds(List<TreeNode> expandedAdm1Nodes) {
         logger.info("Starting Pass 6: Estimating missing bounds for ADM2 children...");
         int boundsEstimated = 0;
         for (TreeNode adm1Node : expandedAdm1Nodes) {
-            if (adm1Node.bounds == null || !adm1Node.bounds.isValid()) {
+            if (adm1Node.bounds == null || adm1Node.bounds.getBottomLeft() == null) {
                 logger.warning("Warning: Cannot estimate ADM2 bounds for children of " + adm1Node.name
-                        + " - parent bounds invalid.");
+                        + " - parent bounds uninitialized.");
                 continue;
             }
+
             List<TreeNode> adm2ChildrenMissingBounds = new ArrayList<>();
             for (TreeNode child : adm1Node.children) {
-                if (child.type == TreeNode.NodeType.ADM2 && (child.bounds == null || !child.bounds.isValid())) {
+                if (child.type == TreeNode.NodeType.ADM2 && (child.bounds == null || child.bounds.getBottomLeft() == null)) {
                     adm2ChildrenMissingBounds.add(child);
                 }
             }
+
             int totalAdm2ToEstimate = adm2ChildrenMissingBounds.size();
             if (totalAdm2ToEstimate == 0) {
                 continue;
             }
+
             int gridCols = (int) Math.ceil(Math.sqrt(totalAdm2ToEstimate));
             int gridRows = (int) Math.ceil((double) totalAdm2ToEstimate / gridCols);
-            double totalLatSpan = adm1Node.bounds.maxLat - adm1Node.bounds.minLat;
-            double totalLonSpan = adm1Node.bounds.maxLon - adm1Node.bounds.minLon;
+
+            double startLat = adm1Node.bounds.getBottomLeft().getY();
+            double totalLatSpan = adm1Node.bounds.getHeight();
             double cellHeight = (gridRows > 0 && totalLatSpan > 1e-9) ? totalLatSpan / gridRows : 0;
+
+            double startLon = adm1Node.bounds.getBottomLeft().getX(); 
+            double totalLonSpan = adm1Node.bounds.getWidth(); // Wrap-aware
             double cellWidth = (gridCols > 0 && totalLonSpan > 1e-9) ? totalLonSpan / gridCols : 0;
+            
             adm2ChildrenMissingBounds.sort(Comparator.comparing(a -> a.name));
             boolean estimationLogged = false;
+
             for (int i = 0; i < totalAdm2ToEstimate; i++) {
                 TreeNode adm2ChildNode = adm2ChildrenMissingBounds.get(i);
                 if (!estimationLogged) {
-                    logger.info("  Estimating bounds for ADM2 children under " + adm1Node.name);
+                    logger.info("  Estimating " + totalAdm2ToEstimate + " ADM2 bounds under " + adm1Node.name + " using " + gridRows + "x" + gridCols + " grid.");
                     estimationLogged = true;
                 }
+                
                 int r = i / gridCols;
                 int c = i % gridCols;
-                BoundingBox estimatedBounds = new BoundingBox();
-                if (cellWidth > 0 || cellHeight > 0) {
-                    estimatedBounds.minLat = adm1Node.bounds.minLat + r * cellHeight;
-                    estimatedBounds.minLon = adm1Node.bounds.minLon + c * cellWidth;
-                    estimatedBounds.maxLat = adm1Node.bounds.minLat + (r + 1) * cellHeight;
-                    estimatedBounds.maxLon = adm1Node.bounds.minLon + (c + 1) * cellWidth;
-                    estimatedBounds.minLat = Math.max(estimatedBounds.minLat, adm1Node.bounds.minLat);
-                    estimatedBounds.minLon = Math.max(estimatedBounds.minLon, adm1Node.bounds.minLon);
-                    estimatedBounds.maxLat = Math.min(estimatedBounds.maxLat, adm1Node.bounds.maxLat);
-                    estimatedBounds.maxLon = Math.min(estimatedBounds.maxLon, adm1Node.bounds.maxLon);
-                    if (estimatedBounds.maxLat < estimatedBounds.minLat)
-                        estimatedBounds.maxLat = estimatedBounds.minLat;
-                    if (estimatedBounds.maxLon < estimatedBounds.minLon)
-                        estimatedBounds.maxLon = estimatedBounds.minLon;
+
+                double newMinLat = startLat + r * cellHeight;
+                double newMaxLat = startLat + (r + 1) * cellHeight;
+                
+                double newMinLon = normalizeLongitude(startLon + c * cellWidth);
+                double newMaxLon = normalizeLongitude(startLon + (c + 1) * cellWidth);
+
+                newMinLat = Math.max(newMinLat, adm1Node.bounds.getBottomLeft().getY());
+                newMaxLat = Math.min(newMaxLat, adm1Node.bounds.getTopRight().getY());
+                
+                if (newMaxLat < newMinLat) newMaxLat = newMinLat;
+                
+                if (Math.abs(newMinLon - newMaxLon) > 359.999) {
+                     adm2ChildNode.bounds = new Region(adm1Node.bounds);
+                } else if (newMinLon == 180.0 && newMaxLon == -180.0) {
+                     newMaxLon = 180.0; 
+                     adm2ChildNode.bounds = new Region(new Location(newMinLon, newMinLat, 0), new Location(newMaxLon, newMaxLat, 0));
                 } else {
-                    estimatedBounds.extend(adm1Node.bounds);
+                     adm2ChildNode.bounds = new Region(new Location(newMinLon, newMinLat, 0), new Location(newMaxLon, newMaxLat, 0));
                 }
-                adm2ChildNode.bounds = estimatedBounds.isValid() ? estimatedBounds : adm1Node.bounds;
+
                 boundsEstimated++;
             }
         }
-        logger.info("Pass 6 complete. Estimated bounds for " + boundsEstimated + " ADM2 nodes.");
+        logger.info("Pass 6 complete. Estimated grid-based bounds for " + boundsEstimated + " ADM2 nodes.");
     }
 
     private long sumCurrentPopulation(TreeNode node) {
@@ -906,16 +894,24 @@ public class FileBasedDynamicBuilder {
                 long officialPop = (country.officialPopulation != null) ? country.officialPopulation : 0L;
                 double penetrationRate = (country.internetPenetrationRate != null) ? country.internetPenetrationRate
                         : 0.0;
+                
+                long currentAggregatedTotal = sumCurrentPopulation(country);
+                
                 if (officialPop <= 0) {
-                    logger.warning("Warning: Skipping scaling for country " + country.name
-                            + " - zero/missing official population.");
+                     if (currentAggregatedTotal <= 0) {
+                        logger.warning("Warning: Skipping scaling for " + country.name
+                                + " - zero official and zero aggregated population.");
+                     } else {
+                         logger.warning("Warning: Skipping scaling for " + country.name
+                                + " - zero/missing official population. Using aggregated pop as base.");
+                     }
                     applyScalingAndInternetPop(country, 1.0, penetrationRate);
                     continue;
                 }
-                long currentAggregatedTotal = sumCurrentPopulation(country);
+                
                 if (currentAggregatedTotal <= 0) {
                     logger.warning("Warning: Skipping scaling for country " + country.name
-                            + " - zero current aggregated population.");
+                            + " - zero current aggregated population. Cannot scale.");
                     applyScalingAndInternetPop(country, 1.0, penetrationRate);
                     continue;
                 }
@@ -932,10 +928,12 @@ public class FileBasedDynamicBuilder {
         if (leafNode == null || !leafNode.children.isEmpty() || leafNode.aggregatedPopulation <= threshold) {
             return false;
         }
-        if (leafNode.bounds == null || !leafNode.bounds.isValid()) {
-            logger.warning("Warning: Cannot expand leaf node " + leafNode.name + " - invalid bounds.");
+        
+        if (leafNode.bounds == null || leafNode.bounds.getBottomLeft() == null) {
+            logger.warning("Warning: Cannot expand leaf node " + leafNode.name + " - invalid/uninitialized bounds.");
             return false;
         }
+        
         long parentPop = leafNode.aggregatedPopulation;
         long parentInternetPop = leafNode.internetPopulation;
         int numChildren;
@@ -944,19 +942,27 @@ public class FileBasedDynamicBuilder {
         } else {
             numChildren = (int) Math.max(2, (parentPop + threshold - 1) / threshold);
         }
+
         int gridCols = (int) Math.ceil(Math.sqrt(numChildren));
         int gridRows = (int) Math.ceil((double) numChildren / gridCols);
-        double totalLatSpan = leafNode.bounds.maxLat - leafNode.bounds.minLat;
-        double totalLonSpan = leafNode.bounds.maxLon - leafNode.bounds.minLon;
+
+        double startLat = leafNode.bounds.getBottomLeft().getY();
+        double totalLatSpan = leafNode.bounds.getHeight();
         double cellHeight = (gridRows > 0 && totalLatSpan > 1e-9) ? totalLatSpan / gridRows : 0;
+
+        double startLon = leafNode.bounds.getBottomLeft().getX(); 
+        double totalLonSpan = leafNode.bounds.getWidth(); // Wrap-aware
         double cellWidth = (gridCols > 0 && totalLonSpan > 1e-9) ? totalLonSpan / gridCols : 0;
+        
         long remainingPop = parentPop;
         long popSumCheck = 0;
         long internetPopSumCheck = 0;
+        
         for (int i = 0; i < numChildren; i++) {
             String childName = leafNode.name + " part " + (i + 1);
             int tempChildId = -(Objects.hash(leafNode.geonameId, childName));
             TreeNode childNode = new TreeNode(tempChildId, childName, artificialChildType, leafNode.code, "ARTIFICIAL");
+            
             long childPop;
             if (distributeEqually) {
                 childPop = parentPop / numChildren + (i < parentPop % numChildren ? 1 : 0);
@@ -977,26 +983,29 @@ public class FileBasedDynamicBuilder {
             }
             childNode.internetPopulation = Math.min(childPop, Math.max(0, childInternetPop));
             internetPopSumCheck += childNode.internetPopulation;
+
             int r = i / gridCols;
             int c = i % gridCols;
-            BoundingBox estimatedBounds = new BoundingBox();
-            if (cellWidth > 0 || cellHeight > 0) {
-                estimatedBounds.minLat = leafNode.bounds.minLat + r * cellHeight;
-                estimatedBounds.minLon = leafNode.bounds.minLon + c * cellWidth;
-                estimatedBounds.maxLat = leafNode.bounds.minLat + (r + 1) * cellHeight;
-                estimatedBounds.maxLon = leafNode.bounds.minLon + (c + 1) * cellWidth;
-                estimatedBounds.minLat = Math.max(estimatedBounds.minLat, leafNode.bounds.minLat);
-                estimatedBounds.minLon = Math.max(estimatedBounds.minLon, leafNode.bounds.minLon);
-                estimatedBounds.maxLat = Math.min(estimatedBounds.maxLat, leafNode.bounds.maxLat);
-                estimatedBounds.maxLon = Math.min(estimatedBounds.maxLon, leafNode.bounds.maxLon);
-                if (estimatedBounds.maxLat < estimatedBounds.minLat)
-                    estimatedBounds.maxLat = estimatedBounds.minLat;
-                if (estimatedBounds.maxLon < estimatedBounds.minLon)
-                    estimatedBounds.maxLon = estimatedBounds.minLon;
+
+            double newMinLat = startLat + r * cellHeight;
+            double newMaxLat = startLat + (r + 1) * cellHeight;
+            
+            double newMinLon = normalizeLongitude(startLon + c * cellWidth);
+            double newMaxLon = normalizeLongitude(startLon + (c + 1) * cellWidth);
+
+            newMinLat = Math.max(newMinLat, leafNode.bounds.getBottomLeft().getY());
+            newMaxLat = Math.min(newMaxLat, leafNode.bounds.getTopRight().getY());
+            if (newMaxLat < newMinLat) newMaxLat = newMinLat;
+                
+            if (Math.abs(newMinLon - newMaxLon) > 359.999) {
+                 childNode.bounds = new Region(leafNode.bounds);
+            } else if (newMinLon == 180.0 && newMaxLon == -180.0) {
+                 newMaxLon = 180.0; 
+                 childNode.bounds = new Region(new Location(newMinLon, newMinLat, 0), new Location(newMaxLon, newMaxLat, 0));
             } else {
-                estimatedBounds.extend(leafNode.bounds);
+                 childNode.bounds = new Region(new Location(newMinLon, newMinLat, 0), new Location(newMaxLon, newMaxLat, 0));
             }
-            childNode.bounds = estimatedBounds.isValid() ? estimatedBounds : leafNode.bounds;
+
             leafNode.addChild(childNode);
         }
         if (popSumCheck != parentPop) {
@@ -1068,16 +1077,18 @@ public class FileBasedDynamicBuilder {
         return totalInternetPopulation;
     }
 
-    BoundingBox finalAggregateBounds(TreeNode node) {
+    Region finalAggregateBounds(TreeNode node) {
         if (node == null)
-            return new BoundingBox();
+            return new Region();
+        
         if (node.children.isEmpty()) {
-            return node.bounds != null ? node.bounds : new BoundingBox();
+            return node.bounds != null && node.bounds.getBottomLeft() != null ? node.bounds : new Region();
         }
-        BoundingBox calculatedBounds = new BoundingBox();
+
+        Region calculatedBounds = new Region();
         for (TreeNode child : node.children) {
-            BoundingBox childBounds = finalAggregateBounds(child);
-            calculatedBounds.extend(childBounds);
+            Region childBounds = finalAggregateBounds(child);
+            calculatedBounds.expand(childBounds); 
         }
         node.bounds = calculatedBounds;
         return calculatedBounds;
@@ -1085,35 +1096,23 @@ public class FileBasedDynamicBuilder {
 
     // --- File Download and Extraction Logic ---
 
-    /**
-     * Checks if required GeoNames data files exist in the resources directory.
-     * If a file is missing, attempts to download it from the official GeoNames
-     * source.
-     * * @param resourcesDirName The name of the resources directory.
-     * @return true if all required files are present or successfully downloaded,
-     * false otherwise.
-     */
     private boolean ensureDataFilesExist(String resourcesDirName) {
         logger.info("\n--- Checking for required GeoNames data files ---");
 
-        // Create the resources directory if it doesn't exist
         File resourcesDir = new File(resourcesDirName);
         if (!resourcesDir.exists()) {
             logger.info("Creating directory: " + resourcesDir.getAbsolutePath());
             if (!resourcesDir.mkdirs()) {
                 logger.severe("Error: Failed to create resources directory: " + resourcesDir.getAbsolutePath());
-                return false; // Cannot proceed without resources directory
+                return false;
             }
         }
 
-        // Define required files, their URLs, and if they are zipped
-        // Structure: { Filename, URL, IsZipped, ZipEntryName (if zipped) }
         String[][] requiredFiles = {
                 { "allCountries.txt", GEONAMES_BASE_URL + "allCountries.zip", "true", "allCountries.txt" },
                 { "admin1CodesASCII.txt", GEONAMES_BASE_URL + "admin1CodesASCII.txt", "false", null },
                 { "admin2Codes.txt", GEONAMES_BASE_URL + "admin2Codes.txt", "false", null },
                 { "countryInfo.txt", GEONAMES_BASE_URL + "countryInfo.txt", "false", null }
-                // Note: internet_penetration_iso2.csv is assumed to be provided manually
         };
 
         boolean allFilesOk = true;
@@ -1129,14 +1128,13 @@ public class FileBasedDynamicBuilder {
                 boolean success = downloadAndExtractFile(fileUrl, destinationPath, isZipped, zipEntryName);
                 if (!success) {
                     logger.severe("Failed to download or extract: " + fileName);
-                    allFilesOk = false; // Mark as failure but continue checking other files
+                    allFilesOk = false;
                 }
             } else {
                 logger.info("File found: " + destinationPath);
             }
         }
 
-        // Final check for the manually provided CSV file
         Path penetrationPath = Paths.get(resourcesDirName, "internet_penetration_iso2.csv");
         if (!Files.exists(penetrationPath)) {
             logger.severe("Error: Required file internet_penetration_iso2.csv not found in " + resourcesDirName);
@@ -1152,31 +1150,16 @@ public class FileBasedDynamicBuilder {
         return allFilesOk;
     }
 
-    /**
-     * Downloads a file from a URL, optionally extracting a specific entry if it's a
-     * zip file.
-     * * @param fileUrl         URL to download from.
-     * @param destinationPath Path where the final file should be saved.
-     * @param isZipped        True if the URL points to a zip file.
-     * @param zipEntryName    The name of the file to extract from the zip (required
-     * if isZipped is true).
-     * @return true if the file was successfully downloaded/extracted, false
-     * otherwise.
-     */
     private boolean downloadAndExtractFile(String fileUrl, Path destinationPath, boolean isZipped,
             String zipEntryName) {
         HttpURLConnection connection = null;
         InputStream inputStream = null;
-        Path tempZipPath = null; // Path for temporary zip file download
+        Path tempZipPath = null; 
 
         try {
             URL url = new URL(fileUrl);
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
-            // Optional: Set timeouts
-            // connection.setConnectTimeout(15000); // 15 seconds
-            // connection.setReadTimeout(30000); // 30 seconds
-
             int responseCode = connection.getResponseCode();
 
             if (responseCode == HttpURLConnection.HTTP_OK) {
@@ -1187,21 +1170,18 @@ public class FileBasedDynamicBuilder {
                         fileSize > 0 ? String.format("%,d bytes", fileSize) : "Unknown"));
 
                 if (isZipped) {
-                    // Download zip to a temporary file first
                     tempZipPath = Files.createTempFile("geonames_", ".zip");
                     Files.copy(inputStream, tempZipPath, StandardCopyOption.REPLACE_EXISTING);
-                    inputStream.close(); // Close stream after copy
+                    inputStream.close(); 
 
                     logger.info("  Extracting " + zipEntryName + " from " + tempZipPath.getFileName() + "...");
-                    // Extract the required entry from the temporary zip file
                     try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(tempZipPath))) {
                         ZipEntry entry;
                         boolean entryFound = false;
                         while ((entry = zis.getNextEntry()) != null) {
                             if (entry.getName().equals(zipEntryName)) {
-                                // Found the target entry, extract it to the final destination
                                 try (OutputStream fos = new FileOutputStream(destinationPath.toFile())) {
-                                    byte[] buffer = new byte[8192]; // 8KB buffer
+                                    byte[] buffer = new byte[8192]; 
                                     int len;
                                     while ((len = zis.read(buffer)) > 0) {
                                         fos.write(buffer, 0, len);
@@ -1209,9 +1189,9 @@ public class FileBasedDynamicBuilder {
                                 }
                                 logger.info("  Successfully extracted to " + destinationPath);
                                 entryFound = true;
-                                break; // Stop after finding the entry
+                                break; 
                             }
-                            zis.closeEntry(); // Close current entry
+                            zis.closeEntry(); 
                         }
                         if (!entryFound) {
                             logger.severe(
@@ -1220,11 +1200,10 @@ public class FileBasedDynamicBuilder {
                         }
                     }
                 } else {
-                    // Download non-zip file directly to destination
                     Files.copy(inputStream, destinationPath, StandardCopyOption.REPLACE_EXISTING);
                     logger.info("  Successfully downloaded to " + destinationPath);
                 }
-                return true; // Success
+                return true; 
 
             } else {
                 logger.severe("Error: Failed to download file. Server responded with code: " + responseCode
@@ -1236,7 +1215,6 @@ public class FileBasedDynamicBuilder {
             logger.log(Level.SEVERE, "Error during download/extraction for " + fileUrl, e);
             return false;
         } finally {
-            // Clean up resources
             if (inputStream != null) {
                 try {
                     inputStream.close();
@@ -1246,7 +1224,6 @@ public class FileBasedDynamicBuilder {
             if (connection != null) {
                 connection.disconnect();
             }
-            // Delete temporary zip file if created
             if (tempZipPath != null) {
                 try {
                     Files.deleteIfExists(tempZipPath);
@@ -1259,14 +1236,11 @@ public class FileBasedDynamicBuilder {
 
     // --- Main Execution Logic ---
     public static void main(String[] args) {
-        // Set a default log level for the builder utility itself
         CustomLogger.setGlobalLogLevel(Level.INFO, "geonames-builder");
 
-        // Define input/output directories relative to project root
         String resourcesDirName = "resources/world";
         String outputDirName = "output";
 
-        // Define filenames
         String geonamesFileName = "allCountries.txt";
         String admin1FileName = "admin1CodesASCII.txt";
         String admin2FileName = "admin2Codes.txt";
@@ -1275,7 +1249,6 @@ public class FileBasedDynamicBuilder {
         String outputTextFileName = "geonames_hierarchy_output.txt";
         String outputJsonFileName = "geonames_topology.json";
 
-        // Construct full paths relative to the execution directory
         String geonamesFilePath = resourcesDirName + File.separator + geonamesFileName;
         String admin1FilePath = resourcesDirName + File.separator + admin1FileName;
         String admin2FilePath = resourcesDirName + File.separator + admin2FileName;
@@ -1284,30 +1257,25 @@ public class FileBasedDynamicBuilder {
         String outputTextFilePath = outputDirName + File.separator + outputTextFileName;
         String outputJsonFilePath = outputDirName + File.separator + outputJsonFileName;
 
-        // --- Start Build Process ---
         FileBasedDynamicBuilder builder = new FileBasedDynamicBuilder();
         long overallStartTime = System.currentTimeMillis();
 
-        // --- Ensure Data Files Exist (Download if necessary) ---
         if (!builder.ensureDataFilesExist(resourcesDirName)) {
             logger.severe("Cannot proceed without required data files. Exiting.");
-            return; // Stop execution if files are missing and couldn't be downloaded
+            return; 
         }
 
-        // --- Load Reference Data ---
         logger.info("\n--- Loading Index & Data Files ---");
-        builder.loadCountryInfo(countryInfoFilePath);
+        builder.loadCountryInfo(countryInfoFilePath); // Modified
         builder.loadAdminCodes(admin1FilePath, builder.admin1CodeToIdMap, "ADM1");
         builder.loadAdminCodes(admin2FilePath, builder.admin2CodeToIdMap, "ADM2");
-        builder.loadInternetPenetration(internetPenetrationFilePath); // Load the manually provided file
-        // Basic check if maps loaded correctly
+        builder.loadInternetPenetration(internetPenetrationFilePath); 
         if (builder.countryToContinentMap.isEmpty() || builder.admin1CodeToIdMap.isEmpty()
                 || builder.admin2CodeToIdMap.isEmpty() || builder.countryIsoToPenetrationMap.isEmpty()) {
             logger.severe("Failed to load essential index/data files after checking/downloading. Exiting.");
             return;
         }
 
-        // --- Execute Processing Passes (1-10) ---
         logger.info("\n--- Pass 1: Processing " + geonamesFileName + " ---");
         long startTime = System.currentTimeMillis();
         builder.processAllCountriesPass1(geonamesFilePath);
@@ -1318,7 +1286,7 @@ public class FileBasedDynamicBuilder {
         }
         logger.info("\n--- Pass 2: Building Initial ADM1 Hierarchy ---");
         startTime = System.currentTimeMillis();
-        TreeNode root = builder.buildInitialAdm1Hierarchy();
+        TreeNode root = builder.buildInitialAdm1Hierarchy(); // Modified
         logger.info("Pass 2 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
         if (root == null || root.children.isEmpty()) {
             logger.severe("Initial hierarchy building failed. Exiting.");
@@ -1361,7 +1329,6 @@ public class FileBasedDynamicBuilder {
         builder.finalAggregateBounds(root);
         logger.info("Pass 10 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
 
-        // --- Write Output JSON ---
         logger.info("\n--- Writing Final Hierarchy to JSON File ---");
         logger.info("Output JSON file: " + outputJsonFilePath);
         if (root != null) {
@@ -1384,7 +1351,6 @@ public class FileBasedDynamicBuilder {
                 }
             } catch (IOException e) {
                 logger.log(Level.SEVERE, "Error writing hierarchy to JSON file", e);
-                // Fallback to Text Output
                 logger.info("\n--- JSON writing failed. Falling back to Text Output ---");
                 logger.info("Output Text file: " + outputTextFilePath);
                 try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(outputTextFilePath)))) {
@@ -1407,7 +1373,6 @@ public class FileBasedDynamicBuilder {
             }
         }
 
-        // --- Finish ---
         long overallEndTime = System.currentTimeMillis();
         logger.info("\nTotal execution time: " + (overallEndTime - overallStartTime) / 1000.0 + " seconds.");
     }
