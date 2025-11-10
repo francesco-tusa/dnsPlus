@@ -245,11 +245,12 @@ public class Region extends BaseRegion {
             return "[]";
         }
         // Use the static final formatter to improve performance ---
+        // print latitude first
         return String.format("[%s,%s:%s,%s]", 
-                             df.format(bottomLeft.getX()), 
                              df.format(bottomLeft.getY()), 
-                             df.format(topRight.getX()), 
-                             df.format(topRight.getY()));
+                             df.format(bottomLeft.getX()), 
+                             df.format(topRight.getY()), 
+                             df.format(topRight.getX()));
     }
     @Override
     public String toString() {

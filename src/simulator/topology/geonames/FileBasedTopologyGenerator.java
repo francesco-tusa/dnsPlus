@@ -3,8 +3,6 @@ package simulator.topology.geonames;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-// import com.fasterxml.jackson.databind.JsonNode; // No longer used for DOM
-// import com.fasterxml.jackson.databind.ObjectMapper; // No longer used for DOM
 
 import simulator.regions.Region;
 import simulator.core.Location;
@@ -25,7 +23,7 @@ import java.util.logging.Logger;
 /**
  * Generator for building broker topologies based on a JSON file definition.
  * It now uses a BrokerFactory to remain agnostic of the specific broker implementation.
- * * MODIFIED: This implementation now uses a streaming JsonParser to build the 
+ * This implementation uses a streaming JsonParser to build the 
  * topology, avoiding OutOfMemoryError for very large topology files.
  */
 public class FileBasedTopologyGenerator
@@ -192,16 +190,15 @@ public class FileBasedTopologyGenerator
                 p1 = region.getBottomLeft();
                 p2 = region.getTopRight();
             } else {
-                // --- THIS IS YOUR FIX ---
                 // Leaf has no region. Find the first valid parent region.
-                logger.finer("Leaf broker " + brokerName + " has null/missing bounds. Searching for parent region.");
+                logger.info("Leaf broker " + brokerName + " has null/missing bounds. Searching for parent region.");
                 Region parentRegion = findFirstValidParentRegion(parent); 
                 
                 if (parentRegion != null) {
                     // Found one! Use its region.
                     p1 = parentRegion.getBottomLeft();
                     p2 = parentRegion.getTopRight();
-                    logger.finer("  ... Found parent region: " + parentRegion.toShortString());
+                    logger.info("  ... Found parent region: " + parentRegion.toShortString() + " and assigned to " + brokerName);
                 } else {
                     // Last resort fallback (e.g., for the World node if it was a leaf)
                     logger.warning("Leaf broker " + brokerName + " AND its parents have no region. Using default [0,0,0].");
@@ -228,9 +225,8 @@ public class FileBasedTopologyGenerator
 
 
     /**
-     * NEW HELPER METHOD, as per user's suggestion.
      * Walks up the tree from a broker to find the first ancestor with a valid region.
-     * * @param broker The broker to start the search from (we search its parents).
+     * @param broker The broker to start the search from (we search its parents).
      * @return The first valid Region found, or null if no parents have a region.
      */
     private Region findFirstValidParentRegion(BrokerWithRegion broker) {

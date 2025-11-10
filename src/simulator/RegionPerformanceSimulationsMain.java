@@ -14,11 +14,11 @@ public class RegionPerformanceSimulationsMain {
 
     public static void main(String[] args) {
         // Run a smaller-scale performance test on a random topology
-        logger.info("--- Launching Region-Based Random Topology Simulation ---");
-        RandomTopologyRegionPerformanceSimulation.main(args);
+        //logger.info("--- Launching Region-Based Random Topology Simulation ---");
+        //RandomTopologyRegionPerformanceSimulation.main(args);
         
         // Uncomment the line below to run the full-scale, realistic performance test
-        // logger.info("--- Launching Region-Based GeoNames Topology Simulation ---");
-        // GeoNamesBasedRegionPerformanceSimulation.main(args);
+         logger.info("--- Launching Region-Based GeoNames Topology Simulation ---");
+         GeoNamesBasedRegionPerformanceSimulation.main(args);
     }
 }

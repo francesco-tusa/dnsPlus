@@ -2,51 +2,47 @@ package simulator.regions;
 
 import simulator.events.SimulationSubscription;
 
-/**
- * Represents a subscription to a geographical region.
- */
 public class SubscriptionWithRegion extends SimulationSubscription {
 
-    private final Region region;
+    private Region region;
 
     public SubscriptionWithRegion(Region region) {
         super();
-        if (region == null) {
-            throw new IllegalArgumentException("Region cannot be null for a SubscriptionWithRegion.");
-        }
         this.region = region;
     }
 
     /**
-     * Copy constructor.
+     * Copy constructor (deep copies the region but shares the metrics).
      */
-    public SubscriptionWithRegion(SubscriptionWithRegion s) {
+    public SubscriptionWithRegion(SubscriptionWithRegion other) {
         super();
-        this.region = new Region(s.getRegion());
-        this.hopCount = s.hopCount;
+        this.region = new Region(other.region);
+        super.metrics = other.metrics;
+    }
+
+    /**
+     * Creates a deep copy of this subscription, but shares the
+     * underlying EventMetrics object for tracking hops and path.
+     */
+    @Override
+    public SimulationSubscription getSubscription() {
+        // This now calls the modified copy constructor above
+        return new SubscriptionWithRegion(this);
     }
 
     public Region getRegion() {
         return region;
     }
 
-    @Override
-    public SimulationSubscription getSubscription() {
-
-        SubscriptionWithRegion copy = new SubscriptionWithRegion(this);
-
-        copy.setSource(this.getSource());
-        copy.hopCount = this.hopCount;
-        return copy;
+    public void setRegion(Region region) {
+        this.region = region;
     }
 
     @Override
     public String toDisplayString() {
-        return region.toShortString();
-    }
-
-    @Override
-    public String toString() {
-        return "region=" + region;
+        if (region != null) {
+            return region.toShortString();
+        }
+        return "N/A";
     }
 }

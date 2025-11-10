@@ -1,11 +1,30 @@
 package simulator.events;
 
-import publishing.Publication;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import simulator.core.TreeNode;
+import simulator.events.metrics.EventMetrics; // NEW IMPORT
 
-public abstract class SimulationPublication extends Publication {
-    private TreeNode source; // The immediate sender of this message copy
-    protected int hopCount = 0; // New metric: counts broker hops
+/**
+ * This class implements TrackableEvent and composes EventMetrics
+ * to handle shared hop counting and path tracking.
+ */
+public abstract class SimulationPublication implements TrackableEvent {
+
+    private static final AtomicLong nextId = new AtomicLong(0);
+    private final long id;
+    private TreeNode source;
+    
+    protected EventMetrics metrics;
+
+    public SimulationPublication() {
+        this.id = nextId.getAndIncrement();
+        this.metrics = new EventMetrics();
+    }
+
+    public long getId() {
+        return id;
+    }
 
     public TreeNode getSource() {
         return source;
@@ -15,20 +34,27 @@ public abstract class SimulationPublication extends Publication {
         this.source = source;
     }
     
-    /**
-     * Increments the hop count for this message.
-     */
-    public void incrementHops() {
-        hopCount++;
+    @Override
+    public int getHops() {
+        return this.metrics.getHops();
     }
 
-    /**
-     * Gets the total hop count for this message.
-     * @return The hop count.
-     */
-    public int getHopCount() {
-        return hopCount;
+    @Override
+    public void incrementHops() {
+        this.metrics.incrementHops();
+    }
+    
+    @Override
+    public void addBrokerToPath(String brokerName) {
+        this.metrics.addBrokerToPath(brokerName);
+    }
+
+    @Override
+    public List<String> getBrokerPath() {
+        return this.metrics.getBrokerPath();
     }
 
     public abstract SimulationPublication getPublication();
+
+    public abstract String toDisplayString();
 }

@@ -4,63 +4,36 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import simulator.core.TreeNode;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
+import simulator.events.TrackableEvent;
 import simulator.regions.BrokerWithRegion;
-import simulator.visualisation.TopologyVisualiser;
-
+import utils.CustomLogger;
 
 public abstract class SimulationBroker extends TreeNode {
 
+    private static final Logger logger = CustomLogger.getLogger(SimulationBroker.class.getName());
+
     private final Map<TreeNode, SimulationSubscription> subscriptionsTable = new HashMap<>();
     
-    // Store hop counts for ALL processed messages
-    private final List<Integer> allProcessedSubscriptionHops = new ArrayList<>();
-    private final List<Integer> allProcessedPublicationHops = new ArrayList<>();
+    // A simple, efficient counter for all processing events
+    protected long totalSubscriptionProcessingEvents = 0;
     
-    // Store the table size for each publication processing event
     private final List<Long> publicationProcessingCosts = new ArrayList<>();
-
 
     public SimulationBroker(String name) {
         super(name);
     }
 
-    public abstract SimulationSubscription matchPublication(SimulationPublication p);
 
     public abstract void addSubscription(SimulationSubscription s);
 
+    public abstract SimulationSubscription matchPublication(SimulationPublication p);
+
     protected abstract void propagateSubscription(SimulationSubscription s);
-
-    public void processPublication(SimulationPublication p) {
-        p.incrementHops(); 
-        allProcessedPublicationHops.add(p.getHopCount());
-        
-        // Log the size of the table that this publication must be processed against.
-        publicationProcessingCosts.add((long) getSubscriptionsTable().size());
-        
-        TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
-        if (visualizer != null && p.getSource() != null) {
-            boolean isUpward = (p.getSource() != getParentBroker());
-            visualizer.updatePublicationEdge(p.getSource().getName(), getName(), isUpward);
-        }
-        matchPublication(p);
-    }
-
-    public void processSubscription(SimulationSubscription s) {
-        s.incrementHops(); 
-        allProcessedSubscriptionHops.add(s.getHopCount()); 
-        
-        TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
-        if (visualizer != null && s.getSource() != null) {
-            boolean isUpward = getChildren().contains(s.getSource());
-            visualizer.updateSubscriptionEdge(s.getSource().getName(), getName(), isUpward);
-        }
-        
-        propagateSubscription(s);
-    }
 
 
     public BrokerWithRegion getParentBroker() {
@@ -71,24 +44,43 @@ public abstract class SimulationBroker extends TreeNode {
         return null;
     }
     
+    /**
+     * Processes a subscription or publication.
+     * This common helper now uses the TrackableEvent interface.
+     */
+    private void processEvent(TrackableEvent event, String brokerName) {
+        event.incrementHops();
+        event.addBrokerToPath(brokerName);
+    }
+
+    public void processSubscription(SimulationSubscription s) {
+        processEvent(s, this.getName());
+        this.totalSubscriptionProcessingEvents++;
+        
+        this.propagateSubscription(s);
+    }
+
+    public void processPublication(SimulationPublication p) {
+        processEvent(p, this.getName()); // Use the common helper
+        
+        long startTime = System.nanoTime();
+        this.matchPublication(p);
+        long endTime = System.nanoTime();
+        
+        this.publicationProcessingCosts.add(endTime - startTime);
+    }
+
     public Map<TreeNode, SimulationSubscription> getSubscriptionsTable() {
         return subscriptionsTable;
     }
 
-    public List<Integer> getAllProcessedSubscriptionHops() {
-        return allProcessedSubscriptionHops;
+    
+    public long getTotalSubscriptionProcessingEvents() {
+        return this.totalSubscriptionProcessingEvents;
     }
 
-    public List<Integer> getAllProcessedPublicationHops() {
-        return allProcessedPublicationHops;
-    }
-    
-    /**
-     * Gets the list of subscription table sizes for every publication processed.
-     * @return A list of table size (long) data points.
-     */
+
     public List<Long> getPublicationProcessingCosts() {
         return publicationProcessingCosts;
     }
 }
-

@@ -2,7 +2,9 @@ package simulator.simulations.performance;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger; // Import Logger
 import java.util.stream.Collectors;
 import simulator.core.Location;
@@ -13,6 +15,9 @@ import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
+import simulator.topology.geonames.FileBasedTopologyConfiguration;
+import simulator.topology.random.RegionRandomTopologyConfiguration;
+import utils.CsvMetricWriter;
 import utils.CustomLogger; // Import CustomLogger
 
 public abstract class AbstractRegionPerformanceSimulation<
@@ -69,11 +74,45 @@ public abstract class AbstractRegionPerformanceSimulation<
     @Override
     protected void setupSimulation() {
         super.setupSimulation(); // This logs the base parameters (total subs, replicas)
-        
-        // --- Log key parameters for context ---
-        logger.info(String.format("Region Sim Setup: Subscription Region Size=%.2f, Remote Interest Probability=%.2f", 
-                                  subscriptionRegionSize, remoteInterestProbability));
+
+        // --- Log all parameters in a consolidated block ---
+        logSimulationParameters();
     }
+
+
+    /**
+     * Logs all key simulation parameters in a single, consolidated block.
+     */
+    private void logSimulationParameters() {
+        logger.info("\n--- Simulation Run Parameters (Run ID: " + this.simulationTimestamp + ") ---");
+        
+        // --- Client Configuration ---
+        logger.info("  Client Configuration:");
+        logger.info(String.format("    - Publisher Replicas: %d", this.numberOfReplicas));
+        logger.info(String.format("    - Subscribers / Replica: %d", this.subscribersPerReplica));
+        logger.info(String.format("    - Total Subscribers: %d", this.totalSubscribers));
+        
+        // --- Region Strategy Configuration ---
+        logger.info("  Region Strategy:");
+        logger.info(String.format("    - Subscription Region Size: %.2f", this.subscriptionRegionSize));
+        logger.info(String.format("    - Remote Interest Probability: %.2f", this.remoteInterestProbability));
+
+        // --- Topology Configuration ---
+        logger.info("  Topology Configuration:");
+        if (this.topologyConfig instanceof RegionRandomTopologyConfiguration config) {
+            logger.info(String.format("    - Type: Random"));
+            logger.info(String.format("    - Tree Depth: %d", config.getTreeDepth()));
+            logger.info(String.format("    - Max Branching: %d", config.getMaxBranchingFactor()));
+            logger.info(String.format("    - Region Count: %d", config.getNumRegions()));
+        } else if (this.topologyConfig instanceof FileBasedTopologyConfiguration config) {
+            logger.info(String.format("    - Type: File-Based"));
+            logger.info(String.format("    - Source File: %s", config.getTopologyFilePath()));
+        } else {
+            logger.info("    - Type: Unknown");
+        }
+        logger.info("--- End of Simulation Parameters ---");
+    }
+
 
     @Override
     protected void executeScenarios() {
@@ -195,6 +234,36 @@ public abstract class AbstractRegionPerformanceSimulation<
     protected void collectAndPrintMetrics() {
         super.collectAndPrintMetrics(); // This prints all the base metrics
 
+        List<Integer> finalSubscriptionHops = new ArrayList<>();
+        List<Map<String, Object>> subscriptionPathData = new ArrayList<>();
+
+        logger.info("\n--- Final Subscription Path Metrics ---");
+
+        // We iterate over the master list of ORIGINAL subscriptions
+        for (SubscriptionWithRegion sub : allSubscriptions) {
+            if (sub != null) {
+                // We get the final hop count from the original object's
+                // shared hopMetric array.
+                finalSubscriptionHops.add(sub.getHops());
+                
+                Map<String, Object> row = new HashMap<>();
+                row.put("subscription_id", sub.getId());
+                row.put("source_name", (sub.getSource() != null) ? sub.getSource().getName() : "N/A");
+                row.put("hop_count", sub.getHops());
+                row.put("subscription_region", (sub.getRegion() != null) ? sub.getRegion().toShortString() : "N/A");
+                row.put("broker_path", String.join(" -> ", sub.getBrokerPath()));
+
+                row.put("broker_region_path", "N/A");
+
+                subscriptionPathData.add(row);
+            }
+        }
+        
+        logger.info(String.format("  ... Processed %d subscription paths for CSV output.", finalSubscriptionHops.size()));
+        
+        // Now, we print the stats for this list
+        printStats("Final Subscription Hops (Network Load)", finalSubscriptionHops);
+
         // --- Print region-specific and ground truth metrics ---
         logger.info("\n--- Region-Specific Delivery Metrics ---");
         logger.info(String.format("Region Sim Setup: Subscription Region Size=%.2f, Remote Interest Probability=%.2f", 
@@ -218,6 +287,26 @@ public abstract class AbstractRegionPerformanceSimulation<
                 logger.info(String.format("Average Notifications per Matched Subscriber: %.2f (%d / %d)", 
                                           avgPubsPerMatchedSub, successfulNotifications, matchedSubscribers));
             }
+        }
+
+        if (enableCsvOutput) {
+            String timestamp = this.simulationTimestamp; 
+            String outputDir = "output/metrics/";
+            logger.info("\n--- Writing subscription metrics to CSV (Run ID: " + timestamp + ") ---");
+            
+            // --- Write the detailed subscription paths CSV ---
+            String pathCsvPath = outputDir + timestamp + "_subscription_paths.csv";
+            logger.info("  ... Writing detailed subscription paths to " + pathCsvPath.replace("output/metrics/", ""));
+            CsvMetricWriter.writeMapListToCsv(
+                pathCsvPath,
+                new String[]{"subscription_id", "source_name", "hop_count", "subscription_region", "broker_path", "broker_region_path"},
+                subscriptionPathData
+            );
+
+            CsvMetricWriter.writeListToCsv(
+                outputDir + timestamp + "_subscription_hops.csv", 
+                "hop_count", 
+                finalSubscriptionHops);
         }
     }
 }

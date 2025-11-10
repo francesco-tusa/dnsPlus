@@ -18,6 +18,7 @@ import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
+import simulator.events.SimulationPublication; // NEW: Import for new logic
 import simulator.population.DataCenterPublishersPlacement;
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
@@ -391,6 +392,11 @@ public abstract class AbstractPerformanceSimulation<
         return leaves;
     }
     
+    /**
+     * This method is now responsible for collecting metrics from brokers and publishers.
+     * The collection of final subscription hops is handled by the subclass
+     * (AbstractRegionPerformanceSimulation) as it owns the 'allSubscriptions' list.
+     */
     protected void collectAndPrintMetrics() {
         logger.info("\n--- Simulation Metrics ---");
         long totalSubscriptionTableEntries = 0, totalRegionUpdates = 0;
@@ -398,9 +404,13 @@ public abstract class AbstractPerformanceSimulation<
         long totalPublicationsSent = 0;
         long totalPropagationFilterExpansions = 0; 
         long totalMainTableExpansions = 0; 
+
+        // A simple counter for the total CPU events
+        long totalSubscriptionProcessingEvents = 0;
         
-        List<Integer> allSubscriptionHops = new ArrayList<>();
-        List<Integer> allPublicationHops = new ArrayList<>();
+        // A new list to store the final hop count of each unique publication
+        List<Integer> finalPublicationHops = new ArrayList<>();
+        
         List<Integer> allDeliveredPubHops = new ArrayList<>();
         List<Long> allPublicationProcessingCosts = new ArrayList<>();
 
@@ -423,8 +433,9 @@ public abstract class AbstractPerformanceSimulation<
                 totalMainTableExpansions += br.getNumMainTableExpansions(); 
             }
             
-            allSubscriptionHops.addAll(broker.getAllProcessedSubscriptionHops());
-            allPublicationHops.addAll(broker.getAllProcessedPublicationHops());
+            totalSubscriptionProcessingEvents += broker.getTotalSubscriptionProcessingEvents();
+            
+            // This list is now only for CPU cost
             allPublicationProcessingCosts.addAll(broker.getPublicationProcessingCosts());
         }
         
@@ -433,19 +444,28 @@ public abstract class AbstractPerformanceSimulation<
             successfulNotifications += subscriber.getnPublications();
             allDeliveredPubHops.addAll(subscriber.getReceivedPublicationHops());
         }
+        
         for (PublisherWithLocation publisher : allPublishers) {
             totalPublicationsSent += publisher.getnPublications();
+            
+            // --- Get final hop counts from original publications ---
+            for (SimulationPublication pub : publisher.getSentPublications()) {
+                finalPublicationHops.add(pub.getHops());
+            }
         }
 
-        logger.info("--- System Overhead Metrics ---");
+        logger.info("\n--- System Overhead Metrics ---");
         logger.info("Total Subscription Table Entries Created (Storage Cost): " + totalSubscriptionTableEntries);
         logger.info("Total Region Boundary Updates (Topology CPU Cost): " + totalRegionUpdates);
         
         logger.info("Total Main Subscription Table Expansions (CPU Cost): " + totalMainTableExpansions);
         logger.info("Total Propagation Filter Expansions (CPU Cost): " + totalPropagationFilterExpansions);
+        
+        logger.info("Total Subscription Processing Events (CPU Cost): " + totalSubscriptionProcessingEvents);
 
-        printStats("All Subscription Hops (Network Load)", allSubscriptionHops);
-        printStats("All Publication Hops (Network Load)", allPublicationHops);
+        // This will now have N=20 (or however many pubs were sent)
+        printStats("Final Publication Hops (Network Load)", finalPublicationHops);
+        
         printStatsLong("Publication Processing Cost (CPU Load)", allPublicationProcessingCosts);
         
         logger.info("\n--- Service Delivery Metrics ---");
@@ -454,7 +474,9 @@ public abstract class AbstractPerformanceSimulation<
         printStats("Delivered Publication Hops (Path Length)", allDeliveredPubHops);
         
         if (enableCsvOutput) {
-            writeMetricsToCsv(allSubscriptionHops, allPublicationHops, allPublicationProcessingCosts, allDeliveredPubHops);
+            // Pass an empty list for subHops. The subclass (AbstractRegionPerformanceSimulation)
+            // is responsible for collecting and writing the final subscription hops.
+            writeMetricsToCsv(new ArrayList<>(), finalPublicationHops, allPublicationProcessingCosts, allDeliveredPubHops);
         }
     }
     
@@ -463,15 +485,19 @@ public abstract class AbstractPerformanceSimulation<
         String outputDir = "output/metrics/";
         logger.info("\n--- Writing raw metrics to CSV files (Run ID: " + timestamp + ") ---");
         
-        CsvMetricWriter.writeListToCsv(
-            outputDir + timestamp + "_subscription_hops.csv", 
-            "hop_count", 
-            subHops);
+        if (subHops.isEmpty()) {
+             logger.warning("  ... Skipping subscription_hops.csv (data will be written by subclass).");
+        } else {
+            CsvMetricWriter.writeListToCsv(
+                outputDir + timestamp + "_subscription_hops.csv", 
+                "hop_count", 
+                subHops);
+        }
             
         CsvMetricWriter.writeListToCsv(
             outputDir + timestamp + "_publication_hops.csv", 
             "hop_count", 
-            pubHops);
+            pubHops); // This now correctly receives finalPublicationHops
             
         CsvMetricWriter.writeListToCsv(
             outputDir + timestamp + "_publication_processing_cost.csv", 

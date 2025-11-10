@@ -1,11 +1,14 @@
 package simulator.events;
 
 import simulator.core.Location;
-import simulator.core.TreeNode;
+
 
 public class PublicationWithLocation extends SimulationPublication {
     private final Location location;
 
+    /**
+     * Public constructor for creating the original event.
+     */
     public PublicationWithLocation(Location location) {
         this.location = location;
     }
@@ -15,10 +18,9 @@ public class PublicationWithLocation extends SimulationPublication {
      * @param p The publication to copy.
      */
     private PublicationWithLocation(PublicationWithLocation p) {
-        // Copy the immediate source
-        setSource(p.getSource() != null ? new TreeNode(p.getSource()) : null);
+        setSource(p.getSource());
         this.location = new Location(p.location);
-        this.hopCount = p.hopCount; // Copy the hop count
+        this.metrics = p.metrics;
     }
     
     public Location getLocation() {
@@ -29,6 +31,14 @@ public class PublicationWithLocation extends SimulationPublication {
     public String toString() {
         // Now includes the original source for better logging
         return "[location=" + location + ", source=" + getSource() + "]";
+    }
+    
+    @Override
+    public String toDisplayString() {
+        if (location != null) {
+            return location.toShortString();
+        }
+        return "N/A_Location";
     }
 
     @Override

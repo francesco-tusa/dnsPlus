@@ -1,19 +1,29 @@
 package simulator.events;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import java.util.List; // NEW IMPORT
+import java.util.concurrent.atomic.AtomicLong;
 import simulator.core.TreeNode;
+import simulator.events.metrics.EventMetrics; // NEW IMPORT
 
 /**
- * Represents a generic subscription in the simulation.
+ * MODIFIED: This class now implements TrackableEvent and composes EventMetrics
+ * to handle shared hop counting and path tracking.
  */
-public class SimulationSubscription {
+public abstract class SimulationSubscription implements TrackableEvent {
+
+    private static final AtomicLong nextId = new AtomicLong(0);
+    private final long id;
     private TreeNode source;
-    protected int hopCount = 0; // New metric: counts broker hops
+    
+    protected EventMetrics metrics;
 
     public SimulationSubscription() {
-        this.source = null;
+        this.id = nextId.getAndIncrement();
+        this.metrics = new EventMetrics();
+    }
+
+    public long getId() {
+        return id;
     }
 
     public TreeNode getSource() {
@@ -24,39 +34,27 @@ public class SimulationSubscription {
         this.source = source;
     }
     
-    /**
-     * Increments the hop count for this message.
-     */
+    @Override
+    public int getHops() {
+        return this.metrics.getHops();
+    }
+
+    @Override
     public void incrementHops() {
-        hopCount++;
+        this.metrics.incrementHops();
+    }
+    
+    @Override
+    public void addBrokerToPath(String brokerName) {
+        this.metrics.addBrokerToPath(brokerName);
     }
 
-    /**
-     * Gets the total hop count for this message.
-     * @return The hop count.
-     */
-    public int getHopCount() {
-        return hopCount;
+    @Override
+    public List<String> getBrokerPath() {
+        return this.metrics.getBrokerPath();
     }
 
-    /**
-     * A method to provide a consistent, short string representation for any subscription type.
-     * This will be overridden by subclasses to provide specific details.
-     * @return A string formatted for display in the visualiser.
-     */
-    public String toDisplayString() {
-        return ""; // Default implementation returns an empty string.
-    }
-
-
-    /**
-     * Creates a shallow copy of the subscription.
-     * Subclasses should override to copy their specific fields.
-     */
-    public SimulationSubscription getSubscription() {
-        SimulationSubscription copy = new SimulationSubscription();
-        copy.setSource(this.source);
-        copy.hopCount = this.hopCount; // Copy the hop count
-        return copy;
-    }
+    public abstract SimulationSubscription getSubscription();
+    
+    public abstract String toDisplayString();
 }
