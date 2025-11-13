@@ -18,8 +18,7 @@ import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
-import simulator.events.SimulationPublication;
-import simulator.events.TrackableEvent;
+import simulator.events.SimulationPublication; // NEW: Import for new logic
 import simulator.population.DataCenterPublishersPlacement;
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
@@ -49,6 +48,17 @@ public abstract class AbstractPerformanceSimulation<
     protected final long totalSubscribers;
     protected long successfulNotifications = 0;
     protected final boolean enableCsvOutput;
+    
+    protected List<Integer> finalPublicationHops = new ArrayList<>();
+    protected List<Long> allPublicationProcessingCosts = new ArrayList<>();
+    protected List<Integer> allDeliveredPubHops = new ArrayList<>();
+    protected long totalSubscriptionTableEntries = 0;
+    protected long totalRegionUpdates = 0;
+    protected long totalPublicationsSent = 0;
+    protected long totalPropagationFilterExpansions = 0;
+    protected long totalMainTableExpansions = 0;
+    protected long totalSubscriptionProcessingEvents = 0;
+
 
     public AbstractPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica, boolean enableCsvOutput) {
         if (numberOfReplicas <= 0) throw new IllegalArgumentException("Number of replicas must be positive.");
@@ -151,7 +161,7 @@ public abstract class AbstractPerformanceSimulation<
     }
 
 
-/**
+    /**
      * Helper class for the Plane Sweep algorithm.
      */
     private static class SweepEvent implements Comparable<SweepEvent> {
@@ -265,12 +275,11 @@ public abstract class AbstractPerformanceSimulation<
         return overlapCount;
     }
 
-
     /**
      * Traverses the broker topology and logs a summary of its structure,
      * including broker count, average fan-out, and sibling region overlap
      * per level, considering only broker-to-broker connections.
-     * Also sends Level 1 regions to the SimulationVisualizer.
+     * It sends Level 1 regions to the SimulationVisualiser.
      *
      * @param root The root broker of the topology.
      */
@@ -334,6 +343,7 @@ public abstract class AbstractPerformanceSimulation<
                 // Print details for Level 1 (Continents)
                 if (currentLevel == 1) {
                     logger.info("  --- Detailed Region Info for Level 1 (Continents) ---");
+
                     // Get the visualizer instance
                     SimulationVisualiser visualizer = SimulationVisualiser.getInstance();
                     
@@ -349,8 +359,11 @@ public abstract class AbstractPerformanceSimulation<
                                                   
                         // Send this region to the map
                         visualizer.updateRegion(broker.getName(), region);
+                        // ---
                     }
                     logger.info("  -----------------------------------------------------");
+
+                    visualizer.saveMapImage(this.simulationTimestamp);
                 }
                 
                 currentLevel++;
@@ -401,47 +414,26 @@ public abstract class AbstractPerformanceSimulation<
     }
     
     
-
-     /**
-     * NEW REFACTORED HELPER METHOD
-     * Generates a combined path string (e.g., "BrokerName [Region] -> ...")
-     * for any event that implements TrackableEvent.
-     * @param event The subscription or publication to process.
-     * @return A formatted path string.
+    /**
+     * This method is now responsible for collecting metrics from brokers and publishers.
+     * The collection of final subscription hops is handled by the subclass
+     * (AbstractRegionPerformanceSimulation) as it owns the 'allSubscriptions' list.
      */
-    protected String getCombinedPathString(TrackableEvent event) {
-        List<String> pathNames = event.getBrokerPath();
-        List<String> pathRegions = event.getBrokerRegionPath();
-        List<String> combinedPath = new ArrayList<>();
-
-        // Zip the two lists together
-        int size = Math.min(pathNames.size(), pathRegions.size());
-        for (int k = 0; k < size; k++) {
-            // Format: BrokerName [Region]
-            combinedPath.add(pathNames.get(k) + " " + pathRegions.get(k));
-        }
-        
-        return String.join(" -> ", combinedPath);
-    }
-
-    
     protected void collectAndPrintMetrics() {
         logger.info("\n--- Simulation Metrics ---");
-        long totalSubscriptionTableEntries = 0, totalRegionUpdates = 0;
+        // --- MODIFIED: Clear lists and reset counters for this run ---
+        totalSubscriptionTableEntries = 0;
+        totalRegionUpdates = 0;
+        totalPublicationsSent = 0;
+        totalPropagationFilterExpansions = 0;
+        totalMainTableExpansions = 0;
+        totalSubscriptionProcessingEvents = 0;
         
-        long totalPublicationsSent = 0;
-        long totalPropagationFilterExpansions = 0; 
-        long totalMainTableExpansions = 0; 
-
-        long totalSubscriptionProcessingEvents = 0;
-        
-        List<Integer> finalPublicationHops = new ArrayList<>();
-        
-        // List to hold data for publication_paths.csv
-        List<Map<String, Object>> publicationPathData = new ArrayList<>();
-
-        List<Integer> allDeliveredPubHops = new ArrayList<>();
-        List<Long> allPublicationProcessingCosts = new ArrayList<>();
+        finalPublicationHops.clear();
+        allDeliveredPubHops.clear();
+        allPublicationProcessingCosts.clear();
+        successfulNotifications = 0;
+        // ---
 
         List<SimulationBroker> allBrokers = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
@@ -463,10 +455,13 @@ public abstract class AbstractPerformanceSimulation<
             }
             
             totalSubscriptionProcessingEvents += broker.getTotalSubscriptionProcessingEvents();
+            
+            // This list is now only for CPU cost
             allPublicationProcessingCosts.addAll(broker.getPublicationProcessingCosts());
         }
         
         for (SubscriberWithLocation subscriber : allSubscribers) {
+            // --- Capture 'successfulNotifications' here ---
             successfulNotifications += subscriber.getnPublications();
             allDeliveredPubHops.addAll(subscriber.getReceivedPublicationHops());
         }
@@ -474,65 +469,74 @@ public abstract class AbstractPerformanceSimulation<
         for (PublisherWithLocation publisher : allPublishers) {
             totalPublicationsSent += publisher.getnPublications();
             
-            // Get final hop counts AND PATHS from original publications
+            // --- Get final hop counts from original publications ---
             for (SimulationPublication pub : publisher.getSentPublications()) {
                 finalPublicationHops.add(pub.getHops());
-
-                Map<String, Object> row = new HashMap<>();
-                row.put("publication_id", pub.getId());
-                row.put("source_name", (pub.getSource() != null) ? pub.getSource().getName() : "N/A");
-                row.put("hop_count", pub.getHops());
-                row.put("publication_location", pub.toDisplayString());
-                row.put("broker_path", getCombinedPathString(pub)); 
-                publicationPathData.add(row);
             }
         }
 
         logger.info("\n--- System Overhead Metrics ---");
         logger.info("Total Subscription Table Entries Created (Storage Cost): " + totalSubscriptionTableEntries);
         logger.info("Total Region Boundary Updates (Topology CPU Cost): " + totalRegionUpdates);
+        
         logger.info("Total Main Subscription Table Expansions (CPU Cost): " + totalMainTableExpansions);
         logger.info("Total Propagation Filter Expansions (CPU Cost): " + totalPropagationFilterExpansions);
+        
         logger.info("Total Subscription Processing Events (CPU Cost): " + totalSubscriptionProcessingEvents);
+
+        // This will now have N=20 (or however many pubs were sent)
         printStats("Final Publication Hops (Network Load)", finalPublicationHops);
+        
         printStatsLong("Publication Processing Cost (CPU Load)", allPublicationProcessingCosts);
         
         logger.info("\n--- Service Delivery Metrics ---");
         logger.info("Total Publications Sent by all Replicas: " + totalPublicationsSent);
         logger.info("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
         printStats("Delivered Publication Hops (Path Length)", allDeliveredPubHops);
+    }
+    
+
+    protected void writeMetricsToCsv(List<Integer> subHops, List<Map<String, Object>> subPathData, List<Integer> pubHops, List<Long> pubCosts, List<Integer> deliveredHops) {
+        String timestamp = this.simulationTimestamp; 
+        // --- MODIFIED: Create a run-specific subfolder for metrics ---
+        String outputDir = "output/metrics/" + timestamp + "/";
+        // ---
+        logger.info("\n--- Writing raw metrics to CSV files (Run ID: " + timestamp + ") ---");
         
-        if (enableCsvOutput) {
-            String timestamp = this.simulationTimestamp; 
-            String outputDir = "output/metrics/";
-            logger.info("\n--- Writing raw metrics to CSV files (Run ID: " + timestamp + ") ---");
-            
-            logger.warning("  ... Skipping subscription_hops.csv (data will be written by subclass in AbstractRegionPerformanceSimulation).");
-                
-            // Correct the variable names to match those defined at the start of this method.
+        // --- MODIFIED: Check for null and skip warning ---
+        if (subHops != null && !subHops.isEmpty()) {
             CsvMetricWriter.writeListToCsv(
-                outputDir + timestamp + "_publication_hops.csv", 
+                outputDir + timestamp + "_subscription_hops.csv", 
                 "hop_count", 
-                finalPublicationHops); // FIX: Was pubHops
-                
-            CsvMetricWriter.writeListToCsv(
-                outputDir + timestamp + "_publication_processing_cost.csv", 
-                "processing_cost", 
-                allPublicationProcessingCosts); // FIX: Was pubCosts
-                
-            CsvMetricWriter.writeListToCsv(
-                outputDir + timestamp + "_delivered_publication_hops.csv", 
-                "hop_count", 
-                allDeliveredPubHops); // FIX: Was deliveredHops
-            
-            String pubPathCsvPath = outputDir + timestamp + "_publication_paths.csv";
-            logger.info("  ... Writing detailed publication paths to " + pubPathCsvPath.replace(outputDir, ""));
+                subHops);
+        }
+        
+        // --- ADDED: Write subscription path data if it exists ---
+        if (subPathData != null && !subPathData.isEmpty()) {
+            String pathCsvPath = outputDir + timestamp + "_subscription_paths.csv";
+            //logger.info("  ... Writing detailed subscription paths to " + pathCsvPath.replace("output/metrics/", ""));
             CsvMetricWriter.writeMapListToCsv(
-                pubPathCsvPath,
-                new String[]{"publication_id", "source_name", "hop_count", "publication_location", "broker_path"},
-                publicationPathData
+                pathCsvPath,
+                new String[]{"subscription_id", "source_name", "hop_count", "subscription_region", "broker_path"},
+                subPathData
             );
         }
+        // ---
+            
+        CsvMetricWriter.writeListToCsv(
+            outputDir + timestamp + "_publication_hops.csv", 
+            "hop_count", 
+            pubHops); // This now correctly receives finalPublicationHops
+            
+        CsvMetricWriter.writeListToCsv(
+            outputDir + timestamp + "_publication_processing_cost.csv", 
+            "processing_cost", 
+            pubCosts);
+            
+        CsvMetricWriter.writeListToCsv(
+            outputDir + timestamp + "_delivered_publication_hops.csv", 
+            "hop_count", 
+            deliveredHops);
     }
 
     

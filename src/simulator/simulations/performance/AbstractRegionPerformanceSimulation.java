@@ -17,8 +17,7 @@ import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
-import utils.CsvMetricWriter;
-import utils.CustomLogger; // Import CustomLogger
+import utils.CustomLogger;
 
 public abstract class AbstractRegionPerformanceSimulation<
     C extends TopologyConfiguration,
@@ -227,23 +226,18 @@ public abstract class AbstractRegionPerformanceSimulation<
             .collect(Collectors.toList());
     }
 
-    /**
-     * Adds region-specific and ground-truth metrics.
-     */
     @Override
     protected void collectAndPrintMetrics() {
-        super.collectAndPrintMetrics(); // This prints all the base metrics
+        // --- 1. Call parent to collect all base metrics ---
+        super.collectAndPrintMetrics(); 
 
+        // --- 2. Now, collect metrics SPECIFIC to this child class ---
         List<Integer> finalSubscriptionHops = new ArrayList<>();
         List<Map<String, Object>> subscriptionPathData = new ArrayList<>();
-
-        logger.info("\n--- Final Subscription Path Metrics ---");
 
         // We iterate over the master list of ORIGINAL subscriptions
         for (SubscriptionWithRegion sub : allSubscriptions) {
             if (sub != null) {
-                // We get the final hop count from the original object's
-                // shared hopMetric array.
                 finalSubscriptionHops.add(sub.getHops());
                 
                 Map<String, Object> row = new HashMap<>();
@@ -269,21 +263,18 @@ public abstract class AbstractRegionPerformanceSimulation<
             }
         }
         
-        logger.info(String.format("  ... Processed %d subscription paths for CSV output.", finalSubscriptionHops.size()));
+        // --- 3. Now, print ALL metrics (base metrics already printed by super) ---
         
-        // Now, we print the stats for this list
+        logger.info("\n--- Final Subscription Path Metrics ---");
+        logger.info(String.format("  ... Processed %d subscription paths for CSV output.", finalSubscriptionHops.size()));
         printStats("Final Subscription Hops (Network Load)", finalSubscriptionHops);
 
-        // --- Print region-specific and ground truth metrics ---
         logger.info("\n--- Region-Specific Delivery Metrics ---");
-
         logger.info("Ground Truth (Potential) Matches: " + this.groundTruthMatches);
-
         if (this.groundTruthMatches > 0) {
             double accuracy = (double) successfulNotifications / this.groundTruthMatches * 100.0;
             logger.info(String.format("Delivery Accuracy (Notifications / Ground Truth): %.2f%%", accuracy));
         }
-
         if (getTotalSubscribers() > 0) {
             long matchedSubscribers = allSubscribers.stream().filter(s -> s.getnPublications() > 0).count();
             double matchRate = (double) matchedSubscribers / getTotalSubscribers() * 100.0;
@@ -297,24 +288,17 @@ public abstract class AbstractRegionPerformanceSimulation<
             }
         }
 
+        // --- 4. Call the parent's CSV writer ONCE with ALL data ---
         if (enableCsvOutput) {
-            String timestamp = this.simulationTimestamp; 
-            String outputDir = "output/metrics/";
-            logger.info("\n--- Writing subscription metrics to CSV (Run ID: " + timestamp + ") ---");
-            
-            // --- Write the detailed subscription paths CSV ---
-            String pathCsvPath = outputDir + timestamp + "_subscription_paths.csv";
-            logger.info("  ... Writing detailed subscription paths to " + pathCsvPath.replace("output/metrics/", ""));
-            CsvMetricWriter.writeMapListToCsv(
-                pathCsvPath,
-                new String[]{"subscription_id", "source_name", "hop_count", "subscription_region", "broker_path"},
-                subscriptionPathData
+            logger.info("\n--- Writing all metrics to CSV (Run ID: " + this.simulationTimestamp + ") ---");
+            // Call the parent's protected method
+            writeMetricsToCsv(
+                finalSubscriptionHops,        // Child's data
+                subscriptionPathData,         // Child's data
+                finalPublicationHops,         // Parent's data (from protected field)
+                allPublicationProcessingCosts, // Parent's data (from protected field)
+                allDeliveredPubHops           // Parent's data (from protected field)
             );
-
-            CsvMetricWriter.writeListToCsv(
-                outputDir + timestamp + "_subscription_hops.csv", 
-                "hop_count", 
-                finalSubscriptionHops);
         }
     }
 }
