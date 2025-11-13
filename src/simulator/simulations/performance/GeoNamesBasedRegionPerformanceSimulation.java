@@ -1,11 +1,12 @@
 package simulator.simulations.performance;
 
 import java.util.logging.Level;
-import java.util.logging.Logger; // Import Logger
+import java.util.logging.Logger;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyGenerator;
-import utils.CustomLogger; // Import CustomLogger
+import simulator.visualisation.SimulationVisualiser;
+import utils.CustomLogger;
 
 public class GeoNamesBasedRegionPerformanceSimulation extends AbstractRegionPerformanceSimulation<
     FileBasedTopologyConfiguration,
@@ -28,12 +29,14 @@ public class GeoNamesBasedRegionPerformanceSimulation extends AbstractRegionPerf
     
     public static void main(String[] args) {
         logger.info("--- Starting GeoNames-Based Performance Simulation (Region-Based) ---");
+
+        SimulationVisualiser.getInstance().launch();
         
         int simNumberOfReplicas = 20;
         int simSubscribersPerReplica = 2500;
         
         // This is an ABSOLUTE size (e.g., 1.0 decimal degrees)
-        double simSubscriptionRegionSize = 10.0; 
+        double simSubscriptionRegionSize = 1; 
         
         double simRemoteInterestProbability = 0.0;
 

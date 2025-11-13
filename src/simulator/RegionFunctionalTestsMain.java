@@ -1,10 +1,12 @@
 package simulator;
 
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 import simulator.regions.BrokerWithRegion;
 import simulator.simulations.functional.ConfigurableFunctionalTest;
 import simulator.simulations.functional.FixedTopologyRegionFunctionalTests;
 import simulator.simulations.functional.GridTopologyRegionFunctionalTests;
+import simulator.simulations.functional.RegionFpFunctionalTests;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
@@ -21,10 +23,35 @@ public class RegionFunctionalTestsMain {
     private static final Logger logger = CustomLogger.getLogger(RegionFunctionalTestsMain.class.getName());
 
     public static void main(String[] args) {
-        // runManualTopologyComprehensiveTest();
-        //runSubscriptionCoveringTest();
+        // Run the most fundamental test first
+        runRegionFloatingPointTest();
+
+        runManualTopologyComprehensiveTest();
+        runSubscriptionCoveringTest();
         runSubscriptionExpansionTest();
-        // runGridTopologyTest();
+        runGridTopologyTest();
+    }
+
+
+    public static void runRegionFloatingPointTest() {
+        logger.info("===============================================================");
+        logger.info("  RUNNING (Functional): Region Class Floating-Point Logic Test");
+        logger.info("===============================================================");
+        
+        // 1. Create a "wrapper" predicate that matches the constructor's
+        //    required signature (Predicate<BrokerWithRegion>).
+        //    The 'rootBroker' parameter is ignored, as this test doesn't use it.
+        Predicate<BrokerWithRegion> testWrapper = rootBroker -> {
+            return RegionFpFunctionalTests.ALL_REGION_TESTS.test(null);
+        };
+
+        FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
+        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
+        
+        ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
+            new ConfigurableFunctionalTest<>(testWrapper, "Region Class FP Test");
+        
+        validation.run(factory, config);
     }
 
     public static void runManualTopologyComprehensiveTest() {

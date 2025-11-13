@@ -1,9 +1,7 @@
 package simulator.regions;
 
 import java.text.DecimalFormat;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import simulator.core.Location;
 import java.util.logging.Logger;
 import utils.CustomLogger;
@@ -18,85 +16,51 @@ import utils.CustomLogger;
 public class Region extends BaseRegion {
 
     private static final Logger logger = CustomLogger.getLogger(Region.class.getName());
+    private static final DecimalFormat df = new DecimalFormat("#.####");
+    private static final double EPSILON = 1e-9;
 
-    // Create the formatter only once and make it static to improve performance  ---
-    private static final DecimalFormat df = new DecimalFormat("#.##");
-
-    // --- Constructors ---
-    public Region() {
-        super(); // Calls BaseRegion()
-    }
-    public Region(Location location) {
-        super(location); // Calls BaseRegion(Location)
-    }
-    public Region(Location bottomLeft, Location topRight) {
-        super(bottomLeft, topRight); // Calls BaseRegion(Location, Location)
-    }
-    public Region(Region r) {
-        super(r); // Calls BaseRegion(BaseRegion) copy constructor
-    }
-    public Region(BaseRegion r) {
-        super(r); // Calls BaseRegion(BaseRegion) copy constructor
-    }
+    public Region() { super(); }
+    public Region(Location location) { super(location); }
+    public Region(Location bottomLeft, Location topRight) { super(bottomLeft, topRight); }
+    public Region(Region r) { super(r); }
+    public Region(BaseRegion r) { super(r); }
     public void set(BaseRegion other) {
         if (other == null || other.getBottomLeft() == null || other.getTopRight() == null) {
-            this.bottomLeft = null;
-            this.topRight = null;
-            return;
+            this.bottomLeft = null; this.topRight = null; return;
         }
         this.bottomLeft = new Location(other.getBottomLeft());
         this.topRight = new Location(other.getTopRight());
     }
 
-    /**
-     * Gets the width (X-axis span) of the region.
-     * Correctly handles regions that wrap the antimeridian (e.g., longitude from +170 to -170).
-     * @return The width of the region.
-     */
     @JsonIgnore
     public double getWidth() {
-        if (bottomLeft == null || topRight == null) {
-            return 0.0;
-        }
-        double minLon = bottomLeft.getX();
-        double maxLon = topRight.getX();
-
-        if (minLon <= maxLon) {
-            // Standard case: e.g., -10 to +20. Width = 20 - (-10) = 30
-            return maxLon - minLon;
-        } else {
-            // Wrap-around case: e.g., +170 to -170.
-            // Width = (180 - 170) + (180 - 170) = 10 + 10 = 20 (assuming -180 to +180)
-            // A simpler generic calculation: (180 - minLon) + (maxLon - (-180))
-            return (180.0 - minLon) + (maxLon + 180.0);
-        }
+        if (bottomLeft == null || topRight == null) return 0.0;
+        double minLon = bottomLeft.getX(); double maxLon = topRight.getX();
+        if (minLon <= maxLon) { return maxLon - minLon; }
+        else { return (180.0 - minLon) + (maxLon + 180.0); }
     }
 
-    /**
-     * Gets the height (Y-axis span) of the region.
-     * Does not handle polar wrap-around.
-     * @return The height of the region.
-     */
     @JsonIgnore
     public double getHeight() {
         if (bottomLeft == null || topRight == null) {
             return 0.0;
         }
-        // Latitude (Y) is a simple subtraction
         return topRight.getY() - bottomLeft.getY();
     }
 
 
-    // --- Helper for contains/intersects ---
     private boolean containsLongitude(double lon) {
         if (bottomLeft == null || topRight == null) return false;
         double minLon = bottomLeft.getX();
         double maxLon = topRight.getX();
 
-        if (minLon <= maxLon) { // Doesn't wrap
-            return lon >= minLon && lon <= maxLon;
-        } else { // Wraps
-            return lon >= minLon || lon <= maxLon;
+        boolean gteMin = (lon - minLon) > -EPSILON; // (lon >= minLon)
+        boolean lteMax = (lon - maxLon) < EPSILON;  // (lon <= maxLon)
+
+        if ((minLon - maxLon) < EPSILON) { // Standard (minLon <= maxLon)
+            return gteMin && lteMax;
+        } else { // Wraps (minLon > maxLon)
+            return gteMin || lteMax;
         }
     }
 
@@ -105,51 +69,112 @@ public class Region extends BaseRegion {
         if (l == null || bottomLeft == null || topRight == null) {
             return false;
         }
-        boolean latOk = l.getY() >= bottomLeft.getY() && l.getY() <= topRight.getY();
-        boolean altOk = l.getZ() >= bottomLeft.getZ() && l.getZ() <= topRight.getZ();
+        
+        boolean latGteMin = (l.getY() - bottomLeft.getY()) > -EPSILON;
+        boolean latLteMax = (l.getY() - topRight.getY()) < EPSILON;
+        boolean latOk = latGteMin && latLteMax;
+
+        boolean altGteMin = (l.getZ() - bottomLeft.getZ()) > -EPSILON;
+        boolean altLteMax = (l.getZ() - topRight.getZ()) < EPSILON;
+        boolean altOk = altGteMin && altLteMax;
+
         if (!latOk || !altOk) {
             return false;
         }
         return containsLongitude(l.getX());
     }
+
+
     @Override
-    public boolean contains(BaseRegion r) {
+    /**
+     * Checks if this region intersects with another region.
+     * This logic is EXCLUSIVE (>, <) to prevent matching "touching"
+     * grid tiles as intersections.
+     */
+       public boolean intersects(BaseRegion r) {
         if (r == null || r.getBottomLeft() == null || r.getTopRight() == null || this.bottomLeft == null || this.topRight == null) {
             return false;
         }
-        return contains(r.getBottomLeft()) && contains(r.getTopRight());
-    }
-    @Override
-    public boolean intersects(BaseRegion r) {
-        if (r == null || r.getBottomLeft() == null || r.getTopRight() == null || this.bottomLeft == null || this.topRight == null) {
-            return false;
+        
+
+        // "No Overlap" (for exclusive intersection) means:
+        // (A.max <= B.min) OR (A.min >= B.max)
+        
+        // Safe floating-point versions:
+        // (B.min - A.max) > -EPSILON  (B.min is greater than or equal to A.max)
+        // (A.min - B.max) > -EPSILON  (A.min is greater than or equal to B.max)
+
+        // Check Y-axis for non-overlap
+        boolean noOverlapY = (r.getBottomLeft().getY() - this.topRight.getY()) > -EPSILON ||
+                             (this.bottomLeft.getY() - r.getTopRight().getY()) > -EPSILON;
+
+        // --- REMOVED Z-AXIS CHECK ---
+        // boolean noOverlapZ = (r.getBottomLeft().getZ() - this.topRight().getZ()) > -EPSILON ||
+        //                      (this.bottomLeft.getZ() - r.getTopRight().getZ()) > -EPSILON;
+
+        if (noOverlapY) { // --- MODIFIED: Removed || noOverlapZ
+            return false; // They do not overlap on the Y-axis
         }
-        boolean noOverlapY = this.topRight.getY() < r.getBottomLeft().getY() || this.bottomLeft.getY() > r.getTopRight().getY();
-        boolean noOverlapZ = this.topRight.getZ() < r.getBottomLeft().getZ() || this.bottomLeft.getZ() > r.getTopRight().getZ();
-        if (noOverlapY || noOverlapZ) {
-            return false;
-        }
+
+        // --- Check X-axis (Longitude) ---
         double minLon1 = this.bottomLeft.getX();
         double maxLon1 = this.topRight.getX();
         double minLon2 = r.getBottomLeft().getX();
         double maxLon2 = r.getTopRight().getX();
-        boolean wraps1 = minLon1 > maxLon1;
-        boolean wraps2 = minLon2 > maxLon2;
+
+        boolean wraps1 = (minLon1 - maxLon1) > EPSILON; // (minLon1 > maxLon1)
+        boolean wraps2 = (minLon2 - maxLon2) > EPSILON; // (minLon2 > maxLon2)
+
         boolean noOverlapX;
+        
         if (!wraps1 && !wraps2) {
-            noOverlapX = maxLon1 < minLon2 || minLon1 > maxLon2;
+            // Standard case: (r.min_x >= this.max_x) OR (this.min_x >= r.max_x)
+            noOverlapX = (r.getBottomLeft().getX() - this.topRight.getX()) > -EPSILON ||
+                         (this.bottomLeft.getX() - r.getTopRight().getX()) > -EPSILON;
+            
         } else if (wraps1 && !wraps2) {
-            noOverlapX = maxLon2 < minLon1 && minLon2 > maxLon1;
+            // Region 1 wraps, Region 2 does not.
+            // "No Overlap" if r2 is in the gap of r1.
+            // (r2.max_x <= r1.min_x) AND (r2.min_x >= r1.max_x)
+            
+            // Safe float versions:
+            // (r1.min_x - r2.max_x) > -EPSILON  (A.min >= B.max)
+            // (r2.min_x - r1.max_x) > -EPSILON  (B.min >= A.max)
+            
+            boolean rMaxLessEqThisMin = (this.bottomLeft.getX() - r.getTopRight().getX()) > -EPSILON;
+            boolean rMinMoreEqThisMax = (r.getBottomLeft().getX() - this.topRight.getX()) > -EPSILON;
+            noOverlapX = rMaxLessEqThisMin && rMinMoreEqThisMax;
+
         } else if (!wraps1 && wraps2) {
-            noOverlapX = maxLon1 < minLon2 && minLon1 > maxLon2;
+            // Region 1 does not wrap, Region 2 wraps.
+            // "No Overlap" if r1 is in the gap of r2.
+            // (r1.max_x <= r2.min_x) AND (r1.min_x >= r2.max_x)
+
+            // Safe float versions:
+            // (r2.min_x - r1.max_x) > -EPSILON  (B.min >= A.max)
+            // (r1.min_x - r2.max_x) > -EPSILON  (A.min >= B.max)
+
+            boolean thisMaxLessEqRMin = (r.getBottomLeft().getX() - this.topRight.getX()) > -EPSILON;
+            boolean thisMinMoreEqRMax = (this.bottomLeft.getX() - r.getTopRight().getX()) > -EPSILON;
+            noOverlapX = thisMaxLessEqRMin && thisMinMoreEqRMax;
+            
         } else {
+            // Both regions wrap. They must intersect.
             noOverlapX = false;
         }
-        return !noOverlapX;
+        
+        // An intersection exists *only if* they overlap on ALL axes (X and Y).
+        // If there is no overlap on X OR no overlap on Y, return false.
+        // Otherwise, return true.
+        return !(noOverlapX || noOverlapY);
     }
+    
+
+    
     @Override
     public boolean expand(Location l) {
         if (l == null) return false;
+        
         if (bottomLeft == null || topRight == null) {
             bottomLeft = new Location(l);
             topRight = new Location(l);
@@ -161,20 +186,24 @@ public class Region extends BaseRegion {
         double originalMaxLat = topRight.getY();
         double originalMinAlt = bottomLeft.getZ();
         double originalMaxAlt = topRight.getZ();
+
         double newBlY = Math.min(originalMinLat, l.getY());
         double newBlZ = Math.min(originalMinAlt, l.getZ());
         double newTrY = Math.max(originalMaxLat, l.getY());
         double newTrZ = Math.max(originalMaxAlt, l.getZ());
+        
         double lon2 = l.getX();
         double newMinLon, newMaxLon;
-        if (containsLongitude(lon2)) {
+        
+        if (containsLongitude(lon2)) { 
             newMinLon = originalMinLon;
             newMaxLon = originalMaxLon;
         } else {
-            boolean currentlyWraps = originalMinLon > originalMaxLon;
+            boolean currentlyWraps = (originalMinLon - originalMaxLon) > EPSILON;
             if (currentlyWraps) {
                 double distToMin = (originalMinLon - lon2 + 360) % 360;
                 double distToMax = (lon2 - originalMaxLon + 360) % 360;
+                
                 if (distToMin < distToMax) {
                     newMinLon = lon2;
                     newMaxLon = originalMaxLon;
@@ -182,7 +211,8 @@ public class Region extends BaseRegion {
                     newMinLon = originalMinLon;
                     newMaxLon = lon2;
                 }
-                if (newMinLon <= newMaxLon) {
+                
+                if ((newMinLon - newMaxLon) < EPSILON) {
                      logger.warning("Expanding wrapped region resulted in unwrap. Assuming full longitude coverage [-180, 180].");
                      newMinLon = -180.0;
                      newMaxLon = 180.0;
@@ -190,9 +220,11 @@ public class Region extends BaseRegion {
             } else {
                 double testMin = Math.min(originalMinLon, lon2);
                 double testMax = Math.max(originalMaxLon, lon2);
+                
                 double directWidth = testMax - testMin;
                 double wrapWidth = 360.0 - directWidth;
-                if (directWidth <= 180.0 || directWidth <= wrapWidth) {
+                
+                if (directWidth <= 180.0 || (directWidth - wrapWidth) < EPSILON) {
                     newMinLon = testMin;
                     newMaxLon = testMax;
                 } else {
@@ -201,21 +233,25 @@ public class Region extends BaseRegion {
                 }
             }
         }
-        boolean updated = ( Double.compare(newMinLon, originalMinLon) != 0 ||
-                            Double.compare(newMaxLon, originalMaxLon) != 0 ||
-                            Double.compare(newBlY, originalMinLat) != 0 ||
-                            Double.compare(newBlZ, originalMinAlt) != 0 ||
-                            Double.compare(newTrY, originalMaxLat) != 0 ||
-                            Double.compare(newTrZ, originalMaxAlt) != 0);
+        
+        boolean updated = ( Math.abs(newMinLon - originalMinLon) > EPSILON ||
+                            Math.abs(newMaxLon - originalMaxLon) > EPSILON ||
+                            Math.abs(newBlY - originalMinLat) > EPSILON ||
+                            Math.abs(newBlZ - originalMinAlt) > EPSILON ||
+                            Math.abs(newTrY - originalMaxLat) > EPSILON ||
+                            Math.abs(newTrZ - originalMaxAlt) > EPSILON );
+
         if (updated) {
             this.bottomLeft = new Location(newMinLon, newBlY, newBlZ);
             this.topRight = new Location(newMaxLon, newTrY, newTrZ);
         }
         return updated;
     }
+    
     @Override
     public boolean expand(BaseRegion r) {
         if (r == null) return false;
+        
         boolean updated = false;
         if (r.getBottomLeft() != null) {
              updated |= this.expand(r.getBottomLeft());
@@ -229,6 +265,8 @@ public class Region extends BaseRegion {
         }
         return updated;
     }
+    
+
     public Location getRandomLocation() {
         if (bottomLeft == null || topRight == null) {
             return new Location(0, 0, 0); 
@@ -239,22 +277,22 @@ public class Region extends BaseRegion {
         
         return new Location(lon, lat, alt);
     }
+    
     @JsonIgnore
     public String toShortString() {
         if (bottomLeft == null || topRight == null) {
             return "[]";
         }
-        // Use the static final formatter to improve performance ---
-        // print latitude first
         return String.format("[%s,%s:%s,%s]", 
-                             df.format(bottomLeft.getY()), 
                              df.format(bottomLeft.getX()), 
-                             df.format(topRight.getY()), 
-                             df.format(topRight.getX()));
+                             df.format(bottomLeft.getY()), 
+                             df.format(topRight.getX()), 
+                             df.format(topRight.getY()));
     }
+    
     @Override
     public String toString() {
-        boolean wraps = (bottomLeft != null && topRight != null && bottomLeft.getX() > topRight.getX());
+        boolean wraps = (bottomLeft != null && topRight != null && (bottomLeft.getX() - topRight.getX()) > EPSILON);
         return "Region{" + "bl=" + bottomLeft + ", tr=" + topRight + (wraps ? " [Wraps]" : "") + '}';
     }
 }

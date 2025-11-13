@@ -18,7 +18,8 @@ import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
-import simulator.events.SimulationPublication; // NEW: Import for new logic
+import simulator.events.SimulationPublication;
+import simulator.events.TrackableEvent;
 import simulator.population.DataCenterPublishersPlacement;
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
@@ -28,6 +29,7 @@ import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
+import simulator.visualisation.SimulationVisualiser;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
@@ -242,12 +244,9 @@ public abstract class AbstractPerformanceSimulation<
 
                     // Check for Y-axis overlap (altitude/Z is ignored)
                     Region r2 = activeBroker.getRegion();
-                    if (r1.getTopRight().getY() >= r2.getBottomLeft().getY() &&
-                        r1.getBottomLeft().getY() <= r2.getTopRight().getY()) {
-                        
-                        // We have a Y-overlap *and* an X-overlap. This is an intersection.
+                    if (r1.intersects(r2)) {
                         overlapCount++;
-                        countedPairs.add(pairKey); // Mark this pair as counted
+                        countedPairs.add(pairKey);
                     }
                 }
                 // Add this segment to the active map
@@ -266,10 +265,13 @@ public abstract class AbstractPerformanceSimulation<
         return overlapCount;
     }
 
+
     /**
      * Traverses the broker topology and logs a summary of its structure,
      * including broker count, average fan-out, and sibling region overlap
      * per level, considering only broker-to-broker connections.
+     * Also sends Level 1 regions to the SimulationVisualizer.
+     *
      * @param root The root broker of the topology.
      */
     protected void logTopologySummary(BrokerWithRegion root) {
@@ -332,6 +334,9 @@ public abstract class AbstractPerformanceSimulation<
                 // Print details for Level 1 (Continents)
                 if (currentLevel == 1) {
                     logger.info("  --- Detailed Region Info for Level 1 (Continents) ---");
+                    // Get the visualizer instance
+                    SimulationVisualiser visualizer = SimulationVisualiser.getInstance();
+                    
                     for (BrokerWithRegion broker : brokersAtThisLevel) {
                         Region region = broker.getRegion();
                         String regionInfo = "N/A";
@@ -341,6 +346,9 @@ public abstract class AbstractPerformanceSimulation<
                         logger.info(String.format("    - %s: Region: %s",
                                                   broker.getName(),
                                                   regionInfo));
+                                                  
+                        // Send this region to the map
+                        visualizer.updateRegion(broker.getName(), region);
                     }
                     logger.info("  -----------------------------------------------------");
                 }
@@ -392,11 +400,31 @@ public abstract class AbstractPerformanceSimulation<
         return leaves;
     }
     
-    /**
-     * This method is now responsible for collecting metrics from brokers and publishers.
-     * The collection of final subscription hops is handled by the subclass
-     * (AbstractRegionPerformanceSimulation) as it owns the 'allSubscriptions' list.
+    
+
+     /**
+     * NEW REFACTORED HELPER METHOD
+     * Generates a combined path string (e.g., "BrokerName [Region] -> ...")
+     * for any event that implements TrackableEvent.
+     * @param event The subscription or publication to process.
+     * @return A formatted path string.
      */
+    protected String getCombinedPathString(TrackableEvent event) {
+        List<String> pathNames = event.getBrokerPath();
+        List<String> pathRegions = event.getBrokerRegionPath();
+        List<String> combinedPath = new ArrayList<>();
+
+        // Zip the two lists together
+        int size = Math.min(pathNames.size(), pathRegions.size());
+        for (int k = 0; k < size; k++) {
+            // Format: BrokerName [Region]
+            combinedPath.add(pathNames.get(k) + " " + pathRegions.get(k));
+        }
+        
+        return String.join(" -> ", combinedPath);
+    }
+
+    
     protected void collectAndPrintMetrics() {
         logger.info("\n--- Simulation Metrics ---");
         long totalSubscriptionTableEntries = 0, totalRegionUpdates = 0;
@@ -405,12 +433,13 @@ public abstract class AbstractPerformanceSimulation<
         long totalPropagationFilterExpansions = 0; 
         long totalMainTableExpansions = 0; 
 
-        // A simple counter for the total CPU events
         long totalSubscriptionProcessingEvents = 0;
         
-        // A new list to store the final hop count of each unique publication
         List<Integer> finalPublicationHops = new ArrayList<>();
         
+        // List to hold data for publication_paths.csv
+        List<Map<String, Object>> publicationPathData = new ArrayList<>();
+
         List<Integer> allDeliveredPubHops = new ArrayList<>();
         List<Long> allPublicationProcessingCosts = new ArrayList<>();
 
@@ -434,13 +463,10 @@ public abstract class AbstractPerformanceSimulation<
             }
             
             totalSubscriptionProcessingEvents += broker.getTotalSubscriptionProcessingEvents();
-            
-            // This list is now only for CPU cost
             allPublicationProcessingCosts.addAll(broker.getPublicationProcessingCosts());
         }
         
         for (SubscriberWithLocation subscriber : allSubscribers) {
-            // --- Capture 'successfulNotifications' here ---
             successfulNotifications += subscriber.getnPublications();
             allDeliveredPubHops.addAll(subscriber.getReceivedPublicationHops());
         }
@@ -448,24 +474,27 @@ public abstract class AbstractPerformanceSimulation<
         for (PublisherWithLocation publisher : allPublishers) {
             totalPublicationsSent += publisher.getnPublications();
             
-            // --- Get final hop counts from original publications ---
+            // Get final hop counts AND PATHS from original publications
             for (SimulationPublication pub : publisher.getSentPublications()) {
                 finalPublicationHops.add(pub.getHops());
+
+                Map<String, Object> row = new HashMap<>();
+                row.put("publication_id", pub.getId());
+                row.put("source_name", (pub.getSource() != null) ? pub.getSource().getName() : "N/A");
+                row.put("hop_count", pub.getHops());
+                row.put("publication_location", pub.toDisplayString());
+                row.put("broker_path", getCombinedPathString(pub)); 
+                publicationPathData.add(row);
             }
         }
 
         logger.info("\n--- System Overhead Metrics ---");
         logger.info("Total Subscription Table Entries Created (Storage Cost): " + totalSubscriptionTableEntries);
         logger.info("Total Region Boundary Updates (Topology CPU Cost): " + totalRegionUpdates);
-        
         logger.info("Total Main Subscription Table Expansions (CPU Cost): " + totalMainTableExpansions);
         logger.info("Total Propagation Filter Expansions (CPU Cost): " + totalPropagationFilterExpansions);
-        
         logger.info("Total Subscription Processing Events (CPU Cost): " + totalSubscriptionProcessingEvents);
-
-        // This will now have N=20 (or however many pubs were sent)
         printStats("Final Publication Hops (Network Load)", finalPublicationHops);
-        
         printStatsLong("Publication Processing Cost (CPU Load)", allPublicationProcessingCosts);
         
         logger.info("\n--- Service Delivery Metrics ---");
@@ -474,41 +503,38 @@ public abstract class AbstractPerformanceSimulation<
         printStats("Delivered Publication Hops (Path Length)", allDeliveredPubHops);
         
         if (enableCsvOutput) {
-            // Pass an empty list for subHops. The subclass (AbstractRegionPerformanceSimulation)
-            // is responsible for collecting and writing the final subscription hops.
-            writeMetricsToCsv(new ArrayList<>(), finalPublicationHops, allPublicationProcessingCosts, allDeliveredPubHops);
-        }
-    }
-    
-    private void writeMetricsToCsv(List<Integer> subHops, List<Integer> pubHops, List<Long> pubCosts, List<Integer> deliveredHops) {
-        String timestamp = this.simulationTimestamp; 
-        String outputDir = "output/metrics/";
-        logger.info("\n--- Writing raw metrics to CSV files (Run ID: " + timestamp + ") ---");
-        
-        if (subHops.isEmpty()) {
-             logger.warning("  ... Skipping subscription_hops.csv (data will be written by subclass).");
-        } else {
+            String timestamp = this.simulationTimestamp; 
+            String outputDir = "output/metrics/";
+            logger.info("\n--- Writing raw metrics to CSV files (Run ID: " + timestamp + ") ---");
+            
+            logger.warning("  ... Skipping subscription_hops.csv (data will be written by subclass in AbstractRegionPerformanceSimulation).");
+                
+            // Correct the variable names to match those defined at the start of this method.
             CsvMetricWriter.writeListToCsv(
-                outputDir + timestamp + "_subscription_hops.csv", 
+                outputDir + timestamp + "_publication_hops.csv", 
                 "hop_count", 
-                subHops);
+                finalPublicationHops); // FIX: Was pubHops
+                
+            CsvMetricWriter.writeListToCsv(
+                outputDir + timestamp + "_publication_processing_cost.csv", 
+                "processing_cost", 
+                allPublicationProcessingCosts); // FIX: Was pubCosts
+                
+            CsvMetricWriter.writeListToCsv(
+                outputDir + timestamp + "_delivered_publication_hops.csv", 
+                "hop_count", 
+                allDeliveredPubHops); // FIX: Was deliveredHops
+            
+            String pubPathCsvPath = outputDir + timestamp + "_publication_paths.csv";
+            logger.info("  ... Writing detailed publication paths to " + pubPathCsvPath.replace(outputDir, ""));
+            CsvMetricWriter.writeMapListToCsv(
+                pubPathCsvPath,
+                new String[]{"publication_id", "source_name", "hop_count", "publication_location", "broker_path"},
+                publicationPathData
+            );
         }
-            
-        CsvMetricWriter.writeListToCsv(
-            outputDir + timestamp + "_publication_hops.csv", 
-            "hop_count", 
-            pubHops); // This now correctly receives finalPublicationHops
-            
-        CsvMetricWriter.writeListToCsv(
-            outputDir + timestamp + "_publication_processing_cost.csv", 
-            "processing_cost", 
-            pubCosts);
-            
-        CsvMetricWriter.writeListToCsv(
-            outputDir + timestamp + "_delivered_publication_hops.csv", 
-            "hop_count", 
-            deliveredHops);
     }
+
     
     protected void printStats(String name, List<Integer> data) {
         if (data == null || data.isEmpty()) {

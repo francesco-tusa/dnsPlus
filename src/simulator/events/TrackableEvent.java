@@ -30,4 +30,16 @@ public interface TrackableEvent {
      * @return The path history.
      */
     List<String> getBrokerPath();
+
+    /**
+     * Adds a broker's region info to the event's path history.
+     * @param regionInfo The string representation of the region.
+     */
+    void addBrokerRegionToPath(String regionInfo);
+
+    /**
+     * Gets the list of broker regions in the event's path.
+     * @return The region path history.
+     */
+    List<String> getBrokerRegionPath();
 }

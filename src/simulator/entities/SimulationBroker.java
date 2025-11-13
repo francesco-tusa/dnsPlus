@@ -51,6 +51,14 @@ public abstract class SimulationBroker extends TreeNode {
     private void processEvent(TrackableEvent event, String brokerName) {
         event.incrementHops();
         event.addBrokerToPath(brokerName);
+
+        // Let the subclass decide how to record the region
+        captureRegionMetric(event);
+    }
+
+    protected void captureRegionMetric(TrackableEvent event) {
+        // Default for generic brokers that don't have regions
+        event.addBrokerRegionToPath("N/A");
     }
 
     public void processSubscription(SimulationSubscription s) {

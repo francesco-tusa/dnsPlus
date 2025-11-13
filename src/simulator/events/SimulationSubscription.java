@@ -1,12 +1,12 @@
 package simulator.events;
 
-import java.util.List; // NEW IMPORT
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import simulator.core.TreeNode;
-import simulator.events.metrics.EventMetrics; // NEW IMPORT
+import simulator.events.metrics.EventMetrics;
 
 /**
- * MODIFIED: This class now implements TrackableEvent and composes EventMetrics
+ * This class now implements TrackableEvent and composes EventMetrics
  * to handle shared hop counting and path tracking.
  */
 public abstract class SimulationSubscription implements TrackableEvent {
@@ -52,6 +52,16 @@ public abstract class SimulationSubscription implements TrackableEvent {
     @Override
     public List<String> getBrokerPath() {
         return this.metrics.getBrokerPath();
+    }
+
+    @Override
+    public void addBrokerRegionToPath(String regionInfo) {
+        this.metrics.addBrokerRegionToPath(regionInfo);
+    }
+
+    @Override
+    public List<String> getBrokerRegionPath() {
+        return this.metrics.getBrokerRegionPath();
     }
 
     public abstract SimulationSubscription getSubscription();

@@ -13,13 +13,15 @@ public class EventMetrics {
     // 1-element array to act as a mutable integer reference
     private final int[] hopMetric;
     
-    // The list to be shared by all copies
+    // The lists to be shared by all copies
     private final List<String> brokerPath;
+    private final List<String> brokerRegionPath;
 
     public EventMetrics() {
         this.hopMetric = new int[1];
         this.hopMetric[0] = 0;
         this.brokerPath = new ArrayList<>();
+        this.brokerRegionPath = new ArrayList<>();
     }
 
     /**
@@ -51,5 +53,21 @@ public class EventMetrics {
      */
     public List<String> getBrokerPath() {
         return this.brokerPath;
+    }
+
+    /**
+     * Adds a broker's region string to the shared path.
+     * @param regionString The string representation of the region.
+     */
+    public void addBrokerRegionToPath(String regionString) {
+        this.brokerRegionPath.add(regionString);
+    }
+
+    /**
+     * Gets the shared region path.
+     * @return The list of broker regions.
+     */
+    public List<String> getBrokerRegionPath() {
+        return this.brokerRegionPath;
     }
 }

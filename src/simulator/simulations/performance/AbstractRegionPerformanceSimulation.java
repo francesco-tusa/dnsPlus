@@ -251,9 +251,19 @@ public abstract class AbstractRegionPerformanceSimulation<
                 row.put("source_name", (sub.getSource() != null) ? sub.getSource().getName() : "N/A");
                 row.put("hop_count", sub.getHops());
                 row.put("subscription_region", (sub.getRegion() != null) ? sub.getRegion().toShortString() : "N/A");
-                row.put("broker_path", String.join(" -> ", sub.getBrokerPath()));
+         
+                List<String> pathNames = sub.getBrokerPath();
+                List<String> pathRegions = sub.getBrokerRegionPath();
+                List<String> combinedPath = new ArrayList<>();
 
-                row.put("broker_region_path", "N/A");
+                // Zip the two lists together
+                int size = Math.min(pathNames.size(), pathRegions.size());
+                for (int k = 0; k < size; k++) {
+                    combinedPath.add(pathNames.get(k) + " " + pathRegions.get(k));
+                }
+
+                // Join with arrow for readability
+                row.put("broker_path", String.join(" -> ", combinedPath));
 
                 subscriptionPathData.add(row);
             }
@@ -266,8 +276,6 @@ public abstract class AbstractRegionPerformanceSimulation<
 
         // --- Print region-specific and ground truth metrics ---
         logger.info("\n--- Region-Specific Delivery Metrics ---");
-        logger.info(String.format("Region Sim Setup: Subscription Region Size=%.2f, Remote Interest Probability=%.2f", 
-                                  subscriptionRegionSize, remoteInterestProbability));
 
         logger.info("Ground Truth (Potential) Matches: " + this.groundTruthMatches);
 
@@ -299,7 +307,7 @@ public abstract class AbstractRegionPerformanceSimulation<
             logger.info("  ... Writing detailed subscription paths to " + pathCsvPath.replace("output/metrics/", ""));
             CsvMetricWriter.writeMapListToCsv(
                 pathCsvPath,
-                new String[]{"subscription_id", "source_name", "hop_count", "subscription_region", "broker_path", "broker_region_path"},
+                new String[]{"subscription_id", "source_name", "hop_count", "subscription_region", "broker_path"},
                 subscriptionPathData
             );
 

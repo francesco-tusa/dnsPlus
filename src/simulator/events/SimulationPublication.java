@@ -3,7 +3,7 @@ package simulator.events;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import simulator.core.TreeNode;
-import simulator.events.metrics.EventMetrics; // NEW IMPORT
+import simulator.events.metrics.EventMetrics;
 
 /**
  * This class implements TrackableEvent and composes EventMetrics
@@ -52,6 +52,16 @@ public abstract class SimulationPublication implements TrackableEvent {
     @Override
     public List<String> getBrokerPath() {
         return this.metrics.getBrokerPath();
+    }
+
+    @Override
+    public void addBrokerRegionToPath(String regionInfo) {
+        this.metrics.addBrokerRegionToPath(regionInfo);
+    }
+
+    @Override
+    public List<String> getBrokerRegionPath() {
+        return this.metrics.getBrokerRegionPath();
     }
 
     public abstract SimulationPublication getPublication();

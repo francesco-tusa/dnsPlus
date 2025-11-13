@@ -22,7 +22,6 @@ public class FixedTopologyRegionFunctionalTests {
     private static final Logger logger = CustomLogger.getLogger(FixedTopologyRegionFunctionalTests.class.getName());
 
     public static final Predicate<BrokerWithRegion> COMPREHENSIVE_SCENARIO = root -> {
-        // ... (this test remains unchanged) ...
         logger.info("\n>>> SCENARIO: Running Comprehensive Cross-Branch and Local Propagation Test. <<<");
 
         SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
@@ -70,7 +69,6 @@ public class FixedTopologyRegionFunctionalTests {
      * prevent redundant upward subscription propagation (when a new sub is *contained* by an old one).
      */
     public static final Predicate<BrokerWithRegion> SUBSCRIPTION_COVERING_SCENARIO = root -> {
-        // ... (this test remains unchanged) ...
         logger.info(
                 "\n>>> SCENARIO: Running Subscription Covering Test (Large contains Small). <<<");
 

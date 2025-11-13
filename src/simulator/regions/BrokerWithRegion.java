@@ -4,6 +4,7 @@ import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
+import simulator.events.TrackableEvent;
 import simulator.core.TreeNode;
 import utils.CustomLogger;
 
@@ -90,6 +91,15 @@ public abstract class BrokerWithRegion extends SimulationBroker {
             if (parentBroker != null) {
                 parentBroker.updateRegion(this);
             }
+        }
+    }
+
+    @Override
+    protected void captureRegionMetric(TrackableEvent event) {
+        if (getRegion() != null) {
+            event.addBrokerRegionToPath(getRegion().toShortString());
+        } else {
+            event.addBrokerRegionToPath("[]");
         }
     }
 }
