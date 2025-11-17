@@ -63,6 +63,16 @@ public abstract class SimulationPublication implements TrackableEvent {
     public List<String> getBrokerRegionPath() {
         return this.metrics.getBrokerRegionPath();
     }
+    
+    @Override
+    public void addSubscriberToPath(String subscriberName) {
+        this.metrics.addSubscriberToPath(subscriberName);
+    }
+
+    @Override
+    public List<String> getSubscribersReached() {
+        return this.metrics.getSubscribersReached();
+    }
 
     public abstract SimulationPublication getPublication();
 

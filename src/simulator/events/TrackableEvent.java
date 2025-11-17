@@ -42,4 +42,16 @@ public interface TrackableEvent {
      * @return The region path history.
      */
     List<String> getBrokerRegionPath();
+    
+    /**
+     * Adds a subscriber's name to the event's delivery history.
+     * @param subscriberName The name of the subscriber.
+     */
+    void addSubscriberToPath(String subscriberName);
+
+    /**
+     * Gets the list of subscribers that received this event.
+     * @return The subscriber list.
+     */
+    List<String> getSubscribersReached();
 }

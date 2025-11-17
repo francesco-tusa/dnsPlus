@@ -16,12 +16,14 @@ public class EventMetrics {
     // The lists to be shared by all copies
     private final List<String> brokerPath;
     private final List<String> brokerRegionPath;
+    private final List<String> subscribersReached; // ADDED
 
     public EventMetrics() {
         this.hopMetric = new int[1];
         this.hopMetric[0] = 0;
         this.brokerPath = new ArrayList<>();
         this.brokerRegionPath = new ArrayList<>();
+        this.subscribersReached = new ArrayList<>(); // ADDED
     }
 
     /**
@@ -69,5 +71,23 @@ public class EventMetrics {
      */
     public List<String> getBrokerRegionPath() {
         return this.brokerRegionPath;
+    }
+    
+    // --- ADDED METHODS ---
+
+    /**
+     * Adds a subscriber's name to the shared list.
+     * @param subscriberName The name of the subscriber.
+     */
+    public void addSubscriberToPath(String subscriberName) {
+        this.subscribersReached.add(subscriberName);
+    }
+
+    /**
+     * Gets the shared list of reached subscribers.
+     * @return The list of subscriber names.
+     */
+    public List<String> getSubscribersReached() {
+        return this.subscribersReached;
     }
 }

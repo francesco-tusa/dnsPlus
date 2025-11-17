@@ -1,5 +1,7 @@
 package simulator.events;
 
+import java.util.List;
+
 import simulator.core.Location;
 
 /**

@@ -36,6 +36,7 @@ public class SubscriberWithLocation extends TreeNode {
     public void receive(SimulationPublication p) {
         logger.fine(getName() + ": received publication " + p);
         nPublications++;
+        p.addSubscriberToPath(this.getName()); // <-- ADDED THIS LINE
         receivedPublicationHops.add(p.getHops()); // Store the hop count
         
         if (p instanceof PublicationWithLocation) {

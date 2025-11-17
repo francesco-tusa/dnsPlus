@@ -64,6 +64,18 @@ public abstract class SimulationSubscription implements TrackableEvent {
         return this.metrics.getBrokerRegionPath();
     }
 
+    // --- ADDED METHODS ---
+    @Override
+    public void addSubscriberToPath(String subscriberName) {
+        this.metrics.addSubscriberToPath(subscriberName);
+    }
+
+    @Override
+    public List<String> getSubscribersReached() {
+        return this.metrics.getSubscribersReached();
+    }
+    // --- END OF ADDED METHODS ---
+
     public abstract SimulationSubscription getSubscription();
     
     public abstract String toDisplayString();

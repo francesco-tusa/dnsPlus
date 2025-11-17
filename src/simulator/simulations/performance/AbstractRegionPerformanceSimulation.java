@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.logging.Logger; // Import Logger
 import java.util.stream.Collectors;
 import simulator.core.Location;
+import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.regions.BrokerWithRegion;
@@ -17,6 +18,7 @@ import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
+import utils.CsvMetricWriter; // We still need this import
 import utils.CustomLogger;
 
 public abstract class AbstractRegionPerformanceSimulation<
@@ -226,9 +228,54 @@ public abstract class AbstractRegionPerformanceSimulation<
             .collect(Collectors.toList());
     }
 
+    /**
+     * Helper function to build the broker path for a given client node (e.g., Publisher)
+     * by traversing up the parent tree.
+     * @param clientNode The publisher or subscriber node.
+     * @return A map containing the formatted broker path string.
+     */
+    protected Map<String, String> buildBrokerPath(simulator.core.TreeNode clientNode) {
+        List<String> pathNames = new ArrayList<>();
+        List<String> pathRegions = new ArrayList<>();
+
+        // Start from the parent broker
+        simulator.core.TreeNode current = clientNode.getParent(); 
+
+        while (current instanceof BrokerWithRegion) {
+            BrokerWithRegion broker = (BrokerWithRegion) current;
+            pathNames.add(broker.getName());
+            
+            Region region = broker.getRegion();
+            if (region != null) {
+                pathRegions.add(region.toShortString());
+            } else {
+                pathRegions.add("[N/A]");
+            }
+            
+            current = broker.getParent();
+        }
+        
+        // The path is built from leaf to root, so reverse it
+        java.util.Collections.reverse(pathNames);
+        java.util.Collections.reverse(pathRegions);
+
+        // Zip the two lists together for the final string
+        List<String> combinedPath = new ArrayList<>();
+        int size = Math.min(pathNames.size(), pathRegions.size());
+        for (int k = 0; k < size; k++) {
+            combinedPath.add(pathNames.get(k) + " " + pathRegions.get(k));
+        }
+        
+        Map<String, String> paths = new HashMap<>();
+        paths.put("broker_path", String.join(" -> ", combinedPath));
+        
+        return paths;
+    }
+
     @Override
     protected void collectAndPrintMetrics() {
         // --- 1. Call parent to collect all base metrics ---
+        //    THIS NOW POPULATES 'publicationLogData'
         super.collectAndPrintMetrics(); 
 
         // --- 2. Now, collect metrics SPECIFIC to this child class ---
@@ -288,6 +335,9 @@ public abstract class AbstractRegionPerformanceSimulation<
             }
         }
 
+        // --- 3.5. Collect Publisher Path Metrics ---
+        // REMOVED - This is now done in the parent class's 'publicationLogData'
+        
         // --- 4. Call the parent's CSV writer ONCE with ALL data ---
         if (enableCsvOutput) {
             logger.info("\n--- Writing all metrics to CSV (Run ID: " + this.simulationTimestamp + ") ---");
@@ -295,10 +345,61 @@ public abstract class AbstractRegionPerformanceSimulation<
             writeMetricsToCsv(
                 finalSubscriptionHops,        // Child's data
                 subscriptionPathData,         // Child's data
-                finalPublicationHops,         // Parent's data (from protected field)
-                allPublicationProcessingCosts, // Parent's data (from protected field)
-                allDeliveredPubHops           // Parent's data (from protected field)
+                publicationLogData,           // MODIFIED: Parent's new log
+                allPublicationProcessingCosts // Parent's data (from protected field)
             );
         }
+    }
+    
+    /**
+     * Writes metric data to CSV files. This version is simplified to only write
+     * subscription and the new consolidated publication log.
+     */
+    protected void writeMetricsToCsv(List<Integer> subHops, 
+                                     List<Map<String, Object>> subPathData, 
+                                     List<Map<String, Object>> pubLogData, 
+                                     List<Long> pubCosts) {
+                                         
+        String timestamp = this.simulationTimestamp; 
+        String outputDir = "output/metrics/" + timestamp + "/";
+        logger.info("\n--- Writing raw metrics to CSV files (Run ID: " + timestamp + ") ---");
+        
+        // --- Write Subscription Hops ---
+        if (subHops != null && !subHops.isEmpty()) {
+            CsvMetricWriter.writeListToCsv(
+                outputDir + timestamp + "_subscription_hops.csv", 
+                "hop_count", 
+                subHops);
+        }
+        
+        // --- Write Subscription Paths ---
+        if (subPathData != null && !subPathData.isEmpty()) {
+            String pathCsvPath = outputDir + timestamp + "_subscription_paths.csv";
+            CsvMetricWriter.writeMapListToCsv(
+                pathCsvPath,
+                new String[]{"subscription_id", "source_name", "hop_count", "subscription_region", "broker_path"},
+                subPathData
+            );
+        }
+        
+        // --- Write NEW Publication Log ---
+        if (pubLogData != null && !pubLogData.isEmpty()) {
+            String pathCsvPath = outputDir + timestamp + "_publication_log.csv";
+            CsvMetricWriter.writeMapListToCsv(
+                pathCsvPath,
+                new String[]{"publication_id", "publisher_name", "publisher_location", "cumulative_hops", "broker_path", "subscribers_reached"},
+                pubLogData
+            );
+        }
+            
+        // --- Write Publication Processing Cost ---
+        CsvMetricWriter.writeListToCsv(
+            outputDir + timestamp + "_publication_processing_cost.csv", 
+            "processing_cost", 
+            pubCosts);
+            
+        // --- REMOVED _publisher_paths.csv ---
+        // --- REMOVED _publication_hops.csv ---
+        // --- REMOVED _delivered_publication_hops.csv ---
     }
 }

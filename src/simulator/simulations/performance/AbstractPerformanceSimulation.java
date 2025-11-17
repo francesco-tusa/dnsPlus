@@ -49,7 +49,8 @@ public abstract class AbstractPerformanceSimulation<
     protected long successfulNotifications = 0;
     protected final boolean enableCsvOutput;
     
-    protected List<Integer> finalPublicationHops = new ArrayList<>();
+    // protected List<Integer> finalPublicationHops = new ArrayList<>(); // REMOVED
+    protected final List<Map<String, Object>> publicationLogData = new ArrayList<>(); // ADDED
     protected List<Long> allPublicationProcessingCosts = new ArrayList<>();
     protected List<Integer> allDeliveredPubHops = new ArrayList<>();
     protected long totalSubscriptionTableEntries = 0;
@@ -429,7 +430,8 @@ public abstract class AbstractPerformanceSimulation<
         totalMainTableExpansions = 0;
         totalSubscriptionProcessingEvents = 0;
         
-        finalPublicationHops.clear();
+        // finalPublicationHops.clear(); // REMOVED
+        publicationLogData.clear(); // ADDED
         allDeliveredPubHops.clear();
         allPublicationProcessingCosts.clear();
         successfulNotifications = 0;
@@ -471,7 +473,28 @@ public abstract class AbstractPerformanceSimulation<
             
             // --- Get final hop counts from original publications ---
             for (SimulationPublication pub : publisher.getSentPublications()) {
-                finalPublicationHops.add(pub.getHops());
+                // finalPublicationHops.add(pub.getHops()); // REMOVED
+                
+                // --- ADDED NEW LOGGING LOGIC ---
+                Map<String, Object> row = new HashMap<>();
+                row.put("publication_id", pub.getId());
+                row.put("publisher_name", publisher.getName());
+                row.put("publisher_location", (publisher.getLocation() != null) ? publisher.getLocation().toShortString() : "N/A");
+                row.put("cumulative_hops", pub.getHops());
+                
+                List<String> pathNames = pub.getBrokerPath();
+                List<String> pathRegions = pub.getBrokerRegionPath();
+                List<String> combinedPath = new ArrayList<>();
+                int size = Math.min(pathNames.size(), pathRegions.size());
+                for (int k = 0; k < size; k++) {
+                    combinedPath.add(pathNames.get(k) + " " + pathRegions.get(k));
+                }
+                row.put("broker_path", String.join(" -> ", combinedPath));
+                
+                row.put("subscribers_reached", String.join(",", pub.getSubscribersReached()));
+                
+                publicationLogData.add(row);
+                // --- END OF ADDED LOGIC ---
             }
         }
 
@@ -485,25 +508,23 @@ public abstract class AbstractPerformanceSimulation<
         logger.info("Total Subscription Processing Events (CPU Cost): " + totalSubscriptionProcessingEvents);
 
         // This will now have N=20 (or however many pubs were sent)
-        printStats("Final Publication Hops (Network Load)", finalPublicationHops);
+        // printStats("Final Publication Hops (Network Load)", finalPublicationHops); // REMOVED
         
         printStatsLong("Publication Processing Cost (CPU Load)", allPublicationProcessingCosts);
         
         logger.info("\n--- Service Delivery Metrics ---");
         logger.info("Total Publications Sent by all Replicas: " + totalPublicationsSent);
+        logger.info("Total Publication Events Logged: " + publicationLogData.size()); // ADDED
         logger.info("Total Successful Notifications Received by Subscribers: " + successfulNotifications);
         printStats("Delivered Publication Hops (Path Length)", allDeliveredPubHops);
     }
     
 
-    protected void writeMetricsToCsv(List<Integer> subHops, List<Map<String, Object>> subPathData, List<Integer> pubHops, List<Long> pubCosts, List<Integer> deliveredHops) {
+    protected void writeMetricsToCsv(List<Integer> subHops, List<Map<String, Object>> subPathData, List<Map<String, Object>> pubLogData, List<Long> pubCosts) {
         String timestamp = this.simulationTimestamp; 
-        // --- MODIFIED: Create a run-specific subfolder for metrics ---
         String outputDir = "output/metrics/" + timestamp + "/";
-        // ---
         logger.info("\n--- Writing raw metrics to CSV files (Run ID: " + timestamp + ") ---");
         
-        // --- MODIFIED: Check for null and skip warning ---
         if (subHops != null && !subHops.isEmpty()) {
             CsvMetricWriter.writeListToCsv(
                 outputDir + timestamp + "_subscription_hops.csv", 
@@ -511,32 +532,33 @@ public abstract class AbstractPerformanceSimulation<
                 subHops);
         }
         
-        // --- ADDED: Write subscription path data if it exists ---
         if (subPathData != null && !subPathData.isEmpty()) {
             String pathCsvPath = outputDir + timestamp + "_subscription_paths.csv";
-            //logger.info("  ... Writing detailed subscription paths to " + pathCsvPath.replace("output/metrics/", ""));
             CsvMetricWriter.writeMapListToCsv(
                 pathCsvPath,
                 new String[]{"subscription_id", "source_name", "hop_count", "subscription_region", "broker_path"},
                 subPathData
             );
         }
-        // ---
             
-        CsvMetricWriter.writeListToCsv(
-            outputDir + timestamp + "_publication_hops.csv", 
-            "hop_count", 
-            pubHops); // This now correctly receives finalPublicationHops
+        // --- ADDED ---
+        if (pubLogData != null && !pubLogData.isEmpty()) {
+            String pathCsvPath = outputDir + timestamp + "_publication_log.csv";
+            CsvMetricWriter.writeMapListToCsv(
+                pathCsvPath,
+                new String[]{"publication_id", "publisher_name", "publisher_location", "cumulative_hops", "broker_path", "subscribers_reached"},
+                pubLogData
+            );
+        }
+        // ---
             
         CsvMetricWriter.writeListToCsv(
             outputDir + timestamp + "_publication_processing_cost.csv", 
             "processing_cost", 
             pubCosts);
             
-        CsvMetricWriter.writeListToCsv(
-            outputDir + timestamp + "_delivered_publication_hops.csv", 
-            "hop_count", 
-            deliveredHops);
+        // --- REMOVED _publication_hops.csv ---
+        // --- REMOVED _delivered_publication_hops.csv ---
     }
 
     
