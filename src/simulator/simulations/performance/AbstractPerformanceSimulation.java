@@ -19,7 +19,8 @@ import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.SimulationPublication; // NEW: Import for new logic
-import simulator.population.DataCenterPublishersPlacement;
+// --- IMPORT THE *INTERFACE* ---
+import simulator.population.PublishersPlacementStrategy; 
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BrokerWithRegion;
@@ -59,6 +60,14 @@ public abstract class AbstractPerformanceSimulation<
     protected long totalPropagationFilterExpansions = 0;
     protected long totalMainTableExpansions = 0;
     protected long totalSubscriptionProcessingEvents = 0;
+
+    // --- NEW ABSTRACT METHOD ---
+    /**
+     * Concrete simulation classes must implement this method to provide
+     * the desired publisher placement strategy.
+     * @return An instance of PublishersPlacementStrategy.
+     */
+    protected abstract PublishersPlacementStrategy getPublisherPlacementStrategy();
 
 
     public AbstractPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica, boolean enableCsvOutput) {
@@ -124,10 +133,17 @@ public abstract class AbstractPerformanceSimulation<
             logger.fine("-------------------------------------------------");
         }
         
+        // --- THIS IS THE CHANGE ---
+        // Get the strategy from the new abstract method
+        PublishersPlacementStrategy strategy = getPublisherPlacementStrategy();
+        logger.info("Using Publisher Placement Strategy: " + strategy.getClass().getSimpleName());
+        
         TopologyPopulator populater = new TopologyPopulator(
             new ProportionalSubscribersPlacement(), 
-            new DataCenterPublishersPlacement(30)
+            strategy // Use the strategy
         );
+        // --- END OF CHANGE ---
+        
         populater.populate(this.rootNode, leafBrokers, getTotalSubscribers(), getNumberOfReplicas());
         
         collectClients(leafBrokers);

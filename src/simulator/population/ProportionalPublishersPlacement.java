@@ -11,7 +11,7 @@ import utils.CustomLogger; // Import CustomLogger
 /**
  * Generates publishers for local/niche services proportionally to the internet population.
  */
-public class ProportionalPublishersPlacement extends AbstractPublisherGenerator {
+public class ProportionalPublishersPlacement extends AbstractPublisherGenerator implements PublishersPlacementStrategy {
 
     private static final Logger logger = CustomLogger.getLogger(ProportionalPublishersPlacement.class.getName()); // Get logger
 

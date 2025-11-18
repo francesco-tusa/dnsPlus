@@ -7,7 +7,12 @@ import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyGenerator;
 import utils.CustomLogger; // Import CustomLogger
 
-public class GeoNamesBasedLocationPerformanceSimulation extends AbstractLocationPerformanceSimulation<
+/**
+ * This is now an ABSTRACT base class for simulations that use the GeoNames
+ * topology and LOCATION-based routing.
+ * It cannot be run directly. Run its subclasses instead.
+ */
+public abstract class GeoNamesBasedLocationPerformanceSimulation extends AbstractLocationPerformanceSimulation<
     FileBasedTopologyConfiguration,
     FileBasedTopologyGenerator
 > {
@@ -24,29 +29,7 @@ public class GeoNamesBasedLocationPerformanceSimulation extends AbstractLocation
         this(numberOfReplicas, subscribersPerReplica, false);
     }
 
-    public static void main(String[] args) {
-        logger.info("--- Starting GeoNames-Based Performance Simulation (Location-Based) ---");
-        
-        int simNumberOfReplicas = 20;
-        int simSubscribersPerReplica = 25000;
-        
-        // --- CONTROL FLAGS ---
-        boolean enableVerboseLogs = false; 
-        boolean enableCsvOutput = true; 
-
-        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration("output/geonames_topology.json");
-        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new LocationBrokerFactory());
-        
-        GeoNamesBasedLocationPerformanceSimulation simulation = new GeoNamesBasedLocationPerformanceSimulation(
-            simNumberOfReplicas, simSubscribersPerReplica,
-            enableCsvOutput 
-        );
-        
-        if (enableVerboseLogs) {
-            simulation.setLogLevel(Level.FINE);
-            logger.info("--- Verbose logging enabled. Writing FINE logs to: " + CustomLogger.getLogFilePath() + " ---");
-        }
-        
-        simulation.run(factory, config);
-    }
+    // --- MAIN METHOD REMOVED ---
+    // This class is now abstract. Run AwsGeonamesLocationPerformanceSimulation
+    // or PopulationGeonamesLocationPerformanceSimulation instead.
 }

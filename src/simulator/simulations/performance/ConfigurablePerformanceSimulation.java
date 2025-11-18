@@ -13,7 +13,7 @@ import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
-import simulator.population.DataCenterPublishersPlacement; // Import the correct class
+import simulator.population.PopulationBasedPublishersPlacement; // Import the correct class
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BrokerWithRegion;
@@ -80,7 +80,7 @@ public class ConfigurablePerformanceSimulation<
 
         TopologyPopulator populater = new TopologyPopulator(
             new ProportionalSubscribersPlacement(), 
-            new DataCenterPublishersPlacement(30) // Provide 30 as the default maxDataCenters
+            new PopulationBasedPublishersPlacement(30) // Provide 30 as the default maxDataCenters
         );
         
         populater.populate(this.rootNode, leafBrokers, totalSubscribers, numberOfReplicas);
