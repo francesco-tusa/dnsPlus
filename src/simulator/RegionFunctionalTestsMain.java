@@ -5,11 +5,14 @@ import java.util.logging.Logger;
 import simulator.regions.BrokerWithRegion;
 import simulator.simulations.functional.ConfigurableFunctionalTest;
 import simulator.simulations.functional.FixedTopologyRegionFunctionalTests;
+import simulator.simulations.functional.GeoNamesPropagationTest;
 import simulator.simulations.functional.GridTopologyRegionFunctionalTests;
 import simulator.simulations.functional.RegionFpFunctionalTests;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
+import simulator.topology.geonames.FileBasedTopologyConfiguration;
+import simulator.topology.geonames.FileBasedTopologyGenerator;
 import simulator.topology.grid.GridTopologyConfiguration;
 import simulator.topology.grid.GridTopologyGenerator;
 import utils.CustomLogger;
@@ -24,12 +27,16 @@ public class RegionFunctionalTestsMain {
 
     public static void main(String[] args) {
         // Run the most fundamental test first
-        runRegionFloatingPointTest();
+        // runRegionFloatingPointTest();
 
-        runManualTopologyComprehensiveTest();
-        runSubscriptionCoveringTest();
-        runSubscriptionExpansionTest();
-        runGridTopologyTest();
+        // runManualTopologyComprehensiveTest();
+        // runSubscriptionCoveringTest();
+        // runSubscriptionExpansionTest();
+        // runGridTopologyTest();
+
+        // Run a comprehensive end-to-end test using a subset
+        // of the GeoNames world topolgy
+        runGeoNamesTest();
     }
 
 
@@ -38,9 +45,6 @@ public class RegionFunctionalTestsMain {
         logger.info("  RUNNING (Functional): Region Class Floating-Point Logic Test");
         logger.info("===============================================================");
         
-        // 1. Create a "wrapper" predicate that matches the constructor's
-        //    required signature (Predicate<BrokerWithRegion>).
-        //    The 'rootBroker' parameter is ignored, as this test doesn't use it.
         Predicate<BrokerWithRegion> testWrapper = rootBroker -> {
             return RegionFpFunctionalTests.ALL_REGION_TESTS.test(null);
         };
@@ -95,6 +99,24 @@ public class RegionFunctionalTestsMain {
         GridTopologyGenerator factory = new GridTopologyGenerator(new RegionBrokerFactory());
         ConfigurableFunctionalTest<GridTopologyConfiguration, BrokerWithRegion, GridTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(GridTopologyRegionFunctionalTests.GRID_CROSS_CORNER_PROPAGATION, "Grid Cross-Corner Test");
+        validation.run(factory, config);
+    }
+
+    public static void runGeoNamesTest() {
+        logger.info("===============================================================");
+        logger.info("  RUNNING (Functional): GeoNames Topology - Propagation & Metrics");
+        logger.info("===============================================================");
+        
+        // UPDATED: Use the subset topology file
+        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration("output/geonames_subset_bangladesh_beijing.json");
+        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new RegionBrokerFactory());
+        
+        ConfigurableFunctionalTest<FileBasedTopologyConfiguration, BrokerWithRegion, FileBasedTopologyGenerator> validation =
+            new ConfigurableFunctionalTest<>(GeoNamesPropagationTest.COMPREHENSIVE_REGRESSION_TEST, "GeoNames Propagation");
+        
+        // UPDATED: Disable visualiser
+        validation.setVisualisationEnabled(false);
+        
         validation.run(factory, config);
     }
 }

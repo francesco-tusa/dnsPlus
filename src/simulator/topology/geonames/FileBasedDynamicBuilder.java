@@ -169,6 +169,23 @@ class TreeNode {
         if (child != null)
             children.add(child);
     }
+    
+    // Copy constructor for subset generation
+    public TreeNode(TreeNode other) {
+        this.geonameId = other.geonameId;
+        this.name = other.name;
+        this.featureCode = other.featureCode;
+        this.code = other.code;
+        this.type = other.type;
+        this.aggregatedPopulation = other.aggregatedPopulation;
+        this.internetPopulation = other.internetPopulation;
+        this.officialPopulation = other.officialPopulation;
+        this.internetPenetrationRate = other.internetPenetrationRate;
+        if (other.bounds != null) {
+            this.bounds = new Region(other.bounds);
+        }
+        this.children = new ArrayList<>();
+    }
 
     @Override
     public String toString() {
@@ -1233,6 +1250,55 @@ public class FileBasedDynamicBuilder {
             }
         }
     }
+    
+    // --- New method to create a subset of the topology ---
+    TreeNode createSubsetTopology(TreeNode fullRoot) {
+        if (fullRoot == null) return null;
+
+        // Create new root for the subset
+        TreeNode subsetRoot = new TreeNode(fullRoot);
+        subsetRoot.children = new ArrayList<>();
+
+        for (TreeNode continent : fullRoot.children) {
+            if (continent.type == TreeNode.NodeType.CONTINENT && "AS".equals(continent.code)) {
+                TreeNode subsetContinent = new TreeNode(continent);
+                subsetRoot.addChild(subsetContinent);
+                
+                for (TreeNode country : continent.children) {
+                    // Keep Bangladesh (BD) and all its descendants
+                    if ("BD".equals(country.code)) {
+                        subsetContinent.addChild(cloneSubtree(country));
+                    } 
+                    // Keep China (CN) but only the Beijing branch
+                    else if ("CN".equals(country.code)) {
+                        TreeNode subsetChina = new TreeNode(country);
+                        subsetContinent.addChild(subsetChina);
+                        
+                        for (TreeNode adm1 : country.children) {
+                            // Beijing usually has code '19' or '22' depending on version, 
+                            // but name is safer: "Beijing"
+                            if (adm1.name.contains("Beijing")) {
+                                subsetChina.addChild(cloneSubtree(adm1));
+                            }
+                        }
+                        // If no Beijing found, China node remains empty (but exists)
+                    }
+                }
+            }
+        }
+        return subsetRoot;
+    }
+    
+    // Deep copy a node and all its descendants
+    private TreeNode cloneSubtree(TreeNode root) {
+        if (root == null) return null;
+        TreeNode copy = new TreeNode(root);
+        for (TreeNode child : root.children) {
+            copy.addChild(cloneSubtree(child));
+        }
+        return copy;
+    }
+
 
     // --- Main Execution Logic ---
     public static void main(String[] args) {
@@ -1248,6 +1314,9 @@ public class FileBasedDynamicBuilder {
         String internetPenetrationFileName = "internet_penetration_iso2.csv";
         String outputTextFileName = "geonames_hierarchy_output.txt";
         String outputJsonFileName = "geonames_topology.json";
+        
+        // New output file for the subset
+        String outputSubsetJsonFileName = "geonames_subset_bangladesh_beijing.json";
 
         String geonamesFilePath = resourcesDirName + File.separator + geonamesFileName;
         String admin1FilePath = resourcesDirName + File.separator + admin1FileName;
@@ -1256,6 +1325,7 @@ public class FileBasedDynamicBuilder {
         String internetPenetrationFilePath = resourcesDirName + File.separator + internetPenetrationFileName;
         String outputTextFilePath = outputDirName + File.separator + outputTextFileName;
         String outputJsonFilePath = outputDirName + File.separator + outputJsonFileName;
+        String outputSubsetJsonFilePath = outputDirName + File.separator + outputSubsetJsonFileName;
 
         FileBasedDynamicBuilder builder = new FileBasedDynamicBuilder();
         long overallStartTime = System.currentTimeMillis();
@@ -1328,49 +1398,43 @@ public class FileBasedDynamicBuilder {
         builder.finalAggregateInternetPopulation(root);
         builder.finalAggregateBounds(root);
         logger.info("Pass 10 finished in " + (System.currentTimeMillis() - startTime) + " ms.");
+        
+        // --- Subset Generation ---
+        logger.info("\n--- Generating Subset Topology (Bangladesh & Beijing) ---");
+        TreeNode subsetRoot = builder.createSubsetTopology(root);
+        if (subsetRoot != null) {
+            builder.finalAggregateTotalPopulation(subsetRoot); // Recalculate totals for subset
+            builder.finalAggregateInternetPopulation(subsetRoot);
+            builder.finalAggregateBounds(subsetRoot);
+        }
 
-        logger.info("\n--- Writing Final Hierarchy to JSON File ---");
-        logger.info("Output JSON file: " + outputJsonFilePath);
-        if (root != null) {
-            ObjectMapper objectMapper = new ObjectMapper();
-            objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
-            objectMapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
-            objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-            try {
-                File outputFile = new File(outputJsonFilePath);
-                File outputDir = outputFile.getParentFile();
-                if (outputDir != null && !outputDir.exists()) {
-                    logger.info("Creating output directory: " + outputDir.getAbsolutePath());
-                    if (!outputDir.mkdirs()) {
-                        logger.severe("Error: Failed to create output directory: " + outputDir.getAbsolutePath());
-                    }
-                }
-                if (outputDir == null || outputDir.exists()) {
-                    objectMapper.writeValue(outputFile, root);
-                    logger.info("Successfully wrote hierarchy to " + outputJsonFilePath);
-                }
-            } catch (IOException e) {
-                logger.log(Level.SEVERE, "Error writing hierarchy to JSON file", e);
-                logger.info("\n--- JSON writing failed. Falling back to Text Output ---");
-                logger.info("Output Text file: " + outputTextFilePath);
-                try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(outputTextFilePath)))) {
-                    File textOutputFile = new File(outputTextFilePath);
-                    File textOutputDir = textOutputFile.getParentFile();
-                    if (textOutputDir != null && !textOutputDir.exists()) {
-                        logger.info(
-                                "Creating output directory for text fallback: " + textOutputDir.getAbsolutePath());
-                        if (!textOutputDir.mkdirs()) {
-                            logger.severe("Error: Failed to create output directory for text fallback.");
-                        }
-                    }
-                    if (textOutputDir == null || textOutputDir.exists()) {
-                        root.printTree(writer, "");
-                        logger.info("Successfully wrote hierarchy to text file: " + outputTextFilePath);
-                    }
-                } catch (IOException textEx) {
-                    logger.log(Level.SEVERE, "Error writing hierarchy to fallback text file", textEx);
-                }
+        logger.info("\n--- Writing Final Hierarchies to JSON Files ---");
+        
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+        objectMapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
+        objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+
+        try {
+            File outputDir = new File(outputDirName);
+            if (!outputDir.exists()) {
+                outputDir.mkdirs();
             }
+            
+            // Write Full Topology
+            logger.info("Writing full topology to: " + outputJsonFilePath);
+            objectMapper.writeValue(new File(outputJsonFilePath), root);
+            
+            // Write Subset Topology
+            if (subsetRoot != null) {
+                logger.info("Writing subset topology to: " + outputSubsetJsonFilePath);
+                objectMapper.writeValue(new File(outputSubsetJsonFilePath), subsetRoot);
+            } else {
+                logger.warning("Subset root was null. Skipping subset file generation.");
+            }
+            
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "Error writing hierarchy to JSON file", e);
         }
 
         long overallEndTime = System.currentTimeMillis();

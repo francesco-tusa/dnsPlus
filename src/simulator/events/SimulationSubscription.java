@@ -34,6 +34,14 @@ public abstract class SimulationSubscription implements TrackableEvent {
         this.source = source;
     }
     
+    public EventMetrics getMetrics() {
+        return this.metrics;
+    }
+    
+    public void setMetrics(EventMetrics metrics) {
+        this.metrics = metrics;
+    }
+    
     @Override
     public int getHops() {
         return this.metrics.getHops();
@@ -63,8 +71,7 @@ public abstract class SimulationSubscription implements TrackableEvent {
     public List<String> getBrokerRegionPath() {
         return this.metrics.getBrokerRegionPath();
     }
-
-    // --- ADDED METHODS ---
+    
     @Override
     public void addSubscriberToPath(String subscriberName) {
         this.metrics.addSubscriberToPath(subscriberName);
@@ -74,7 +81,6 @@ public abstract class SimulationSubscription implements TrackableEvent {
     public List<String> getSubscribersReached() {
         return this.metrics.getSubscribersReached();
     }
-    // --- END OF ADDED METHODS ---
 
     public abstract SimulationSubscription getSubscription();
     

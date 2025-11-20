@@ -19,10 +19,21 @@ public class ConfigurableFunctionalTest<
 
     private final Predicate<R> validationTest;
     private final String validationTestName;
+    
+    // Default to true to maintain existing behavior for other tests
+    private boolean visualisationEnabled = true;
 
     public ConfigurableFunctionalTest(Predicate<R> validationTest, String validationTestName) {
         this.validationTest = validationTest;
         this.validationTestName = validationTestName;
+    }
+    
+    /**
+     * Enables or disables the visualization for this functional test.
+     * @param enabled true to show the UI, false to run headless.
+     */
+    public void setVisualisationEnabled(boolean enabled) {
+        this.visualisationEnabled = enabled;
     }
 
     @Override
@@ -31,8 +42,23 @@ public class ConfigurableFunctionalTest<
     }
     
     /**
+     * Override initialise to ensure the visualiser reference is cleared if disabled.
+     */
+    @Override
+    protected void initialise(F factory, C config) {
+        super.initialise(factory, config);
+        
+        if (!visualisationEnabled) {
+            // Explicitly nullify the visualiser so the parent class cleanup() 
+            // doesn't try to display it.
+            this.visualiser = null;
+            logger.info("Visualisation disabled for this test run.");
+        }
+    }
+    
+    /**
      * Overrides the new hook method. It first attaches the clients needed for the
-     * functional test, and then calls the parent method to trigger the visualization.
+     * functional test, and then conditionally calls the parent method for visualization.
      */
     @Override
     protected void attachClientsAndVisualize() {
@@ -40,7 +66,9 @@ public class ConfigurableFunctionalTest<
         topologyFactory.attachSubscribers(this.rootNode);
         topologyFactory.attachPublishers(this.rootNode);
         
-        super.attachClientsAndVisualize();
+        if (visualisationEnabled) {
+            super.attachClientsAndVisualize();
+        }
     }
 
     @Override

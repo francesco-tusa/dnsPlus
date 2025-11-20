@@ -16,14 +16,27 @@ public class EventMetrics {
     // The lists to be shared by all copies
     private final List<String> brokerPath;
     private final List<String> brokerRegionPath;
-    private final List<String> subscribersReached; // ADDED
+    private final List<String> subscribersReached; 
 
     public EventMetrics() {
         this.hopMetric = new int[1];
         this.hopMetric[0] = 0;
         this.brokerPath = new ArrayList<>();
         this.brokerRegionPath = new ArrayList<>();
-        this.subscribersReached = new ArrayList<>(); // ADDED
+        this.subscribersReached = new ArrayList<>();
+    }
+
+    /**
+     * Copy constructor for branching paths (Deep Copy).
+     * Creates a new instance with the current state but independent lists.
+     */
+    public EventMetrics(EventMetrics other) {
+        this.hopMetric = new int[1];
+        this.hopMetric[0] = other.hopMetric[0];
+        // Deep copy the lists to branch the history
+        this.brokerPath = new ArrayList<>(other.brokerPath);
+        this.brokerRegionPath = new ArrayList<>(other.brokerRegionPath);
+        this.subscribersReached = new ArrayList<>(other.subscribersReached);
     }
 
     /**
@@ -73,8 +86,6 @@ public class EventMetrics {
         return this.brokerRegionPath;
     }
     
-    // --- ADDED METHODS ---
-
     /**
      * Adds a subscriber's name to the shared list.
      * @param subscriberName The name of the subscriber.

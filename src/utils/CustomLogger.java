@@ -46,7 +46,26 @@ public final class CustomLogger {
             System.err.println("Failed to create console handler: " + e.getMessage());
         }
         
-        // File handler will be added in setGlobalLogLevel when the timestamp is known
+        // 4. Silence noisy third-party/system loggers that inherit root's ALL level
+        silenceSystemLoggers();
+    }
+    
+    /**
+     * Explicitly sets the log level of GUI and system packages to INFO
+     * to prevent them from flooding the logs when the global level is FINE/ALL.
+     */
+    private static void silenceSystemLoggers() {
+        String[] noisyPackages = {
+            "java.awt",
+            "javax.swing",
+            "sun.awt",
+            "sun.lwawt",
+            "org.graphstream"
+        };
+
+        for (String pkg : noisyPackages) {
+            Logger.getLogger(pkg).setLevel(Level.INFO);
+        }
     }
 
     /**
@@ -115,6 +134,9 @@ public final class CustomLogger {
         for (Logger logger : loggers.values()) {
             logger.setLevel(globalLevel);
         }
+        
+        // 5. Re-enforce silence on system loggers (in case they were somehow reset or lazily loaded)
+        silenceSystemLoggers();
     }
     
     /**

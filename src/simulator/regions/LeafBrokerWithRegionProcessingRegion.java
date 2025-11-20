@@ -2,6 +2,7 @@ package simulator.regions;
 
 import java.util.Map;
 import java.util.logging.Logger;
+import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
@@ -9,6 +10,14 @@ import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import utils.CustomLogger;
 
+/**
+ * A Leaf Broker implementation for Region-Based Routing.
+ * * <p>Key Responsibilities:</p>
+ * <ol>
+ * <li>Behaves like a standard Region Broker for upward propagation.</li>
+ * <li>Handles the final "Last Mile" delivery to connected Subscribers.</li>
+ * </ol>
+ */
 public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProcessingRegion implements LeafBroker {
 
     private static final Logger logger = CustomLogger.getLogger(LeafBrokerWithRegionProcessingRegion.class.getName());
@@ -17,50 +26,44 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
         super(name);
     }
     
-    public LeafBrokerWithRegionProcessingRegion(String name, simulator.core.Location p1, simulator.core.Location p2) {
+    public LeafBrokerWithRegionProcessingRegion(String name, Location p1, Location p2) {
         super(name, p1, p2);
     }
 
-    @Override
-    protected void sendSubscriptionToChildren(SimulationSubscription newSubscription) {
-        logger.fine(getName() + ": I am a leaf broker and I do not have children to forward subscriptions to.");
-    }
 
     /**
-     * The main controller for handling publications. It now separates the logic by
-     * calling two dedicated methods: one for upward propagation and one for local delivery.
+     * Processes a publication.
+     * 1. Propagates upward if necessary.
+     * 2. Delivers locally to subscribers.
      */
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         logger.fine(getName() + ": processing a publication received from " + p.getSource().getName());
 
-        // --- FIX: Only propagate upward if the publication came from a local child
-        // (e.g., a Publisher) ---
-        // --- and NOT from the parent broker. ---
+        // 1. Upward Propagation
+        // Only propagate upward if the publication came from a local child (Publisher)
         if (p.getSource() != getParentBroker()) {
-            // Call the method to handle conditional upward propagation.
             propagatePublicationUpward(p);
         }
 
-        // Call the method to handle local delivery to subscribers.
+        // 2. Local Delivery
         processPublicationForLocalDelivery(p);
         
         return null;
     }
 
     /**
-     * This method now contains the specific logic to check the subscription table
-     * for interest from the parent broker before propagating a publication upwards.
+     * Checks if the parent broker has an interest in this publication (based on the
+     * Input View / Subscription Table) and forwards it if so.
      */
     private void propagatePublicationUpward(SimulationPublication p) {
         BrokerWithRegion parentBroker = getParentBroker();
-        if (parentBroker == null) return; // No parent to propagate to.
+        if (parentBroker == null) return;
 
-        // Check the subscription table specifically for an entry from the parent.
+        // Check the main subscription table for the parent's entry
         SimulationSubscription parentSubscription = getSubscriptionsTable().get(parentBroker);
 
         if (parentSubscription instanceof SubscriptionWithRegion subRegion && p instanceof PublicationWithLocation pubLocation) {
-            // If the parent is interested, forward the publication.
             if (subRegion.getRegion().contains(pubLocation.getLocation())) {
                 logger.fine(getName() + ": Parent is interested. Forwarding publication upwards to " + parentBroker.getName());
                 SimulationPublication forwardedCopy = p.getPublication();
@@ -71,15 +74,14 @@ public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProces
     }
 
     /**
-     * This method contains the specific logic for checking the subscription table
-     * and delivering the publication to any matching local subscribers.
+     * Iterates through the subscription table to find matching LOCAL subscribers.
      */
     @Override
     public void processPublicationForLocalDelivery(SimulationPublication p) {
         for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
             TreeNode destinationNode = entry.getKey();
 
-            // Ensure we are only checking for local subscribers, not the parent.
+            // Only deliver to Subscribers (leaf nodes), not brokers
             if (destinationNode instanceof SubscriberWithLocation subscriber) {
                 if (entry.getValue() instanceof SubscriptionWithRegion subRegion && p instanceof PublicationWithLocation pubLocation) {
                     if (subRegion.getRegion().contains(pubLocation.getLocation())) {
