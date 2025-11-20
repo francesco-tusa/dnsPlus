@@ -38,7 +38,6 @@ public class SubscriptionWithRegion extends SimulationSubscription {
         this.region = region;
     }
 
-    @Override
     public String toDisplayString() {
         if (region != null) {
             return region.toShortString();

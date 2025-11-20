@@ -20,7 +20,6 @@ public class RegionSubscriptionManager {
 
         if (existing == null) {
             stateMap.put(target, newSub);
-            // Changed to FINE to avoid polluting console during performance runs
             logger.fine("Manager (" + target.getName() + "): New Entry Added. Region: " + newSub.getRegion().toLogString());
             return true; 
         }
@@ -30,16 +29,14 @@ public class RegionSubscriptionManager {
             Region newRegion = newSub.getRegion();
 
             if (currentRegion.contains(newRegion)) {
-                // Changed to FINE. This is normal behavior in large simulations and shouldn't be INFO.
                 logger.fine("Manager (" + target.getName() + "): REDUNDANT. Current: " + currentRegion.toLogString() + " contains Incoming: " + newRegion.toLogString());
                 return false; 
             } else {
-                // Capture state BEFORE mutation for logging
+                // Capture state BEFORE mutation
                 String oldState = currentRegion.toLogString();
                 
                 boolean expanded = currentRegion.expand(newRegion);
                 
-                // Changed to FINE.
                 if (expanded) {
                     logger.fine("Manager (" + target.getName() + "): EXPANDED. Old: " + oldState + 
                                 " Incoming: " + newRegion.toLogString() + 

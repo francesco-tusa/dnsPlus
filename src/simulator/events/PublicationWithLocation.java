@@ -33,7 +33,6 @@ public class PublicationWithLocation extends SimulationPublication {
         return "[location=" + location + ", source=" + getSource() + "]";
     }
     
-    @Override
     public String toDisplayString() {
         if (location != null) {
             return location.toShortString();
@@ -41,6 +40,11 @@ public class PublicationWithLocation extends SimulationPublication {
         return "N/A_Location";
     }
 
+
+    /**
+     * Prototype Pattern implementation.
+     * Allows the broker to clone this publication without knowing its concrete class.
+     */
     @Override
     public SimulationPublication getPublication() {
         return new PublicationWithLocation(this);

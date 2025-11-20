@@ -1,7 +1,5 @@
 package simulator.entities;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
@@ -9,8 +7,10 @@ import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.events.SubscriptionWithLocation;
+import simulator.events.metrics.EventMetrics;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.visualisation.TopologyVisualiser;
+import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
 public class SubscriberWithLocation extends TreeNode {
@@ -21,9 +21,6 @@ public class SubscriberWithLocation extends TreeNode {
     private int nSubscriptions;
     private int nPublications;
     private PublicationWithLocation lastReceivedPublication;
-    
-    // Stores the hop count of each publication received
-    private final List<Integer> receivedPublicationHops = new ArrayList<>();
 
     public SubscriberWithLocation(String name, Location location) {
         super(name);
@@ -36,8 +33,18 @@ public class SubscriberWithLocation extends TreeNode {
     public void receive(SimulationPublication p) {
         logger.fine(getName() + ": received publication " + p);
         nPublications++;
-        p.addSubscriberToPath(this.getName()); // <-- ADDED THIS LINE
-        receivedPublicationHops.add(p.getHops()); // Store the hop count
+        
+        // --- METRIC COLLECTION (Streaming) ---
+        if (p.getMetrics() != null && p instanceof PublicationWithLocation pub) {
+            // Log SUCCESSFUL Delivery (No Timestamp)
+            CsvMetricWriter.getInstance().logPublicationDelivery(
+                p.getMetrics().getTraceId(),
+                this.getName(),
+                p.getMetrics().getHops(),
+                pub.getLocation().getX(),
+                pub.getLocation().getY()
+            );
+        }
         
         if (p instanceof PublicationWithLocation) {
             this.lastReceivedPublication = (PublicationWithLocation) p;
@@ -45,8 +52,7 @@ public class SubscriberWithLocation extends TreeNode {
 
         TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
         if (visualizer != null && p.getSource() != null) {
-            // We now call updatePublicationEdge and specify the direction as 'false' (downward).
-            boolean isUpward = false; // Delivery to a subscriber is always a downward event.
+            boolean isUpward = false; 
             visualizer.updatePublicationEdge(p.getSource().getName(), getName(), isUpward);
         }
     }
@@ -54,6 +60,9 @@ public class SubscriberWithLocation extends TreeNode {
     public void send(SimulationSubscription s) {
         SimulationBroker broker = getBroker();
         s.setSource(this);
+        
+        String traceId = this.getName();
+        s.setMetrics(new EventMetrics(traceId));
 
         if (broker != null) {
             String subInfo = "";
@@ -81,14 +90,13 @@ public class SubscriberWithLocation extends TreeNode {
     public Location getLocation() { return location; }
     public int getnSubscriptions() { return nSubscriptions; }
     public int getnPublications() { return nPublications; }
-    public SimulationBroker getBroker() { return (SimulationBroker) getParent(); }
-    public PublicationWithLocation getLastReceivedPublication() { return lastReceivedPublication; }
     
-    /**
-     * Gets the list of hop counts for all publications delivered to this subscriber.
-     * @return A list of hop count integers.
-     */
-    public List<Integer> getReceivedPublicationHops() {
-        return receivedPublicationHops;
+    public SimulationBroker getBroker() { 
+        if (getParent() instanceof SimulationBroker) {
+            return (SimulationBroker) getParent();
+        }
+        return null;
     }
+    
+    public PublicationWithLocation getLastReceivedPublication() { return lastReceivedPublication; }
 }

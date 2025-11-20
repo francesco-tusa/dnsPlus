@@ -4,13 +4,12 @@ import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.entities.SimulationBroker;
 import simulator.entities.SubscriberWithLocation;
-import simulator.events.TrackableEvent;
 import simulator.core.TreeNode;
 import utils.CustomLogger;
 
 /**
  * Abstract base class for brokers that have a geographic region.
- * * <p>This class adds the `Region` property and the logic to dynamically
+ * <p>This class adds the `Region` property and the logic to dynamically
  * update that region based on the regions of its children (R-tree like behavior).</p>
  */
 public abstract class BrokerWithRegion extends SimulationBroker {
@@ -73,7 +72,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     /**
      * Updates this broker's region to include the region of a child.
      * This effectively builds the R-tree structure bottom-up.
-     * * @param child The child node (Broker or Subscriber) causing the update.
+     * @param child The child node (Broker or Subscriber) causing the update.
      */
     public void updateRegion(TreeNode child) {
         boolean regionChanged = false;
@@ -102,18 +101,6 @@ public abstract class BrokerWithRegion extends SimulationBroker {
             if (parentBroker != null) {
                 parentBroker.updateRegion(this);
             }
-        }
-    }
-
-    /**
-     * Overrides the hook to add the region string to event traces.
-     */
-    @Override
-    protected void captureRegionMetric(TrackableEvent event) {
-        if (getRegion() != null) {
-            event.addBrokerRegionToPath(getRegion().toShortString());
-        } else {
-            event.addBrokerRegionToPath("[]");
         }
     }
 }

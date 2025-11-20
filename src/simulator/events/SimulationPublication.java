@@ -1,25 +1,18 @@
 package simulator.events;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 import simulator.core.TreeNode;
 import simulator.events.metrics.EventMetrics;
 
-/**
- * This class implements TrackableEvent and composes EventMetrics
- * to handle shared hop counting and path tracking.
- */
-public abstract class SimulationPublication implements TrackableEvent {
+public class SimulationPublication {
 
-    private static final AtomicLong nextId = new AtomicLong(0);
+    private static long ID_COUNTER = 0;
     private final long id;
     private TreeNode source;
     
     protected EventMetrics metrics;
 
     public SimulationPublication() {
-        this.id = nextId.getAndIncrement();
-        this.metrics = new EventMetrics();
+        this.id = ++ID_COUNTER;
     }
 
     public long getId() {
@@ -33,48 +26,32 @@ public abstract class SimulationPublication implements TrackableEvent {
     public void setSource(TreeNode source) {
         this.source = source;
     }
+
+    public EventMetrics getMetrics() {
+        return metrics;
+    }
+
+    public void setMetrics(EventMetrics metrics) {
+        this.metrics = metrics;
+    }
+
+    /**
+     * Creates a copy of the publication for forwarding.
+     * Subclasses MUST override this to preserve payload data.
+     */
+    public SimulationPublication getPublication() {
+        return new SimulationPublication();
+    }
     
-    @Override
-    public int getHops() {
-        return this.metrics.getHops();
-    }
-
-    @Override
-    public void incrementHops() {
-        this.metrics.incrementHops();
-    }
-    
-    @Override
-    public void addBrokerToPath(String brokerName) {
-        this.metrics.addBrokerToPath(brokerName);
-    }
-
-    @Override
-    public List<String> getBrokerPath() {
-        return this.metrics.getBrokerPath();
-    }
-
-    @Override
-    public void addBrokerRegionToPath(String regionInfo) {
-        this.metrics.addBrokerRegionToPath(regionInfo);
-    }
-
-    @Override
-    public List<String> getBrokerRegionPath() {
-        return this.metrics.getBrokerRegionPath();
+    /**
+     * Returns a string suitable for the TopologyVisualiser labels.
+     */
+    public String toDisplayString() {
+        return toString();
     }
     
     @Override
-    public void addSubscriberToPath(String subscriberName) {
-        this.metrics.addSubscriberToPath(subscriberName);
+    public String toString() {
+        return "Publication-" + id;
     }
-
-    @Override
-    public List<String> getSubscribersReached() {
-        return this.metrics.getSubscribersReached();
-    }
-
-    public abstract SimulationPublication getPublication();
-
-    public abstract String toDisplayString();
 }

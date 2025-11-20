@@ -2,13 +2,11 @@ package simulator.simulations.performance;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.logging.Logger; // Import Logger
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
+
 import simulator.core.Location;
-import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.regions.BrokerWithRegion;
@@ -18,7 +16,7 @@ import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
-import utils.CsvMetricWriter; // We still need this import
+import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
 public abstract class AbstractRegionPerformanceSimulation<
@@ -31,19 +29,11 @@ public abstract class AbstractRegionPerformanceSimulation<
     protected final double subscriptionRegionSize; 
     protected final double remoteInterestProbability;
 
-    // --- Lists to store all clients/messages for ground truth calculation ---
-    protected final List<SubscriptionWithRegion> allSubscriptions = new ArrayList<>();
-    protected final List<PublicationWithLocation> allPublications = new ArrayList<>();
+    // Keep lists of clients, but NOT the events themselves (to save memory)
+    // Ground truth calculation will generate events on the fly if needed, 
+    // or you can disable ground truth for very large simulations.
     private long groundTruthMatches = 0;
 
-    /**
-     * Main constructor with all flags.
-     * @param numberOfReplicas Total number of publisher replicas.
-     * @param subscribersPerReplica Subscribers per replica ratio.
-     * @param subscriptionRegionSize The absolute size (e.g., 10.0 for a 10x10 box) of local subscription regions.
-     * @param remoteInterestProbability Probability of subscribing to a remote DC.
-     * @param enableCsvOutput True to write raw metrics to CSV files.
-     */
     public AbstractRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
                                                double subscriptionRegionSize, double remoteInterestProbability,
                                                boolean enableCsvOutput) {
@@ -58,9 +48,6 @@ public abstract class AbstractRegionPerformanceSimulation<
         this.remoteInterestProbability = remoteInterestProbability;
     }
     
-    /**
-     * Constructor without CSV flag (defaults to false).
-     */
     public AbstractRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
                                                double subscriptionRegionSize, double remoteInterestProbability) {
         this(numberOfReplicas, subscribersPerReplica, subscriptionRegionSize, remoteInterestProbability, false);
@@ -69,51 +56,26 @@ public abstract class AbstractRegionPerformanceSimulation<
     protected double getSubscriptionRegionSize() { return subscriptionRegionSize; }
     protected double getRemoteInterestProbability() { return remoteInterestProbability; }
 
-    /**
-     * Override setupSimulation to log region-specific parameters.
-     */
     @Override
     protected void setupSimulation() {
-        super.setupSimulation(); // This logs the base parameters (total subs, replicas)
-
-        // --- Log all parameters in a consolidated block ---
+        super.setupSimulation();
         logSimulationParameters();
     }
 
-
-    /**
-     * Logs all key simulation parameters in a single, consolidated block.
-     */
     private void logSimulationParameters() {
         logger.info("\n--- Simulation Run Parameters (Run ID: " + this.simulationTimestamp + ") ---");
-        
-        // --- Client Configuration ---
-        logger.info("  Client Configuration:");
-        logger.info(String.format("    - Publisher Replicas: %d", this.numberOfReplicas));
-        logger.info(String.format("    - Subscribers / Replica: %d", this.subscribersPerReplica));
-        logger.info(String.format("    - Total Subscribers: %d", this.totalSubscribers));
-        
-        // --- Region Strategy Configuration ---
         logger.info("  Region Strategy:");
         logger.info(String.format("    - Subscription Region Size: %.2f", this.subscriptionRegionSize));
         logger.info(String.format("    - Remote Interest Probability: %.2f", this.remoteInterestProbability));
 
-        // --- Topology Configuration ---
         logger.info("  Topology Configuration:");
         if (this.topologyConfig instanceof RegionRandomTopologyConfiguration config) {
-            logger.info(String.format("    - Type: Random"));
-            logger.info(String.format("    - Tree Depth: %d", config.getTreeDepth()));
-            logger.info(String.format("    - Max Branching: %d", config.getMaxBranchingFactor()));
-            logger.info(String.format("    - Region Count: %d", config.getNumRegions()));
+            logger.info(String.format("    - Type: Random (Depth=%d, Branch=%d)", config.getTreeDepth(), config.getMaxBranchingFactor()));
         } else if (this.topologyConfig instanceof FileBasedTopologyConfiguration config) {
-            logger.info(String.format("    - Type: File-Based"));
-            logger.info(String.format("    - Source File: %s", config.getTopologyFilePath()));
-        } else {
-            logger.info("    - Type: Unknown");
+            logger.info(String.format("    - Type: File-Based (%s)", config.getTopologyFilePath()));
         }
         logger.info("--- End of Simulation Parameters ---");
     }
-
 
     @Override
     protected void executeScenarios() {
@@ -123,74 +85,77 @@ public abstract class AbstractRegionPerformanceSimulation<
             return;
         }
         List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
-        
-        // --- Clear lists for this run ---
-        allSubscriptions.clear();
-        allPublications.clear();
 
+        // Phase 1: Subscriptions
         logger.info("\n>>> Phase 1: Subscribers are sending region-based subscriptions... <<<");
         final int PROGRESS_INTERVAL = (int) Math.max(1000, getTotalSubscribers() / 10);
+        
+        // We need to store subscriptions TEMPORARILY for ground truth if needed,
+        // but for pure performance, we might skip this to save RAM.
+        // Here, I will regenerate them strictly for ground truth check later if required,
+        // OR we assume ground truth is an offline check. 
+        // For now, let's just SEND them.
+        
+        List<SubscriptionWithRegion> tempSubsForGroundTruth = new ArrayList<>();
+
         for (int i = 0; i < allSubscribers.size(); i++) {
             SubscriberWithLocation subscriber = allSubscribers.get(i);
             SubscriptionWithRegion subscription = generateSubscriptionForSubscriber(subscriber, leafBrokers);
             
-            // --- Add to list for ground truth calculation ---
-            allSubscriptions.add(subscription); 
+            // Store logic-only copy (lightweight) for ground truth if needed
+            tempSubsForGroundTruth.add(subscription);
             
-            subscriber.send(subscription);
+            subscriber.send(subscription); // This triggers streaming logs
+            
             if ((i + 1) % PROGRESS_INTERVAL == 0 || (i+1) == allSubscribers.size()) {
                 logger.info(String.format("  ... processed %d / %d subscriptions.", (i + 1), allSubscribers.size()));
             }
         }
 
+        // Phase 2: Publications
         logger.info("\n>>> Phase 2: All service replicas are sending their publications... <<<");
+        
+        List<PublicationWithLocation> tempPubsForGroundTruth = new ArrayList<>();
+        
         for(var publisher : allPublishers) {
-            // --- Create and store publication for ground truth ---
-            PublicationWithLocation pub = new simulator.events.PublicationWithLocation(publisher.getLocation());
-            allPublications.add(pub);
+            PublicationWithLocation pub = new PublicationWithLocation(publisher.getLocation());
+            tempPubsForGroundTruth.add(pub);
             
-            publisher.send(pub);
+            publisher.send(pub); // This triggers streaming logs
         }
         
-        // --- Calculate ground truth before collecting metrics ---
-        calculateGroundTruth();
+        // Calculate Ground Truth (Optional: disable for massive scales to save RAM)
+        calculateGroundTruth(tempSubsForGroundTruth, tempPubsForGroundTruth);
         
-        collectAndPrintMetrics(); // This is the method in AbstractPerformanceSimulation
+        // Cleanup temp lists immediately
+        tempSubsForGroundTruth.clear();
+        tempPubsForGroundTruth.clear();
+        
+        // Finalize Metrics
+        collectAndPrintMetrics();
     }
     
     /**
-     * Helper method to calculate the ground truth.
-     * This iterates through all publications and all subscriptions to find
-     * the theoretical maximum number of matches.
+     * Calculates theoretical matches. O(S * P) complexity.
      */
-    private void calculateGroundTruth() {
+    private void calculateGroundTruth(List<SubscriptionWithRegion> subs, List<PublicationWithLocation> pubs) {
         logger.info("\n--- Calculating Ground Truth Matches ---");
         this.groundTruthMatches = 0;
-        if (allSubscriptions.isEmpty() || allPublications.isEmpty()) {
-            logger.warning("Cannot calculate ground truth, no subscriptions or publications were generated.");
-            return;
-        }
+        if (subs.isEmpty() || pubs.isEmpty()) return;
 
-        long pubCount = allPublications.size();
-        long subCount = allSubscriptions.size();
-        // Set a reasonable progress interval for the log
-        long progressInterval = Math.max(1, (pubCount * subCount) / 10_000_000 / 10); // Aim for ~10 log lines
-        if (progressInterval == 0) progressInterval = 1;
+        long pubCount = pubs.size();
+        long subCount = subs.size();
+        long progressInterval = Math.max(1, (pubCount * subCount) / 10_000_000 / 10); 
 
-        // This is O(P*S), but it's the only way to get the true baseline.
         for (int i = 0; i < pubCount; i++) {
-            PublicationWithLocation pub = allPublications.get(i);
-            Location pubLoc = pub.getLocation();
-            
-            for (int j = 0; j < subCount; j++) {
-                SubscriptionWithRegion sub = allSubscriptions.get(j);
+            Location pubLoc = pubs.get(i).getLocation();
+            for (SubscriptionWithRegion sub : subs) {
                 if (sub.getRegion().contains(pubLoc)) {
                     this.groundTruthMatches++;
                 }
             }
-            
-            if ((i + 1) % progressInterval == 0 || (i + 1) == pubCount) {
-                logger.info(String.format("  ... checked %d / %d publications against %d subscriptions.", (i+1), pubCount, subCount));
+            if ((i + 1) % progressInterval == 0) {
+                logger.info(String.format("  ... checked %d / %d publications.", (i+1), pubCount));
             }
         }
         logger.info("--- Ground Truth Calculation Complete: " + this.groundTruthMatches + " total potential matches. ---");
@@ -199,7 +164,6 @@ public abstract class AbstractRegionPerformanceSimulation<
     protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers) {
         Region subscriptionRegion;
         if (random.nextDouble() < getRemoteInterestProbability()) {
-            // Remote interest logic (subscribing to a whole hub region) remains the same
             List<BrokerWithRegion> hubs = findTopDataCenters(allLeafBrokers, 30);
              if (hubs.isEmpty()) {
                  BrokerWithRegion randomBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
@@ -209,10 +173,8 @@ public abstract class AbstractRegionPerformanceSimulation<
                  subscriptionRegion = new Region(remoteHub.getRegion());
             }
         } else {
-            // Create a fixed-size region centered on the subscriber's location.
             Location centerOfInterest = subscriber.getLocation();
-            double halfSize = getSubscriptionRegionSize() / 2.0; // Use the absolute size
-            
+            double halfSize = getSubscriptionRegionSize() / 2.0; 
             subscriptionRegion = new Region(
                 new Location(centerOfInterest.getX() - halfSize, centerOfInterest.getY() - halfSize, 0),
                 new Location(centerOfInterest.getX() + halfSize, centerOfInterest.getY() + halfSize, 0)
@@ -228,178 +190,22 @@ public abstract class AbstractRegionPerformanceSimulation<
             .collect(Collectors.toList());
     }
 
-    /**
-     * Helper function to build the broker path for a given client node (e.g., Publisher)
-     * by traversing up the parent tree.
-     * @param clientNode The publisher or subscriber node.
-     * @return A map containing the formatted broker path string.
-     */
-    protected Map<String, String> buildBrokerPath(simulator.core.TreeNode clientNode) {
-        List<String> pathNames = new ArrayList<>();
-        List<String> pathRegions = new ArrayList<>();
-
-        // Start from the parent broker
-        simulator.core.TreeNode current = clientNode.getParent(); 
-
-        while (current instanceof BrokerWithRegion) {
-            BrokerWithRegion broker = (BrokerWithRegion) current;
-            pathNames.add(broker.getName());
-            
-            Region region = broker.getRegion();
-            if (region != null) {
-                pathRegions.add(region.toShortString());
-            } else {
-                pathRegions.add("[N/A]");
-            }
-            
-            current = broker.getParent();
-        }
-        
-        // The path is built from leaf to root, so reverse it
-        java.util.Collections.reverse(pathNames);
-        java.util.Collections.reverse(pathRegions);
-
-        // Zip the two lists together for the final string
-        List<String> combinedPath = new ArrayList<>();
-        int size = Math.min(pathNames.size(), pathRegions.size());
-        for (int k = 0; k < size; k++) {
-            combinedPath.add(pathNames.get(k) + " " + pathRegions.get(k));
-        }
-        
-        Map<String, String> paths = new HashMap<>();
-        paths.put("broker_path", String.join(" -> ", combinedPath));
-        
-        return paths;
-    }
-
     @Override
     protected void collectAndPrintMetrics() {
-        // --- 1. Call parent to collect all base metrics ---
-        //    THIS NOW POPULATES 'publicationLogData'
+        // Only print high-level summary here.
+        // Detailed logs are already on disk in CSVs.
         super.collectAndPrintMetrics(); 
-
-        // --- 2. Now, collect metrics SPECIFIC to this child class ---
-        List<Integer> finalSubscriptionHops = new ArrayList<>();
-        List<Map<String, Object>> subscriptionPathData = new ArrayList<>();
-
-        // We iterate over the master list of ORIGINAL subscriptions
-        for (SubscriptionWithRegion sub : allSubscriptions) {
-            if (sub != null) {
-                finalSubscriptionHops.add(sub.getHops());
-                
-                Map<String, Object> row = new HashMap<>();
-                row.put("subscription_id", sub.getId());
-                row.put("source_name", (sub.getSource() != null) ? sub.getSource().getName() : "N/A");
-                row.put("hop_count", sub.getHops());
-                row.put("subscription_region", (sub.getRegion() != null) ? sub.getRegion().toShortString() : "N/A");
-         
-                List<String> pathNames = sub.getBrokerPath();
-                List<String> pathRegions = sub.getBrokerRegionPath();
-                List<String> combinedPath = new ArrayList<>();
-
-                // Zip the two lists together
-                int size = Math.min(pathNames.size(), pathRegions.size());
-                for (int k = 0; k < size; k++) {
-                    combinedPath.add(pathNames.get(k) + " " + pathRegions.get(k));
-                }
-
-                // Join with arrow for readability
-                row.put("broker_path", String.join(" -> ", combinedPath));
-
-                subscriptionPathData.add(row);
-            }
-        }
-        
-        // --- 3. Now, print ALL metrics (base metrics already printed by super) ---
-        
-        logger.info("\n--- Final Subscription Path Metrics ---");
-        logger.info(String.format("  ... Processed %d subscription paths for CSV output.", finalSubscriptionHops.size()));
-        printStats("Final Subscription Hops (Network Load)", finalSubscriptionHops);
 
         logger.info("\n--- Region-Specific Delivery Metrics ---");
         logger.info("Ground Truth (Potential) Matches: " + this.groundTruthMatches);
-        if (this.groundTruthMatches > 0) {
+        
+        if (this.groundTruthMatches > 0 && successfulNotifications > 0) {
             double accuracy = (double) successfulNotifications / this.groundTruthMatches * 100.0;
             logger.info(String.format("Delivery Accuracy (Notifications / Ground Truth): %.2f%%", accuracy));
         }
-        if (getTotalSubscribers() > 0) {
-            long matchedSubscribers = allSubscribers.stream().filter(s -> s.getnPublications() > 0).count();
-            double matchRate = (double) matchedSubscribers / getTotalSubscribers() * 100.0;
-            logger.info(String.format("Subscriber Match Rate (Subscribers with >0 msgs): %.2f%% (%d / %d)", 
-                                      matchRate, matchedSubscribers, getTotalSubscribers()));
-            
-            if (matchedSubscribers > 0) {
-                double avgPubsPerMatchedSub = (double) successfulNotifications / matchedSubscribers;
-                logger.info(String.format("Average Notifications per Matched Subscriber: %.2f (%d / %d)", 
-                                          avgPubsPerMatchedSub, successfulNotifications, matchedSubscribers));
-            }
-        }
-
-        // --- 3.5. Collect Publisher Path Metrics ---
-        // REMOVED - This is now done in the parent class's 'publicationLogData'
         
-        // --- 4. Call the parent's CSV writer ONCE with ALL data ---
-        if (enableCsvOutput) {
-            logger.info("\n--- Writing all metrics to CSV (Run ID: " + this.simulationTimestamp + ") ---");
-            // Call the parent's protected method
-            writeMetricsToCsv(
-                finalSubscriptionHops,        // Child's data
-                subscriptionPathData,         // Child's data
-                publicationLogData,           // MODIFIED: Parent's new log
-                allPublicationProcessingCosts // Parent's data (from protected field)
-            );
-        }
-    }
-    
-    /**
-     * Writes metric data to CSV files. This version is simplified to only write
-     * subscription and the new consolidated publication log.
-     */
-    protected void writeMetricsToCsv(List<Integer> subHops, 
-                                     List<Map<String, Object>> subPathData, 
-                                     List<Map<String, Object>> pubLogData, 
-                                     List<Long> pubCosts) {
-                                         
-        String timestamp = this.simulationTimestamp; 
-        String outputDir = "output/metrics/" + timestamp + "/";
-        logger.info("\n--- Writing raw metrics to CSV files (Run ID: " + timestamp + ") ---");
-        
-        // --- Write Subscription Hops ---
-        if (subHops != null && !subHops.isEmpty()) {
-            CsvMetricWriter.writeListToCsv(
-                outputDir + timestamp + "_subscription_hops.csv", 
-                "hop_count", 
-                subHops);
-        }
-        
-        // --- Write Subscription Paths ---
-        if (subPathData != null && !subPathData.isEmpty()) {
-            String pathCsvPath = outputDir + timestamp + "_subscription_paths.csv";
-            CsvMetricWriter.writeMapListToCsv(
-                pathCsvPath,
-                new String[]{"subscription_id", "source_name", "hop_count", "subscription_region", "broker_path"},
-                subPathData
-            );
-        }
-        
-        // --- Write NEW Publication Log ---
-        if (pubLogData != null && !pubLogData.isEmpty()) {
-            String pathCsvPath = outputDir + timestamp + "_publication_log.csv";
-            CsvMetricWriter.writeMapListToCsv(
-                pathCsvPath,
-                new String[]{"publication_id", "publisher_name", "publisher_location", "cumulative_hops", "broker_path", "subscribers_reached"},
-                pubLogData
-            );
-        }
-            
-        // --- Write Publication Processing Cost ---
-        CsvMetricWriter.writeListToCsv(
-            outputDir + timestamp + "_publication_processing_cost.csv", 
-            "processing_cost", 
-            pubCosts);
-            
-        // --- REMOVED _publisher_paths.csv ---
-        // --- REMOVED _publication_hops.csv ---
-        // --- REMOVED _delivered_publication_hops.csv ---
+        // Explicitly close the writer
+        CsvMetricWriter.getInstance().close();
+        logger.info("Metrics streaming closed.");
     }
 }

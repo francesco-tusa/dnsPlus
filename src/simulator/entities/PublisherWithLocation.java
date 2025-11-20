@@ -6,7 +6,7 @@ import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.PublicationWithLocation;
-import simulator.events.SimulationPublication;
+import simulator.events.metrics.EventMetrics;
 import utils.CustomLogger;
 import simulator.visualisation.TopologyVisualiser;
 
@@ -23,30 +23,30 @@ public class PublisherWithLocation extends TreeNode {
         this.nPublications = 0;
     }
     
-    public void send(SimulationPublication p) {
-        SimulationBroker broker = getBroker();
-        p.setSource(this);
+    public void send(PublicationWithLocation pub) {
+        String traceId = this.getName();
+        pub.setMetrics(new EventMetrics(traceId));
         
-        if (broker != null) {
-            String pubInfo = "";
-            if (p instanceof PublicationWithLocation pl) {
-                pubInfo = " for location " + pl.getLocation();
-                sentPublications.add(pl); // Add to history
-            }
+        TreeNode parent = getParent();
+        
+        if (parent instanceof SimulationBroker) {
+            SimulationBroker broker = (SimulationBroker) parent;
+            
+            String pubInfo = " for location " + pub.getLocation();
+            sentPublications.add(pub); 
+            
             logger.fine("\n" + getName() + ": sending publication" + pubInfo);
             
             TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
             if (visualizer != null) {
                 visualizer.setNodeActive(getName());
-                // Update the label with the full history
                 visualizer.updatePublisherLabel(this);
             }
 
-            broker.processPublication(p);
+            broker.processPublication(pub);
             nPublications++;
-        }
-        else {
-            logger.severe(getName() + ": there is no broker to send the publication to");
+        } else {
+            logger.severe(getName() + ": parent is not a SimulationBroker, cannot send publication.");
         }
     }
     
