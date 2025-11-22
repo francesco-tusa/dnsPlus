@@ -25,6 +25,11 @@ public class RegionFunctionalTestsMain {
 
     private static final Logger logger = CustomLogger.getLogger(RegionFunctionalTestsMain.class.getName());
 
+    // --- CONFIGURATION FLAG ---
+    // Set to TRUE to run the test on the full 800k node topology.
+    // Set to FALSE to run on the verified subset (Bangladesh-China).
+    private static final boolean USE_FULL_TOPOLOGY = true;
+
     public static void main(String[] args) {
         // Run the most fundamental test first
         // runRegionFloatingPointTest();
@@ -104,17 +109,23 @@ public class RegionFunctionalTestsMain {
 
     public static void runGeoNamesTest() {
         logger.info("===============================================================");
-        logger.info("  RUNNING (Functional): GeoNames Topology - Propagation & Metrics");
+        logger.info("  RUNNING (Functional): GeoNames Propagation & Metrics");
+        logger.info("  Mode: " + (USE_FULL_TOPOLOGY ? "FULL TOPOLOGY" : "SUBSET TOPOLOGY"));
         logger.info("===============================================================");
         
-        // UPDATED: Use the subset topology file
-        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration("output/geonames_subset_bangladesh_beijing.json");
+        String topologyFile;
+        if (USE_FULL_TOPOLOGY) {
+            topologyFile = "output/geonames_topology.json";
+        } else {
+            topologyFile = "output/geonames_subset_bangladesh_beijing.json";
+        }
+        
+        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(topologyFile);
         FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new RegionBrokerFactory());
         
         ConfigurableFunctionalTest<FileBasedTopologyConfiguration, BrokerWithRegion, FileBasedTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(GeoNamesPropagationTest.COMPREHENSIVE_REGRESSION_TEST, "GeoNames Propagation");
         
-        // UPDATED: Disable visualiser
         validation.setVisualisationEnabled(false);
         
         validation.run(factory, config);
