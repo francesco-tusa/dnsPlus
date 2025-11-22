@@ -4,6 +4,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import simulator.population.PopulationBasedPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
+import simulator.topology.TopologyPaths;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyGenerator;
@@ -54,7 +55,7 @@ public class PopulationGeonamesRegionPerformanceSimulation extends GeoNamesBased
         boolean enableVerboseLogs = false;
         boolean enableCsvOutput = true;
 
-        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration("output/geonames_topology.json");
+        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(TopologyPaths.FULL_TOPOLOGY);
         FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new RegionBrokerFactory());
         
         PopulationGeonamesRegionPerformanceSimulation simulation = new PopulationGeonamesRegionPerformanceSimulation(

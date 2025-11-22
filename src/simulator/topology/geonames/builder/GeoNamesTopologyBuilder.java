@@ -4,6 +4,9 @@ import java.io.File;
 import java.util.logging.Logger;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+
+import simulator.topology.TopologyPaths;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import utils.CustomLogger;
 
@@ -33,7 +36,7 @@ public class GeoNamesTopologyBuilder {
         // We keep the fixed name for the subset to maintain compatibility with the functional test config
         if (strategy instanceof PoliticalTopologyStrategy) {
             GeoNamesBuilderNode subset = createSubset(root);
-            exportToJson(subset, outputDir + "/geonames_subset_bangladesh_beijing.json");
+            exportToJson(subset, outputDir + TopologyPaths.SUBSET_TOPOLOGY);
         }
     }
 

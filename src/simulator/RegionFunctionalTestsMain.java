@@ -8,6 +8,7 @@ import simulator.simulations.functional.FixedTopologyRegionFunctionalTests;
 import simulator.simulations.functional.GeoNamesPropagationTest;
 import simulator.simulations.functional.GridTopologyRegionFunctionalTests;
 import simulator.simulations.functional.RegionFpFunctionalTests;
+import simulator.topology.TopologyPaths;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
@@ -25,10 +26,10 @@ public class RegionFunctionalTestsMain {
 
     private static final Logger logger = CustomLogger.getLogger(RegionFunctionalTestsMain.class.getName());
 
-    // --- CONFIGURATION FLAG ---
-    // Set to TRUE to run the test on the full 800k node topology.
-    // Set to FALSE to run on the verified subset (Bangladesh-China).
-    private static final boolean USE_FULL_TOPOLOGY = true;
+    // --- CONFIGURATION ---
+    // Set to TRUE to run the regression test on the massive 50M+ line topology.
+    // Set to FALSE to use the verified Bangladesh/Beijing subset.
+    private static final boolean USE_FULL_TOPOLOGY = false;
 
     public static void main(String[] args) {
         // Run the most fundamental test first
@@ -40,7 +41,7 @@ public class RegionFunctionalTestsMain {
         // runGridTopologyTest();
 
         // Run a comprehensive end-to-end test using a subset
-        // of the GeoNames world topolgy
+        // of the GeoNames world topolgy        
         runGeoNamesTest();
     }
 
@@ -108,24 +109,19 @@ public class RegionFunctionalTestsMain {
     }
 
     public static void runGeoNamesTest() {
+        String topologyFilePath = USE_FULL_TOPOLOGY ? TopologyPaths.FULL_TOPOLOGY : TopologyPaths.SUBSET_TOPOLOGY;
         logger.info("===============================================================");
-        logger.info("  RUNNING (Functional): GeoNames Propagation & Metrics");
-        logger.info("  Mode: " + (USE_FULL_TOPOLOGY ? "FULL TOPOLOGY" : "SUBSET TOPOLOGY"));
+        logger.info("  RUNNING (Functional): GeoNames Topology - Propagation & Metrics");
+        logger.info("  Topology File: " + topologyFilePath);
         logger.info("===============================================================");
         
-        String topologyFile;
-        if (USE_FULL_TOPOLOGY) {
-            topologyFile = "output/geonames_topology.json";
-        } else {
-            topologyFile = "output/geonames_subset_bangladesh_beijing.json";
-        }
-        
-        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(topologyFile);
+        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(topologyFilePath);
         FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new RegionBrokerFactory());
         
         ConfigurableFunctionalTest<FileBasedTopologyConfiguration, BrokerWithRegion, FileBasedTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(GeoNamesPropagationTest.COMPREHENSIVE_REGRESSION_TEST, "GeoNames Propagation");
         
+        // Disable visualizer for large-scale functional tests
         validation.setVisualisationEnabled(false);
         
         validation.run(factory, config);

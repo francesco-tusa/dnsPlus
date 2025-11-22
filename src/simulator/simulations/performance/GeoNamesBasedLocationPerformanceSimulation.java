@@ -1,11 +1,9 @@
 package simulator.simulations.performance;
 
-import java.util.logging.Level;
-import java.util.logging.Logger; // Import Logger
-import simulator.topology.factories.LocationBrokerFactory;
+import java.util.logging.Logger;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyGenerator;
-import utils.CustomLogger; // Import CustomLogger
+import utils.CustomLogger;
 
 /**
  * This is now an ABSTRACT base class for simulations that use the GeoNames
@@ -28,8 +26,4 @@ public abstract class GeoNamesBasedLocationPerformanceSimulation extends Abstrac
     public GeoNamesBasedLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
         this(numberOfReplicas, subscribersPerReplica, false);
     }
-
-    // --- MAIN METHOD REMOVED ---
-    // This class is now abstract. Run AwsGeonamesLocationPerformanceSimulation
-    // or PopulationGeonamesLocationPerformanceSimulation instead.
 }

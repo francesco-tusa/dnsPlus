@@ -4,6 +4,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import simulator.population.AmazonAwsPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
+import simulator.topology.TopologyPaths;
 import simulator.topology.factories.RegionBrokerFactory;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyGenerator;
@@ -49,7 +50,7 @@ public class AwsGeonamesRegionPerformanceSimulation extends GeoNamesBasedRegionP
         boolean enableVerboseLogs = false;
         boolean enableCsvOutput = true;
 
-        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration("output/geonames_topology.json");
+        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(TopologyPaths.FULL_TOPOLOGY);
         FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new RegionBrokerFactory());
         
         AwsGeonamesRegionPerformanceSimulation simulation = new AwsGeonamesRegionPerformanceSimulation(

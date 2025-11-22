@@ -1,13 +1,17 @@
 package simulator;
 
+import java.util.function.Predicate;
 import java.util.logging.Logger; // Import Logger
 import simulator.regions.BrokerWithRegion;
 import simulator.simulations.functional.ConfigurableFunctionalTest;
 import simulator.simulations.functional.FixedTopologyLocationFunctionalTests;
 import simulator.simulations.functional.GridTopologyLocationFunctionalTests;
+import simulator.topology.TopologyPaths;
 import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
+import simulator.topology.geonames.FileBasedTopologyConfiguration;
+import simulator.topology.geonames.FileBasedTopologyGenerator;
 import simulator.topology.grid.GridTopologyConfiguration;
 import simulator.topology.grid.GridTopologyGenerator;
 import utils.CustomLogger; // Import CustomLogger
@@ -19,6 +23,12 @@ import utils.CustomLogger; // Import CustomLogger
 public class LocationFunctionalTestsMain {
 
     private static final Logger logger = CustomLogger.getLogger(LocationFunctionalTestsMain.class.getName());
+
+    // --- CONFIGURATION ---
+    // Set to TRUE to run the regression test on the massive 50M+ line topology.
+    // Set to FALSE to use the verified Bangladesh/Beijing subset.
+    private static final boolean USE_FULL_TOPOLOGY = false;
+
 
     public static void main(String[] args) {
         runManualTopologyComprehensiveTest();
@@ -58,4 +68,31 @@ public class LocationFunctionalTestsMain {
             new ConfigurableFunctionalTest<>(GridTopologyLocationFunctionalTests.GRID_CROSS_CORNER_PROPAGATION, "Grid Cross-Corner Test (Location)");
         validation.run(factory, config);
     }
+
+
+    // TODO: Should include here a complete regression test for location based algorithm, like we do in RegionFunctionalTestsMain
+    public static void runGeoNamesTest() {
+        String topologyFilePath = USE_FULL_TOPOLOGY ? TopologyPaths.FULL_TOPOLOGY : TopologyPaths.SUBSET_TOPOLOGY;
+        
+        logger.info("===============================================================");
+        logger.info("  RUNNING (Functional): GeoNames Topology - Location Propagation");
+        logger.info("  Topology File: " + topologyFilePath);
+        logger.info("===============================================================");
+        
+        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(topologyFilePath);
+        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new LocationBrokerFactory());
+        
+        Predicate<BrokerWithRegion> placeholderTest = root -> {
+            logger.info("Location-based GeoNames test is not yet implemented. Topology loaded successfully.");
+            return true; 
+        };
+
+        ConfigurableFunctionalTest<FileBasedTopologyConfiguration, BrokerWithRegion, FileBasedTopologyGenerator> validation =
+            new ConfigurableFunctionalTest<>(placeholderTest, "GeoNames Location Propagation");
+            
+        validation.setVisualisationEnabled(false);
+        
+        validation.run(factory, config);
+    }
+
 }

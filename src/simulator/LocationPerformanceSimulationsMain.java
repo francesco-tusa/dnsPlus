@@ -1,7 +1,8 @@
 package simulator;
 
 import java.util.logging.Logger;
-import simulator.simulations.performance.GeoNamesBasedLocationPerformanceSimulation;
+
+import simulator.simulations.performance.AwsGeonamesLocationPerformanceSimulation;
 import simulator.simulations.performance.RandomTopologyLocationPerformanceSimulation;
 import utils.CustomLogger;
 
@@ -19,6 +20,7 @@ public class LocationPerformanceSimulationsMain {
         
         // Uncomment the line below to run the full-scale, realistic performance test
         // logger.info("--- Launching Location-Based GeoNames Topology Simulation ---");
-        // GeoNamesBasedLocationPerformanceSimulation.main(args);
+        AwsGeonamesLocationPerformanceSimulation.main(args);
+
     }
 }
