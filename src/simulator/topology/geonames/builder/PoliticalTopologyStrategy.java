@@ -1,11 +1,11 @@
 package simulator.topology.geonames.builder;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.util.*;
 import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.regions.Region;
+import simulator.topology.TopologyPaths;
 import utils.CustomLogger;
 
 public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
@@ -30,18 +30,63 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         }
     }
 
+
+    /**
+     * Creates a subset containing Bangladesh and Beijing.
+     * Relies on the Political Hierarchy: World -> Continent -> Country -> ADM1.
+     */
     @Override
-    public String getOutputFileName() {
-        return "geonames_topology_political.json";
+    public GeoNamesBuilderNode createSubset(GeoNamesBuilderNode root) {
+        logger.info("Generating Political Subset (Bangladesh & Beijing)...");
+        GeoNamesBuilderNode subsetRoot = new GeoNamesBuilderNode(root);
+        
+        for (GeoNamesBuilderNode continent : root.children) {
+            if ("AS".equals(continent.code)) {
+                GeoNamesBuilderNode subsetAsia = new GeoNamesBuilderNode(continent);
+                subsetRoot.addChild(subsetAsia);
+                
+                for (GeoNamesBuilderNode country : continent.children) {
+                    // Keep Bangladesh
+                    if ("BD".equals(country.code)) {
+                        subsetAsia.addChild(country); 
+                    }
+                    // Keep China -> Beijing
+                    if ("CN".equals(country.code)) {
+                        GeoNamesBuilderNode subsetChina = new GeoNamesBuilderNode(country);
+                        subsetAsia.addChild(subsetChina);
+                        for (GeoNamesBuilderNode adm1 : country.children) {
+                            if (adm1.name.contains("Beijing")) {
+                                subsetChina.addChild(adm1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return subsetRoot;
+    }
+
+
+    @Override
+    public String getOutputFilePath() {
+        return TopologyPaths.FULL_TOPOLOGY_POLITICAL;
     }
 
     @Override
-    public GeoNamesBuilderNode build(GeoNamesDataLoader loader, String file) {
+    public String getSubsetOutputFilePath() {
+        return TopologyPaths.SUBSET_TOPOLOGY_POLITICAL;
+    }
+
+    @Override
+    public GeoNamesBuilderNode build(GeoNamesDataLoader loader) {
         logger.info("Executing Political Topology Strategy...");
         
-        processPass1(loader, file);
+        processPass1(loader);
+        
+        // Pass 2: Build Hierarchy
         GeoNamesBuilderNode root = buildInitialHierarchy(loader);
         
+        // Pass 3-7: Bounds & Scaling
         List<GeoNamesBuilderNode> nodesToExpand = new ArrayList<>();
         assignInitialProps(root, nodesToExpand);
         addAdm2Layer(nodesToExpand);
@@ -51,6 +96,7 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         logger.info("Pass 7: Scaling populations...");
         scalePopulations(root, loader);
         
+        // Pass 8 & 9: Grid Expansion
         LeafExpansionStrategy grid1M = new GridLeafExpansionStrategy(false);
         logger.info("Pass 8: Expanding Leaves > 1M...");
         expandLeaves(root, 1_000_000, grid1M, GeoNamesBuilderNode.NodeType.S_ADM3);
@@ -59,6 +105,7 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         logger.info("Pass 9: Expanding Leaves > 10K...");
         expandLeaves(root, 10_000, grid10K, GeoNamesBuilderNode.NodeType.S_ADM4);
         
+        // Pass 10: Final Aggregation
         logger.info("Pass 10: Final Aggregation...");
         finalAggregate(root);
         
@@ -68,8 +115,8 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         return root;
     }
 
-    private void processPass1(GeoNamesDataLoader loader, String file) {
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+    private void processPass1(GeoNamesDataLoader loader) {
+        try (BufferedReader reader = loader.getRawDataReader()) {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("#")) continue;
@@ -177,14 +224,17 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
             long total = adm1.aggregatedPopulation;
             List<GeoNamesBuilderNode> zeroPopChildren = new ArrayList<>();
             long currentSum = 0;
+            
             for(GeoNamesBuilderNode c : adm1.children) {
                 if (c.aggregatedPopulation == 0) zeroPopChildren.add(c);
                 else currentSum += c.aggregatedPopulation;
             }
+            
             long remaining = total - currentSum;
             if (remaining > 0 && !zeroPopChildren.isEmpty()) {
                 long share = remaining / zeroPopChildren.size();
                 long remainder = remaining % zeroPopChildren.size();
+                
                 for (int i = 0; i < zeroPopChildren.size(); i++) {
                     GeoNamesBuilderNode child = zeroPopChildren.get(i);
                     child.aggregatedPopulation = share + (i < remainder ? 1 : 0);
@@ -205,6 +255,7 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
             int n = missingBounds.size();
             int cols = (int) Math.ceil(Math.sqrt(n));
             int rows = (int) Math.ceil((double) n / cols);
+            
             double w = adm1.bounds.getWidth() / cols;
             double h = adm1.bounds.getHeight() / rows;
             double startX = adm1.bounds.getBottomLeft().getX();
@@ -233,32 +284,22 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
                 if (rate == null) rate = 0.0;
                 country.internetPenetrationRate = rate;
                 
+                // Trust children sum
                 long currentTotal = sumSubtreePopulation(country);
                 
                 double scaleFactor = 1.0;
                 if (official > 0 && currentTotal > 0) {
                     scaleFactor = (double) official / currentTotal;
                 }
+                
                 applyScaling(country, scaleFactor, rate);
             }
         }
     }
     
-    /**
-     * Calculates the base population used for scaling.
-     * Strictly uses the sum of children if they exist.
-     * This ensures that the Official Population is fully distributed to the
-     * leaves we actually have, preventing "population loss" during scaling.
-     */    
     private long sumSubtreePopulation(GeoNamesBuilderNode node) {
         if (node == null) return 0;
-        
-        // If it has relevant children (ADM2 check in legacy), we sum them
         if (node.children.isEmpty()) return node.aggregatedPopulation;
-        
-        // Check if it is ADM1 with only PPLs (no ADM2s yet), legacy check
-        // But here, if children list is not empty, it means we added ADM2s in Pass 4.
-        // So we just sum children.
         long sum = 0;
         for (GeoNamesBuilderNode child : node.children) {
             sum += sumSubtreePopulation(child);
@@ -306,18 +347,31 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
     private void printTopologyStats(GeoNamesBuilderNode root) {
         Map<GeoNamesBuilderNode.NodeType, Long> typeCounts = new HashMap<>();
         Map<GeoNamesBuilderNode.NodeType, Long> typePop = new HashMap<>();
+        Map<GeoNamesBuilderNode.NodeType, Long> typeNetPop = new HashMap<>();
+
         Queue<GeoNamesBuilderNode> queue = new LinkedList<>();
         queue.add(root);
+        
         while (!queue.isEmpty()) {
             GeoNamesBuilderNode node = queue.poll();
             typeCounts.merge(node.type, 1L, Long::sum);
             typePop.merge(node.type, node.aggregatedPopulation, Long::sum);
+            typeNetPop.merge(node.type, node.internetPopulation, Long::sum);
+            
             if (node.children != null) queue.addAll(node.children);
         }
+
         logger.info("\n=== TOPOLOGY DIAGNOSTICS ===");
-        logger.info(String.format("%-12s | %-10s | %-15s", "TYPE", "COUNT", "POP"));
+        logger.info(String.format("%-12s | %-10s | %-15s | %-15s", "TYPE", "COUNT", "TOTAL POP", "INTERNET POP"));
+        logger.info("------------------------------------------------------------");
         for (GeoNamesBuilderNode.NodeType type : GeoNamesBuilderNode.NodeType.values()) {
-            logger.info(String.format("%-12s | %-10d | %-15d", type, typeCounts.getOrDefault(type, 0L), typePop.getOrDefault(type, 0L)));
+            logger.info(String.format("%-12s | %-10d | %-15d | %-15d", 
+                type, 
+                typeCounts.getOrDefault(type, 0L), 
+                typePop.getOrDefault(type, 0L),
+                typeNetPop.getOrDefault(type, 0L)
+            ));
         }
+        logger.info("============================\n");
     }
 }

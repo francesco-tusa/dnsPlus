@@ -1,7 +1,6 @@
 package simulator.topology.geonames.builder;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import simulator.regions.Region;
 import com.fasterxml.jackson.annotation.JsonInclude;

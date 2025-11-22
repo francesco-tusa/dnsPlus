@@ -342,10 +342,16 @@ public abstract class AbstractPerformanceSimulation<
         logger.info("\n--- Service Delivery Metrics ---");
         logger.info("Total Publications Sent: " + totalPublicationsSent);
         logger.info("Total Notifications Received: " + successfulNotifications);
-        
-        // Close the writer
-        CsvMetricWriter.getInstance().close();
-        logger.info("\n[METRICS] Detailed metrics have been streamed to 'output/metrics/'");
+    }
+
+
+    @Override
+    protected void cleanup() {
+        super.cleanup();
+        if (enableCsvOutput) {
+            CsvMetricWriter.getInstance().close();
+            logger.info("Metrics writer closed.");
+        }
     }
     
     protected Location getRandomLocationInRegion(Region region) {

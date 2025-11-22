@@ -27,7 +27,7 @@ public class RegionFunctionalTestsMain {
     private static final Logger logger = CustomLogger.getLogger(RegionFunctionalTestsMain.class.getName());
 
     // --- CONFIGURATION ---
-    // Set to TRUE to run the regression test on the massive 50M+ line topology.
+    // Set to TRUE to run the regression tests on the massive 50M+ line topology.
     // Set to FALSE to use the verified Bangladesh/Beijing subset.
     private static final boolean USE_FULL_TOPOLOGY = false;
 
@@ -109,7 +109,9 @@ public class RegionFunctionalTestsMain {
     }
 
     public static void runGeoNamesTest() {
+        // Select topology based on flag and defaults
         String topologyFilePath = USE_FULL_TOPOLOGY ? TopologyPaths.FULL_TOPOLOGY : TopologyPaths.SUBSET_TOPOLOGY;
+        
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): GeoNames Topology - Propagation & Metrics");
         logger.info("  Topology File: " + topologyFilePath);
@@ -121,7 +123,6 @@ public class RegionFunctionalTestsMain {
         ConfigurableFunctionalTest<FileBasedTopologyConfiguration, BrokerWithRegion, FileBasedTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(GeoNamesPropagationTest.COMPREHENSIVE_REGRESSION_TEST, "GeoNames Propagation");
         
-        // Disable visualizer for large-scale functional tests
         validation.setVisualisationEnabled(false);
         
         validation.run(factory, config);

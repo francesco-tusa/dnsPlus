@@ -1,29 +1,33 @@
 package simulator.simulations.performance;
 
-import java.util.logging.Logger;
+import simulator.topology.TopologyPaths;
+import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.geonames.FileBasedTopologyConfiguration;
 import simulator.topology.geonames.FileBasedTopologyGenerator;
-import utils.CustomLogger;
 
 /**
- * This is now an ABSTRACT base class for simulations that use the GeoNames
- * topology and LOCATION-based routing.
- * It cannot be run directly. Run its subclasses instead.
+ * Abstract base class for Location-Based simulations using GeoNames.
  */
 public abstract class GeoNamesBasedLocationPerformanceSimulation extends AbstractLocationPerformanceSimulation<
     FileBasedTopologyConfiguration,
     FileBasedTopologyGenerator
 > {
 
-    private static final Logger logger = CustomLogger.getLogger(GeoNamesBasedLocationPerformanceSimulation.class.getName()); // Get logger
-
     public GeoNamesBasedLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
                                                       boolean enableCsvOutput) { 
         super(numberOfReplicas, subscribersPerReplica, enableCsvOutput); 
     }
     
-    // Legacy constructor
     public GeoNamesBasedLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
         this(numberOfReplicas, subscribersPerReplica, false);
+    }
+    
+    /**
+     * Runs the simulation using the default FULL_TOPOLOGY configured in TopologyPaths.
+     */
+    public void run() {
+        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(TopologyPaths.FULL_TOPOLOGY);
+        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new LocationBrokerFactory());
+        super.run(factory, config);
     }
 }

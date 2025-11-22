@@ -73,7 +73,7 @@ public class LocationFunctionalTestsMain {
     // TODO: Should include here a complete regression test for location based algorithm, like we do in RegionFunctionalTestsMain
     public static void runGeoNamesTest() {
         String topologyFilePath = USE_FULL_TOPOLOGY ? TopologyPaths.FULL_TOPOLOGY : TopologyPaths.SUBSET_TOPOLOGY;
-        
+
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): GeoNames Topology - Location Propagation");
         logger.info("  Topology File: " + topologyFilePath);

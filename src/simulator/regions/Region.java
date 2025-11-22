@@ -42,6 +42,44 @@ public class Region extends BaseRegion {
         return topRight.getY() - bottomLeft.getY();
     }
 
+    /**
+     * Calculates the geometric center (centroid) of the region.
+     * Handles longitude wrapping correctly.
+     * @return The center Location.
+     */
+    @JsonIgnore
+    public Location getCenter() {
+        if (bottomLeft == null || topRight == null) {
+            return new Location(0, 0, 0);
+        }
+
+        double minLon = bottomLeft.getX();
+        double maxLon = topRight.getX();
+        double minLat = bottomLeft.getY();
+        double maxLat = topRight.getY();
+
+        // Latitude simply averages (clamped -90 to 90 in world terms)
+        double centerLat = (minLat + maxLat) / 2.0;
+        double centerLon;
+
+        if (minLon <= maxLon) {
+            // Standard case: Region does not cross the dateline
+            centerLon = (minLon + maxLon) / 2.0;
+        } else {
+            // Wrapped case: Region crosses 180/-180
+            // Total width spans across the dateline
+            double width = (180.0 - minLon) + (maxLon - (-180.0));
+            double midOffset = width / 2.0;
+            
+            centerLon = minLon + midOffset;
+            // Normalize if it crosses past 180
+            if (centerLon > 180.0) {
+                centerLon -= 360.0;
+            }
+        }
+        
+        return new Location(centerLon, centerLat, 0);
+    }
 
     private boolean containsLongitude(double lon) {
         if (bottomLeft == null || topRight == null) return false;
@@ -78,12 +116,10 @@ public class Region extends BaseRegion {
         return containsLongitude(l.getX());
     }
     
-    // Explicit implementation to ensure precision
     public boolean contains(BaseRegion r) {
         if (r == null || r.getBottomLeft() == null || r.getTopRight() == null) return false;
         return this.contains(r.getBottomLeft()) && this.contains(r.getTopRight());
     }
-
 
     @Override
        public boolean intersects(BaseRegion r) {
@@ -128,8 +164,6 @@ public class Region extends BaseRegion {
         
         return !(noOverlapX || noOverlapY);
     }
-    
-
     
     @Override
     public boolean expand(Location l) {

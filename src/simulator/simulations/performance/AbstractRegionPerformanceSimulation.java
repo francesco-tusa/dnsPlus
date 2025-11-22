@@ -203,9 +203,5 @@ public abstract class AbstractRegionPerformanceSimulation<
             double accuracy = (double) successfulNotifications / this.groundTruthMatches * 100.0;
             logger.info(String.format("Delivery Accuracy (Notifications / Ground Truth): %.2f%%", accuracy));
         }
-        
-        // Explicitly close the writer
-        CsvMetricWriter.getInstance().close();
-        logger.info("Metrics streaming closed.");
     }
 }
