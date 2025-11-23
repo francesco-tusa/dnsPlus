@@ -34,9 +34,7 @@ public class SubscriberWithLocation extends TreeNode {
         logger.fine(getName() + ": received publication " + p);
         nPublications++;
         
-        // --- METRIC COLLECTION (Streaming) ---
         if (p.getMetrics() != null && p instanceof PublicationWithLocation pub) {
-            // Log SUCCESSFUL Delivery (No Timestamp)
             CsvMetricWriter.getInstance().logPublicationDelivery(
                 p.getMetrics().getTraceId(),
                 this.getName(),
@@ -61,7 +59,7 @@ public class SubscriberWithLocation extends TreeNode {
         SimulationBroker broker = getBroker();
         s.setSource(this);
         
-        String traceId = this.getName();
+        String traceId = this.getName() + "-" + System.nanoTime();
         s.setMetrics(new EventMetrics(traceId));
 
         if (broker != null) {

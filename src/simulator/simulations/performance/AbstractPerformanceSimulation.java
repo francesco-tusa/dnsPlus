@@ -208,7 +208,7 @@ public abstract class AbstractPerformanceSimulation<
         Queue<BrokerWithRegion> queue = new LinkedList<>();
         queue.add(root);
         int currentLevel = 0;
-        
+
         while (!queue.isEmpty()) {
             int levelSize = queue.size(); 
             long totalBrokerChildrenAtLevel = 0; 
@@ -244,7 +244,6 @@ public abstract class AbstractPerformanceSimulation<
                     for (BrokerWithRegion broker : brokersAtThisLevel) {
                         visualizer.updateRegion(broker.getName(), broker.getRegion());
                     }
-                    visualizer.saveMapImage(this.simulationTimestamp);
                 }
                 currentLevel++;
             }
@@ -352,6 +351,9 @@ public abstract class AbstractPerformanceSimulation<
             CsvMetricWriter.getInstance().close();
             logger.info("Metrics writer closed.");
         }
+        SimulationVisualiser visualizer = SimulationVisualiser.getInstance();
+        visualizer.saveMapImage(simulationTimestamp);
+        visualizer.close();
     }
     
     protected Location getRandomLocationInRegion(Region region) {

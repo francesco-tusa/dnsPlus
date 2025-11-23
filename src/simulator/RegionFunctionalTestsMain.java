@@ -40,8 +40,8 @@ public class RegionFunctionalTestsMain {
         // runSubscriptionExpansionTest();
         // runGridTopologyTest();
 
-        // Run a comprehensive end-to-end test using a subset
-        // of the GeoNames world topolgy        
+        // Run a comprehensive end-to-end test using (a subset of)
+        // the GeoNames world topolgy        
         runGeoNamesTest();
     }
 
