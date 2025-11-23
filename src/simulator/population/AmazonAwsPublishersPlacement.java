@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import utils.CustomLogger;
 
@@ -62,23 +62,23 @@ public class AmazonAwsPublishersPlacement extends AbstractBilevelPublishersPlace
     public AmazonAwsPublishersPlacement() {}
     
     @Override
-    protected List<BrokerWithRegion> createPlacementPool(BrokerWithRegion rootNode) {
+    protected List<BoundedBroker> createPlacementPool(BoundedBroker rootNode) {
         return null; 
     }
 
-    private BrokerWithRegion findNodeRecursively(BrokerWithRegion startNode, String nodeName) {
+    private BoundedBroker findNodeRecursively(BoundedBroker startNode, String nodeName) {
         if (startNode == null || nodeName == null) return null;
-        Queue<BrokerWithRegion> queue = new LinkedList<>();
+        Queue<BoundedBroker> queue = new LinkedList<>();
         for (TreeNode child : startNode.getChildren()) {
-            if (child instanceof BrokerWithRegion childBroker) {
+            if (child instanceof BoundedBroker childBroker) {
                 queue.add(childBroker);
             }
         }
         while (!queue.isEmpty()) {
-            BrokerWithRegion current = queue.poll();
+            BoundedBroker current = queue.poll();
             if (current.getName().equals(nodeName)) return current;
             for (TreeNode child : current.getChildren()) {
-                if (child instanceof BrokerWithRegion childBroker) {
+                if (child instanceof BoundedBroker childBroker) {
                     queue.add(childBroker);
                 }
             }
@@ -87,7 +87,7 @@ public class AmazonAwsPublishersPlacement extends AbstractBilevelPublishersPlace
     }
 
     @Override
-    public void generateAndAttach(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalPublishersToCreate) {
+    public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalPublishersToCreate) {
         logger.info("\n--- Starting AWS-Based Data Center Publisher Placement ---");
 
         if (rootNode == null) {
@@ -95,13 +95,13 @@ public class AmazonAwsPublishersPlacement extends AbstractBilevelPublishersPlace
              return;
         }
 
-        List<BrokerWithRegion> allLevel2Regions = findBrokersAtLevel(rootNode, 2);
+        List<BoundedBroker> allLevel2Regions = findBrokersAtLevel(rootNode, 2);
         if (allLevel2Regions.isEmpty()) {
             logger.severe("Error: No brokers were found at Level 2.");
             return;
         }
 
-        Map<String, BrokerWithRegion> l2BrokerMap = allLevel2Regions.stream()
+        Map<String, BoundedBroker> l2BrokerMap = allLevel2Regions.stream()
             .collect(Collectors.toMap(TreeNode::getName, b -> b, (b1, b2) -> b1)); 
         
         List<AwsRegion> availableAwsRegions = AWS_REGION_LIST.stream()
@@ -124,22 +124,22 @@ public class AmazonAwsPublishersPlacement extends AbstractBilevelPublishersPlace
             attempts++;
             
             AwsRegion chosenAwsRegion = availableAwsRegions.get(random.nextInt(availableAwsRegions.size()));
-            BrokerWithRegion l2Broker = l2BrokerMap.get(chosenAwsRegion.l2Country());
-            BrokerWithRegion placementBase = l2Broker;
+            BoundedBroker l2Broker = l2BrokerMap.get(chosenAwsRegion.l2Country());
+            BoundedBroker placementBase = l2Broker;
             String placementLevelLog = "L2";
 
-            BrokerWithRegion l3Broker = findNodeRecursively(l2Broker, chosenAwsRegion.l3AdminDivision());
+            BoundedBroker l3Broker = findNodeRecursively(l2Broker, chosenAwsRegion.l3AdminDivision());
             if (l3Broker != null) {
                 placementBase = l3Broker;
                 placementLevelLog = "L3";
-                BrokerWithRegion l4Broker = findNodeRecursively(l3Broker, chosenAwsRegion.l4City());
+                BoundedBroker l4Broker = findNodeRecursively(l3Broker, chosenAwsRegion.l4City());
                 if (l4Broker != null) {
                     placementBase = l4Broker;
                     placementLevelLog = "L4";
                 }
             }
 
-            BrokerWithRegion chosenLeaf = findRandomLeafBroker(placementBase);
+            BoundedBroker chosenLeaf = findRandomLeafBroker(placementBase);
             if (chosenLeaf == null) continue;
             
             Region leafRegion = chosenLeaf.getRegion();

@@ -4,14 +4,14 @@ import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import simulator.core.VisualisedSimulationRunner;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import utils.CustomLogger;
 
 public class ConfigurableFunctionalTest<
     C extends TopologyConfiguration,
-    R extends BrokerWithRegion,
+    R extends BoundedBroker,
     F extends AbstractTopologyFactory<C, R>
 > extends VisualisedSimulationRunner<C, R, F> {
 

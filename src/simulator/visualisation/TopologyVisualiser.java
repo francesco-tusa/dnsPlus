@@ -14,7 +14,7 @@ import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.SimulationSubscription;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import utils.CustomLogger;
 
 public class TopologyVisualiser {
@@ -60,8 +60,8 @@ public class TopologyVisualiser {
         if (graph.getNode(treeNode.getName()) == null) {
             Node node = graph.addNode(treeNode.getName());
             String label = treeNode.getName();
-            if (treeNode instanceof BrokerWithRegion) {
-                BrokerWithRegion br = (BrokerWithRegion) treeNode;
+            if (treeNode instanceof BoundedBroker) {
+                BoundedBroker br = (BoundedBroker) treeNode;
                 label += " " + br.getRegion().toShortString();
             }
             node.setAttribute("ui.label", label);

@@ -4,17 +4,17 @@ import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.factories.BrokerFactory;
 import utils.CustomLogger;
 
-public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyConfiguration, BrokerWithRegion> {
+public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyConfiguration, BoundedBroker> {
 
     private static final Logger logger = CustomLogger.getLogger(GridTopologyGenerator.class.getName());
     private final BrokerFactory brokerFactory;
-    private BrokerWithRegion[][] leafBrokers; // To store leaves for client attachment
+    private BoundedBroker[][] leafBrokers; // To store leaves for client attachment
 
     public GridTopologyGenerator(BrokerFactory brokerFactory) {
         // The factory is passed in and stored as a local field.
@@ -36,10 +36,10 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
     }
 
     @Override
-    protected BrokerWithRegion buildCoreTopology() {
+    protected BoundedBroker buildCoreTopology() {
         logger.info("Building procedural grid-based core broker topology...");
         int dim = this.config.getGridDimension();
-        this.leafBrokers = new BrokerWithRegion[dim][dim];
+        this.leafBrokers = new BoundedBroker[dim][dim];
         double regionWidth = 360.0 / dim;
         double regionHeight = 180.0 / dim;
 
@@ -56,17 +56,17 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
             }
         }
 
-        BrokerWithRegion root = buildParentHierarchy(leafBrokers, this.config.getTreeDepth() - 1);
+        BoundedBroker root = buildParentHierarchy(leafBrokers, this.config.getTreeDepth() - 1);
         logger.info("Core broker hierarchy with " + this.config.getNumberOfLeafBrokers() + " leaves created.");
         return root;
     }
 
     @Override
-    public void attachSubscribers(BrokerWithRegion root) {
+    public void attachSubscribers(BoundedBroker root) {
         if (leafBrokers == null) return;
         for (int i = 0; i < config.getGridDimension(); i++) {
             for (int j = 0; j < config.getGridDimension(); j++) {
-                BrokerWithRegion leafBroker = leafBrokers[i][j];
+                BoundedBroker leafBroker = leafBrokers[i][j];
                 for (int k = 0; k < config.getSubscribersPerLeaf(); k++) {
                     Location loc = leafBroker.getRegion().getRandomLocation();
                     String subName = "sub-" + i + "-" + j + "-" + k;
@@ -78,11 +78,11 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
     }
 
     @Override
-    public void attachPublishers(BrokerWithRegion root) {
+    public void attachPublishers(BoundedBroker root) {
         if (leafBrokers == null) return;
         for (int i = 0; i < config.getGridDimension(); i++) {
             for (int j = 0; j < config.getGridDimension(); j++) {
-                BrokerWithRegion leafBroker = leafBrokers[i][j];
+                BoundedBroker leafBroker = leafBrokers[i][j];
                 for (int k = 0; k < config.getPublishersPerLeaf(); k++) {
                     Location loc = leafBroker.getRegion().getRandomLocation();
                     String pubName = "pub-" + i + "-" + j + "-" + k;
@@ -93,14 +93,14 @@ public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyC
         }
     }
 
-    private BrokerWithRegion buildParentHierarchy(BrokerWithRegion[][] children, int depth) {
+    private BoundedBroker buildParentHierarchy(BoundedBroker[][] children, int depth) {
         if (children.length == 1 && children[0].length == 1) {
             return children[0][0];
         }
         
         int parentRows = (int) Math.ceil(children.length / 2.0);
         int parentCols = (int) Math.ceil(children[0].length / 2.0);
-        BrokerWithRegion[][] parents = new BrokerWithRegion[parentRows][parentCols];
+        BoundedBroker[][] parents = new BoundedBroker[parentRows][parentCols];
 
         for (int i = 0; i < parentRows; i++) {
             for (int j = 0; j < parentCols; j++) {

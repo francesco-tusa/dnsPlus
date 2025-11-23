@@ -10,16 +10,16 @@ import simulator.core.TreeNode;
 import simulator.events.SubscriptionWithLocation;
 import utils.CustomLogger;
 
-public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProcessingLocation implements LeafBroker {
+public class ProximityRoutingLeafBroker extends ProximityRoutingBroker implements LeafBroker {
 
-    private static final Logger logger = CustomLogger.getLogger(LeafBrokerWithRegionProcessingLocation.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(ProximityRoutingLeafBroker.class.getName());
     private Location proxyLocationCache = null;
 
-    public LeafBrokerWithRegionProcessingLocation(String name) {
+    public ProximityRoutingLeafBroker(String name) {
         super(name);
     }
 
-    public LeafBrokerWithRegionProcessingLocation(String name, Location p1, Location p2) {
+    public ProximityRoutingLeafBroker(String name, Location p1, Location p2) {
         super(name, p1, p2);
     }
 
@@ -69,7 +69,7 @@ public class LeafBrokerWithRegionProcessingLocation extends BrokerWithRegionProc
     }
 
     private void propagatePublicationUpward(SimulationPublication p) {
-        BrokerWithRegion parentBroker = getParentBroker();
+        BoundedBroker parentBroker = getParentBroker();
         if (parentBroker != null) {
             logger.fine(getName() + ": forwarding publication to parent " + parentBroker.getName());
             SimulationPublication forwardedCopy = p.getPublication();

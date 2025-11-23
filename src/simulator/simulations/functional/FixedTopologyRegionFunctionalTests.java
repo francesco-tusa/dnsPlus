@@ -11,8 +11,8 @@ import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
-import simulator.regions.BrokerWithRegion;
-import simulator.regions.BrokerWithRegionProcessingRegion;
+import simulator.regions.BoundedBroker;
+import simulator.regions.SpatialMatchBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import utils.CustomLogger;
@@ -21,7 +21,7 @@ public class FixedTopologyRegionFunctionalTests {
 
     private static final Logger logger = CustomLogger.getLogger(FixedTopologyRegionFunctionalTests.class.getName());
 
-    public static final Predicate<BrokerWithRegion> COMPREHENSIVE_SCENARIO = root -> {
+    public static final Predicate<BoundedBroker> COMPREHENSIVE_SCENARIO = root -> {
         logger.info("\n>>> SCENARIO: Running Comprehensive Cross-Branch and Local Propagation Test. <<<");
 
         SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
@@ -68,7 +68,7 @@ public class FixedTopologyRegionFunctionalTests {
      * Validates that the `propagatedSubscriptions` table is correctly used to
      * prevent redundant upward subscription propagation (when a new sub is *contained* by an old one).
      */
-    public static final Predicate<BrokerWithRegion> SUBSCRIPTION_COVERING_SCENARIO = root -> {
+    public static final Predicate<BoundedBroker> SUBSCRIPTION_COVERING_SCENARIO = root -> {
         logger.info(
                 "\n>>> SCENARIO: Running Subscription Covering Test (Large contains Small). <<<");
 
@@ -76,8 +76,8 @@ public class FixedTopologyRegionFunctionalTests {
         SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
         SubscriberWithLocation s3 = findNodeByName(root, "sub3", SubscriberWithLocation.class);
         PublisherWithLocation p1 = findNodeByName(root, "pub1", PublisherWithLocation.class);
-        BrokerWithRegionProcessingRegion child2 = findNodeByName(root, "child2",
-                BrokerWithRegionProcessingRegion.class);
+        SpatialMatchBroker child2 = findNodeByName(root, "child2",
+                SpatialMatchBroker.class);
 
         if (s2 == null || s3 == null || p1 == null || child2 == null) {
             logger.severe("Test failed: Could not find required nodes for the test.");
@@ -144,15 +144,15 @@ public class FixedTopologyRegionFunctionalTests {
      * 2. Region B from Source 2 (non-overlapping)
      * 3. Region C from Source 1 (non-overlapping with A or B)
      */
-    public static final Predicate<BrokerWithRegion> SUBSCRIPTION_EXPANSION_SCENARIO = root -> {
+    public static final Predicate<BoundedBroker> SUBSCRIPTION_EXPANSION_SCENARIO = root -> {
         logger.info(
                 "\n>>> SCENARIO: Running Subscription Region EXPANSION Test (Same and Different Sources). <<<");
 
         // --- Find required nodes ---
         SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class); // Under grandchild2
         SubscriberWithLocation s3 = findNodeByName(root, "sub3", SubscriberWithLocation.class); // Under grandchild3
-        BrokerWithRegionProcessingRegion child2 = findNodeByName(root, "child2", // Common parent
-                BrokerWithRegionProcessingRegion.class);
+        SpatialMatchBroker child2 = findNodeByName(root, "child2", // Common parent
+                SpatialMatchBroker.class);
         TreeNode grandchild2 = findNodeByName(root, "grandchild2", TreeNode.class);
         TreeNode grandchild3 = findNodeByName(root, "grandchild3", TreeNode.class);
 

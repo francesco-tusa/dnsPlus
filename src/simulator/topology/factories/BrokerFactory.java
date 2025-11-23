@@ -1,7 +1,7 @@
 package simulator.topology.factories;
 
 import simulator.core.Location;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 
 /**
  * An interface for factories that create broker nodes for a topology.
@@ -13,7 +13,7 @@ public interface BrokerFactory {
      * @param name The name for the new broker.
      * @return A new broker instance as a BrokerWithRegion.
      */
-    BrokerWithRegion createBroker(String name);
+    BoundedBroker createBroker(String name);
 
     /**
      * Creates a leaf broker node with a predefined region.
@@ -22,7 +22,7 @@ public interface BrokerFactory {
      * @param p2 The second corner location defining the broker's initial region.
      * @return A new leaf broker instance as a BrokerWithRegion.
      */
-    BrokerWithRegion createLeafBroker(String name, Location p1, Location p2);
+    BoundedBroker createLeafBroker(String name, Location p1, Location p2);
 
     /**
      * Creates a leaf broker node without a predefined region.
@@ -30,5 +30,5 @@ public interface BrokerFactory {
      * @param name The name for the new leaf broker.
      * @return A new leaf broker instance as a BrokerWithRegion.
      */
-    BrokerWithRegion createLeafBroker(String name);
+    BoundedBroker createLeafBroker(String name);
 }

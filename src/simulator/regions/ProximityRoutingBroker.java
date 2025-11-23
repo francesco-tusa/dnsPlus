@@ -12,9 +12,9 @@ import simulator.events.SubscriptionWithLocation;
 import simulator.core.TreeNode;
 import utils.CustomLogger;
 
-public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
+public class ProximityRoutingBroker extends BoundedBroker {
 
-    private static final Logger logger = CustomLogger.getLogger(BrokerWithRegionProcessingLocation.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(ProximityRoutingBroker.class.getName());
 
     private final Map<Location, SimulationPublication> bestPublicationCache = new HashMap<>();
     private final Map<Location, Boolean> propagatedSubscriptions = new HashMap<>();
@@ -22,11 +22,11 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
     // A cache to store the calculated key points for this broker's region.
     private List<Location> keyPointsCache = null;
 
-    public BrokerWithRegionProcessingLocation(String name) {
+    public ProximityRoutingBroker(String name) {
         super(name);
     }
 
-    public BrokerWithRegionProcessingLocation(String name, Location p1, Location p2) {
+    public ProximityRoutingBroker(String name, Location p1, Location p2) {
         super(name, p1, p2);
     }
     
@@ -109,7 +109,7 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
     }
 
     private void propagatePublicationUpward(SimulationPublication p) {
-        BrokerWithRegion parentBroker = getParentBroker();
+        BoundedBroker parentBroker = getParentBroker();
         if (parentBroker != null) {
             logger.fine(getName() + ": Propagating publication upwards to " + parentBroker.getName());
             SimulationPublication forwardedCopy = p.getPublication();
@@ -142,7 +142,7 @@ public class BrokerWithRegionProcessingLocation extends BrokerWithRegion {
         if (isImprovement) {
             logger.fine(getName() + ": Publication is an improvement, forwarding to children.");
             for (TreeNode child : getChildren()) {
-                if (child instanceof BrokerWithRegion childBroker && child != pub.getSource()) {
+                if (child instanceof BoundedBroker childBroker && child != pub.getSource()) {
                     SimulationPublication forwardedCopy = pub.getPublication();
                     forwardedCopy.setSource(this);
                     childBroker.processPublication(forwardedCopy);

@@ -10,13 +10,13 @@ import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.factories.BrokerFactory;
 import utils.CustomLogger;
 
-public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTestTopologyConfiguration, BrokerWithRegion> {
+public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTestTopologyConfiguration, BoundedBroker> {
 
     private static final Logger logger = CustomLogger.getLogger(FixedTestTopologyGenerator.class.getName());
     private final BrokerFactory brokerFactory;
@@ -36,17 +36,17 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     }
 
     @Override
-    protected BrokerWithRegion buildCoreTopology() {
+    protected BoundedBroker buildCoreTopology() {
         logger.fine("Building fixed core broker topology...");
-        BrokerWithRegion root = brokerFactory.createBroker("root");
-        BrokerWithRegion child1 = brokerFactory.createBroker("child1");
-        BrokerWithRegion child2 = brokerFactory.createBroker("child2");
-        BrokerWithRegion child3 = brokerFactory.createBroker("child3");
+        BoundedBroker root = brokerFactory.createBroker("root");
+        BoundedBroker child1 = brokerFactory.createBroker("child1");
+        BoundedBroker child2 = brokerFactory.createBroker("child2");
+        BoundedBroker child3 = brokerFactory.createBroker("child3");
         
-        BrokerWithRegion grandchild1 = brokerFactory.createLeafBroker("grandchild1");
-        BrokerWithRegion grandchild2 = brokerFactory.createLeafBroker("grandchild2");
-        BrokerWithRegion grandchild3 = brokerFactory.createLeafBroker("grandchild3");
-        BrokerWithRegion grandchild4 = brokerFactory.createLeafBroker("grandchild4");
+        BoundedBroker grandchild1 = brokerFactory.createLeafBroker("grandchild1");
+        BoundedBroker grandchild2 = brokerFactory.createLeafBroker("grandchild2");
+        BoundedBroker grandchild3 = brokerFactory.createLeafBroker("grandchild3");
+        BoundedBroker grandchild4 = brokerFactory.createLeafBroker("grandchild4");
 
         root.addChild(child1);
         root.addChild(child2);
@@ -61,12 +61,12 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     }
 
     @Override
-    public void attachSubscribers(BrokerWithRegion root) {
+    public void attachSubscribers(BoundedBroker root) {
         logger.fine("Attaching fixed subscribers...");
-        BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1", BrokerWithRegion.class);
-        BrokerWithRegion grandchild2 = findNodeByName(root, "grandchild2", BrokerWithRegion.class);
-        BrokerWithRegion grandchild3 = findNodeByName(root, "grandchild3", BrokerWithRegion.class);
-        BrokerWithRegion grandchild4 = findNodeByName(root, "grandchild4", BrokerWithRegion.class);
+        BoundedBroker grandchild1 = findNodeByName(root, "grandchild1", BoundedBroker.class);
+        BoundedBroker grandchild2 = findNodeByName(root, "grandchild2", BoundedBroker.class);
+        BoundedBroker grandchild3 = findNodeByName(root, "grandchild3", BoundedBroker.class);
+        BoundedBroker grandchild4 = findNodeByName(root, "grandchild4", BoundedBroker.class);
 
         // After adding a subscriber, we must explicitly update the leaf broker's region.
         SubscriberWithLocation sub1 = new SubscriberWithLocation("sub1", new Location(0, 0, 0));
@@ -106,43 +106,43 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     }
 
     @Override
-    public void attachPublishers(BrokerWithRegion root) {
+    public void attachPublishers(BoundedBroker root) {
         logger.fine("Attaching fixed publishers...");
-        BrokerWithRegion grandchild1 = findNodeByName(root, "grandchild1", BrokerWithRegion.class);
-        BrokerWithRegion grandchild4 = findNodeByName(root, "grandchild4", BrokerWithRegion.class);
+        BoundedBroker grandchild1 = findNodeByName(root, "grandchild1", BoundedBroker.class);
+        BoundedBroker grandchild4 = findNodeByName(root, "grandchild4", BoundedBroker.class);
         
         grandchild1.addChild(new PublisherWithLocation("pub1", new Location(1, 1, 0)));
         grandchild4.addChild(new PublisherWithLocation("pub2", new Location(18, 4, 0)));
         logger.fine("Publisher attachment complete.");
     }
 
-    private void calculateBrokerRegions(BrokerWithRegion root) {
+    private void calculateBrokerRegions(BoundedBroker root) {
         logger.fine("Calculating parent broker regions...");
-        List<BrokerWithRegion> leaves = findLeafBrokers(root);
-        for (BrokerWithRegion leaf : leaves) {
+        List<BoundedBroker> leaves = findLeafBrokers(root);
+        for (BoundedBroker leaf : leaves) {
             if (leaf.getParentBroker() != null) {
                 leaf.getParentBroker().updateRegion(leaf);
             }
         }
     }
     
-    private List<BrokerWithRegion> findLeafBrokers(BrokerWithRegion root) {
-        List<BrokerWithRegion> leaves = new ArrayList<>();
+    private List<BoundedBroker> findLeafBrokers(BoundedBroker root) {
+        List<BoundedBroker> leaves = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
         if (root != null) queue.add(root);
         
         while(!queue.isEmpty()) {
             TreeNode current = queue.poll();
-            if (current instanceof BrokerWithRegion) {
+            if (current instanceof BoundedBroker) {
                 boolean hasBrokerChild = false;
                 for (TreeNode child : current.getChildren()) {
-                    if (child instanceof BrokerWithRegion) {
+                    if (child instanceof BoundedBroker) {
                         hasBrokerChild = true;
                         break;
                     }
                 }
                 if (!hasBrokerChild) {
-                    leaves.add((BrokerWithRegion) current);
+                    leaves.add((BoundedBroker) current);
                 }
             }
             if (current.getChildren() != null) queue.addAll(current.getChildren());

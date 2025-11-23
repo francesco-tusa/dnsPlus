@@ -2,7 +2,7 @@ package simulator;
 
 import java.util.function.Predicate;
 import java.util.logging.Logger;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.simulations.functional.ConfigurableFunctionalTest;
 import simulator.simulations.functional.FixedTopologyRegionFunctionalTests;
 import simulator.simulations.functional.GeoNamesPropagationTest;
@@ -51,14 +51,14 @@ public class RegionFunctionalTestsMain {
         logger.info("  RUNNING (Functional): Region Class Floating-Point Logic Test");
         logger.info("===============================================================");
         
-        Predicate<BrokerWithRegion> testWrapper = rootBroker -> {
+        Predicate<BoundedBroker> testWrapper = rootBroker -> {
             return RegionFpFunctionalTests.ALL_REGION_TESTS.test(null);
         };
 
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
         
-        ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
+        ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BoundedBroker, FixedTestTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(testWrapper, "Region Class FP Test");
         
         validation.run(factory, config);
@@ -70,7 +70,7 @@ public class RegionFunctionalTestsMain {
         logger.info("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
-        ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
+        ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BoundedBroker, FixedTestTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(FixedTopologyRegionFunctionalTests.COMPREHENSIVE_SCENARIO, "Comprehensive Scenario");
         validation.run(factory, config);
     }
@@ -81,7 +81,7 @@ public class RegionFunctionalTestsMain {
         logger.info("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
-        ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
+        ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BoundedBroker, FixedTestTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(FixedTopologyRegionFunctionalTests.SUBSCRIPTION_COVERING_SCENARIO, "Subscription Covering Test");
         validation.run(factory, config);
     }
@@ -92,7 +92,7 @@ public class RegionFunctionalTestsMain {
         logger.info("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
         FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
-        ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BrokerWithRegion, FixedTestTopologyGenerator> validation =
+        ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BoundedBroker, FixedTestTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(FixedTopologyRegionFunctionalTests.SUBSCRIPTION_EXPANSION_SCENARIO, "Subscription Expansion Test");
         validation.run(factory, config);
     }
@@ -103,7 +103,7 @@ public class RegionFunctionalTestsMain {
         logger.info("===============================================================");
         GridTopologyConfiguration config = new GridTopologyConfiguration(3, 0.0, 3);
         GridTopologyGenerator factory = new GridTopologyGenerator(new RegionBrokerFactory());
-        ConfigurableFunctionalTest<GridTopologyConfiguration, BrokerWithRegion, GridTopologyGenerator> validation =
+        ConfigurableFunctionalTest<GridTopologyConfiguration, BoundedBroker, GridTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(GridTopologyRegionFunctionalTests.GRID_CROSS_CORNER_PROPAGATION, "Grid Cross-Corner Test");
         validation.run(factory, config);
     }
@@ -120,7 +120,7 @@ public class RegionFunctionalTestsMain {
         FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(topologyFilePath);
         FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new RegionBrokerFactory());
         
-        ConfigurableFunctionalTest<FileBasedTopologyConfiguration, BrokerWithRegion, FileBasedTopologyGenerator> validation =
+        ConfigurableFunctionalTest<FileBasedTopologyConfiguration, BoundedBroker, FileBasedTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(GeoNamesPropagationTest.COMPREHENSIVE_REGRESSION_TEST, "GeoNames Propagation");
         
         validation.setVisualisationEnabled(false);

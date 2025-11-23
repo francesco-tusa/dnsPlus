@@ -14,21 +14,21 @@ import simulator.events.metrics.EventMetrics;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
-public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
+public class SpatialMatchBroker extends BoundedBroker {
 
-    private static final Logger logger = CustomLogger.getLogger(BrokerWithRegionProcessingRegion.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(SpatialMatchBroker.class.getName());
 
     private final Map<TreeNode, SimulationSubscription> propagatedSubscriptions = new HashMap<>();
     private final RegionSubscriptionManager inputView;
     private final RegionSubscriptionManager outputView;
 
-    public BrokerWithRegionProcessingRegion(String name) {
+    public SpatialMatchBroker(String name) {
         super(name);
         this.inputView = new RegionSubscriptionManager(getSubscriptionsTable());
         this.outputView = new RegionSubscriptionManager(this.propagatedSubscriptions);
     }
 
-    public BrokerWithRegionProcessingRegion(String name, Location p1, Location p2) {
+    public SpatialMatchBroker(String name, Location p1, Location p2) {
         super(name, p1, p2);
         this.inputView = new RegionSubscriptionManager(getSubscriptionsTable());
         this.outputView = new RegionSubscriptionManager(this.propagatedSubscriptions);
@@ -85,7 +85,7 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     }
 
     private void propagateSubscriptionUpward(SubscriptionWithRegion newSub) {
-        BrokerWithRegion parent = getParentBroker();
+        BoundedBroker parent = getParentBroker();
         if (parent == null) return;
         
         SubscriptionWithRegion stateUpdate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
@@ -116,7 +116,7 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
 
     private void propagateSubscriptionDownward(SubscriptionWithRegion newSub) {
         for (TreeNode child : getChildren()) {
-            if (child == newSub.getSource() || !(child instanceof BrokerWithRegion childBroker)) {
+            if (child == newSub.getSource() || !(child instanceof BoundedBroker childBroker)) {
                 continue;
             }
 
@@ -175,7 +175,7 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     }
 
     protected void propagatePublicationUpward(SimulationPublication p) {
-        BrokerWithRegion parentBroker = getParentBroker();
+        BoundedBroker parentBroker = getParentBroker();
         if (parentBroker != null) {
             logger.fine(getName() + ": forwarding publication upward to " + parentBroker.getName());
             
@@ -193,7 +193,7 @@ public class BrokerWithRegionProcessingRegion extends BrokerWithRegion {
     }
 
     public void forwardPublicationToNode(SimulationPublication p, TreeNode next) {
-        if (next instanceof BrokerWithRegion broker) {
+        if (next instanceof BoundedBroker broker) {
              SimulationPublication forwardedCopy = p.getPublication();
              forwardedCopy.setSource(this);
              

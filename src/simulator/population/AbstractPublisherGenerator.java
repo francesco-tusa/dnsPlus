@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.Random;
 
 import simulator.core.Location;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 
 /**
@@ -25,7 +25,7 @@ public abstract class AbstractPublisherGenerator {
      * @param leafBrokers A generic list of all leaf brokers in the topology.
      * @param totalPublishersToCreate The total number of publishers to create and attach.
      */
-    public abstract void generateAndAttach(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalPublishersToCreate);
+    public abstract void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalPublishersToCreate);
 
     /**
      * Generates a random location within the given region's bounding box.

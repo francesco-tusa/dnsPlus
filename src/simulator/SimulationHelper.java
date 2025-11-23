@@ -3,7 +3,7 @@ package simulator;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.simulations.functional.ConfigurableFunctionalTest;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
@@ -23,15 +23,15 @@ public class SimulationHelper {
     private SimulationHelper() {}
 
     // Specific to BrokerWithRegion
-    public static <C extends TopologyConfiguration, F extends AbstractTopologyFactory<C, BrokerWithRegion>> 
+    public static <C extends TopologyConfiguration, F extends AbstractTopologyFactory<C, BoundedBroker>> 
     void runFunctionalTest(
             String testName,
             F factory,
             C config,
-            Predicate<BrokerWithRegion> testPredicate,
+            Predicate<BoundedBroker> testPredicate,
             boolean enableVisualisation) {
         
-        ConfigurableFunctionalTest<C, BrokerWithRegion, F> validation =
+        ConfigurableFunctionalTest<C, BoundedBroker, F> validation =
             new ConfigurableFunctionalTest<>(testPredicate, testName);
         
         validation.setVisualisationEnabled(enableVisualisation);
@@ -41,7 +41,7 @@ public class SimulationHelper {
     public static void runGeoNamesTest(String testName, 
                                        String topologyFilePath, 
                                        BrokerFactory brokerFactory, 
-                                       Predicate<BrokerWithRegion> testPredicate) {
+                                       Predicate<BoundedBroker> testPredicate) {
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): " + testName);
         logger.info("  Topology File: " + topologyFilePath);
@@ -56,7 +56,7 @@ public class SimulationHelper {
     public static void runGridTest(String testName, 
                                    int rows, int cols, 
                                    BrokerFactory brokerFactory, 
-                                   Predicate<BrokerWithRegion> testPredicate) {
+                                   Predicate<BoundedBroker> testPredicate) {
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): " + testName);
         logger.info("===============================================================");
@@ -69,7 +69,7 @@ public class SimulationHelper {
 
     public static void runFixedTest(String testName, 
                                     BrokerFactory brokerFactory, 
-                                    Predicate<BrokerWithRegion> testPredicate) {
+                                    Predicate<BoundedBroker> testPredicate) {
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): " + testName);
         logger.info("===============================================================");

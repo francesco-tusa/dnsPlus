@@ -1,7 +1,7 @@
 package simulator.population;
 
 import java.util.List;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 
 /**
  * An interface for strategies that place publishers within a topology.
@@ -16,5 +16,5 @@ public interface PublishersPlacementStrategy {
      * @param leafBrokers A list of all leaf brokers in the topology.
      * @param totalPublishersToCreate The total number of publishers to create.
      */
-    void generateAndAttach(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalPublishersToCreate);
+    void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalPublishersToCreate);
 }

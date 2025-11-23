@@ -22,7 +22,7 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.population.TopologyPopulator;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
@@ -34,8 +34,8 @@ import utils.CustomLogger;
 
 public abstract class AbstractPerformanceSimulation<
     C extends TopologyConfiguration, 
-    F extends AbstractTopologyFactory<C, BrokerWithRegion>
-> extends SimulationRunner<C, BrokerWithRegion, F> {
+    F extends AbstractTopologyFactory<C, BoundedBroker>
+> extends SimulationRunner<C, BoundedBroker, F> {
 
     private static final Logger logger = CustomLogger.getLogger(AbstractPerformanceSimulation.class.getName());
 
@@ -105,7 +105,7 @@ public abstract class AbstractPerformanceSimulation<
 
         logTopologySummary(this.rootNode);
 
-        List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
+        List<BoundedBroker> leafBrokers = findLeafBrokers(this.rootNode);
         if (leafBrokers.isEmpty()) {
             logger.severe("Error: No leaf brokers found. Cannot attach clients.");
             return;
@@ -124,7 +124,7 @@ public abstract class AbstractPerformanceSimulation<
     }
     
     private void logBrokerHierarchy(TreeNode node, String indent) {
-        if (node instanceof BrokerWithRegion broker) {
+        if (node instanceof BoundedBroker broker) {
             Region region = broker.getRegion();
             String regionInfo = (region != null) ? region.toShortString() : "N/A"; // Safe string
             logger.fine(String.format("%s%s [%s]", indent, broker.getName(), regionInfo));
@@ -139,9 +139,9 @@ public abstract class AbstractPerformanceSimulation<
         enum EventType { START, END }
         final double x;
         final EventType type;
-        final BrokerWithRegion broker;
+        final BoundedBroker broker;
 
-        SweepEvent(double x, EventType type, BrokerWithRegion broker) {
+        SweepEvent(double x, EventType type, BoundedBroker broker) {
             this.x = x;
             this.type = type;
             this.broker = broker;
@@ -154,9 +154,9 @@ public abstract class AbstractPerformanceSimulation<
         }
     }
 
-    private long calculateSiblingOverlaps(List<BrokerWithRegion> brokers) {
+    private long calculateSiblingOverlaps(List<BoundedBroker> brokers) {
         List<SweepEvent> events = new ArrayList<>(brokers.size() * 2);
-        for (BrokerWithRegion broker : brokers) {
+        for (BoundedBroker broker : brokers) {
             Region region = broker.getRegion();
             if (region == null || region.getBottomLeft() == null || region.getTopRight() == null) continue;
             double minLon = region.getBottomLeft().getX();
@@ -174,14 +174,14 @@ public abstract class AbstractPerformanceSimulation<
         Collections.sort(events);
 
         long overlapCount = 0;
-        Map<BrokerWithRegion, Integer> activeSegments = new HashMap<>();
+        Map<BoundedBroker, Integer> activeSegments = new HashMap<>();
         Set<String> countedPairs = new HashSet<>(); 
 
         for (SweepEvent event : events) {
-            BrokerWithRegion eventBroker = event.broker;
+            BoundedBroker eventBroker = event.broker;
             Region r1 = eventBroker.getRegion();
             if (event.type == SweepEvent.EventType.START) {
-                for (BrokerWithRegion activeBroker : activeSegments.keySet()) {
+                for (BoundedBroker activeBroker : activeSegments.keySet()) {
                     if (activeBroker == eventBroker) continue;
                     String pairKey = (eventBroker.getName().compareTo(activeBroker.getName()) < 0)
                                      ? eventBroker.getName() + "::" + activeBroker.getName()
@@ -202,25 +202,25 @@ public abstract class AbstractPerformanceSimulation<
         return overlapCount;
     }
 
-    protected void logTopologySummary(BrokerWithRegion root) {
+    protected void logTopologySummary(BoundedBroker root) {
         if (root == null) return;
         logger.info("\n--- Broker Topology Structure Summary ---");
-        Queue<BrokerWithRegion> queue = new LinkedList<>();
+        Queue<BoundedBroker> queue = new LinkedList<>();
         queue.add(root);
         int currentLevel = 0;
 
         while (!queue.isEmpty()) {
             int levelSize = queue.size(); 
             long totalBrokerChildrenAtLevel = 0; 
-            List<BrokerWithRegion> brokersAtThisLevel = new ArrayList<>(levelSize);
+            List<BoundedBroker> brokersAtThisLevel = new ArrayList<>(levelSize);
 
             for (int i = 0; i < levelSize; i++) {
-                BrokerWithRegion broker = queue.poll();
+                BoundedBroker broker = queue.poll();
                 if (broker == null) continue;
                 brokersAtThisLevel.add(broker); 
                 if (broker.getChildren() != null) {
                     for (TreeNode child : broker.getChildren()) {
-                        if (child instanceof BrokerWithRegion childBroker) { 
+                        if (child instanceof BoundedBroker childBroker) { 
                             totalBrokerChildrenAtLevel++;
                             queue.add(childBroker); 
                         }
@@ -241,7 +241,7 @@ public abstract class AbstractPerformanceSimulation<
                 
                 if (currentLevel == 1) {
                     SimulationVisualiser visualizer = SimulationVisualiser.getInstance();
-                    for (BrokerWithRegion broker : brokersAtThisLevel) {
+                    for (BoundedBroker broker : brokersAtThisLevel) {
                         visualizer.updateRegion(broker.getName(), broker.getRegion());
                     }
                 }
@@ -251,10 +251,10 @@ public abstract class AbstractPerformanceSimulation<
         logger.info("--- End of Topology Summary ---");
     }
     
-    private void collectClients(List<BrokerWithRegion> leafBrokers) {
+    private void collectClients(List<BoundedBroker> leafBrokers) {
         allSubscribers.clear();
         allPublishers.clear();
-        for (BrokerWithRegion leaf : leafBrokers) {
+        for (BoundedBroker leaf : leafBrokers) {
             for (Object child : leaf.getChildren()) {
                 if (child instanceof SubscriberWithLocation) {
                     allSubscribers.add((SubscriberWithLocation) child);
@@ -266,18 +266,18 @@ public abstract class AbstractPerformanceSimulation<
         logger.info("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
     }
     
-    protected List<BrokerWithRegion> findLeafBrokers(BrokerWithRegion root) {
-        List<BrokerWithRegion> leaves = new ArrayList<>();
+    protected List<BoundedBroker> findLeafBrokers(BoundedBroker root) {
+        List<BoundedBroker> leaves = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
         if (root != null) queue.add(root);
         while(!queue.isEmpty()) {
             TreeNode current = queue.poll();
-            if (current instanceof BrokerWithRegion) {
+            if (current instanceof BoundedBroker) {
                 boolean hasBrokerChild = false;
                 for (TreeNode child : current.getChildren()) {
-                    if (child instanceof BrokerWithRegion) hasBrokerChild = true;
+                    if (child instanceof BoundedBroker) hasBrokerChild = true;
                 }
-                if (!hasBrokerChild) leaves.add((BrokerWithRegion) current);
+                if (!hasBrokerChild) leaves.add((BoundedBroker) current);
             }
             if (current.getChildren() != null) queue.addAll(current.getChildren());
         }
@@ -315,7 +315,7 @@ public abstract class AbstractPerformanceSimulation<
             totalSubscriptionTableEntries += broker.getSubscriptionsTable().size();
             totalSubscriptionProcessingEvents += broker.getTotalSubscriptionProcessingEvents();
             
-            if (broker instanceof BrokerWithRegion br) {
+            if (broker instanceof BoundedBroker br) {
                 totalRegionUpdates += br.getNumOfRegionUpdates();
                 totalPropagationFilterExpansions += br.getNumPropagationFilterExpansions();
                 totalMainTableExpansions += br.getNumMainTableExpansions(); 

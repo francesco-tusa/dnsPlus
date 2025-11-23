@@ -2,7 +2,7 @@ package simulator.core;
 
 import java.util.logging.Level;
 import java.util.logging.Logger; // Import Logger
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import utils.CustomLogger;
@@ -15,7 +15,7 @@ import utils.ExperimentTimestamp; // Import the timestamp utility
  */
 public abstract class SimulationRunner<
     C extends TopologyConfiguration,
-    R extends BrokerWithRegion,
+    R extends BoundedBroker,
     F extends AbstractTopologyFactory<C, R>> {
 
     private static final Logger logger = CustomLogger.getLogger(SimulationRunner.class.getName());

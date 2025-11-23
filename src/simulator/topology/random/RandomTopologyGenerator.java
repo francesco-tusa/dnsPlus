@@ -7,17 +7,17 @@ import java.util.Random;
 import simulator.core.Location;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.factories.BrokerFactory;
 
-public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRandomTopologyConfiguration, BrokerWithRegion> {
+public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRandomTopologyConfiguration, BoundedBroker> {
 
     private final BrokerFactory brokerFactory;
     private List<Region> leafRegionsDefinition;
-    private final List<BrokerWithRegion> allLeafBrokers = new ArrayList<>();
+    private final List<BoundedBroker> allLeafBrokers = new ArrayList<>();
     private final Random random = new Random();
 
     private static final int MAX_Z = 100; // Z-axis can remain constant
@@ -46,21 +46,21 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
     }
 
     @Override
-    protected BrokerWithRegion buildCoreTopology() {
-        BrokerWithRegion root = brokerFactory.createBroker(generateBrokerName());
+    protected BoundedBroker buildCoreTopology() {
+        BoundedBroker root = brokerFactory.createBroker(generateBrokerName());
         buildBrokerLevelRecursive(root, 0, config.getTreeDepth() - 1, config.getMaxBranchingFactor());
         aggregateData(root);
         return root;
     }
 
-    private void buildBrokerLevelRecursive(BrokerWithRegion parent, int currentDepth, int leafDepth, int maxBranchingFactor) {
+    private void buildBrokerLevelRecursive(BoundedBroker parent, int currentDepth, int leafDepth, int maxBranchingFactor) {
         int numChildren = (maxBranchingFactor <= 1) ? 1 : (1 + random.nextInt(maxBranchingFactor));
 
         if (currentDepth == leafDepth) {
             for (int i = 0; i < numChildren; i++) {
                 // Use modulo to wrap around region definitions if there are more brokers than definitions
                 Region regionDef = leafRegionsDefinition.get(allLeafBrokers.size() % config.getNumRegions());
-                BrokerWithRegion leafBroker = brokerFactory.createLeafBroker(generateLeafBrokerName(), regionDef.getBottomLeft(), regionDef.getTopRight());
+                BoundedBroker leafBroker = brokerFactory.createLeafBroker(generateLeafBrokerName(), regionDef.getBottomLeft(), regionDef.getTopRight());
                 leafBroker.setInternetPopulation(MOCK_POPULATION);
                 parent.addChild(leafBroker);
                 allLeafBrokers.add(leafBroker);
@@ -69,20 +69,20 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
         }
 
         for (int i = 0; i < numChildren; i++) {
-            BrokerWithRegion childBroker = brokerFactory.createBroker(generateBrokerName());
+            BoundedBroker childBroker = brokerFactory.createBroker(generateBrokerName());
             parent.addChild(childBroker);
             buildBrokerLevelRecursive(childBroker, currentDepth + 1, leafDepth, maxBranchingFactor);
         }
     }
 
-    private void aggregateData(BrokerWithRegion node) {
-        if (node.getChildren().stream().noneMatch(c -> c instanceof BrokerWithRegion)) {
+    private void aggregateData(BoundedBroker node) {
+        if (node.getChildren().stream().noneMatch(c -> c instanceof BoundedBroker)) {
             // This is a leaf node in the broker hierarchy
             return;
         }
         long aggregatedPopulation = 0;
         for (Object childObj : node.getChildren()) {
-            if (childObj instanceof BrokerWithRegion childBroker) {
+            if (childObj instanceof BoundedBroker childBroker) {
                 aggregateData(childBroker); // Recurse first
                 aggregatedPopulation += childBroker.getInternetPopulation();
             }
@@ -91,11 +91,11 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
     }
     
     @Override
-    public void attachSubscribers(BrokerWithRegion root) {
+    public void attachSubscribers(BoundedBroker root) {
         // This method is now handled by ProportionalSubscribersPlacement,
         // but this logic remains as a fallback if config.getSubscribersPerLeafNode() > 0
         for (int i = 0; i < allLeafBrokers.size(); i++) {
-            BrokerWithRegion leafBroker = allLeafBrokers.get(i);
+            BoundedBroker leafBroker = allLeafBrokers.get(i);
             Region regionDef = leafRegionsDefinition.get(i % config.getNumRegions());
             for (int j = 0; j < config.getSubscribersPerLeafNode(); j++) {
                 Location subLocation = generateLocationInRegion(regionDef);
@@ -106,11 +106,11 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
     }
 
     @Override
-    public void attachPublishers(BrokerWithRegion root) {
+    public void attachPublishers(BoundedBroker root) {
         // This method is now handled by DataCenterPublishersPlacement,
         // but this logic remains as a fallback if config.getPublishersPerLeafNode() > 0
         for (int i = 0; i < allLeafBrokers.size(); i++) {
-            BrokerWithRegion leafBroker = allLeafBrokers.get(i);
+            BoundedBroker leafBroker = allLeafBrokers.get(i);
             Region regionDef = leafRegionsDefinition.get(i % config.getNumRegions());
             for (int j = 0; j < config.getPublishersPerLeafNode(); j++) {
                 Location pubLocation = generateLocationInRegion(regionDef);

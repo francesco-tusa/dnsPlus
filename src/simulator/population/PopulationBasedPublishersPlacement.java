@@ -4,7 +4,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import utils.CustomLogger;
 
 /**
@@ -26,28 +26,28 @@ public class PopulationBasedPublishersPlacement extends AbstractBilevelPublisher
     }
 
     @Override
-    protected List<BrokerWithRegion> createPlacementPool(BrokerWithRegion rootNode) {
+    protected List<BoundedBroker> createPlacementPool(BoundedBroker rootNode) {
         logger.info("Creating placement pool: Finding all Level 2 regions...");
         
         // 1. Find all brokers at Level 2
-        List<BrokerWithRegion> level2MajorRegions = findBrokersAtLevel(rootNode, 2);
+        List<BoundedBroker> level2MajorRegions = findBrokersAtLevel(rootNode, 2);
         if (level2MajorRegions.isEmpty()) {
             logger.severe("Error: No parent brokers were found at Level 2.");
             return null;
         }
         
         // 2. Sort these Level 2 regions by population
-        level2MajorRegions.sort(Comparator.comparingLong(BrokerWithRegion::getInternetPopulation).reversed());
+        level2MajorRegions.sort(Comparator.comparingLong(BoundedBroker::getInternetPopulation).reversed());
 
         // 3. Select the Top-N (poolSize) to form the "Placement Pool"
         int numToTake = Math.min(level2MajorRegions.size(), this.poolSize);
-        List<BrokerWithRegion> topRegionsPool = level2MajorRegions.subList(0, numToTake);
+        List<BoundedBroker> topRegionsPool = level2MajorRegions.subList(0, numToTake);
 
         logger.info("Identified top " + topRegionsPool.size() + " MAJOR regions (at Level 2) as Data Center *Placement Pool*.");
         if (logger.isLoggable(Level.INFO)) { 
             logger.info("  --- DEBUG: Top " + Math.min(20, topRegionsPool.size()) + " (of " + topRegionsPool.size() + ") Regions in Pool ---");
             for (int i = 0; i < Math.min(20, topRegionsPool.size()); i++) {
-                BrokerWithRegion region = topRegionsPool.get(i);
+                BoundedBroker region = topRegionsPool.get(i);
                 logger.info(String.format("  [Rank %d] %s (Pop: %d, Level: %d)", 
                                           i + 1, 
                                           region.getName(), 

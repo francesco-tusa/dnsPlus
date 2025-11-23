@@ -8,7 +8,7 @@ import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import utils.CustomLogger;
 
@@ -29,14 +29,14 @@ public abstract class AbstractBilevelPublishersPlacement extends AbstractPublish
      * @param rootNode The root of the broker topology.
      * @return A list of Level 2 brokers to be used for placement.
      */
-    protected abstract List<BrokerWithRegion> createPlacementPool(BrokerWithRegion rootNode);
+    protected abstract List<BoundedBroker> createPlacementPool(BoundedBroker rootNode);
 
     /**
      * Main placement logic. It uses the template method pattern, calling
      * createPlacementPool() to get the list of target regions.
      */
     @Override
-    public void generateAndAttach(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalPublishersToCreate) {
+    public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalPublishersToCreate) {
         logger.info("\n--- Starting Bilevel Publisher Placement (" + this.getClass().getSimpleName() + ") ---");
 
         if (rootNode == null) {
@@ -45,7 +45,7 @@ public abstract class AbstractBilevelPublishersPlacement extends AbstractPublish
         }
 
         // 1. Get the placement pool from the concrete subclass
-        List<BrokerWithRegion> placementPool = createPlacementPool(rootNode);
+        List<BoundedBroker> placementPool = createPlacementPool(rootNode);
         if (placementPool == null || placementPool.isEmpty()) {
             logger.severe("Error: The placement pool is empty. Cannot proceed.");
             return;
@@ -58,10 +58,10 @@ public abstract class AbstractBilevelPublishersPlacement extends AbstractPublish
         for (long i = 0; i < totalPublishersToCreate; i++) {
             
             // 2. Select a region *randomly* from the pool (Uniform Distribution)
-            BrokerWithRegion chosenMajorRegion = placementPool.get(random.nextInt(placementPool.size()));
+            BoundedBroker chosenMajorRegion = placementPool.get(random.nextInt(placementPool.size()));
             
             // 3. Find a random leaf broker *under* that L2 region
-            BrokerWithRegion chosenLeaf = findRandomLeafBroker(chosenMajorRegion);
+            BoundedBroker chosenLeaf = findRandomLeafBroker(chosenMajorRegion);
             if (chosenLeaf == null) {
                 logger.warning("Failed to find a leaf broker under " + chosenMajorRegion.getName() + ". Skipping placement.");
                 continue;
@@ -97,24 +97,24 @@ public abstract class AbstractBilevelPublishersPlacement extends AbstractPublish
      * Helper method to find all brokers at a specific level (e.g., 2)
      * by traversing from the root.
      */
-    protected List<BrokerWithRegion> findBrokersAtLevel(BrokerWithRegion root, int targetLevel) {
-        List<BrokerWithRegion> result = new ArrayList<>();
+    protected List<BoundedBroker> findBrokersAtLevel(BoundedBroker root, int targetLevel) {
+        List<BoundedBroker> result = new ArrayList<>();
         if (root == null || root.getNodeLevel() > targetLevel) {
             return result;
         }
 
-        Queue<BrokerWithRegion> queue = new LinkedList<>();
+        Queue<BoundedBroker> queue = new LinkedList<>();
         queue.add(root);
 
         while (!queue.isEmpty()) {
-            BrokerWithRegion current = queue.poll();
+            BoundedBroker current = queue.poll();
 
             if (current.getNodeLevel() == targetLevel) {
                 result.add(current);
             } else if (current.getNodeLevel() < targetLevel) {
                 // Only add children to the queue if they are not beyond the target level
                 for (TreeNode child : current.getChildren()) {
-                    if (child instanceof BrokerWithRegion childBroker) {
+                    if (child instanceof BoundedBroker childBroker) {
                         queue.add(childBroker);
                     }
                 }
@@ -126,16 +126,16 @@ public abstract class AbstractBilevelPublishersPlacement extends AbstractPublish
     /**
      * Helper method to find a random leaf broker *under* a given start node.
      */
-    protected BrokerWithRegion findRandomLeafBroker(BrokerWithRegion startNode) {
-        List<BrokerWithRegion> leaves = new ArrayList<>();
-        Queue<BrokerWithRegion> queue = new LinkedList<>();
+    protected BoundedBroker findRandomLeafBroker(BoundedBroker startNode) {
+        List<BoundedBroker> leaves = new ArrayList<>();
+        Queue<BoundedBroker> queue = new LinkedList<>();
         queue.add(startNode);
         
         while (!queue.isEmpty()) {
-            BrokerWithRegion current = queue.poll();
+            BoundedBroker current = queue.poll();
             boolean hasBrokerChild = false;
             for (TreeNode child : current.getChildren()) {
-                if (child instanceof BrokerWithRegion childBroker) {
+                if (child instanceof BoundedBroker childBroker) {
                     queue.add(childBroker);
                     hasBrokerChild = true;
                 }

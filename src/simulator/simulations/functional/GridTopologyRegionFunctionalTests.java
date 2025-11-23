@@ -9,7 +9,7 @@ import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import utils.CustomLogger;
@@ -28,7 +28,7 @@ public class GridTopologyRegionFunctionalTests {
      * in the opposite corner. This validates the propagation of messages
      * across the entire broker hierarchy.
      */
-    public static final Predicate<BrokerWithRegion> GRID_CROSS_CORNER_PROPAGATION = root -> {
+    public static final Predicate<BoundedBroker> GRID_CROSS_CORNER_PROPAGATION = root -> {
         logger.info("\n>>> SCENARIO: Running Grid Topology Cross-Corner Propagation Test. <<<");
 
         // --- Find corner nodes ---

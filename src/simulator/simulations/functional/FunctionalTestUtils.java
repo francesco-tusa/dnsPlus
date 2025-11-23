@@ -5,7 +5,7 @@ import java.util.logging.Logger;
 import simulator.core.TreeNode;
 import simulator.entities.SimulationBroker;
 import simulator.events.SimulationSubscription;
-import simulator.regions.BrokerWithRegionProcessingRegion;
+import simulator.regions.SpatialMatchBroker;
 import utils.CustomLogger;
 
 /**
@@ -41,7 +41,7 @@ public final class FunctionalTestUtils {
             }
 
             // If it's a region-processing broker, also print the propagated subscriptions table
-            if (broker instanceof BrokerWithRegionProcessingRegion regionBroker) {
+            if (broker instanceof SpatialMatchBroker regionBroker) {
                 String propagatedTableTitle = "\n--- Propagated Subscriptions for: " + regionBroker.getName() + " ---";
                 logger.info(propagatedTableTitle);
                 

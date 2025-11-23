@@ -12,9 +12,9 @@ import utils.CustomLogger;
  * <p>This class adds the `Region` property and the logic to dynamically
  * update that region based on the regions of its children (R-tree like behavior).</p>
  */
-public abstract class BrokerWithRegion extends SimulationBroker {
+public abstract class BoundedBroker extends SimulationBroker {
     
-    private static final Logger logger = CustomLogger.getLogger(BrokerWithRegion.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(BoundedBroker.class.getName());
 
     private final Region region;
     private long numOfRegionUpdates;
@@ -24,7 +24,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     private long numPropagationFilterExpansions;
     private long numMainTableExpansions;
 
-    public BrokerWithRegion(String name) {
+    public BoundedBroker(String name) {
         super(name);
         region = new Region();
         numOfRegionUpdates = 0;
@@ -33,7 +33,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         numMainTableExpansions = 0;
     }
 
-    public BrokerWithRegion(String name, Location p1, Location p2) {
+    public BoundedBroker(String name, Location p1, Location p2) {
         super(name);
         region = new Region(p1, p2);
         numOfRegionUpdates = 0;
@@ -77,7 +77,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
     public void updateRegion(TreeNode child) {
         boolean regionChanged = false;
         Region childRegion = null;
-        if (child instanceof BrokerWithRegion broker) {
+        if (child instanceof BoundedBroker broker) {
             childRegion = broker.getRegion();
         } else if (child instanceof SubscriberWithLocation subscriber) {
             childRegion = new Region(subscriber.getLocation(), subscriber.getLocation());
@@ -97,7 +97,7 @@ public abstract class BrokerWithRegion extends SimulationBroker {
         if (regionChanged) {
             logger.fine(getName() + ": updated region to " + this.region);
             numOfRegionUpdates++;
-            BrokerWithRegion parentBroker = getParentBroker();
+            BoundedBroker parentBroker = getParentBroker();
             if (parentBroker != null) {
                 parentBroker.updateRegion(this);
             }

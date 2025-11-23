@@ -3,14 +3,14 @@ package simulator.simulations.performance;
 import java.util.logging.Logger; // Import Logger
 import simulator.core.Location;
 import simulator.entities.SubscriberWithLocation;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import utils.CustomLogger; // Import CustomLogger
 
 public abstract class AbstractLocationPerformanceSimulation<
     C extends TopologyConfiguration, 
-    F extends AbstractTopologyFactory<C, BrokerWithRegion>
+    F extends AbstractTopologyFactory<C, BoundedBroker>
 > extends AbstractPerformanceSimulation<C, F> {
 
     private static final Logger logger = CustomLogger.getLogger(AbstractLocationPerformanceSimulation.class.getName());

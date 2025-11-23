@@ -11,8 +11,8 @@ import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
-import simulator.regions.BrokerWithRegion;
-import simulator.regions.BrokerWithRegionProcessingRegion;
+import simulator.regions.BoundedBroker;
+import simulator.regions.SpatialMatchBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import utils.CustomLogger;
@@ -21,19 +21,19 @@ public class GeoNamesPropagationTest {
 
     private static final Logger logger = CustomLogger.getLogger(GeoNamesPropagationTest.class.getName());
 
-    public static final Predicate<BrokerWithRegion> COMPREHENSIVE_REGRESSION_TEST = root -> {
+    public static final Predicate<BoundedBroker> COMPREHENSIVE_REGRESSION_TEST = root -> {
         logger.info("\n>>> STARTING COMPREHENSIVE REGRESSION TEST (GeoNames Subset) <<<");
         boolean allPassed = true;
 
         // ----------------------------------------------------------------
         // SETUP
         // ----------------------------------------------------------------
-        BrokerWithRegion dhaka = findBrokerByNamePartial(root, "Dhaka"); 
-        BrokerWithRegion sylhet = findBrokerByNamePartial(root, "Sylhet"); 
-        BrokerWithRegion rajshahi = findBrokerByNamePartial(root, "Rajshahi"); 
-        BrokerWithRegion chittagong = findBrokerByNamePartial(root, "Chittagong");
-        BrokerWithRegion beijing = findBrokerByNamePartial(root, "Beijing");
-        BrokerWithRegion bangladesh = findBrokerByNamePartial(root, "Bangladesh");
+        BoundedBroker dhaka = findBrokerByNamePartial(root, "Dhaka"); 
+        BoundedBroker sylhet = findBrokerByNamePartial(root, "Sylhet"); 
+        BoundedBroker rajshahi = findBrokerByNamePartial(root, "Rajshahi"); 
+        BoundedBroker chittagong = findBrokerByNamePartial(root, "Chittagong");
+        BoundedBroker beijing = findBrokerByNamePartial(root, "Beijing");
+        BoundedBroker bangladesh = findBrokerByNamePartial(root, "Bangladesh");
 
         if (dhaka == null || sylhet == null || rajshahi == null || chittagong == null || beijing == null || bangladesh == null) {
             logger.severe("FAILURE: Could not find all required brokers.");
@@ -113,7 +113,7 @@ public class GeoNamesPropagationTest {
 
         boolean aggregationPassed = false;
         Region expectedUnion = new Region(regionA); expectedUnion.expand(regionB);
-        if (chittagong instanceof BrokerWithRegionProcessingRegion proc) {
+        if (chittagong instanceof SpatialMatchBroker proc) {
             SimulationSubscription s = proc.getPropagatedSubscriptions().get(bangladesh);
             if (s instanceof SubscriptionWithRegion swr && swr.getRegion().equals(expectedUnion)) aggregationPassed = true;
         }
@@ -240,22 +240,22 @@ public class GeoNamesPropagationTest {
         return allPassed;
     };
     
-    private static Region getPropagatedRegion(BrokerWithRegion source, BrokerWithRegion target) {
-        if (source instanceof BrokerWithRegionProcessingRegion proc) {
+    private static Region getPropagatedRegion(BoundedBroker source, BoundedBroker target) {
+        if (source instanceof SpatialMatchBroker proc) {
             SimulationSubscription s = proc.getPropagatedSubscriptions().get(target);
             if (s instanceof SubscriptionWithRegion swr) return swr.getRegion();
         }
         return null;
     }
     
-    private static BrokerWithRegion findBrokerByNamePartial(TreeNode root, String partialName) {
+    private static BoundedBroker findBrokerByNamePartial(TreeNode root, String partialName) {
         if (root == null) return null;
         Queue<TreeNode> queue = new LinkedList<>();
         queue.add(root);
         while (!queue.isEmpty()) {
             TreeNode current = queue.poll();
-            if (current instanceof BrokerWithRegion && current.getName().contains(partialName)) {
-                return (BrokerWithRegion) current;
+            if (current instanceof BoundedBroker && current.getName().contains(partialName)) {
+                return (BoundedBroker) current;
             }
             if (current.getChildren() != null) queue.addAll(current.getChildren());
         }

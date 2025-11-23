@@ -7,7 +7,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import simulator.regions.Region;
 import simulator.core.Location;
 import simulator.core.TreeNode;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.factories.BrokerFactory;
@@ -27,12 +27,12 @@ import java.util.logging.Logger;
  * topology, avoiding OutOfMemoryError for very large topology files.
  */
 public class FileBasedTopologyGenerator
-        extends AbstractTopologyFactory<FileBasedTopologyConfiguration, BrokerWithRegion> {
+        extends AbstractTopologyFactory<FileBasedTopologyConfiguration, BoundedBroker> {
 
     private static final Logger logger = CustomLogger.getLogger(FileBasedTopologyGenerator.class.getName());
     
     private final BrokerFactory brokerFactory;
-    private final List<BrokerWithRegion> allBrokers = new ArrayList<>();
+    private final List<BoundedBroker> allBrokers = new ArrayList<>();
     private final JsonFactory jsonFactory = new JsonFactory();
 
     // --- Constants for JSON field names ---
@@ -72,7 +72,7 @@ public class FileBasedTopologyGenerator
     }
 
     @Override
-    protected BrokerWithRegion buildCoreTopology() {
+    protected BoundedBroker buildCoreTopology() {
         Objects.requireNonNull(this.config, "Configuration must be set during initialise before building topology.");
         String filePath = this.config.getTopologyFilePath();
         logger.info("Building core topology from file (streaming): " + filePath);
@@ -108,7 +108,7 @@ public class FileBasedTopologyGenerator
     }
 
     @Override
-    public void attachSubscribers(BrokerWithRegion root) {
+    public void attachSubscribers(BoundedBroker root) {
          if (root == null || this.rootNode == null || root != this.rootNode) {
              logger.warning("Root node mismatch or null during attachSubscribers. Aborting subscriber attachment.");
              return;
@@ -117,7 +117,7 @@ public class FileBasedTopologyGenerator
     }
 
     @Override
-    public void attachPublishers(BrokerWithRegion root) {
+    public void attachPublishers(BoundedBroker root) {
          if (root == null || this.rootNode == null || root != this.rootNode) {
              logger.warning("Root node mismatch or null during attachPublishers. Aborting publisher attachment.");
              return;
@@ -134,13 +134,13 @@ public class FileBasedTopologyGenerator
      * @return The constructed BrokerWithRegion.
      * @throws IOException
      */
-    private BrokerWithRegion buildBrokerFromJsonStream(JsonParser parser, BrokerWithRegion parent) throws IOException {
+    private BoundedBroker buildBrokerFromJsonStream(JsonParser parser, BoundedBroker parent) throws IOException {
         
         // --- THIS IS THE "CREATE-THEN-SWAP" LOGIC ---
         // 1. Create a broker *immediately*, assuming it's a NON-LEAF.
         // We need this object to exist so it can be passed as a parent to its children.
         String initialName = "broker_" + this.brokerIdCounter++;
-        BrokerWithRegion currentBroker = brokerFactory.createBroker(initialName);
+        BoundedBroker currentBroker = brokerFactory.createBroker(initialName);
         if (parent != null) {
             parent.addChild(currentBroker); // This sets the parent link immediately!
         }
@@ -208,7 +208,7 @@ public class FileBasedTopologyGenerator
             }
             
             // Create the *correct* leaf broker
-            BrokerWithRegion leafBroker = brokerFactory.createLeafBroker(brokerName, p1, p2);
+            BoundedBroker leafBroker = brokerFactory.createLeafBroker(brokerName, p1, p2);
             leafBroker.setInternetPopulation(internetPopulation);
             
             // Swap it into the parent's children list
@@ -229,14 +229,14 @@ public class FileBasedTopologyGenerator
      * @param broker The broker to start the search from (we search its parents).
      * @return The first valid Region found, or null if no parents have a region.
      */
-    private Region findFirstValidParentRegion(BrokerWithRegion broker) {
+    private Region findFirstValidParentRegion(BoundedBroker broker) {
         if (broker == null) {
             return null;
         }
         
         // Start search from the broker itself, then go up.
         // A broker passed as 'parent' might have a region.
-        BrokerWithRegion p = broker;
+        BoundedBroker p = broker;
         
         while (p != null) {
             // Check if this parent is a BrokerWithRegion and has a valid region
@@ -246,8 +246,8 @@ public class FileBasedTopologyGenerator
             }
             
             // Move up to the next parent
-            if (p.getParent() instanceof BrokerWithRegion) {
-                 p = (BrokerWithRegion) p.getParent();
+            if (p.getParent() instanceof BoundedBroker) {
+                 p = (BoundedBroker) p.getParent();
             } else {
                  p = null; // Reached root or non-broker node
             }
@@ -324,20 +324,20 @@ public class FileBasedTopologyGenerator
         return new Location(x, y, z);
     }
 
-    private void addAllBrokersRecursively(BrokerWithRegion broker) {
+    private void addAllBrokersRecursively(BoundedBroker broker) {
         if (broker == null) return;
         this.allBrokers.add(broker);
         List<TreeNode> children = broker.getChildren();
         if (children != null) {
             for (TreeNode childNode : children) {
-                if (childNode instanceof BrokerWithRegion) {
-                    addAllBrokersRecursively((BrokerWithRegion) childNode);
+                if (childNode instanceof BoundedBroker) {
+                    addAllBrokersRecursively((BoundedBroker) childNode);
                 }
             }
         }
     }
 
-     public List<BrokerWithRegion> getBrokers() {
+     public List<BoundedBroker> getBrokers() {
          return new ArrayList<>(this.allBrokers);
      }
 }

@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 import simulator.core.Location;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
@@ -21,7 +21,7 @@ import utils.CustomLogger;
 
 public abstract class AbstractRegionPerformanceSimulation<
     C extends TopologyConfiguration,
-    F extends AbstractTopologyFactory<C, BrokerWithRegion>
+    F extends AbstractTopologyFactory<C, BoundedBroker>
 > extends AbstractPerformanceSimulation<C, F> {
 
     private static final Logger logger = CustomLogger.getLogger(AbstractRegionPerformanceSimulation.class.getName());
@@ -84,7 +84,7 @@ public abstract class AbstractRegionPerformanceSimulation<
             logger.severe("No subscribers or publishers were created. Cannot run scenarios.");
             return;
         }
-        List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
+        List<BoundedBroker> leafBrokers = findLeafBrokers(this.rootNode);
 
         // Phase 1: Subscriptions
         logger.info("\n>>> Phase 1: Subscribers are sending region-based subscriptions... <<<");
@@ -161,15 +161,15 @@ public abstract class AbstractRegionPerformanceSimulation<
         logger.info("--- Ground Truth Calculation Complete: " + this.groundTruthMatches + " total potential matches. ---");
     }
     
-    protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers) {
+    protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BoundedBroker> allLeafBrokers) {
         Region subscriptionRegion;
         if (random.nextDouble() < getRemoteInterestProbability()) {
-            List<BrokerWithRegion> hubs = findTopDataCenters(allLeafBrokers, 30);
+            List<BoundedBroker> hubs = findTopDataCenters(allLeafBrokers, 30);
              if (hubs.isEmpty()) {
-                 BrokerWithRegion randomBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
+                 BoundedBroker randomBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
                  subscriptionRegion = new Region(randomBroker.getRegion());
             } else {
-                 BrokerWithRegion remoteHub = hubs.get(random.nextInt(hubs.size()));
+                 BoundedBroker remoteHub = hubs.get(random.nextInt(hubs.size()));
                  subscriptionRegion = new Region(remoteHub.getRegion());
             }
         } else {
@@ -183,9 +183,9 @@ public abstract class AbstractRegionPerformanceSimulation<
         return new SubscriptionWithRegion(subscriptionRegion);
     }
 
-    protected List<BrokerWithRegion> findTopDataCenters(List<BrokerWithRegion> leafBrokers, int maxDCs) {
+    protected List<BoundedBroker> findTopDataCenters(List<BoundedBroker> leafBrokers, int maxDCs) {
          return leafBrokers.stream()
-            .sorted(Comparator.comparingLong(BrokerWithRegion::getInternetPopulation).reversed())
+            .sorted(Comparator.comparingLong(BoundedBroker::getInternetPopulation).reversed())
             .limit(Math.min(leafBrokers.size(), maxDCs))
             .collect(Collectors.toList());
     }

@@ -7,7 +7,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.entities.SubscriberWithLocation;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import utils.CustomLogger;
 
@@ -25,7 +25,7 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
     }
 
     @Override
-    public void generateAndAttach(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalSubscribersToCreate) {
+    public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {
         logger.info("\n--- Starting Proportional Subscriber Placement ---");
         logger.info("Distributing " + totalSubscribersToCreate + " total subscribers...");
 
@@ -57,7 +57,7 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
         long subscribersCreated = 0;
         for (long i = 0; i < totalSubscribersToCreate; i++) {
             long randomWeight = (long) (random.nextDouble() * worldTotalInternetPopulation);
-            BrokerWithRegion chosenBroker = findBrokerForWeight(randomWeight, leafBrokers, cumulativeWeights);
+            BoundedBroker chosenBroker = findBrokerForWeight(randomWeight, leafBrokers, cumulativeWeights);
 
             if (chosenBroker != null) {
                 Region brokerRegion = chosenBroker.getRegion();
@@ -86,7 +86,7 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
         logger.info("--- Proportional Subscriber Placement Complete. Total subscribers created: " + subscribersCreated + " ---");
     }
 
-    private BrokerWithRegion findBrokerForWeight(long weight, List<BrokerWithRegion> brokers, long[] cumulativeWeights) {
+    private BoundedBroker findBrokerForWeight(long weight, List<BoundedBroker> brokers, long[] cumulativeWeights) {
         int low = 0;
         int high = cumulativeWeights.length - 1;
         int ans = -1;
@@ -103,10 +103,10 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
         return (ans != -1) ? brokers.get(ans) : null;
     }
 
-    private void generateAndAttachUniformly(List<BrokerWithRegion> leafBrokers, long totalSubscribersToCreate) {
+    private void generateAndAttachUniformly(List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {
         long subscribersCreated = 0;
         for (long i = 0; i < totalSubscribersToCreate; i++) {
-            BrokerWithRegion chosenBroker = leafBrokers.get(random.nextInt(leafBrokers.size()));
+            BoundedBroker chosenBroker = leafBrokers.get(random.nextInt(leafBrokers.size()));
 
             Region brokerRegion = chosenBroker.getRegion();
             if (brokerRegion == null || brokerRegion.getBottomLeft() == null) continue;

@@ -8,7 +8,7 @@ import java.util.Map;
 import simulator.core.TreeNode;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 
 /**
  * Abstract base class for all broker entities in the simulation.
@@ -34,10 +34,10 @@ public abstract class SimulationBroker extends TreeNode {
 
     protected abstract void propagateSubscription(SimulationSubscription s);
 
-    public BrokerWithRegion getParentBroker() {
+    public BoundedBroker getParentBroker() {
         TreeNode parent = getParent();
-        if (parent instanceof BrokerWithRegion) {
-            return (BrokerWithRegion) parent;
+        if (parent instanceof BoundedBroker) {
+            return (BoundedBroker) parent;
         }
         return null;
     }

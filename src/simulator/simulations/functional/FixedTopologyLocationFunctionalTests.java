@@ -10,7 +10,7 @@ import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SubscriptionWithLocation;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import utils.CustomLogger;
 
 public class FixedTopologyLocationFunctionalTests {
@@ -23,7 +23,7 @@ public class FixedTopologyLocationFunctionalTests {
      * of the topology to demonstrate that the network correctly tracks the best
      * publication for each subscriber independently.
      */
-    public static final Predicate<BrokerWithRegion> COMPREHENSIVE_SCENARIO = root -> {
+    public static final Predicate<BoundedBroker> COMPREHENSIVE_SCENARIO = root -> {
         logger.info("\n>>> SCENARIO: Testing Multi-Client Closest Publication Filtering (Location). <<<");
 
         // --- Find required nodes ---
@@ -85,7 +85,7 @@ public class FixedTopologyLocationFunctionalTests {
      * cause a redundant subscription at their common parent, and then verifies
      * correct end-to-end publication delivery.
      */
-    public static final Predicate<BrokerWithRegion> SUBSCRIPTION_FILTERING_SCENARIO = root -> {
+    public static final Predicate<BoundedBroker> SUBSCRIPTION_FILTERING_SCENARIO = root -> {
         logger.info(
                 "\n>>> SCENARIO: Testing Upper-Level Proxy Subscription Filtering and Delivery (Location). <<<");
 
@@ -95,9 +95,9 @@ public class FixedTopologyLocationFunctionalTests {
                                                                                                 // (DIFFERENT leaf)
 
         // Brokers for verification
-        BrokerWithRegion grandchild2 = findNodeByName(root, "grandchild2", BrokerWithRegion.class);
-        BrokerWithRegion grandchild3 = findNodeByName(root, "grandchild3", BrokerWithRegion.class);
-        BrokerWithRegion child2 = findNodeByName(root, "child2", BrokerWithRegion.class); // Common parent
+        BoundedBroker grandchild2 = findNodeByName(root, "grandchild2", BoundedBroker.class);
+        BoundedBroker grandchild3 = findNodeByName(root, "grandchild3", BoundedBroker.class);
+        BoundedBroker child2 = findNodeByName(root, "child2", BoundedBroker.class); // Common parent
 
         // Publisher for the test
         PublisherWithLocation p2 = findNodeByName(root, "pub2", PublisherWithLocation.class);

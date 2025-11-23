@@ -16,7 +16,7 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.population.PopulationBasedPublishersPlacement; // Import the correct class
 import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.TopologyPopulator;
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
@@ -31,8 +31,8 @@ import utils.CustomLogger; // Import CustomLogger
  */
 public class ConfigurablePerformanceSimulation<
     C extends TopologyConfiguration,
-    F extends AbstractTopologyFactory<C, BrokerWithRegion>
-> extends SimulationRunner<C, BrokerWithRegion, F> {
+    F extends AbstractTopologyFactory<C, BoundedBroker>
+> extends SimulationRunner<C, BoundedBroker, F> {
 
     private static final Logger logger = CustomLogger.getLogger(ConfigurablePerformanceSimulation.class.getName()); // Get logger
 
@@ -72,7 +72,7 @@ public class ConfigurablePerformanceSimulation<
             return;
         }
 
-        List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
+        List<BoundedBroker> leafBrokers = findLeafBrokers(this.rootNode);
         if (leafBrokers.isEmpty()) {
             logger.severe("Error: No leaf brokers found. Cannot attach clients.");
             return;
@@ -102,7 +102,7 @@ public class ConfigurablePerformanceSimulation<
             return;
         }
 
-        List<BrokerWithRegion> leafBrokers = findLeafBrokers(this.rootNode);
+        List<BoundedBroker> leafBrokers = findLeafBrokers(this.rootNode);
         
         logger.info("\n>>> Phase 1: Subscribers are sending subscriptions... <<<");
         for (SubscriberWithLocation subscriber : allSubscribers) {
@@ -118,11 +118,11 @@ public class ConfigurablePerformanceSimulation<
         collectAndPrintMetrics();
     }
     
-    protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BrokerWithRegion> allLeafBrokers) {
+    protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BoundedBroker> allLeafBrokers) {
         Location centerOfInterest;
 
         if (random.nextDouble() < remoteInterestProbability) {
-            BrokerWithRegion remoteBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
+            BoundedBroker remoteBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
             centerOfInterest = getRandomLocationInRegion(remoteBroker.getRegion());
         } else {
             centerOfInterest = subscriber.getLocation();
@@ -138,10 +138,10 @@ public class ConfigurablePerformanceSimulation<
         return new SubscriptionWithRegion(subscriptionRegion);
     }
 
-    private void collectClients(List<BrokerWithRegion> leafBrokers) {
+    private void collectClients(List<BoundedBroker> leafBrokers) {
         allSubscribers.clear();
         allPublishers.clear();
-        for (BrokerWithRegion leaf : leafBrokers) {
+        for (BoundedBroker leaf : leafBrokers) {
             for (Object child : leaf.getChildren()) {
                 if (child instanceof SubscriberWithLocation) {
                     allSubscribers.add((SubscriberWithLocation) child);
@@ -153,23 +153,23 @@ public class ConfigurablePerformanceSimulation<
         logger.info("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
     }
     
-    protected List<BrokerWithRegion> findLeafBrokers(BrokerWithRegion root) {
-        List<BrokerWithRegion> leaves = new ArrayList<>();
+    protected List<BoundedBroker> findLeafBrokers(BoundedBroker root) {
+        List<BoundedBroker> leaves = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
         if (root != null) queue.add(root);
         
         while(!queue.isEmpty()) {
             TreeNode current = queue.poll();
-            if (current instanceof BrokerWithRegion) {
+            if (current instanceof BoundedBroker) {
                 boolean hasBrokerChild = false;
                 for (TreeNode child : current.getChildren()) {
-                    if (child instanceof BrokerWithRegion) {
+                    if (child instanceof BoundedBroker) {
                         hasBrokerChild = true;
                         break;
                     }
                 }
                 if (!hasBrokerChild) {
-                    leaves.add((BrokerWithRegion) current);
+                    leaves.add((BoundedBroker) current);
                 }
             }
             if (current.getChildren() != null) queue.addAll(current.getChildren());
@@ -194,7 +194,7 @@ public class ConfigurablePerformanceSimulation<
 
         for (SimulationBroker broker : allBrokers) {
             totalSubscriptionTableEntries += broker.getSubscriptionsTable().size();
-            if (broker instanceof BrokerWithRegion) totalRegionUpdates += ((BrokerWithRegion) broker).getNumOfRegionUpdates();
+            if (broker instanceof BoundedBroker) totalRegionUpdates += ((BoundedBroker) broker).getNumOfRegionUpdates();
         }
         for (SubscriberWithLocation subscriber : allSubscribers) successfulNotifications += subscriber.getnPublications();
         for (PublisherWithLocation publisher : allPublishers) totalPublicationsSent += publisher.getnPublications();

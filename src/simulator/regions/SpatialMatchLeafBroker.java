@@ -10,15 +10,15 @@ import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import utils.CustomLogger;
 
-public class LeafBrokerWithRegionProcessingRegion extends BrokerWithRegionProcessingRegion implements LeafBroker {
+public class SpatialMatchLeafBroker extends SpatialMatchBroker implements LeafBroker {
 
-    private static final Logger logger = CustomLogger.getLogger(LeafBrokerWithRegionProcessingRegion.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(SpatialMatchLeafBroker.class.getName());
 
-    public LeafBrokerWithRegionProcessingRegion(String name) {
+    public SpatialMatchLeafBroker(String name) {
         super(name);
     }
     
-    public LeafBrokerWithRegionProcessingRegion(String name, Location p1, Location p2) {
+    public SpatialMatchLeafBroker(String name, Location p1, Location p2) {
         super(name, p1, p2);
     }
 

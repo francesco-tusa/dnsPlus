@@ -2,7 +2,7 @@ package simulator.population;
 
 import java.util.List;
 import java.util.logging.Logger; // Import Logger
-import simulator.regions.BrokerWithRegion;
+import simulator.regions.BoundedBroker;
 import utils.CustomLogger; // Import CustomLogger
 
 /**
@@ -36,7 +36,7 @@ public class TopologyPopulator {
      * @param totalSubscribers The total number of subscribers to create.
      * @param totalPublishers The number of publishers to create.
      */
-    public void populate(BrokerWithRegion rootNode, List<BrokerWithRegion> leafBrokers, long totalSubscribers, int totalPublishers) {
+    public void populate(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalSubscribers, int totalPublishers) {
         if (rootNode == null || leafBrokers == null || leafBrokers.isEmpty()) {
             logger.severe("Cannot populate topology: root node or leaf brokers are null/empty.");
             return;
