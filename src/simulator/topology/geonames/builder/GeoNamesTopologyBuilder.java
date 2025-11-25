@@ -15,8 +15,8 @@ public class GeoNamesTopologyBuilder {
         loader.loadAll();
 
         // Select Strategy
-        //TopologyBuilderStrategy strategy = new PoliticalTopologyStrategy(); 
-        TopologyBuilderStrategy strategy = new RTreeTopologyStrategy();
+        TopologyBuilderStrategy strategy = new PoliticalTopologyStrategy(); 
+        //TopologyBuilderStrategy strategy = new RTreeTopologyStrategy();
 
         logger.info("Executing Strategy: " + strategy.getClass().getSimpleName());
         
