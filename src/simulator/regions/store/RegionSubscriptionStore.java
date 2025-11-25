@@ -31,4 +31,10 @@ public interface RegionSubscriptionStore {
      * @return Map of Neighbor -> List of Subscriptions.
      */
     Map<TreeNode, List<SubscriptionWithRegion>> getAllSubscriptions();
+
+    /**
+     * Exposes the size of the store for simulation metric calculation
+     * @return The size of the store
+     */
+    int size();
 }

@@ -63,4 +63,9 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
         }
         return result;
     }
+
+    @Override
+    public int size() {
+        return map.size();
+    }
 }

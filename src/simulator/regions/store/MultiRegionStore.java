@@ -161,4 +161,14 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     public Map<TreeNode, List<SubscriptionWithRegion>> getAllSubscriptions() {
         return new HashMap<>(map);
     }
+
+    @Override
+    public int size() {
+        // Returns the total number of disjoint regions tracked across all neighbors
+        int count = 0;
+        for (List<SubscriptionWithRegion> list : map.values()) {
+            count += list.size();
+        }
+        return count;
+    }
 }
