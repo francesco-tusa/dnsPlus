@@ -6,8 +6,8 @@ import simulator.population.PopulationBasedPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.topology.TopologyPaths;
 import simulator.topology.factories.LocationBrokerFactory;
-import simulator.topology.geonames.FileBasedTopologyConfiguration;
-import simulator.topology.geonames.FileBasedTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyConfiguration;
+import simulator.topology.geonames.GeoNamesTopologyGenerator;
 import utils.CustomLogger;
 
 /**
@@ -18,13 +18,7 @@ public class PopulationGeonamesLocationPerformanceSimulation extends GeoNamesBas
 
     private static final Logger logger = CustomLogger.getLogger(PopulationGeonamesLocationPerformanceSimulation.class.getName());
 
-    private final int poolSize;
-
-    public PopulationGeonamesLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
-                                                          boolean enableCsvOutput, int poolSize) {
-        super(numberOfReplicas, subscribersPerReplica, enableCsvOutput);
-        this.poolSize = poolSize;
-    }
+    private final int poolSize = 100;
 
     /**
      * Implements the abstract method to provide the Population-based strategy.
@@ -39,25 +33,13 @@ public class PopulationGeonamesLocationPerformanceSimulation extends GeoNamesBas
      */
     public static void main(String[] args) {
         logger.info("--- Starting GeoNames-Based Performance Simulation (Population Location-Based) ---");
-        
-        int simNumberOfReplicas = 20;
-        int simSubscribersPerReplica = 25000;
-        int simPlacementPoolSize = 100; // Use Top 100 most populated regions
-        
-        // --- CONTROL FLAGS ---
-        boolean enableVerboseLogs = false; 
-        boolean enableCsvOutput = true; 
 
-        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(TopologyPaths.FULL_TOPOLOGY);
-        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new LocationBrokerFactory());
+        GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
+        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new LocationBrokerFactory());
         
-        PopulationGeonamesLocationPerformanceSimulation simulation = new PopulationGeonamesLocationPerformanceSimulation(
-            simNumberOfReplicas, simSubscribersPerReplica,
-            enableCsvOutput,
-            simPlacementPoolSize
-        );
+        PopulationGeonamesLocationPerformanceSimulation simulation = new PopulationGeonamesLocationPerformanceSimulation();
         
-        if (enableVerboseLogs) {
+        if (config.isEnableVerboseLogs()) {
             simulation.setLogLevel(Level.FINE);
             logger.info("--- Verbose logging enabled. Writing FINE logs to: " + CustomLogger.getLogFilePath() + " ---");
         }

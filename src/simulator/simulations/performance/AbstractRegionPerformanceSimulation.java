@@ -14,9 +14,7 @@ import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.geonames.FileBasedTopologyConfiguration;
-import simulator.topology.random.RegionRandomTopologyConfiguration;
-import utils.CsvMetricWriter;
+import simulator.topology.geonames.GeoNamesTopologyConfiguration;
 import utils.CustomLogger;
 
 public abstract class AbstractRegionPerformanceSimulation<
@@ -26,35 +24,7 @@ public abstract class AbstractRegionPerformanceSimulation<
 
     private static final Logger logger = CustomLogger.getLogger(AbstractRegionPerformanceSimulation.class.getName());
 
-    protected final double subscriptionRegionSize; 
-    protected final double remoteInterestProbability;
-
-    // Keep lists of clients, but NOT the events themselves (to save memory)
-    // Ground truth calculation will generate events on the fly if needed, 
-    // or you can disable ground truth for very large simulations.
     private long groundTruthMatches = 0;
-
-    public AbstractRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
-                                               double subscriptionRegionSize, double remoteInterestProbability,
-                                               boolean enableCsvOutput) {
-        super(numberOfReplicas, subscribersPerReplica, enableCsvOutput); 
-        
-        if (subscriptionRegionSize <= 0) 
-            throw new IllegalArgumentException("Subscription region size must be positive.");
-        this.subscriptionRegionSize = subscriptionRegionSize;
-        
-        if (remoteInterestProbability < 0.0 || remoteInterestProbability > 1.0) 
-            throw new IllegalArgumentException("Remote interest probability must be between 0.0 and 1.0.");
-        this.remoteInterestProbability = remoteInterestProbability;
-    }
-    
-    public AbstractRegionPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
-                                               double subscriptionRegionSize, double remoteInterestProbability) {
-        this(numberOfReplicas, subscribersPerReplica, subscriptionRegionSize, remoteInterestProbability, false);
-    }
-    
-    protected double getSubscriptionRegionSize() { return subscriptionRegionSize; }
-    protected double getRemoteInterestProbability() { return remoteInterestProbability; }
 
     @Override
     protected void setupSimulation() {
@@ -64,21 +34,17 @@ public abstract class AbstractRegionPerformanceSimulation<
 
     private void logSimulationParameters() {
         logger.info("\n--- Simulation Run Parameters (Run ID: " + this.simulationTimestamp + ") ---");
-        logger.info("  Region Strategy:");
-        logger.info(String.format("    - Subscription Region Size: %.2f", this.subscriptionRegionSize));
-        logger.info(String.format("    - Remote Interest Probability: %.2f", this.remoteInterestProbability));
 
         logger.info("  Topology Configuration:");
-        if (this.topologyConfig instanceof RegionRandomTopologyConfiguration config) {
-            logger.info(String.format("    - Type: Random (Depth=%d, Branch=%d)", config.getTreeDepth(), config.getMaxBranchingFactor()));
-        } else if (this.topologyConfig instanceof FileBasedTopologyConfiguration config) {
-            logger.info(String.format("    - Type: File-Based (%s)", config.getTopologyFilePath()));
-        }
+        topologyConfig.logDetails(logger);
+
         logger.info("--- End of Simulation Parameters ---");
     }
 
     @Override
     protected void executeScenarios() {
+        GeoNamesTopologyConfiguration geoNamesConfiguration = (GeoNamesTopologyConfiguration) this.topologyConfig;
+
         logger.info("\n--- Executing Region-Based Performance Scenario ---");
         if (allSubscribers.isEmpty() || allPublishers.isEmpty()) {
             logger.severe("No subscribers or publishers were created. Cannot run scenarios.");
@@ -88,7 +54,7 @@ public abstract class AbstractRegionPerformanceSimulation<
 
         // Phase 1: Subscriptions
         logger.info("\n>>> Phase 1: Subscribers are sending region-based subscriptions... <<<");
-        final int PROGRESS_INTERVAL = (int) Math.max(1000, getTotalSubscribers() / 10);
+        final int PROGRESS_INTERVAL = (int) Math.max(1000, geoNamesConfiguration.getTotalSubscribers() / 10);
         
         // We need to store subscriptions TEMPORARILY for ground truth if needed,
         // but for pure performance, we might skip this to save RAM.
@@ -162,8 +128,10 @@ public abstract class AbstractRegionPerformanceSimulation<
     }
     
     protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BoundedBroker> allLeafBrokers) {
+        GeoNamesTopologyConfiguration geoNamesConfiguration = (GeoNamesTopologyConfiguration) this.topologyConfig;
+
         Region subscriptionRegion;
-        if (random.nextDouble() < getRemoteInterestProbability()) {
+        if (random.nextDouble() < geoNamesConfiguration.getRemoteInterestProbability()) {
             List<BoundedBroker> hubs = findTopDataCenters(allLeafBrokers, 30);
              if (hubs.isEmpty()) {
                  BoundedBroker randomBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
@@ -174,7 +142,7 @@ public abstract class AbstractRegionPerformanceSimulation<
             }
         } else {
             Location centerOfInterest = subscriber.getLocation();
-            double halfSize = getSubscriptionRegionSize() / 2.0; 
+            double halfSize = geoNamesConfiguration.getSubscriptionRegionSize() / 2.0; 
             subscriptionRegion = new Region(
                 new Location(centerOfInterest.getX() - halfSize, centerOfInterest.getY() - halfSize, 0),
                 new Location(centerOfInterest.getX() + halfSize, centerOfInterest.getY() + halfSize, 0)

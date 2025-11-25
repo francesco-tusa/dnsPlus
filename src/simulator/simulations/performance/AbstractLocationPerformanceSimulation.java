@@ -6,6 +6,7 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
+import simulator.topology.geonames.GeoNamesTopologyConfiguration;
 import utils.CustomLogger; // Import CustomLogger
 
 public abstract class AbstractLocationPerformanceSimulation<
@@ -14,14 +15,6 @@ public abstract class AbstractLocationPerformanceSimulation<
 > extends AbstractPerformanceSimulation<C, F> {
 
     private static final Logger logger = CustomLogger.getLogger(AbstractLocationPerformanceSimulation.class.getName());
-
-    public AbstractLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica, boolean enableCsvOutput) {
-        super(numberOfReplicas, subscribersPerReplica, enableCsvOutput);
-    }
-    
-    public AbstractLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
-        super(numberOfReplicas, subscribersPerReplica);
-    }
 
     @Override
     protected void executeScenarios() {
@@ -51,7 +44,7 @@ public abstract class AbstractLocationPerformanceSimulation<
         logger.info("\n>>> Phase 2: All service replicas are sending their publications... <<<");
         for (var pub : allPublishers) {
             // Publishers send a publication from a random location
-            Location pubLocation = getRandomLocationInRegion(this.rootNode.getRegion());
+            Location pubLocation = this.rootNode.getRegion().getRandomLocation();
             pub.send(new simulator.events.PublicationWithLocation(pubLocation));
         }
         
@@ -60,12 +53,15 @@ public abstract class AbstractLocationPerformanceSimulation<
 
     @Override
     protected void collectAndPrintMetrics() {
+        GeoNamesTopologyConfiguration geoNamesConfiguration = (GeoNamesTopologyConfiguration) this.topologyConfig;
+
         super.collectAndPrintMetrics();
-        if (getTotalSubscribers() > 0) {
+        long totalSubscribers = geoNamesConfiguration.getTotalSubscribers();
+        if (totalSubscribers > 0) {
             long matchedSubscribers = allSubscribers.stream().filter(s -> s.getnPublications() > 0).count();
-            double matchRate = (double) matchedSubscribers / getTotalSubscribers() * 100.0;
+            double matchRate = (double) matchedSubscribers / totalSubscribers * 100.0;
             logger.info(String.format("Subscriber Match Rate: %.2f%% (%d / %d)", 
-                                      matchRate, matchedSubscribers, getTotalSubscribers()));
+                                      matchRate, matchedSubscribers, totalSubscribers));
         }
     }
 }

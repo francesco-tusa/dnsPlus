@@ -10,7 +10,7 @@ import simulator.core.TreeNode;
 import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.factories.BrokerFactory;
+import simulator.topology.factories.BoundedBrokerFactory;
 import utils.CustomLogger;
 
 import java.io.File;
@@ -26,12 +26,12 @@ import java.util.logging.Logger;
  * This implementation uses a streaming JsonParser to build the 
  * topology, avoiding OutOfMemoryError for very large topology files.
  */
-public class FileBasedTopologyGenerator
-        extends AbstractTopologyFactory<FileBasedTopologyConfiguration, BoundedBroker> {
+public class GeoNamesTopologyGenerator
+        extends AbstractTopologyFactory<GeoNamesTopologyConfiguration, BoundedBroker> {
 
-    private static final Logger logger = CustomLogger.getLogger(FileBasedTopologyGenerator.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(GeoNamesTopologyGenerator.class.getName());
     
-    private final BrokerFactory brokerFactory;
+    private final BoundedBrokerFactory brokerFactory;
     private final List<BoundedBroker> allBrokers = new ArrayList<>();
     private final JsonFactory jsonFactory = new JsonFactory();
 
@@ -51,24 +51,24 @@ public class FileBasedTopologyGenerator
     private static final Location DEFAULT_LOCATION = new Location(0.0, 0.0, 0.0);
 
 
-    public FileBasedTopologyGenerator(BrokerFactory brokerFactory) {
+    public GeoNamesTopologyGenerator(BoundedBrokerFactory brokerFactory) {
         Objects.requireNonNull(brokerFactory, "BrokerFactory cannot be null.");
         this.brokerFactory = brokerFactory;
     }
 
     @Override
     protected void initialise(TopologyConfiguration genericConfig) {
-        if (!(genericConfig instanceof FileBasedTopologyConfiguration)) {
-            throw new IllegalArgumentException("Configuration must be an instance of FileBasedTopologyConfiguration.");
+        if (!(genericConfig instanceof GeoNamesTopologyConfiguration)) {
+            throw new IllegalArgumentException("Configuration must be an instance of GeoNamesTopologyConfiguration.");
         }
-        this.config = (FileBasedTopologyConfiguration) genericConfig;
+        this.config = (GeoNamesTopologyConfiguration) genericConfig;
         Objects.requireNonNull(this.config.getTopologyFilePath(), "Topology file path cannot be null in configuration.");
 
         this.brokerIdCounter = 0;
         this.rootNode = null;
         this.allBrokers.clear();
 
-        logger.fine("FileBasedTopologyGenerator initialized with config: " + this.config);
+        logger.fine("GeoNamesTopologyGenerator initialized with config: " + this.config);
     }
 
     @Override
@@ -113,7 +113,7 @@ public class FileBasedTopologyGenerator
              logger.warning("Root node mismatch or null during attachSubscribers. Aborting subscriber attachment.");
              return;
          }
-        logger.fine("FileBasedTopologyGenerator: Subscriber attachment is handled by a dedicated population class.");
+        logger.fine("GeoNamesTopologyGenerator: Subscriber attachment is handled by a dedicated population class.");
     }
 
     @Override
@@ -122,7 +122,7 @@ public class FileBasedTopologyGenerator
              logger.warning("Root node mismatch or null during attachPublishers. Aborting publisher attachment.");
              return;
          }
-        logger.fine("FileBasedTopologyGenerator: Publisher attachment is handled by a dedicated population class.");
+        logger.fine("GeoNamesTopologyGenerator: Publisher attachment is handled by a dedicated population class.");
     }
 
     /**

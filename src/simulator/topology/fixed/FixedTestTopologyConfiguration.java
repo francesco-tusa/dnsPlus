@@ -1,5 +1,7 @@
 package simulator.topology.fixed;
 
+import java.util.logging.Logger;
+
 import simulator.topology.TopologyConfiguration;
 
 /**
@@ -14,5 +16,13 @@ public class FixedTestTopologyConfiguration implements TopologyConfiguration {
     public FixedTestTopologyConfiguration() {
         // treeDepth, maxBranchingFactor, subsPerLeaf, pubsPerLeaf are irrelevant here
     }
+
+    @Override
+    public void logDetails(Logger logger) {
+        logger.info(String.format(
+            "Fixed topology setup, no parameters to display"
+        ));        
+    }
+
 }
 

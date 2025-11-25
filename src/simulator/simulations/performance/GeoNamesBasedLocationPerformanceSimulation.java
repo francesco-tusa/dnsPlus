@@ -1,33 +1,18 @@
 package simulator.simulations.performance;
 
-import simulator.topology.TopologyPaths;
 import simulator.topology.factories.LocationBrokerFactory;
-import simulator.topology.geonames.FileBasedTopologyConfiguration;
-import simulator.topology.geonames.FileBasedTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyConfiguration;
+import simulator.topology.geonames.GeoNamesTopologyGenerator;
 
 /**
  * Abstract base class for Location-Based simulations using GeoNames.
  */
-public abstract class GeoNamesBasedLocationPerformanceSimulation extends AbstractLocationPerformanceSimulation<
-    FileBasedTopologyConfiguration,
-    FileBasedTopologyGenerator
-> {
+public abstract class GeoNamesBasedLocationPerformanceSimulation
+        extends AbstractLocationPerformanceSimulation<GeoNamesTopologyConfiguration, GeoNamesTopologyGenerator> {
 
-    public GeoNamesBasedLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
-                                                      boolean enableCsvOutput) { 
-        super(numberOfReplicas, subscribersPerReplica, enableCsvOutput); 
-    }
-    
-    public GeoNamesBasedLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
-        this(numberOfReplicas, subscribersPerReplica, false);
-    }
-    
-    /**
-     * Runs the simulation using the default FULL_TOPOLOGY configured in TopologyPaths.
-     */
     public void run() {
-        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(TopologyPaths.FULL_TOPOLOGY);
-        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new LocationBrokerFactory());
+        GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
+        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new LocationBrokerFactory());
         super.run(factory, config);
     }
 }

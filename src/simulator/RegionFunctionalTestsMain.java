@@ -8,12 +8,11 @@ import simulator.simulations.functional.FixedTopologyRegionFunctionalTests;
 import simulator.simulations.functional.GeoNamesPropagationTest;
 import simulator.simulations.functional.GridTopologyRegionFunctionalTests;
 import simulator.simulations.functional.RegionFpFunctionalTests;
-import simulator.topology.TopologyPaths;
-import simulator.topology.factories.RegionBrokerFactory;
+import simulator.topology.factories.SpatialMatchBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
-import simulator.topology.geonames.FileBasedTopologyConfiguration;
-import simulator.topology.geonames.FileBasedTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyConfiguration;
+import simulator.topology.geonames.GeoNamesTopologyGenerator;
 import simulator.topology.grid.GridTopologyConfiguration;
 import simulator.topology.grid.GridTopologyGenerator;
 import utils.CustomLogger;
@@ -26,19 +25,14 @@ public class RegionFunctionalTestsMain {
 
     private static final Logger logger = CustomLogger.getLogger(RegionFunctionalTestsMain.class.getName());
 
-    // --- CONFIGURATION ---
-    // Set to TRUE to run the regression tests on the massive 50M+ line topology.
-    // Set to FALSE to use the verified Bangladesh/Beijing subset.
-    private static final boolean USE_FULL_TOPOLOGY = false;
-
     public static void main(String[] args) {
         // Run the most fundamental test first
-        // runRegionFloatingPointTest();
+        runRegionFloatingPointTest();
 
-        // runManualTopologyComprehensiveTest();
-        // runSubscriptionCoveringTest();
-        // runSubscriptionExpansionTest();
-        // runGridTopologyTest();
+        runManualTopologyComprehensiveTest();
+        runSubscriptionCoveringTest();
+        runSubscriptionExpansionTest();
+        runGridTopologyTest();
 
         // Run a comprehensive end-to-end test using (a subset of)
         // the GeoNames world topolgy        
@@ -56,7 +50,7 @@ public class RegionFunctionalTestsMain {
         };
 
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
-        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
+        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new SpatialMatchBrokerFactory());
         
         ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BoundedBroker, FixedTestTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(testWrapper, "Region Class FP Test");
@@ -69,7 +63,7 @@ public class RegionFunctionalTestsMain {
         logger.info("  RUNNING (Functional): Manual Topology - Comprehensive Scenario (Region)");
         logger.info("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
-        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
+        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new SpatialMatchBrokerFactory());
         ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BoundedBroker, FixedTestTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(FixedTopologyRegionFunctionalTests.COMPREHENSIVE_SCENARIO, "Comprehensive Scenario");
         validation.run(factory, config);
@@ -80,7 +74,7 @@ public class RegionFunctionalTestsMain {
         logger.info("  RUNNING (Functional): Manual Topology - Subscription Covering Test");
         logger.info("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
-        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
+        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new SpatialMatchBrokerFactory());
         ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BoundedBroker, FixedTestTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(FixedTopologyRegionFunctionalTests.SUBSCRIPTION_COVERING_SCENARIO, "Subscription Covering Test");
         validation.run(factory, config);
@@ -91,7 +85,7 @@ public class RegionFunctionalTestsMain {
         logger.info("  RUNNING (Functional): Manual Topology - Subscription EXPANSION Test");
         logger.info("===============================================================");
         FixedTestTopologyConfiguration config = new FixedTestTopologyConfiguration();
-        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new RegionBrokerFactory());
+        FixedTestTopologyGenerator factory = new FixedTestTopologyGenerator(new SpatialMatchBrokerFactory());
         ConfigurableFunctionalTest<FixedTestTopologyConfiguration, BoundedBroker, FixedTestTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(FixedTopologyRegionFunctionalTests.SUBSCRIPTION_EXPANSION_SCENARIO, "Subscription Expansion Test");
         validation.run(factory, config);
@@ -102,25 +96,22 @@ public class RegionFunctionalTestsMain {
         logger.info("  RUNNING (Functional): Grid Topology - Cross-Corner Test (Region)");
         logger.info("===============================================================");
         GridTopologyConfiguration config = new GridTopologyConfiguration(3, 0.0, 3);
-        GridTopologyGenerator factory = new GridTopologyGenerator(new RegionBrokerFactory());
+        GridTopologyGenerator factory = new GridTopologyGenerator(new SpatialMatchBrokerFactory());
         ConfigurableFunctionalTest<GridTopologyConfiguration, BoundedBroker, GridTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(GridTopologyRegionFunctionalTests.GRID_CROSS_CORNER_PROPAGATION, "Grid Cross-Corner Test");
         validation.run(factory, config);
     }
 
-    public static void runGeoNamesTest() {
-        // Select topology based on flag and defaults
-        String topologyFilePath = USE_FULL_TOPOLOGY ? TopologyPaths.FULL_TOPOLOGY : TopologyPaths.SUBSET_TOPOLOGY;
-        
+    public static void runGeoNamesTest() {        
+        GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
+        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new SpatialMatchBrokerFactory());
+
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): GeoNames Topology - Propagation & Metrics");
-        logger.info("  Topology File: " + topologyFilePath);
+        logger.info("  Topology File: " + config.getTopologyFilePath());
         logger.info("===============================================================");
         
-        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(topologyFilePath);
-        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new RegionBrokerFactory());
-        
-        ConfigurableFunctionalTest<FileBasedTopologyConfiguration, BoundedBroker, FileBasedTopologyGenerator> validation =
+        ConfigurableFunctionalTest<GeoNamesTopologyConfiguration, BoundedBroker, GeoNamesTopologyGenerator> validation =
             new ConfigurableFunctionalTest<>(GeoNamesPropagationTest.COMPREHENSIVE_REGRESSION_TEST, "GeoNames Propagation");
         
         validation.setVisualisationEnabled(false);

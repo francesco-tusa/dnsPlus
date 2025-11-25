@@ -13,15 +13,15 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.factories.BrokerFactory;
+import simulator.topology.factories.BoundedBrokerFactory;
 import utils.CustomLogger;
 
 public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTestTopologyConfiguration, BoundedBroker> {
 
     private static final Logger logger = CustomLogger.getLogger(FixedTestTopologyGenerator.class.getName());
-    private final BrokerFactory brokerFactory;
+    private final BoundedBrokerFactory brokerFactory;
 
-    public FixedTestTopologyGenerator(BrokerFactory brokerFactory) {
+    public FixedTestTopologyGenerator(BoundedBrokerFactory brokerFactory) {
         Objects.requireNonNull(brokerFactory, "BrokerFactory cannot be null.");
         this.brokerFactory = brokerFactory;
     }

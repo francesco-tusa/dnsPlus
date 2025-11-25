@@ -13,7 +13,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import simulator.core.Location;
 import simulator.core.SimulationRunner;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
@@ -26,8 +25,7 @@ import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.geonames.FileBasedTopologyConfiguration;
-import simulator.topology.random.RegionRandomTopologyConfiguration;
+import simulator.topology.geonames.GeoNamesTopologyConfiguration;
 import simulator.visualisation.SimulationVisualiser;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
@@ -42,13 +40,7 @@ public abstract class AbstractPerformanceSimulation<
     protected final List<SubscriberWithLocation> allSubscribers = new ArrayList<>();
     protected final List<PublisherWithLocation> allPublishers = new ArrayList<>();
     protected final Random random = new Random();
-
-    protected final int numberOfReplicas;
-    protected final int subscribersPerReplica;
-    protected final long totalSubscribers;
-    protected final boolean enableCsvOutput;
     
-    // --- Simplified Metrics (Counters Only) ---
     protected long successfulNotifications = 0;
     protected long totalSubscriptionTableEntries = 0;
     protected long totalRegionUpdates = 0;
@@ -59,44 +51,23 @@ public abstract class AbstractPerformanceSimulation<
 
     protected abstract PublishersPlacementStrategy getPublisherPlacementStrategy();
 
-    public AbstractPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica, boolean enableCsvOutput) {
-        if (numberOfReplicas <= 0) throw new IllegalArgumentException("Number of replicas must be positive.");
-        if (subscribersPerReplica < 0) throw new IllegalArgumentException("Subscribers per replica cannot be negative.");
-        
-        this.numberOfReplicas = numberOfReplicas;
-        this.subscribersPerReplica = subscribersPerReplica;
-        this.totalSubscribers = (long) numberOfReplicas * subscribersPerReplica;
-        this.enableCsvOutput = enableCsvOutput;
-    }
-    
-    public AbstractPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
-        this(numberOfReplicas, subscribersPerReplica, false); 
-    }
-
-    protected long getTotalSubscribers() { return totalSubscribers; }
-    protected int getNumberOfReplicas() { return numberOfReplicas; }
 
     @Override
     protected Level getLogLevel() {
         return Level.INFO;
     }
 
+
     @Override
     protected void setupSimulation() {
-        if (enableCsvOutput) {
-            CsvMetricWriter.getInstance().initialize(this.simulationTimestamp);
-        }
+        GeoNamesTopologyConfiguration geoNamesConfiguration = (GeoNamesTopologyConfiguration) this.topologyConfig;
+
+        CsvMetricWriter.getInstance().initialize(this.simulationTimestamp);
 
         logger.info("\n--- Populating Topology for Performance Simulation ---");
-        logger.info(String.format("Client Setup: %d Replicas, %d Subscribers/Replica (Total Subscribers: %d)", 
-                                  numberOfReplicas, subscribersPerReplica, totalSubscribers));
-
-        if (this.topologyConfig instanceof RegionRandomTopologyConfiguration config) {
-            logger.info(String.format("Topology Setup (Random): Depth=%d, MaxBranch=%d, NumRegions=%d",
-                config.getTreeDepth(), config.getMaxBranchingFactor(), config.getNumRegions()));
-        } else if (this.topologyConfig instanceof FileBasedTopologyConfiguration config) {
-            logger.info(String.format("Topology Setup (File): %s", config.getTopologyFilePath()));
-        }
+        logger.info(String.format("Client Setup: %d Replicas, %d Subscribers/Replica", 
+                                  geoNamesConfiguration.getNumberOfReplicas(), 
+                                  geoNamesConfiguration.getSubscribersPerReplica()));
 
         if (this.rootNode == null) {
             logger.severe("Cannot populate topology: Root node is null.");
@@ -119,20 +90,14 @@ public abstract class AbstractPerformanceSimulation<
             strategy
         );
         
-        populater.populate(this.rootNode, leafBrokers, getTotalSubscribers(), getNumberOfReplicas());
+        populater.populate(this.rootNode, leafBrokers, 
+            geoNamesConfiguration.getTotalSubscribers(),
+            geoNamesConfiguration.getNumberOfReplicas()
+        );
+        
         collectClients(leafBrokers);
     }
-    
-    private void logBrokerHierarchy(TreeNode node, String indent) {
-        if (node instanceof BoundedBroker broker) {
-            Region region = broker.getRegion();
-            String regionInfo = (region != null) ? region.toShortString() : "N/A"; // Safe string
-            logger.fine(String.format("%s%s [%s]", indent, broker.getName(), regionInfo));
-            for (TreeNode child : broker.getChildren()) {
-                logBrokerHierarchy(child, indent + "  ");
-            }
-        }
-    }
+
 
     // Plane Sweep Algorithm for Overlap Calculation
     private static class SweepEvent implements Comparable<SweepEvent> {
@@ -347,24 +312,12 @@ public abstract class AbstractPerformanceSimulation<
     @Override
     protected void cleanup() {
         super.cleanup();
-        if (enableCsvOutput) {
-            CsvMetricWriter.getInstance().close();
-            logger.info("Metrics writer closed.");
-        }
+
+        CsvMetricWriter.getInstance().close();
+        logger.info("Metrics writer closed.");
+        
         SimulationVisualiser visualizer = SimulationVisualiser.getInstance();
         visualizer.saveMapImage(simulationTimestamp);
         visualizer.close();
-    }
-    
-    protected Location getRandomLocationInRegion(Region region) {
-        Random rand = new Random();
-        if (region == null || region.getBottomLeft() == null) return new Location(0, 0, 0);
-        double minX = region.getBottomLeft().getX();
-        double maxX = region.getTopRight().getX();
-        double minY = region.getBottomLeft().getY();
-        double maxY = region.getTopRight().getY();
-        double x = minX + (maxX - minX) * rand.nextDouble();
-        double y = minY + (maxY - minY) * rand.nextDouble();
-        return new Location(x, y, 0);
     }
 }

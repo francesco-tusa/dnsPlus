@@ -1,9 +1,9 @@
 package simulator.regions;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.SubscriberWithLocation;
@@ -11,6 +11,9 @@ import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.events.metrics.EventMetrics;
+import simulator.regions.store.MultiRegionStore;
+import simulator.regions.store.RegionSubscriptionStore;
+import simulator.regions.store.SimpleRegionStore;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
@@ -18,47 +21,62 @@ public class SpatialMatchBroker extends BoundedBroker {
 
     private static final Logger logger = CustomLogger.getLogger(SpatialMatchBroker.class.getName());
 
-    private final Map<TreeNode, SimulationSubscription> propagatedSubscriptions = new HashMap<>();
-    private final RegionSubscriptionManager inputView;
-    private final RegionSubscriptionManager outputView;
+    private final RegionSubscriptionStore inputStore;
+    private final RegionSubscriptionStore outputStore;
 
-    public SpatialMatchBroker(String name) {
+    public SpatialMatchBroker(String name, boolean forceSingleRegion, double threshold) {
         super(name);
-        this.inputView = new RegionSubscriptionManager(getSubscriptionsTable());
-        this.outputView = new RegionSubscriptionManager(this.propagatedSubscriptions);
+        if (forceSingleRegion) {
+            this.inputStore = new SimpleRegionStore();
+            this.outputStore = new SimpleRegionStore();
+        } else {
+            this.inputStore = new MultiRegionStore(threshold);
+            this.outputStore = new MultiRegionStore(threshold);
+        }
     }
-
-    public SpatialMatchBroker(String name, Location p1, Location p2) {
+    
+    public SpatialMatchBroker(String name, Location p1, Location p2, boolean force, double thresh) {
         super(name, p1, p2);
-        this.inputView = new RegionSubscriptionManager(getSubscriptionsTable());
-        this.outputView = new RegionSubscriptionManager(this.propagatedSubscriptions);
+        if (force) {
+            this.inputStore = new SimpleRegionStore();
+            this.outputStore = new SimpleRegionStore();
+        } else {
+            this.inputStore = new MultiRegionStore(thresh);
+            this.outputStore = new MultiRegionStore(thresh);
+        }
     }
 
+    /**
+     * Retrieves the subscriptions propagated to neighbors.
+     * Used by functional tests to verify routing state.
+     */
     public Map<TreeNode, SimulationSubscription> getPropagatedSubscriptions() {
-        return propagatedSubscriptions;
+        Map<TreeNode, SimulationSubscription> result = new HashMap<>();
+        Map<TreeNode, List<SubscriptionWithRegion>> all = outputStore.getAllSubscriptions();
+        
+        for (Map.Entry<TreeNode, List<SubscriptionWithRegion>> entry : all.entrySet()) {
+            List<SubscriptionWithRegion> list = entry.getValue();
+            if (list != null && !list.isEmpty()) {
+                // For Legacy/Simple store, there is always 1 item.
+                // For Multi store, we return the first one as a representative for the test check.
+                result.put(entry.getKey(), list.get(0));
+            }
+        }
+        return result;
     }
 
     @Override
     public void addSubscription(SimulationSubscription s) {
-        if (s.getSource() == null) throw new IllegalArgumentException("Subscription source cannot be null");
+        if (s.getSource() == null) throw new IllegalArgumentException("Source null");
 
-        // 1. STREAMING LOG: Log Arrival Immediately (No Timestamp)
         if (s.getMetrics() != null) {
-            String regionStr = (s instanceof SubscriptionWithRegion swr) ? swr.getRegion().toLogString() : "N/A";
-            CsvMetricWriter.getInstance().logSubscription(
-                s.getMetrics().getTraceId(),
-                this.getName(),
-                s.getSource().getName(),
-                s.getMetrics().getHops(),
-                regionStr
-            );
+            String rStr = (s instanceof SubscriptionWithRegion swr) ? swr.getRegion().toLogString() : "N/A";
+            CsvMetricWriter.getInstance().logSubscription(s.getMetrics().getTraceId(), getName(), s.getSource().getName(), s.getMetrics().getHops(), rStr);
         }
 
         if (s instanceof SubscriptionWithRegion sub) {
-            boolean changed = inputView.updateOrExpand(s.getSource(), sub);
-            if (changed) {
-                incrementMainTableExpansions();
-            }
+            boolean changed = inputStore.addOrUpdate(s.getSource(), sub);
+            if (changed) incrementMainTableExpansions();
         } else {
             getSubscriptionsTable().put(s.getSource(), s);
         }
@@ -66,128 +84,85 @@ public class SpatialMatchBroker extends BoundedBroker {
 
     @Override
     protected void propagateSubscription(SimulationSubscription s) {
-        String sourceName = (s.getSource() != null) ? s.getSource().getName() : "NULL_SOURCE";
-        String regionStr = (s instanceof SubscriptionWithRegion swr) ? swr.getRegion().toLogString() : "N/A";
-        
-        logger.fine(String.format("%s (Region: %s): processing a subscription received from %s",
-                getName(), regionStr, sourceName));
-
-        if (!(s instanceof SubscriptionWithRegion newSub)) {
-            return;
-        }
-
-        addSubscription(newSub); 
-
-        if (s.getSource() != getParentBroker()) {
-            propagateSubscriptionUpward(newSub);
-        }
+        if (!(s instanceof SubscriptionWithRegion newSub)) return;
+        addSubscription(s);
+        if (s.getSource() != getParentBroker()) propagateSubscriptionUpward(newSub);
         propagateSubscriptionDownward(newSub);
     }
 
     private void propagateSubscriptionUpward(SubscriptionWithRegion newSub) {
         BoundedBroker parent = getParentBroker();
         if (parent == null) return;
-        
-        SubscriptionWithRegion stateUpdate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
-        stateUpdate.setSource(this);
 
-        boolean changed = outputView.updateOrExpand(parent, stateUpdate);
-        
+        SubscriptionWithRegion candidate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
+        boolean changed = outputStore.addOrUpdate(parent, candidate);
+
         if (changed) {
-            incrementPropagationFilterExpansions(); 
-            logger.fine(String.format("%s: Region expanded. Propagating update to parent %s.", getName(), parent.getName()));
-            
-            SimulationSubscription currentOutput = propagatedSubscriptions.get(parent);
-            SubscriptionWithRegion eventToSend = new SubscriptionWithRegion(new Region(((SubscriptionWithRegion)currentOutput).getRegion()));
-            eventToSend.setSource(this);
-            
-            // Metrics Deep Copy
-            if (newSub.getMetrics() != null) {
-                EventMetrics copiedMetrics = new EventMetrics(newSub.getMetrics());
-                copiedMetrics.incrementHops();
-                eventToSend.setMetrics(copiedMetrics);
+            incrementPropagationFilterExpansions();
+            List<SimulationSubscription> outputs = outputStore.getOutputFor(parent);
+            for(SimulationSubscription out : outputs) {
+                 SubscriptionWithRegion toSend = (SubscriptionWithRegion) out.getSubscription();
+                 toSend.setSource(this);
+                 if (newSub.getMetrics() != null) {
+                     EventMetrics m = new EventMetrics(newSub.getMetrics()); m.incrementHops();
+                     toSend.setMetrics(m);
+                 }
+                 parent.processSubscription(toSend);
             }
-            
-            parent.processSubscription(eventToSend); 
-        } else {
-             logger.fine(String.format("%s: Region covered. Filtering propagation to parent.", getName()));
         }
     }
 
     private void propagateSubscriptionDownward(SubscriptionWithRegion newSub) {
         for (TreeNode child : getChildren()) {
-            if (child == newSub.getSource() || !(child instanceof BoundedBroker childBroker)) {
-                continue;
-            }
+             if (child == newSub.getSource()) continue;
+             if (!(child instanceof BoundedBroker childBroker)) continue;
 
-            boolean intersects = false;
-            Region childRegion = childBroker.getRegion();
-            if (childRegion != null) {
-                intersects = childRegion.intersects(newSub.getRegion());
-            }
-
-            if (intersects) {
-                SubscriptionWithRegion stateUpdate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
-                stateUpdate.setSource(this);
-                boolean changed = outputView.updateOrExpand(childBroker, stateUpdate);
-
-                if (changed) {
-                    incrementPropagationFilterExpansions();
-                    logger.fine(String.format("%s: Forwarding subscription to interested child %s.", getName(), childBroker.getName()));
-                    
-                    SimulationSubscription currentOutput = propagatedSubscriptions.get(childBroker);
-                    SubscriptionWithRegion eventToSend = new SubscriptionWithRegion(new Region(((SubscriptionWithRegion)currentOutput).getRegion()));
-                    eventToSend.setSource(this);
-                    
-                    // Metrics Deep Copy
-                    if (newSub.getMetrics() != null) {
-                        EventMetrics copiedMetrics = new EventMetrics(newSub.getMetrics());
-                        copiedMetrics.incrementHops();
-                        eventToSend.setMetrics(copiedMetrics);
-                    }
-
-                    childBroker.processSubscription(eventToSend);
-                }
-            }
+             if (childBroker.getRegion() != null && childBroker.getRegion().intersects(newSub.getRegion())) {
+                 
+                 SubscriptionWithRegion candidate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
+                 boolean changed = outputStore.addOrUpdate(childBroker, candidate);
+                 
+                 if (changed) {
+                     incrementPropagationFilterExpansions();
+                     List<SimulationSubscription> outputs = outputStore.getOutputFor(childBroker);
+                     for(SimulationSubscription out : outputs) {
+                         SubscriptionWithRegion toSend = (SubscriptionWithRegion) out.getSubscription();
+                         toSend.setSource(this);
+                         if (newSub.getMetrics() != null) {
+                             EventMetrics m = new EventMetrics(newSub.getMetrics()); m.incrementHops();
+                             toSend.setMetrics(m);
+                         }
+                         childBroker.processSubscription(toSend);
+                     }
+                 }
+             }
         }
     }
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-        String sourceName = (p.getSource() != null) ? p.getSource().getName() : "NULL_SOURCE";
-        logger.fine(getName() + ": processing a publication received from " + sourceName);
+        if (p.getSource() != getParentBroker()) propagatePublicationUpward(p);
         
-        // No default upward propagation here (LeafBrokers handle origination)
-        
-        for (Map.Entry<TreeNode, SimulationSubscription> entry : getSubscriptionsTable().entrySet()) {
-            TreeNode nextNode = entry.getKey();
-            if (nextNode == p.getSource()) continue;
-
-            if (entry.getValue() instanceof SubscriptionWithRegion subRegion
-                    && p instanceof PublicationWithLocation pubLocation) {
-                if (subRegion.getRegion().contains(pubLocation.getLocation())) {
-                    logger.fine(getName() + ": forwarding publication to " + nextNode.getName());
-                    forwardPublicationToNode(p, nextNode);
-                }
+        if (p instanceof PublicationWithLocation pub) {
+            List<TreeNode> matches = inputStore.findMatches(pub.getLocation());
+            for (TreeNode target : matches) {
+                if (target == p.getSource()) continue;
+                forwardPublicationToNode(p, target);
             }
         }
         return null;
     }
-
+    
     protected void propagatePublicationUpward(SimulationPublication p) {
         BoundedBroker parentBroker = getParentBroker();
         if (parentBroker != null) {
-            logger.fine(getName() + ": forwarding publication upward to " + parentBroker.getName());
-            
             SimulationPublication forwardedCopy = p.getPublication();
             forwardedCopy.setSource(this);
-            
             if (p.getMetrics() != null) {
                 EventMetrics copiedMetrics = new EventMetrics(p.getMetrics());
                 copiedMetrics.incrementHops();
                 forwardedCopy.setMetrics(copiedMetrics);
             }
-            
             parentBroker.processPublication(forwardedCopy);
         }
     }
@@ -196,14 +171,12 @@ public class SpatialMatchBroker extends BoundedBroker {
         if (next instanceof BoundedBroker broker) {
              SimulationPublication forwardedCopy = p.getPublication();
              forwardedCopy.setSource(this);
-             
              if (p.getMetrics() != null) {
                 EventMetrics copiedMetrics = new EventMetrics(p.getMetrics());
                 copiedMetrics.incrementHops();
                 forwardedCopy.setMetrics(copiedMetrics);
             }
             broker.processPublication(forwardedCopy);
-            
         } else if (next instanceof SubscriberWithLocation subscriber) {
             subscriber.receive(p);
         }

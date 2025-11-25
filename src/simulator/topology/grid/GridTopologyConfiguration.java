@@ -1,11 +1,12 @@
 package simulator.topology.grid;
 
+import java.util.logging.Logger;
+import simulator.config.SimConfiguration;
 import simulator.topology.TopologyConfiguration;
 
 /**
  * Configuration for the GridTopologyGenerator.
- * It includes parameters to control the grid size, number of leaf brokers,
- * tree depth, and the number of clients per leaf.
+ * Loads parameters from the centralized SimConfiguration by default.
  */
 public class GridTopologyConfiguration implements TopologyConfiguration {
 
@@ -16,35 +17,39 @@ public class GridTopologyConfiguration implements TopologyConfiguration {
     private final int publishersPerLeaf;
 
     /**
-     * Default constructor for backward compatibility.
+     * Default constructor: Loads parameters from SimConfiguration.
      */
     public GridTopologyConfiguration() {
-        this(10, 0.0, 4, 1, 1);
+        SimConfiguration config = SimConfiguration.get();
+        
+        this.gridDimension = config.topology.gridDimension;
+        this.overlapFactor = config.topology.overlapFactor; 
+        this.treeDepth = config.topology.treeDepth;
+        
+        this.subscribersPerLeaf = config.workload.subscribersPerLeafNode;
+        this.publishersPerLeaf = config.workload.publishersPerLeafNode;
     }
 
     /**
-     * Constructor for validation tests.
-     */
-    public GridTopologyConfiguration(int gridDimension, double overlapFactor, int treeDepth) {
-        this(gridDimension, overlapFactor, treeDepth, 1, 1);
-    }
-    
-    /**
-     * Full constructor to create a configuration with specific parameters.
-     * @param gridDimension The side length of the grid of leaf brokers.
-     * @param overlapFactor A value between 0.0 (no overlap) and 1.0 (high overlap).
-     * @param treeDepth The total depth of the broker hierarchy tree. Must be >= 2.
-     * @param subscribersPerLeaf The number of subscribers to attach to each leaf broker.
-     * @param publishersPerLeaf The number of publishers to attach to each leaf broker.
+     * Manual Constructor for specific tests (e.g. Functional Tests).
      */
     public GridTopologyConfiguration(int gridDimension, double overlapFactor, int treeDepth, int subscribersPerLeaf, int publishersPerLeaf) {
-        if (gridDimension <= 0) throw new IllegalArgumentException("Grid dimension must be positive.");
-        if (treeDepth < 2) throw new IllegalArgumentException("Tree depth must be at least 2.");
         this.gridDimension = gridDimension;
-        this.overlapFactor = Math.max(0.0, Math.min(1.0, overlapFactor));
+        this.overlapFactor = overlapFactor;
         this.treeDepth = treeDepth;
         this.subscribersPerLeaf = subscribersPerLeaf;
         this.publishersPerLeaf = publishersPerLeaf;
+        validate();
+    }
+    
+    // Legacy constructor for tests
+    public GridTopologyConfiguration(int gridDimension, double overlapFactor, int treeDepth) {
+        this(gridDimension, overlapFactor, treeDepth, 1, 1);
+    }
+
+    private void validate() {
+        if (gridDimension <= 0) throw new IllegalArgumentException("Grid dimension must be positive.");
+        if (treeDepth < 2) throw new IllegalArgumentException("Tree depth must be at least 2.");
     }
 
     public double getOverlapFactor() { return overlapFactor; }
@@ -53,6 +58,14 @@ public class GridTopologyConfiguration implements TopologyConfiguration {
     public int getTreeDepth() { return treeDepth; }
     public int getSubscribersPerLeaf() { return subscribersPerLeaf; }
     public int getPublishersPerLeaf() { return publishersPerLeaf; }
+
+    @Override
+    public void logDetails(Logger logger) {
+        logger.info(String.format(
+            "Topology Setup (Grid): Dimension=%dx, Overlap=%.2f, Depth=%d, Subs/Leaf=%d, Pubs/Leaf=%d",
+            gridDimension, overlapFactor, treeDepth, subscribersPerLeaf, publishersPerLeaf
+        ));
+    }
 
     @Override
     public String toString() {

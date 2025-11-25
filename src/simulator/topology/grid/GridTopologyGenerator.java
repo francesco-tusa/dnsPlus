@@ -7,16 +7,16 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.factories.BrokerFactory;
+import simulator.topology.factories.BoundedBrokerFactory;
 import utils.CustomLogger;
 
 public class GridTopologyGenerator extends AbstractTopologyFactory<GridTopologyConfiguration, BoundedBroker> {
 
     private static final Logger logger = CustomLogger.getLogger(GridTopologyGenerator.class.getName());
-    private final BrokerFactory brokerFactory;
+    private final BoundedBrokerFactory brokerFactory;
     private BoundedBroker[][] leafBrokers; // To store leaves for client attachment
 
-    public GridTopologyGenerator(BrokerFactory brokerFactory) {
+    public GridTopologyGenerator(BoundedBrokerFactory brokerFactory) {
         // The factory is passed in and stored as a local field.
         this.brokerFactory = brokerFactory;
     }

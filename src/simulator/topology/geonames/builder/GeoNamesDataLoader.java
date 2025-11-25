@@ -12,11 +12,13 @@ import java.util.*;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import simulator.topology.TopologyPaths;
+
+import simulator.config.SimConfiguration;
 import utils.CustomLogger;
 
 public class GeoNamesDataLoader {
     private static final Logger logger = CustomLogger.getLogger(GeoNamesDataLoader.class.getName());
+    SimConfiguration config = SimConfiguration.get();
     
     public final Map<String, Integer> admin1CodeToIdMap = new HashMap<>();
     public final Map<String, Integer> admin2CodeToIdMap = new HashMap<>();
@@ -32,10 +34,10 @@ public class GeoNamesDataLoader {
         ensureDataFilesExist();
         
         logger.info("--- Loading Data Files ---");
-        loadCountryInfo(TopologyPaths.COUNTRY_INFO_FILE);
-        loadAdminCodes(TopologyPaths.ADMIN1_CODES_FILE, admin1CodeToIdMap);
-        loadAdminCodes(TopologyPaths.ADMIN2_CODES_FILE, admin2CodeToIdMap);
-        loadInternetPenetration(TopologyPaths.INTERNET_PENETRATION_FILE);
+        loadCountryInfo(config.paths.countryInfoFile);
+        loadAdminCodes(config.paths.admin1CodesFile, admin1CodeToIdMap);
+        loadAdminCodes(config.paths.admin2CodesFile, admin2CodeToIdMap);
+        loadInternetPenetration(config.paths.internetPenetrationFile);
         
         logger.info("--- Data Loading Summary ---");
         logger.info("Countries Loaded: " + countryCodeToIdMap.size());
@@ -48,7 +50,7 @@ public class GeoNamesDataLoader {
      * Useful for strategies that perform their own line-by-line parsing (e.g., Political).
      */
     public BufferedReader getRawDataReader() throws IOException {
-        return new BufferedReader(new FileReader(TopologyPaths.ALL_COUNTRIES_FILE));
+        return new BufferedReader(new FileReader(config.paths.allCountriesFile));
     }
 
     /**
@@ -57,7 +59,7 @@ public class GeoNamesDataLoader {
      */
     public List<GeoNamesEntry> loadAllPopulatedPlaces() {
         List<GeoNamesEntry> list = new ArrayList<>();
-        logger.info("Loading all Populated Places from: " + TopologyPaths.ALL_COUNTRIES_FILE);
+        logger.info("Loading all Populated Places from: " + config.paths.allCountriesFile);
         
         try (BufferedReader reader = getRawDataReader()) {
             String line;
@@ -175,7 +177,7 @@ public class GeoNamesDataLoader {
     }
 
     private boolean ensureDataFilesExist() {
-        File resourcesDir = new File(TopologyPaths.RESOURCES_DIR);
+        File resourcesDir = new File(config.paths.allCountriesFile);
         if (!resourcesDir.exists()) resourcesDir.mkdirs();
 
         String[][] requiredFiles = {
@@ -186,7 +188,7 @@ public class GeoNamesDataLoader {
         };
 
         for (String[] fileInfo : requiredFiles) {
-            Path dest = Paths.get(TopologyPaths.RESOURCES_DIR, fileInfo[0]);
+            Path dest = Paths.get(config.paths.resourcesDir, fileInfo[0]);
             if (!Files.exists(dest)) {
                 logger.info("Downloading " + fileInfo[0] + "...");
                 downloadAndExtract(fileInfo[1], dest, Boolean.parseBoolean(fileInfo[2]), fileInfo[3]);

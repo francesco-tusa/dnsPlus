@@ -3,6 +3,8 @@ package simulator.regions;
 import java.text.DecimalFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import simulator.core.Location;
+
+import java.util.Random;
 import java.util.logging.Logger;
 import utils.CustomLogger;
 
@@ -259,18 +261,68 @@ public class Region extends BaseRegion {
         }
         return updated;
     }
+
+    @JsonIgnore
+    public double getArea() {
+        return getWidth() * getHeight();
+    }
+
+    public double getIntersectionArea(Region other) {
+        if (!this.intersects(other)) return 0.0;
+        
+        double x1 = Math.max(this.bottomLeft.getX(), other.bottomLeft.getX());
+        double y1 = Math.max(this.bottomLeft.getY(), other.bottomLeft.getY());
+        double x2 = Math.min(this.topRight.getX(), other.topRight.getX());
+        double y2 = Math.min(this.topRight.getY(), other.topRight.getY());
+
+        double w = Math.max(0, x2 - x1);
+        double h = Math.max(0, y2 - y1);
+        return w * h;
+    }
+
+    public double getUnionArea(Region other) {
+        return this.getArea() + other.getArea() - getIntersectionArea(other);
+    }
     
 
+    /**
+     * Generates a random location strictly within the given region bounds.
+     * Correctly handles regions that wrap around the International Date Line.
+     */
     public Location getRandomLocation() {
+        Random random = new Random();
         if (bottomLeft == null || topRight == null) {
             return new Location(0, 0, 0); 
         }
-        double lon = bottomLeft.getX() + (topRight.getX() - bottomLeft.getX()) * Math.random();
-        double lat = bottomLeft.getY() + (topRight.getY() - bottomLeft.getY()) * Math.random();
-        double alt = bottomLeft.getZ() + (topRight.getZ() - bottomLeft.getZ()) * Math.random();
+        double minX = bottomLeft.getX();
+        double maxX = topRight.getX();
+        double minY = bottomLeft.getY();
+        double maxY = topRight.getY();
         
-        return new Location(lon, lat, alt);
+        // 1. Calculate Width (handling wrapping)
+        double width;
+        if (minX <= maxX) {
+            width = maxX - minX;
+        } else {
+            // Wrapping case: Distance from minX to 180 + Distance from -180 to maxX
+            width = (180.0 - minX) + (maxX - (-180.0));
+        }
+
+        // 2. Generate Offset
+        double xOffset = width * random.nextDouble();
+        
+        // 3. Apply Offset and Normalize
+        double x = minX + xOffset;
+        if (x > 180.0) {
+            x -= 360.0;
+        }
+        
+        // Latitude (Y) generally doesn't wrap like Longitude
+        double y = minY + (maxY - minY) * random.nextDouble();
+        
+        return new Location(x, y, 0);
     }
+
     
     @JsonIgnore
     public String toShortString() {

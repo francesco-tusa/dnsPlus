@@ -8,7 +8,7 @@ import simulator.regions.ProximityRoutingLeafBroker;
 /**
  * A factory for creating brokers that use the location-based routing strategy.
  */
-public class LocationBrokerFactory implements BrokerFactory {
+public class LocationBrokerFactory implements BoundedBrokerFactory {
     @Override
     public BoundedBroker createBroker(String name) {
         return new ProximityRoutingBroker(name);

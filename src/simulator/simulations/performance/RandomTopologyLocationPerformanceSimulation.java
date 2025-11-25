@@ -1,32 +1,21 @@
 package simulator.simulations.performance;
 
 import java.util.logging.Level;
-import java.util.logging.Logger; // Import Logger
+import java.util.logging.Logger;
 
 import simulator.population.ProportionalPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.random.RandomTopologyGenerator;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
-import utils.CustomLogger; // Import CustomLogger
+import utils.CustomLogger;
 
 public class RandomTopologyLocationPerformanceSimulation extends AbstractLocationPerformanceSimulation<
     RegionRandomTopologyConfiguration,
     RandomTopologyGenerator
 > {
 
-    private static final Logger logger = CustomLogger.getLogger(RandomTopologyLocationPerformanceSimulation.class.getName()); // Get logger
-
-    public RandomTopologyLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
-                                                       boolean enableCsvOutput) { 
-        super(numberOfReplicas, subscribersPerReplica, enableCsvOutput); 
-    }
-    
-    // Legacy constructor
-    public RandomTopologyLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica) {
-        this(numberOfReplicas, subscribersPerReplica, false);
-    }
-
+    private static final Logger logger = CustomLogger.getLogger(RandomTopologyLocationPerformanceSimulation.class.getName());
     
     /**
      * Implements the abstract method to provide the publisher placement strategy.
@@ -42,36 +31,12 @@ public class RandomTopologyLocationPerformanceSimulation extends AbstractLocatio
 
     public static void main(String[] args) {
         logger.info("--- Starting Random Topology Performance Simulation (Location-Based) ---");
-        
-        int simNumberOfReplicas = 10;
-        int simSubscribersPerReplica = 100;
-        
-        // --- CONTROL FLAGS ---
-        boolean enableVerboseLogs = false; 
-        boolean enableCsvOutput = true; 
 
-        int topologyTreeDepth = 4;
-        int topologyMaxBranching = 3;
-        int topologyNumRegions = 5;
-        
-        // Spatial Parameters (Location-based sim doesn't use sub region size)
-        double simWorldWidth = 100.0;
-        double simWorldHeight = 100.0; 
-
-        RegionRandomTopologyConfiguration config = new RegionRandomTopologyConfiguration(
-            topologyTreeDepth, topologyMaxBranching, topologyNumRegions, 
-            0, 0,
-            simWorldWidth, simWorldHeight
-        );
-            
+        RegionRandomTopologyConfiguration config = new RegionRandomTopologyConfiguration();
         RandomTopologyGenerator factory = new RandomTopologyGenerator(new LocationBrokerFactory());
+        RandomTopologyLocationPerformanceSimulation simulation = new RandomTopologyLocationPerformanceSimulation();
         
-        RandomTopologyLocationPerformanceSimulation simulation = new RandomTopologyLocationPerformanceSimulation(
-            simNumberOfReplicas, simSubscribersPerReplica,
-            enableCsvOutput 
-        );
-        
-        if (enableVerboseLogs) {
+        if (config.isEnableVerboseLogs()) {
             simulation.setLogLevel(Level.FINE);
             logger.info("--- Verbose logging enabled. Writing FINE logs to: " + CustomLogger.getLogFilePath() + " ---");
         }

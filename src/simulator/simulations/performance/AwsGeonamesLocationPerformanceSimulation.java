@@ -6,8 +6,8 @@ import simulator.population.AmazonAwsPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.topology.TopologyPaths;
 import simulator.topology.factories.LocationBrokerFactory;
-import simulator.topology.geonames.FileBasedTopologyConfiguration;
-import simulator.topology.geonames.FileBasedTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyConfiguration;
+import simulator.topology.geonames.GeoNamesTopologyGenerator;
 import utils.CustomLogger;
 
 /**
@@ -18,10 +18,6 @@ public class AwsGeonamesLocationPerformanceSimulation extends GeoNamesBasedLocat
 
     private static final Logger logger = CustomLogger.getLogger(AwsGeonamesLocationPerformanceSimulation.class.getName());
 
-    public AwsGeonamesLocationPerformanceSimulation(int numberOfReplicas, int subscribersPerReplica,
-                                                    boolean enableCsvOutput) {
-        super(numberOfReplicas, subscribersPerReplica, enableCsvOutput);
-    }
 
     /**
      * Implements the abstract method to provide the AWS-based strategy.
@@ -36,23 +32,13 @@ public class AwsGeonamesLocationPerformanceSimulation extends GeoNamesBasedLocat
      */
     public static void main(String[] args) {
         logger.info("--- Starting GeoNames-Based Performance Simulation (AWS Location-Based) ---");
-        
-        int simNumberOfReplicas = 20;
-        int simSubscribersPerReplica = 25000;
-        
-        // --- CONTROL FLAGS ---
-        boolean enableVerboseLogs = false; 
-        boolean enableCsvOutput = true; 
 
-        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(TopologyPaths.FULL_TOPOLOGY);
-        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(new LocationBrokerFactory());
+        GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
+        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new LocationBrokerFactory());
         
-        AwsGeonamesLocationPerformanceSimulation simulation = new AwsGeonamesLocationPerformanceSimulation(
-            simNumberOfReplicas, simSubscribersPerReplica,
-            enableCsvOutput 
-        );
+        AwsGeonamesLocationPerformanceSimulation simulation = new AwsGeonamesLocationPerformanceSimulation();
         
-        if (enableVerboseLogs) {
+        if (config.isEnableVerboseLogs()) {
             simulation.setLogLevel(Level.FINE);
             logger.info("--- Verbose logging enabled. Writing FINE logs to: " + CustomLogger.getLogFilePath() + " ---");
         }

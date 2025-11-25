@@ -7,11 +7,11 @@ import simulator.regions.BoundedBroker;
 import simulator.simulations.functional.ConfigurableFunctionalTest;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.factories.BrokerFactory;
+import simulator.topology.factories.BoundedBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
-import simulator.topology.geonames.FileBasedTopologyConfiguration;
-import simulator.topology.geonames.FileBasedTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyConfiguration;
+import simulator.topology.geonames.GeoNamesTopologyGenerator;
 import simulator.topology.grid.GridTopologyConfiguration;
 import simulator.topology.grid.GridTopologyGenerator;
 import utils.CustomLogger;
@@ -39,23 +39,23 @@ public class SimulationHelper {
     }
 
     public static void runGeoNamesTest(String testName, 
-                                       String topologyFilePath, 
-                                       BrokerFactory brokerFactory, 
+                                       BoundedBrokerFactory brokerFactory, 
                                        Predicate<BoundedBroker> testPredicate) {
+
+        GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
+        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(brokerFactory);
+
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): " + testName);
-        logger.info("  Topology File: " + topologyFilePath);
+        logger.info("  Topology File: " + config.getTopologyFilePath());
         logger.info("===============================================================");
-
-        FileBasedTopologyConfiguration config = new FileBasedTopologyConfiguration(topologyFilePath);
-        FileBasedTopologyGenerator factory = new FileBasedTopologyGenerator(brokerFactory);
 
         runFunctionalTest(testName, factory, config, testPredicate, false);
     }
 
     public static void runGridTest(String testName, 
                                    int rows, int cols, 
-                                   BrokerFactory brokerFactory, 
+                                   BoundedBrokerFactory brokerFactory, 
                                    Predicate<BoundedBroker> testPredicate) {
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): " + testName);
@@ -68,7 +68,7 @@ public class SimulationHelper {
     }
 
     public static void runFixedTest(String testName, 
-                                    BrokerFactory brokerFactory, 
+                                    BoundedBrokerFactory brokerFactory, 
                                     Predicate<BoundedBroker> testPredicate) {
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): " + testName);

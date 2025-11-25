@@ -11,11 +11,11 @@ import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.factories.BrokerFactory;
+import simulator.topology.factories.BoundedBrokerFactory;
 
 public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRandomTopologyConfiguration, BoundedBroker> {
 
-    private final BrokerFactory brokerFactory;
+    private final BoundedBrokerFactory brokerFactory;
     private List<Region> leafRegionsDefinition;
     private final List<BoundedBroker> allLeafBrokers = new ArrayList<>();
     private final Random random = new Random();
@@ -23,7 +23,7 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
     private static final int MAX_Z = 100; // Z-axis can remain constant
     private static final long MOCK_POPULATION = 10000;
 
-    public RandomTopologyGenerator(BrokerFactory brokerFactory) {
+    public RandomTopologyGenerator(BoundedBrokerFactory brokerFactory) {
         Objects.requireNonNull(brokerFactory, "BrokerFactory cannot be null.");
         this.brokerFactory = brokerFactory;
     }
