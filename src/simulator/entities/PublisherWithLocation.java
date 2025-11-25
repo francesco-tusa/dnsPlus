@@ -26,7 +26,8 @@ public class PublisherWithLocation extends TreeNode {
     public void send(PublicationWithLocation pub) {
         String traceId = this.getName();
         pub.setMetrics(new EventMetrics(traceId));
-        
+        pub.setSource(this);
+
         TreeNode parent = getParent();
         
         if (parent instanceof SimulationBroker) {

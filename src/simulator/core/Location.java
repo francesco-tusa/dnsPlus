@@ -60,6 +60,13 @@ public final class Location implements Comparable<Location> {
         return z;
     }
 
+    public double distanceSquared(Location other) {
+        double dx = this.getX() - other.getX();
+        double dy = this.getY() - other.getY();
+        double dz = this.getZ() - other.getZ();
+        return dx * dx + dy * dy + dz * dz;
+    }
+
     @Override
     public String toString() {
         // Format doubles for clarity if desired, otherwise default toString is fine

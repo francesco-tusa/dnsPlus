@@ -29,7 +29,8 @@ public class SpatialMatchLeafBroker extends SpatialMatchBroker implements LeafBr
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-        logger.fine(getName() + ": processing a publication received from " + p.getSource().getName());
+        String sourceName = (p.getSource() != null) ? p.getSource().getName() : "NULL_SOURCE";
+        logger.fine(getName() + ": processing a publication received from " + sourceName);
 
         // DELEGATE TO PARENT:
         // The SpatialMatchBroker (parent) implementation already Checks 'inputStore' 

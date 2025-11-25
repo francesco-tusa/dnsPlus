@@ -157,10 +157,6 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         return list != null ? new ArrayList<>(list) : Collections.emptyList();
     }
     
-    @Override
-    public Map<TreeNode, List<SubscriptionWithRegion>> getAllSubscriptions() {
-        return new HashMap<>(map);
-    }
 
     @Override
     public int size() {
@@ -171,4 +167,23 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         }
         return count;
     }
+
+    @Override
+    public boolean isEmpty() {
+        return map.isEmpty();
+    }
+
+    @Override
+    public Map<TreeNode, List<SimulationSubscription>> getAllSubscriptions() {
+        Map<TreeNode, List<SimulationSubscription>> result = new HashMap<>();
+        
+        for (Map.Entry<TreeNode, List<SubscriptionWithRegion>> entry : map.entrySet()) {
+            // Create a new list with the generic type
+            List<SimulationSubscription> genericList = new ArrayList<>(entry.getValue());
+            result.put(entry.getKey(), genericList);
+        }
+        return result;
+    }
+
+
 }

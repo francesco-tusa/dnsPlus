@@ -56,9 +56,11 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     }
 
     @Override
-    public Map<TreeNode, List<SubscriptionWithRegion>> getAllSubscriptions() {
-        Map<TreeNode, List<SubscriptionWithRegion>> result = new HashMap<>();
+    public Map<TreeNode, List<SimulationSubscription>> getAllSubscriptions() {
+        Map<TreeNode, List<SimulationSubscription>> result = new HashMap<>();
+        
         for (Map.Entry<TreeNode, SubscriptionWithRegion> entry : map.entrySet()) {
+            // Wrap in singleton list
             result.put(entry.getKey(), Collections.singletonList(entry.getValue()));
         }
         return result;
@@ -67,5 +69,10 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     @Override
     public int size() {
         return map.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return map.isEmpty();
     }
 }

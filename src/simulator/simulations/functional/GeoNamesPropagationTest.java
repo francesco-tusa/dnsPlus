@@ -1,6 +1,7 @@
 package simulator.simulations.functional;
 
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.function.Predicate;
@@ -61,11 +62,13 @@ public class GeoNamesPropagationTest {
         subLocal.send(new SubscriptionWithRegion(regionSylhet));
 
         boolean sylhetReceivedSub = false;
-        Map<TreeNode, SimulationSubscription> sylhetSubs = sylhet.getSubscriptionsTable();
+        Map<TreeNode, List<SimulationSubscription>> sylhetSubs = sylhet.getInputSubscriptions();
         if (sylhetSubs.containsKey(bangladesh)) {
-            SimulationSubscription s = sylhetSubs.get(bangladesh);
-            if (s instanceof SubscriptionWithRegion sub && sub.getRegion().contains(regionSylhet.getBottomLeft())) {
-                 sylhetReceivedSub = true;
+            for (SimulationSubscription s : sylhetSubs.get(bangladesh)) {
+                if (s instanceof SubscriptionWithRegion sub && sub.getRegion().contains(regionSylhet.getBottomLeft())) {
+                     sylhetReceivedSub = true;
+                     break;
+                }
             }
         }
         
@@ -113,9 +116,11 @@ public class GeoNamesPropagationTest {
 
         boolean aggregationPassed = false;
         Region expectedUnion = new Region(regionA); expectedUnion.expand(regionB);
-        if (chittagong instanceof SpatialMatchBroker proc) {
-            SimulationSubscription s = proc.getPropagatedSubscriptions().get(bangladesh);
-            if (s instanceof SubscriptionWithRegion swr && swr.getRegion().equals(expectedUnion)) aggregationPassed = true;
+        List<SimulationSubscription> chitPropagated = chittagong.getPropagatedSubscriptions().get(bangladesh);
+        if (chitPropagated != null && !chitPropagated.isEmpty()) {
+            if (chitPropagated.get(0) instanceof SubscriptionWithRegion swr && swr.getRegion().equals(expectedUnion)) {
+                aggregationPassed = true;
+            }
         }
         if (aggregationPassed) logger.info("SUCCESS: Aggregation verified.");
         else { logger.severe("FAILURE: Aggregation failed."); allPassed = false; }
@@ -241,9 +246,9 @@ public class GeoNamesPropagationTest {
     };
     
     private static Region getPropagatedRegion(BoundedBroker source, BoundedBroker target) {
-        if (source instanceof SpatialMatchBroker proc) {
-            SimulationSubscription s = proc.getPropagatedSubscriptions().get(target);
-            if (s instanceof SubscriptionWithRegion swr) return swr.getRegion();
+        List<SimulationSubscription> subs = source.getPropagatedSubscriptions().get(target);
+        if (subs != null && !subs.isEmpty()) {
+            if (subs.get(0) instanceof SubscriptionWithRegion swr) return swr.getRegion();
         }
         return null;
     }

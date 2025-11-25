@@ -45,17 +45,19 @@ public class SpatialMatchBroker extends BoundedBroker {
         }
     }
 
-    public Map<TreeNode, SimulationSubscription> getPropagatedSubscriptions() {
-        Map<TreeNode, SimulationSubscription> result = new HashMap<>();
-        Map<TreeNode, List<SubscriptionWithRegion>> all = outputStore.getAllSubscriptions();
-        
-        for (Map.Entry<TreeNode, List<SubscriptionWithRegion>> entry : all.entrySet()) {
-            List<SubscriptionWithRegion> list = entry.getValue();
-            if (list != null && !list.isEmpty()) {
-                result.put(entry.getKey(), list.get(0));
-            }
-        }
-        return result;
+    @Override
+    public int getSubscriptionCount() {
+        return inputStore.size();
+    }
+
+    @Override
+    public Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions() {
+        return inputStore.getAllSubscriptions();
+    }
+
+    @Override
+    public Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions() {
+        return outputStore.getAllSubscriptions();
     }
 
     @Override
@@ -70,8 +72,7 @@ public class SpatialMatchBroker extends BoundedBroker {
             boolean changed = inputStore.addOrUpdate(s.getSource(), sub);
             if (changed) incrementMainTableExpansions();
         } else {
-            getSubscriptionsTable().put(s.getSource(), s);
-        }
+            logger.warning(getName() + ": Received non-Region subscription in SpatialMatchBroker. Ignoring.");        }
     }
 
     @Override

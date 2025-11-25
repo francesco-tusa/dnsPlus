@@ -8,7 +8,7 @@ import simulator.core.TreeNode;
 import simulator.events.SimulationSubscription;
 import simulator.regions.SubscriptionWithRegion;
 
-public interface RegionSubscriptionStore {
+public interface RegionSubscriptionStore extends SubscriptionStore{
     /**
      * Adds or updates a subscription from a specific source.
      * @return true if the internal state changed.
@@ -24,17 +24,4 @@ public interface RegionSubscriptionStore {
      * Retrieves the current subscription state for a specific target (Output View).
      */
     List<SimulationSubscription> getOutputFor(TreeNode target);
-
-    /**
-     * Retrieves a read-only view of all active subscriptions for all neighbors.
-     * Used for debugging and testing.
-     * @return Map of Neighbor -> List of Subscriptions.
-     */
-    Map<TreeNode, List<SubscriptionWithRegion>> getAllSubscriptions();
-
-    /**
-     * Exposes the size of the store for simulation metric calculation
-     * @return The size of the store
-     */
-    int size();
 }

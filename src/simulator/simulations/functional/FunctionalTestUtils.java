@@ -1,5 +1,6 @@
 package simulator.simulations.functional;
 
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import simulator.core.TreeNode;
@@ -27,35 +28,39 @@ public final class FunctionalTestUtils {
             String mainTableTitle = "\n--- Subscription Table for: " + broker.getName() + " ---";
             logger.info(mainTableTitle);
             
-            Map<TreeNode, SimulationSubscription> table = broker.getSubscriptionsTable();
-            
-            if (table.isEmpty()) {
-                logger.info("  (empty)");
+            Map<TreeNode, List<SimulationSubscription>> inputTable = broker.getInputSubscriptions();
+
+            if (inputTable.isEmpty()) {
+                logger.info("  (Input Store empty)");
             } else {
-                String formatString = "  %-20s | %s";
-                logger.info(String.format(formatString, "Source Node", "Subscription Details"));
-                logger.info("-----------------------+--------------------");
-                for (Map.Entry<TreeNode, SimulationSubscription> entry : table.entrySet()) {
-                    logger.info(String.format(formatString, entry.getKey().getName(), entry.getValue()));
+                for (Map.Entry<TreeNode, List<SimulationSubscription>> entry : inputTable.entrySet()) {
+                    String subDetails;
+                    if (entry.getValue().isEmpty()) {
+                        subDetails = "[Empty List]";
+                    } else if (entry.getValue().size() == 1) {
+                        subDetails = entry.getValue().get(0).toDisplayString();
+                    } else {
+                        subDetails = entry.getValue().size() + " entries (Multi-Region)";
+                    }
+                    logger.info(String.format("  FROM %-20s | %s", entry.getKey().getName(), subDetails));
                 }
             }
 
-            // If it's a region-processing broker, also print the propagated subscriptions table
-            if (broker instanceof SpatialMatchBroker regionBroker) {
-                String propagatedTableTitle = "\n--- Propagated Subscriptions for: " + regionBroker.getName() + " ---";
-                logger.info(propagatedTableTitle);
-                
-                Map<TreeNode, SimulationSubscription> propagatedTable = regionBroker.getPropagatedSubscriptions();
+            // 2. Print Output Store (Uniformly via SimulationBroker)
+            Map<TreeNode, List<SimulationSubscription>> outputTable = broker.getPropagatedSubscriptions();
 
-                if (propagatedTable.isEmpty()) {
-                    logger.info("  (empty)");
-                } else {
-                    String formatString = "  %-20s | %s";
-                    logger.info(String.format(formatString, "Propagated To", "Subscription Details"));
-                    logger.info("-----------------------+--------------------");
-                    for (Map.Entry<TreeNode, SimulationSubscription> entry : propagatedTable.entrySet()) {
-                        logger.info(String.format(formatString, entry.getKey().getName(), entry.getValue()));
+            if (!outputTable.isEmpty()) {
+                logger.info("  --- Propagated Subscriptions ---");
+                for (Map.Entry<TreeNode, List<SimulationSubscription>> entry : outputTable.entrySet()) {
+                    String subDetails;
+                    if (entry.getValue().isEmpty()) {
+                        subDetails = "[Empty List]";
+                    } else if (entry.getValue().size() == 1) {
+                        subDetails = entry.getValue().get(0).toDisplayString();
+                    } else {
+                        subDetails = entry.getValue().size() + " entries";
                     }
+                    logger.info(String.format("  TO   %-20s | %s", entry.getKey().getName(), subDetails));
                 }
             }
         }

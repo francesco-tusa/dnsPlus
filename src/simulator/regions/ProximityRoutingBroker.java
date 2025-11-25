@@ -1,5 +1,7 @@
 package simulator.regions;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List; // Add import
 import java.util.Map;
@@ -9,6 +11,7 @@ import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.events.SubscriptionWithLocation;
+import simulator.regions.store.BasicSubscriptionStore;
 import simulator.core.TreeNode;
 import utils.CustomLogger;
 
@@ -16,10 +19,10 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
     private static final Logger logger = CustomLogger.getLogger(ProximityRoutingBroker.class.getName());
 
+    protected final BasicSubscriptionStore inputStore = new BasicSubscriptionStore();
+
     private final Map<Location, SimulationPublication> bestPublicationCache = new HashMap<>();
     private final Map<Location, Boolean> propagatedSubscriptions = new HashMap<>();
-    
-    // A cache to store the calculated key points for this broker's region.
     private List<Location> keyPointsCache = null;
 
     public ProximityRoutingBroker(String name) {
@@ -30,10 +33,34 @@ public class ProximityRoutingBroker extends BoundedBroker {
         super(name, p1, p2);
     }
     
-    /**
-     * A new private helper method that returns the cached key points.
-     * If the cache is empty, it calculates them, stores them, and then returns them.
-     */
+    @Override
+    public int getSubscriptionCount() {
+        return inputStore.size();
+    }
+
+    @Override
+    public Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions() {
+        return inputStore.getAllSubscriptions();
+    }
+
+    @Override
+    public Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions() {
+        if (getParentBroker() == null || propagatedSubscriptions.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        
+        // Synthesize the list of subscriptions sent to the parent
+        // based on the cached locations.
+        List<SimulationSubscription> sentSubs = new ArrayList<>();
+        for (Location loc : propagatedSubscriptions.keySet()) {
+            sentSubs.add(new SubscriptionWithLocation(loc));
+        }
+        
+        Map<TreeNode, List<SimulationSubscription>> result = new HashMap<>();
+        result.put(getParentBroker(), sentSubs);
+        return result;
+    }
+
     private List<Location> getOrCalculateKeyPoints() {
         if (this.keyPointsCache == null) {
             this.keyPointsCache = getRegion().getKeyPoints();
@@ -76,22 +103,14 @@ public class ProximityRoutingBroker extends BoundedBroker {
         }
     }
 
-    /**
-     * Adds a subscription to the main table. For location-based
-     * routing, the logic is to simply overwrite any existing subscription
-     * from the same source.
-     * @param s The subscription to add.
-     */
     @Override
     public void addSubscription(SimulationSubscription s) {
         if (s.getSource() == null) {
             throw new IllegalArgumentException("Subscription source cannot be null");
         }
-        
-        // This is the explicit "overwrite" logic
-        getSubscriptionsTable().put(s.getSource(), s);
+        // Use Store
+        inputStore.add(s);
     }
-
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
@@ -131,7 +150,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
             String cachedLocationStr = (cachedPub == null) ? "none" : cachedPub.getLocation().toShortString();
             if (cachedPub == null ||
-                    distanceSquared(pub.getLocation(), keyPoint) < distanceSquared(cachedPub.getLocation(), keyPoint)) {
+                    pub.getLocation().distanceSquared(keyPoint) < cachedPub.getLocation().distanceSquared(keyPoint)) {
                 logger.fine(String.format("%s: New pub %s is an improvement over cached pub %s for key point %s.",
                         getName(), pub.getLocation().toShortString(), cachedLocationStr, keyPoint.toShortString()));
                 bestPublicationCache.put(keyPoint, pub);
@@ -152,12 +171,5 @@ public class ProximityRoutingBroker extends BoundedBroker {
             logger.fine(getName()
                     + ": Publication is not an improvement for any key point. Stopping downward propagation.");
         }
-    }
-
-    protected double distanceSquared(Location l1, Location l2) {
-        double dx = l1.getX() - l2.getX();
-        double dy = l1.getY() - l2.getY();
-        double dz = l1.getZ() - l2.getZ();
-        return dx * dx + dy * dy + dz * dz;
     }
 }

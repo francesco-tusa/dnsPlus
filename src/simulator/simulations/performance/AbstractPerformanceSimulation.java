@@ -277,7 +277,7 @@ public abstract class AbstractPerformanceSimulation<
         }
 
         for (SimulationBroker broker : allBrokers) {
-            totalSubscriptionTableEntries += broker.getSubscriptionsTable().size();
+            totalSubscriptionTableEntries += broker.getSubscriptionCount();
             totalSubscriptionProcessingEvents += broker.getTotalSubscriptionProcessingEvents();
             
             if (broker instanceof BoundedBroker br) {

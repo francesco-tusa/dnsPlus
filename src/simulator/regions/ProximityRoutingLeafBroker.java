@@ -93,13 +93,13 @@ public class ProximityRoutingLeafBroker extends ProximityRoutingBroker implement
     }
 
     private void deliverToSubscriber(SubscriberWithLocation subscriber, PublicationWithLocation pub) {
-        SimulationSubscription sub = getSubscriptionsTable().get(subscriber);
+        SimulationSubscription sub = inputStore.get(subscriber);
         if (sub instanceof SubscriptionWithLocation) {
             PublicationWithLocation lastPub = subscriber.getLastReceivedPublication();
             
             String lastPubLocationStr = (lastPub == null) ? "none" : lastPub.getLocation().toShortString();
-            double newDistance = distanceSquared(pub.getLocation(), subscriber.getLocation());
-            double lastDistance = (lastPub == null) ? Double.POSITIVE_INFINITY : distanceSquared(lastPub.getLocation(), subscriber.getLocation());
+            double newDistance = pub.getLocation().distanceSquared(subscriber.getLocation());
+            double lastDistance = (lastPub == null) ? Double.POSITIVE_INFINITY : lastPub.getLocation().distanceSquared(subscriber.getLocation());
 
             if (lastPub == null || newDistance < lastDistance) {
                 logger.fine(String.format("%s: Delivering pub %s to %s. It is an improvement over last pub %s (NewDist^2: %.2f < OldDist^2: %.2f).",
