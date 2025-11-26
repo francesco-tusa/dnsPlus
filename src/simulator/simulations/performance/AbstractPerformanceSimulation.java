@@ -13,6 +13,8 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import simulator.config.SimConfiguration;
+import simulator.config.WorkloadConfig;
 import simulator.core.SimulationRunner;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
@@ -25,7 +27,6 @@ import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyConfiguration;
 import simulator.visualisation.SimulationVisualiser;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
@@ -51,23 +52,73 @@ public abstract class AbstractPerformanceSimulation<
 
     protected abstract PublishersPlacementStrategy getPublisherPlacementStrategy();
 
-
     @Override
     protected Level getLogLevel() {
         return Level.INFO;
     }
 
+    // --- LOGGING HELPERS ---
+    protected void printBanner(String title) {
+        String line = "==================================================================================";
+        logger.info(line);
+        logger.info(String.format("  %s", title));
+        logger.info(line);
+    }
+
+    protected void printSeparator() {
+        logger.info("----------------------------------------------------------------------------------");
+    }
+
+    protected void logConfigItem(String key, Object value) {
+        logger.info(String.format("  %-35s : %s", key, value));
+    }
+    
+    protected void logMetricItem(String key, Object value) {
+        logger.info(String.format("  %-40s : %s", key, value));
+    }
+
+    /**
+     * Override initialise to log configuration parameters at the very start.
+     */
+    @Override
+    protected void initialise(F factory, C config) {
+        super.initialise(factory, config);
+        
+        WorkloadConfig workload = SimConfiguration.get().workload;
+        simulator.config.BrokerConfig brokerConfig = SimConfiguration.get().broker;
+        
+        printBanner("SIMULATION CONFIGURATION");
+        logConfigItem("Run ID", this.simulationTimestamp);
+        logConfigItem("Topology Factory", factory.getClass().getSimpleName());
+        
+        logConfigItem("Broker Strategy", brokerConfig.strategy);
+        if (brokerConfig.isSmartStrategy()) {
+            logConfigItem("Smart Threshold", brokerConfig.smartThreshold);
+        }
+        
+        // Delegate to specific config for Topology details
+        config.logDetails(logger);
+
+        // Workload Configuration from SimConfiguration
+        logConfigItem("Number of Replicas", workload.numberOfReplicas);
+        logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);
+        logConfigItem("Total Subscribers", workload.getTotalSubscribers());
+        logConfigItem("Publisher Strategy", getPublisherPlacementStrategy().getClass().getSimpleName());
+        logConfigItem("CSV Output Enabled", SimConfiguration.get().paths.enableVerboseLogs); // Or derived logic
+
+        // Hook for subclass specific config
+        logSpecificConfiguration();
+        
+        printSeparator();
+    }
+
+    protected void logSpecificConfiguration() {}
 
     @Override
     protected void setupSimulation() {
-        GeoNamesTopologyConfiguration geoNamesConfiguration = (GeoNamesTopologyConfiguration) this.topologyConfig;
-
         CsvMetricWriter.getInstance().initialize(this.simulationTimestamp);
 
         logger.info("\n--- Populating Topology for Performance Simulation ---");
-        logger.info(String.format("Client Setup: %d Replicas, %d Subscribers/Replica", 
-                                  geoNamesConfiguration.getNumberOfReplicas(), 
-                                  geoNamesConfiguration.getSubscribersPerReplica()));
 
         if (this.rootNode == null) {
             logger.severe("Cannot populate topology: Root node is null.");
@@ -83,7 +134,7 @@ public abstract class AbstractPerformanceSimulation<
         }
         
         PublishersPlacementStrategy strategy = getPublisherPlacementStrategy();
-        logger.info("Using Publisher Placement Strategy: " + strategy.getClass().getSimpleName());
+        WorkloadConfig workload = SimConfiguration.get().workload;
         
         TopologyPopulator populater = new TopologyPopulator(
             new ProportionalSubscribersPlacement(), 
@@ -91,8 +142,8 @@ public abstract class AbstractPerformanceSimulation<
         );
         
         populater.populate(this.rootNode, leafBrokers, 
-            geoNamesConfiguration.getTotalSubscribers(),
-            geoNamesConfiguration.getNumberOfReplicas()
+            workload.getTotalSubscribers(),
+            workload.numberOfReplicas
         );
         
         collectClients(leafBrokers);
@@ -251,11 +302,8 @@ public abstract class AbstractPerformanceSimulation<
     
     /**
      * Collects high-level metrics from brokers and clients.
-     * detailed metrics are streamed to CSV.
      */
     protected void collectAndPrintMetrics() {
-        logger.info("\n--- Simulation Metrics Summary ---");
-        
         // Reset counters
         totalSubscriptionTableEntries = 0;
         totalRegionUpdates = 0;
@@ -296,18 +344,25 @@ public abstract class AbstractPerformanceSimulation<
             totalPublicationsSent += publisher.getnPublications();
         }
 
-        // Log Summary
-        logger.info("\n--- System Overhead Metrics ---");
-        logger.info("Total Subscription Table Entries: " + totalSubscriptionTableEntries);
-        logger.info("Total Region Updates: " + totalRegionUpdates);
-        logger.info("Total Subscription Process Events: " + totalSubscriptionProcessingEvents);
-        logger.info("Total Expansion Events (Main/Filter): " + totalMainTableExpansions + " / " + totalPropagationFilterExpansions);
+        // --- PRINT METRICS BLOCK ---
+        printBanner("SIMULATION RESULT METRICS");
+        
+        logger.info("System Overhead:");
+        logMetricItem("Total Subscription Table Entries", totalSubscriptionTableEntries);
+        logMetricItem("Total Region Updates", totalRegionUpdates);
+        logMetricItem("Total Subscription Process Events", totalSubscriptionProcessingEvents);
+        logMetricItem("Total Expansions (Main/Filter)", totalMainTableExpansions + " / " + totalPropagationFilterExpansions);
 
-        logger.info("\n--- Service Delivery Metrics ---");
-        logger.info("Total Publications Sent: " + totalPublicationsSent);
-        logger.info("Total Notifications Received: " + successfulNotifications);
+        logger.info("\nService Delivery:");
+        logMetricItem("Total Publications Sent", totalPublicationsSent);
+        logMetricItem("Total Notifications Received", successfulNotifications);
+        
+        logSpecificMetrics();
+        
+        printSeparator();
     }
 
+    protected void logSpecificMetrics() {}
 
     @Override
     protected void cleanup() {

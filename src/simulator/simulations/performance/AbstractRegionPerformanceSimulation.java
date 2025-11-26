@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import simulator.config.SimConfiguration;
+import simulator.config.WorkloadConfig;
 import simulator.core.Location;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
@@ -14,7 +16,6 @@ import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyConfiguration;
 import utils.CustomLogger;
 
 public abstract class AbstractRegionPerformanceSimulation<
@@ -27,23 +28,28 @@ public abstract class AbstractRegionPerformanceSimulation<
     private long groundTruthMatches = 0;
 
     @Override
-    protected void setupSimulation() {
-        super.setupSimulation();
-        logSimulationParameters();
+    protected void logSpecificConfiguration() {
+        WorkloadConfig workload = SimConfiguration.get().workload;
+        logConfigItem("Subscription Region Size", workload.subscriptionRegionSize);
+        logConfigItem("Remote Interest Probability", workload.remoteInterestProbability);
     }
 
-    private void logSimulationParameters() {
-        logger.info("\n--- Simulation Run Parameters (Run ID: " + this.simulationTimestamp + ") ---");
-
-        logger.info("  Topology Configuration:");
-        topologyConfig.logDetails(logger);
-
-        logger.info("--- End of Simulation Parameters ---");
+    @Override
+    protected void logSpecificMetrics() {
+        logger.info("\nRegion-Specific Accuracy:");
+        logMetricItem("Ground Truth (Potential) Matches", this.groundTruthMatches);
+        
+        if (this.groundTruthMatches > 0) {
+            double accuracy = (double) successfulNotifications / this.groundTruthMatches * 100.0;
+            logMetricItem("Delivery Accuracy", String.format("%.2f%%", accuracy));
+        } else {
+            logMetricItem("Delivery Accuracy", "N/A (0 matches)");
+        }
     }
 
     @Override
     protected void executeScenarios() {
-        GeoNamesTopologyConfiguration geoNamesConfiguration = (GeoNamesTopologyConfiguration) this.topologyConfig;
+        WorkloadConfig workload = SimConfiguration.get().workload;
 
         logger.info("\n--- Executing Region-Based Performance Scenario ---");
         if (allSubscribers.isEmpty() || allPublishers.isEmpty()) {
@@ -54,13 +60,7 @@ public abstract class AbstractRegionPerformanceSimulation<
 
         // Phase 1: Subscriptions
         logger.info("\n>>> Phase 1: Subscribers are sending region-based subscriptions... <<<");
-        final int PROGRESS_INTERVAL = (int) Math.max(1000, geoNamesConfiguration.getTotalSubscribers() / 10);
-        
-        // We need to store subscriptions TEMPORARILY for ground truth if needed,
-        // but for pure performance, we might skip this to save RAM.
-        // Here, I will regenerate them strictly for ground truth check later if required,
-        // OR we assume ground truth is an offline check. 
-        // For now, let's just SEND them.
+        final int PROGRESS_INTERVAL = (int) Math.max(1000, workload.getTotalSubscribers() / 10);
         
         List<SubscriptionWithRegion> tempSubsForGroundTruth = new ArrayList<>();
 
@@ -71,7 +71,7 @@ public abstract class AbstractRegionPerformanceSimulation<
             // Store logic-only copy (lightweight) for ground truth if needed
             tempSubsForGroundTruth.add(subscription);
             
-            subscriber.send(subscription); // This triggers streaming logs
+            subscriber.send(subscription); 
             
             if ((i + 1) % PROGRESS_INTERVAL == 0 || (i+1) == allSubscribers.size()) {
                 logger.info(String.format("  ... processed %d / %d subscriptions.", (i + 1), allSubscribers.size()));
@@ -87,10 +87,10 @@ public abstract class AbstractRegionPerformanceSimulation<
             PublicationWithLocation pub = new PublicationWithLocation(publisher.getLocation());
             tempPubsForGroundTruth.add(pub);
             
-            publisher.send(pub); // This triggers streaming logs
+            publisher.send(pub); 
         }
         
-        // Calculate Ground Truth (Optional: disable for massive scales to save RAM)
+        // Calculate Ground Truth
         calculateGroundTruth(tempSubsForGroundTruth, tempPubsForGroundTruth);
         
         // Cleanup temp lists immediately
@@ -128,10 +128,10 @@ public abstract class AbstractRegionPerformanceSimulation<
     }
     
     protected SubscriptionWithRegion generateSubscriptionForSubscriber(SubscriberWithLocation subscriber, List<BoundedBroker> allLeafBrokers) {
-        GeoNamesTopologyConfiguration geoNamesConfiguration = (GeoNamesTopologyConfiguration) this.topologyConfig;
+        WorkloadConfig workload = SimConfiguration.get().workload;
 
         Region subscriptionRegion;
-        if (random.nextDouble() < geoNamesConfiguration.getRemoteInterestProbability()) {
+        if (random.nextDouble() < workload.remoteInterestProbability) {
             List<BoundedBroker> hubs = findTopDataCenters(allLeafBrokers, 30);
              if (hubs.isEmpty()) {
                  BoundedBroker randomBroker = allLeafBrokers.get(random.nextInt(allLeafBrokers.size()));
@@ -142,7 +142,7 @@ public abstract class AbstractRegionPerformanceSimulation<
             }
         } else {
             Location centerOfInterest = subscriber.getLocation();
-            double halfSize = geoNamesConfiguration.getSubscriptionRegionSize() / 2.0; 
+            double halfSize = workload.subscriptionRegionSize / 2.0; 
             subscriptionRegion = new Region(
                 new Location(centerOfInterest.getX() - halfSize, centerOfInterest.getY() - halfSize, 0),
                 new Location(centerOfInterest.getX() + halfSize, centerOfInterest.getY() + halfSize, 0)
@@ -156,20 +156,5 @@ public abstract class AbstractRegionPerformanceSimulation<
             .sorted(Comparator.comparingLong(BoundedBroker::getInternetPopulation).reversed())
             .limit(Math.min(leafBrokers.size(), maxDCs))
             .collect(Collectors.toList());
-    }
-
-    @Override
-    protected void collectAndPrintMetrics() {
-        // Only print high-level summary here.
-        // Detailed logs are already on disk in CSVs.
-        super.collectAndPrintMetrics(); 
-
-        logger.info("\n--- Region-Specific Delivery Metrics ---");
-        logger.info("Ground Truth (Potential) Matches: " + this.groundTruthMatches);
-        
-        if (this.groundTruthMatches > 0 && successfulNotifications > 0) {
-            double accuracy = (double) successfulNotifications / this.groundTruthMatches * 100.0;
-            logger.info(String.format("Delivery Accuracy (Notifications / Ground Truth): %.2f%%", accuracy));
-        }
     }
 }

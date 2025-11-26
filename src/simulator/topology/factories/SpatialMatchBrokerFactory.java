@@ -1,5 +1,7 @@
 package simulator.topology.factories;
 
+import simulator.config.BrokerConfig;
+import simulator.config.SimConfiguration;
 import simulator.core.Location;
 import simulator.regions.BoundedBroker;
 import simulator.regions.SpatialMatchBroker;
@@ -7,11 +9,18 @@ import simulator.regions.SpatialMatchLeafBroker;
 
 public class SpatialMatchBrokerFactory implements BoundedBrokerFactory {
 
-    // Default to Legacy Mode (Always Aggregate) unless specified
-    private boolean forceSingleRegion = true; 
-    private double smartThreshold = 0.5;
+    private boolean forceSingleRegion; 
+    private double smartThreshold;
 
-    public SpatialMatchBrokerFactory() {}
+    public SpatialMatchBrokerFactory() {
+        SimConfiguration config = SimConfiguration.get();
+        
+        // Map configuration StrategyType to the boolean flag used by SpatialMatchBroker
+        // SIMPLE -> forceSingleRegion = true (Legacy Aggregation)
+        // SMART  -> forceSingleRegion = false (Multi-Region Threshold Aggregation)
+        this.forceSingleRegion = (config.broker.strategy == BrokerConfig.StrategyType.SIMPLE);
+        this.smartThreshold = config.broker.smartThreshold;
+    }
     
     public SpatialMatchBrokerFactory(boolean forceSingleRegion, double threshold) {
         this.forceSingleRegion = forceSingleRegion;

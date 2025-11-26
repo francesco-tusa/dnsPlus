@@ -1,13 +1,14 @@
 package simulator.simulations.performance;
 
-import java.util.logging.Logger; // Import Logger
+import java.util.logging.Logger; 
+import simulator.config.SimConfiguration;
+import simulator.config.WorkloadConfig;
 import simulator.core.Location;
 import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyConfiguration;
-import utils.CustomLogger; // Import CustomLogger
+import utils.CustomLogger; 
 
 public abstract class AbstractLocationPerformanceSimulation<
     C extends TopologyConfiguration, 
@@ -52,16 +53,17 @@ public abstract class AbstractLocationPerformanceSimulation<
     }
 
     @Override
-    protected void collectAndPrintMetrics() {
-        GeoNamesTopologyConfiguration geoNamesConfiguration = (GeoNamesTopologyConfiguration) this.topologyConfig;
-
-        super.collectAndPrintMetrics();
-        long totalSubscribers = geoNamesConfiguration.getTotalSubscribers();
+    protected void logSpecificMetrics() {
+        WorkloadConfig workload = SimConfiguration.get().workload;
+        long totalSubscribers = workload.getTotalSubscribers();
+        
         if (totalSubscribers > 0) {
             long matchedSubscribers = allSubscribers.stream().filter(s -> s.getnPublications() > 0).count();
             double matchRate = (double) matchedSubscribers / totalSubscribers * 100.0;
-            logger.info(String.format("Subscriber Match Rate: %.2f%% (%d / %d)", 
-                                      matchRate, matchedSubscribers, totalSubscribers));
+            
+            logger.info("\nLocation-Specific Metrics:");
+            logMetricItem("Matched Subscribers", matchedSubscribers);
+            logMetricItem("Match Rate", String.format("%.2f%%", matchRate));
         }
     }
 }

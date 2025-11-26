@@ -1,8 +1,11 @@
 package simulator.config;
 
 import java.util.Properties;
+import java.util.logging.Logger;
+import utils.CustomLogger;
 
 public class BrokerConfig {
+    private static final Logger logger = CustomLogger.getLogger(BrokerConfig.class.getName());
     public enum StrategyType { SIMPLE, SMART }
 
     public final StrategyType strategy;
@@ -19,6 +22,11 @@ public class BrokerConfig {
         this.smartThreshold = parseDouble(props, "broker.smartThreshold", "0.5");
         
         validate();
+
+        // Log the settings with the requested clarification
+        logger.info(String.format("Broker Strategy Loaded: %s (Threshold: %.2f). " +
+                                  "NOTE: These settings apply ONLY to SpatialMatchBroker (Region-Based Routing).", 
+                                  this.strategy, this.smartThreshold));
     }
     
     private void validate() {
