@@ -7,39 +7,40 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import simulator.topology.TopologyPaths;
+
+import simulator.config.SimConfiguration;
 import utils.CustomLogger;
 
 public class RTreeTopologyStrategy implements TopologyBuilderStrategy {
     private static final Logger logger = CustomLogger.getLogger(RTreeTopologyStrategy.class.getName());
 
-    private static final int DEFAULT_MAX_CHILDREN = 20;
+    private final SimConfiguration config = SimConfiguration.get();
     private final int maxChildren;
 
     public RTreeTopologyStrategy() {
-        this(DEFAULT_MAX_CHILDREN);
-    }
-
-    public RTreeTopologyStrategy(int maxChildren) {
-        if (maxChildren < 2) throw new IllegalArgumentException("Branching factor must be >= 2");
-        this.maxChildren = maxChildren;
+        this.maxChildren = config.topology.rTreeBranchingFactor;
+        if (this.maxChildren < 2) {
+            throw new IllegalArgumentException("RTree Branching factor (topology.rtreeBranchingFactor) must be >= 2");
+        }
     }
 
     @Override
     public String getOutputFilePath() {
-        return TopologyPaths.FULL_TOPOLOGY_RTREE;
+        return config.paths.fullTopologyRTree;
     }
     
     @Override
     public String getSubsetOutputFilePath() {
-        return TopologyPaths.SUBSET_TOPOLOGY_RTREE;
+        // Return generic subset path, or null/warning if R-Tree subset generation isn't distinct
+        return config.paths.subsetTopology;
     }
 
     @Override
     public GeoNamesBuilderNode build(GeoNamesDataLoader loader) {
         logger.info("Executing R-Tree Topology Strategy (STR Bulk Loading, M=" + maxChildren + ")...");
 
-        List<GeoNamesEntry> allPpls = loadAllPpls(TopologyPaths.ALL_COUNTRIES_FILE);
+        // Use centralized config path for allCountries.txt via loader logic or direct config
+        List<GeoNamesEntry> allPpls = loadAllPpls(config.paths.allCountriesFile);
         logger.info("Loaded " + allPpls.size() + " Populated Places.");
 
         Map<String, List<GeoNamesEntry>> pplsByCountry = allPpls.stream()

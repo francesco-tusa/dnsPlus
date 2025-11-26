@@ -5,6 +5,9 @@ import java.util.logging.Logger;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.annotation.JsonInclude;
+
+import simulator.config.SimConfiguration;
+import simulator.config.TopologyConfig;
 import utils.CustomLogger;
 
 public class GeoNamesTopologyBuilder {
@@ -14,9 +17,15 @@ public class GeoNamesTopologyBuilder {
         GeoNamesDataLoader loader = new GeoNamesDataLoader();
         loader.loadAll();
 
-        // Select Strategy
-        TopologyBuilderStrategy strategy = new PoliticalTopologyStrategy(); 
-        //TopologyBuilderStrategy strategy = new RTreeTopologyStrategy();
+        SimConfiguration simConfig = SimConfiguration.get();
+        TopologyConfig.StrategyType type = simConfig.topology.strategy;
+        TopologyBuilderStrategy strategy;
+
+        switch (type) {
+            case POLITICAL -> strategy = new PoliticalTopologyStrategy();
+            case RTREE -> strategy = new RTreeTopologyStrategy();
+            default -> throw new IllegalStateException("Unsupported Topology Strategy for Builder: " + type);
+        }
 
         logger.info("Executing Strategy: " + strategy.getClass().getSimpleName());
         

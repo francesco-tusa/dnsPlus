@@ -4,7 +4,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import simulator.population.AmazonAwsPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
-import simulator.topology.TopologyPaths;
 import simulator.topology.factories.SpatialMatchBrokerFactory;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
 import simulator.topology.geonames.GeoNamesTopologyGenerator;

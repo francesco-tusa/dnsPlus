@@ -3,13 +3,16 @@ package simulator.topology.geonames.builder;
 import java.io.BufferedReader;
 import java.util.*;
 import java.util.logging.Logger;
+
+import simulator.config.SimConfiguration;
 import simulator.core.Location;
 import simulator.regions.Region;
-import simulator.topology.TopologyPaths;
 import utils.CustomLogger;
 
 public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
     private static final Logger logger = CustomLogger.getLogger(PoliticalTopologyStrategy.class.getName());
+    
+    private final SimConfiguration config = SimConfiguration.get();
 
     private final Map<Integer, RelevantAdminInfo> relevantAdminMap = new HashMap<>();
     private final Map<Integer, Long> adm1PopMap = new HashMap<>();
@@ -30,11 +33,6 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         }
     }
 
-
-    /**
-     * Creates a subset containing Bangladesh and Beijing.
-     * Relies on the Political Hierarchy: World -> Continent -> Country -> ADM1.
-     */
     @Override
     public GeoNamesBuilderNode createSubset(GeoNamesBuilderNode root) {
         logger.info("Generating Political Subset (Bangladesh & Beijing)...");
@@ -66,15 +64,14 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         return subsetRoot;
     }
 
-
     @Override
     public String getOutputFilePath() {
-        return TopologyPaths.FULL_TOPOLOGY_POLITICAL;
+        return config.paths.fullTopologyPolitical;
     }
 
     @Override
     public String getSubsetOutputFilePath() {
-        return TopologyPaths.SUBSET_TOPOLOGY_POLITICAL;
+        return config.paths.subsetTopology;
     }
 
     @Override

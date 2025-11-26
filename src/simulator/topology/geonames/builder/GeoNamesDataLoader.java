@@ -18,7 +18,8 @@ import utils.CustomLogger;
 
 public class GeoNamesDataLoader {
     private static final Logger logger = CustomLogger.getLogger(GeoNamesDataLoader.class.getName());
-    SimConfiguration config = SimConfiguration.get();
+    
+    private final SimConfiguration config = SimConfiguration.get();
     
     public final Map<String, Integer> admin1CodeToIdMap = new HashMap<>();
     public final Map<String, Integer> admin2CodeToIdMap = new HashMap<>();
@@ -177,7 +178,8 @@ public class GeoNamesDataLoader {
     }
 
     private boolean ensureDataFilesExist() {
-        File resourcesDir = new File(config.paths.allCountriesFile);
+        // Check availability based on configured Resources Directory
+        File resourcesDir = new File(config.paths.resourcesDir);
         if (!resourcesDir.exists()) resourcesDir.mkdirs();
 
         String[][] requiredFiles = {
