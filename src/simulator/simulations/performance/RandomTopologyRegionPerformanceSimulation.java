@@ -1,10 +1,15 @@
 package simulator.simulations.performance;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import simulator.population.ProportionalPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
+import simulator.regions.BoundedBroker;
+import simulator.topology.analysis.TopologyAnalyzer;
 import simulator.topology.factories.SpatialMatchBrokerFactory;
 import simulator.topology.random.RandomTopologyGenerator;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
@@ -41,5 +46,16 @@ public class RandomTopologyRegionPerformanceSimulation
         }
 
         simulation.run(factory, config);
+    }
+
+
+    @Override
+    protected List<BoundedBroker> getInterestHotspots(BoundedBroker root) {
+        // Wire Top-Pop brokers to the Workload Generator
+        List<BoundedBroker> leafBrokers = TopologyAnalyzer.findLeafBrokers(root);
+        return leafBrokers.stream()
+            .sorted(Comparator.comparingLong(BoundedBroker::getInternetPopulation).reversed())
+            .limit(100) // we reuse same value as for the Geonames simulation
+            .collect(Collectors.toList());
     }
 }

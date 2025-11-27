@@ -1,9 +1,7 @@
 package simulator.simulations.functional;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 import simulator.core.Location;
@@ -15,6 +13,7 @@ import simulator.events.SimulationSubscription;
 import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
+import simulator.topology.geonames.PoliticalTopologyInspector;
 import utils.CustomLogger;
 
 public class GeoNamesPropagationTest {
@@ -22,18 +21,20 @@ public class GeoNamesPropagationTest {
     private static final Logger logger = CustomLogger.getLogger(GeoNamesPropagationTest.class.getName());
 
     public static final Predicate<BoundedBroker> COMPREHENSIVE_REGRESSION_TEST = root -> {
-        logger.info("\n>>> STARTING COMPREHENSIVE REGRESSION TEST (GeoNames Subset) <<<");
+        logger.info("");
+        logger.info(">>> STARTING COMPREHENSIVE REGRESSION TEST (GeoNames Subset) <<<");
+
         boolean allPassed = true;
 
         // ----------------------------------------------------------------
-        // SETUP
+        // SETUP: Use Political Inspector
         // ----------------------------------------------------------------
-        BoundedBroker dhaka = findBrokerByNamePartial(root, "Dhaka"); 
-        BoundedBroker sylhet = findBrokerByNamePartial(root, "Sylhet"); 
-        BoundedBroker rajshahi = findBrokerByNamePartial(root, "Rajshahi"); 
-        BoundedBroker chittagong = findBrokerByNamePartial(root, "Chittagong");
-        BoundedBroker beijing = findBrokerByNamePartial(root, "Beijing");
-        BoundedBroker bangladesh = findBrokerByNamePartial(root, "Bangladesh");
+        BoundedBroker dhaka = PoliticalTopologyInspector.findBrokerByNamePartial(root, "Dhaka"); 
+        BoundedBroker sylhet = PoliticalTopologyInspector.findBrokerByNamePartial(root, "Sylhet"); 
+        BoundedBroker rajshahi = PoliticalTopologyInspector.findBrokerByNamePartial(root, "Rajshahi"); 
+        BoundedBroker chittagong = PoliticalTopologyInspector.findBrokerByNamePartial(root, "Chittagong");
+        BoundedBroker beijing = PoliticalTopologyInspector.findBrokerByNamePartial(root, "Beijing");
+        BoundedBroker bangladesh = PoliticalTopologyInspector.findBrokerByNamePartial(root, "Bangladesh");
 
         if (dhaka == null || sylhet == null || rajshahi == null || chittagong == null || beijing == null || bangladesh == null) {
             logger.severe("FAILURE: Could not find all required brokers.");
@@ -51,7 +52,8 @@ public class GeoNamesPropagationTest {
         // ----------------------------------------------------------------
         // PHASE 1: Downward Intersection (Dhaka -> Bangladesh -> Sylhet)
         // ----------------------------------------------------------------
-        logger.info("\n[PHASE 1] Testing Downward Intersection (Dhaka -> Bangladesh -> Sylhet)...");
+        logger.info("");
+        logger.info("[PHASE 1] Testing Downward Intersection (Dhaka -> Bangladesh -> Sylhet)...");
 
         // Adjusted coordinates to be EXCLUSIVELY inside Sylhet (East of 91.25) 
         // to avoid intersecting Dhaka and causing side-effect propagations.
@@ -76,7 +78,8 @@ public class GeoNamesPropagationTest {
         // ----------------------------------------------------------------
         // PHASE 1.B: Downward Redundancy (Rajshahi -> Bangladesh -x-> Sylhet)
         // ----------------------------------------------------------------
-        logger.info("\n[PHASE 1.B] Testing Downward Redundancy...");
+        logger.info("");
+        logger.info("[PHASE 1.B] Testing Downward Redundancy...");
         
         Location rajshahiCenter = rajshahi.getRegion().getKeyPoints().get(8);
         SubscriberWithLocation subRajshahi = new SubscriberWithLocation("Sub-Rajshahi", rajshahiCenter);
@@ -107,7 +110,8 @@ public class GeoNamesPropagationTest {
         // ----------------------------------------------------------------
         // PHASE 2: Aggregation & Filtering
         // ----------------------------------------------------------------
-        logger.info("\n[PHASE 2] Testing Aggregation & Filtering...");
+        logger.info("");
+        logger.info("[PHASE 2] Testing Aggregation & Filtering...");
         
         Region regionA = new Region(new Location(116.0, 39.0, 0), new Location(116.1, 39.1, 0));
         Region regionB = new Region(new Location(116.9, 39.9, 0), new Location(117.0, 40.0, 0));
@@ -147,7 +151,8 @@ public class GeoNamesPropagationTest {
         // ----------------------------------------------------------------
         // PHASE 3: Internal Routing
         // ----------------------------------------------------------------
-        logger.info("\n[PHASE 3] Testing Internal Routing (Sylhet -> Bangladesh -> Dhaka)...");
+        logger.info("");
+        logger.info("[PHASE 3] Testing Internal Routing (Sylhet -> Bangladesh -> Dhaka)...");
 
         PublisherWithLocation pubSylhet = new PublisherWithLocation("Pub-Sylhet", sylhet.getRegion().getKeyPoints().get(8));
         sylhet.addChild(pubSylhet);
@@ -170,7 +175,8 @@ public class GeoNamesPropagationTest {
         // ----------------------------------------------------------------
         // PHASE 4: Outlier Test
         // ----------------------------------------------------------------
-        logger.info("\n[PHASE 4] Testing Aggregation False Positive (Tibet Gap)...");
+        logger.info("");
+        logger.info("[PHASE 4] Testing Aggregation False Positive (Tibet Gap)...");
         
         PublisherWithLocation pubTibet = new PublisherWithLocation("Pub-Tibet", sylhet.getRegion().getKeyPoints().get(8));
         sylhet.addChild(pubTibet);
@@ -192,7 +198,8 @@ public class GeoNamesPropagationTest {
         // ----------------------------------------------------------------
         // PHASE 5: Remote Propagation
         // ----------------------------------------------------------------
-        logger.info("\n[PHASE 5] Testing Remote Propagation (Beijing -> Dhaka)...");
+        logger.info("");
+        logger.info("[PHASE 5] Testing Remote Propagation (Beijing -> Dhaka)...");
         
         PublisherWithLocation pubBeijing = new PublisherWithLocation("Pub-Beijing", beijing.getRegion().getKeyPoints().get(8));
         beijing.addChild(pubBeijing);
@@ -216,7 +223,8 @@ public class GeoNamesPropagationTest {
         // ----------------------------------------------------------------
         // STEP 6: Nearby Branch Routing
         // ----------------------------------------------------------------
-        logger.info("\n[STEP 6] Testing Nearby Branch Routing (Rajshahi -> Dhaka)...");
+        logger.info("");
+        logger.info("[STEP 6] Testing Nearby Branch Routing (Rajshahi -> Dhaka)...");
         
         Location rajshahiPoint = rajshahi.getRegion().getKeyPoints().get(8); 
         Region regionRajshahi = new Region(
@@ -253,20 +261,6 @@ public class GeoNamesPropagationTest {
         List<SimulationSubscription> subs = source.getPropagatedSubscriptions().get(target);
         if (subs != null && !subs.isEmpty()) {
             if (subs.get(0) instanceof SubscriptionWithRegion swr) return swr.getRegion();
-        }
-        return null;
-    }
-    
-    private static BoundedBroker findBrokerByNamePartial(TreeNode root, String partialName) {
-        if (root == null) return null;
-        Queue<TreeNode> queue = new LinkedList<>();
-        queue.add(root);
-        while (!queue.isEmpty()) {
-            TreeNode current = queue.poll();
-            if (current instanceof BoundedBroker && current.getName().contains(partialName)) {
-                return (BoundedBroker) current;
-            }
-            if (current.getChildren() != null) queue.addAll(current.getChildren());
         }
         return null;
     }

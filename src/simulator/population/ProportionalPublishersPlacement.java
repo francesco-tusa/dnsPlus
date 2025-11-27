@@ -17,7 +17,9 @@ public class ProportionalPublishersPlacement extends AbstractPublisherGenerator 
 
     @Override
     public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalPublishersToCreate) {
-        logger.info("\n--- Starting Proportional Publisher Generation (for Local Services) ---");
+        logger.info("");
+        logger.info("--- Starting Proportional Publisher Generation ---");
+        
         logger.info("Distributing " + totalPublishersToCreate + " total publishers...");
 
         if (leafBrokers == null || leafBrokers.isEmpty()) {

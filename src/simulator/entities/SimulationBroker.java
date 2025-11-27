@@ -11,8 +11,11 @@ public abstract class SimulationBroker extends TreeNode {
 
     // Metrics
     protected long totalSubscriptionProcessingEvents = 0;
-    protected long totalPublicationProcessingEvents = 0; // NEW: Tracks Traffic Volume
-    protected long totalMatchingComputations = 0;        // NEW: Tracks Computational Cost
+    protected long totalPublicationProcessingEvents = 0; 
+    protected long totalMatchingComputations = 0;        
+    
+    // Tracks events where a message was processed but forwarded to no one (Dead End)
+    protected long totalFalsePositiveEvents = 0; 
 
     public SimulationBroker(String name) {
         super(name);
@@ -59,5 +62,9 @@ public abstract class SimulationBroker extends TreeNode {
 
     public long getTotalMatchingComputations() {
         return totalMatchingComputations;
+    }
+
+    public long getTotalFalsePositiveEvents() {
+        return totalFalsePositiveEvents;
     }
 }

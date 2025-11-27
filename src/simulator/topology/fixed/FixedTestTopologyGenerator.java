@@ -1,18 +1,15 @@
 package simulator.topology.fixed;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Queue;
 import java.util.logging.Logger;
 import simulator.core.Location;
-import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
+import simulator.topology.analysis.TopologyAnalyzer; // Import Analyzer
 import simulator.topology.factories.BoundedBrokerFactory;
 import utils.CustomLogger;
 
@@ -63,12 +60,13 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     @Override
     public void attachSubscribers(BoundedBroker root) {
         logger.fine("Attaching fixed subscribers...");
-        BoundedBroker grandchild1 = findNodeByName(root, "grandchild1", BoundedBroker.class);
-        BoundedBroker grandchild2 = findNodeByName(root, "grandchild2", BoundedBroker.class);
-        BoundedBroker grandchild3 = findNodeByName(root, "grandchild3", BoundedBroker.class);
-        BoundedBroker grandchild4 = findNodeByName(root, "grandchild4", BoundedBroker.class);
+        
+        // Use TopologyAnalyzer instead of private method
+        BoundedBroker grandchild1 = TopologyAnalyzer.findNodeByName(root, "grandchild1", BoundedBroker.class);
+        BoundedBroker grandchild2 = TopologyAnalyzer.findNodeByName(root, "grandchild2", BoundedBroker.class);
+        BoundedBroker grandchild3 = TopologyAnalyzer.findNodeByName(root, "grandchild3", BoundedBroker.class);
+        BoundedBroker grandchild4 = TopologyAnalyzer.findNodeByName(root, "grandchild4", BoundedBroker.class);
 
-        // After adding a subscriber, we must explicitly update the leaf broker's region.
         SubscriberWithLocation sub1 = new SubscriberWithLocation("sub1", new Location(0, 0, 0));
         grandchild1.addChild(sub1);
         grandchild1.updateRegion(sub1);
@@ -108,8 +106,9 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     @Override
     public void attachPublishers(BoundedBroker root) {
         logger.fine("Attaching fixed publishers...");
-        BoundedBroker grandchild1 = findNodeByName(root, "grandchild1", BoundedBroker.class);
-        BoundedBroker grandchild4 = findNodeByName(root, "grandchild4", BoundedBroker.class);
+        // Use TopologyAnalyzer
+        BoundedBroker grandchild1 = TopologyAnalyzer.findNodeByName(root, "grandchild1", BoundedBroker.class);
+        BoundedBroker grandchild4 = TopologyAnalyzer.findNodeByName(root, "grandchild4", BoundedBroker.class);
         
         grandchild1.addChild(new PublisherWithLocation("pub1", new Location(1, 1, 0)));
         grandchild4.addChild(new PublisherWithLocation("pub2", new Location(18, 4, 0)));
@@ -118,52 +117,13 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
 
     private void calculateBrokerRegions(BoundedBroker root) {
         logger.fine("Calculating parent broker regions...");
-        List<BoundedBroker> leaves = findLeafBrokers(root);
+        // Use TopologyAnalyzer
+        List<BoundedBroker> leaves = TopologyAnalyzer.findLeafBrokers(root);
+        
         for (BoundedBroker leaf : leaves) {
             if (leaf.getParentBroker() != null) {
                 leaf.getParentBroker().updateRegion(leaf);
             }
         }
-    }
-    
-    private List<BoundedBroker> findLeafBrokers(BoundedBroker root) {
-        List<BoundedBroker> leaves = new ArrayList<>();
-        Queue<TreeNode> queue = new LinkedList<>();
-        if (root != null) queue.add(root);
-        
-        while(!queue.isEmpty()) {
-            TreeNode current = queue.poll();
-            if (current instanceof BoundedBroker) {
-                boolean hasBrokerChild = false;
-                for (TreeNode child : current.getChildren()) {
-                    if (child instanceof BoundedBroker) {
-                        hasBrokerChild = true;
-                        break;
-                    }
-                }
-                if (!hasBrokerChild) {
-                    leaves.add((BoundedBroker) current);
-                }
-            }
-            if (current.getChildren() != null) queue.addAll(current.getChildren());
-        }
-        return leaves;
-    }
-
-    private <T extends TreeNode> T findNodeByName(TreeNode root, String name, Class<T> type) {
-        if (root == null || name == null) return null;
-        Queue<TreeNode> queue = new LinkedList<>();
-        queue.offer(root);
-
-        while (!queue.isEmpty()) {
-            TreeNode current = queue.poll();
-            if (type.isInstance(current) && name.equals(current.getName())) {
-                return type.cast(current);
-            }
-            if (current.getChildren() != null) {
-                queue.addAll(current.getChildren());
-            }
-        }
-        return null;
     }
 }

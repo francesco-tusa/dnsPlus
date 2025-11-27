@@ -47,7 +47,9 @@ public class ConfigurableFunctionalTest<
     
     @Override
     protected void attachClientsAndVisualize() {
-        logger.info("\n--- Attaching clients for functional test ---");
+        logger.info("");
+        logger.info("--- Attaching clients for functional test ---");
+
         topologyFactory.attachSubscribers(this.rootNode);
         topologyFactory.attachPublishers(this.rootNode);
         
@@ -58,7 +60,9 @@ public class ConfigurableFunctionalTest<
 
     @Override
     protected void executeScenarios() {
-        logger.info("\n--- Executing Functional Test Scenario: " + this.validationTestName + " ---");
+        logger.info("");
+        logger.info("--- Executing Functional Test Scenario: " + this.validationTestName + " ---");
+
         if (this.rootNode == null) {
             logger.severe("Functional test failed: Root node is null.");
             return;
@@ -66,7 +70,8 @@ public class ConfigurableFunctionalTest<
 
         boolean success = validationTest.test(this.rootNode);
 
-        logger.info("\n--- Functional Test Result ---");
+        logger.info("");
+        logger.info("--- Functional Test Result ---");
         if (success) {
             logger.info("SUCCESS: The '" + this.validationTestName + "' check passed.");
         } else {

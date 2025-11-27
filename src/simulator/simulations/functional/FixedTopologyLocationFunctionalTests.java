@@ -1,21 +1,15 @@
 package simulator.simulations.functional;
 
-import java.util.LinkedList;
-import java.util.Queue;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
-import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SubscriptionWithLocation;
 import simulator.regions.BoundedBroker;
+import simulator.topology.analysis.TopologyAnalyzer;
 import utils.CustomLogger;
 
-/**
- * A utility class containing static validation tests specifically for Grid Topologies
- * using location-based processing brokers.
- */
 public class FixedTopologyLocationFunctionalTests {
 
     private static final Logger logger = CustomLogger.getLogger(FixedTopologyLocationFunctionalTests.class.getName());
@@ -23,10 +17,10 @@ public class FixedTopologyLocationFunctionalTests {
     public static final Predicate<BoundedBroker> COMPREHENSIVE_SCENARIO = root -> {
         logger.info("\n>>> SCENARIO: Testing Multi-Client Closest Publication Filtering (Location). <<<");
 
-        SubscriberWithLocation sub2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
-        SubscriberWithLocation sub8 = findNodeByName(root, "sub8", SubscriberWithLocation.class);
-        PublisherWithLocation p1 = findNodeByName(root, "pub1", PublisherWithLocation.class);
-        PublisherWithLocation p2 = findNodeByName(root, "pub2", PublisherWithLocation.class);
+        SubscriberWithLocation sub2 = TopologyAnalyzer.findNodeByName(root, "sub2", SubscriberWithLocation.class);
+        SubscriberWithLocation sub8 = TopologyAnalyzer.findNodeByName(root, "sub8", SubscriberWithLocation.class);
+        PublisherWithLocation p1 = TopologyAnalyzer.findNodeByName(root, "pub1", PublisherWithLocation.class);
+        PublisherWithLocation p2 = TopologyAnalyzer.findNodeByName(root, "pub2", PublisherWithLocation.class);
 
         if (sub2 == null || sub8 == null || p1 == null || p2 == null) {
             logger.severe("Test failed: Could not find all required nodes.");
@@ -39,13 +33,8 @@ public class FixedTopologyLocationFunctionalTests {
         p1.send(new PublicationWithLocation(p1.getLocation())); 
         p2.send(new PublicationWithLocation(p2.getLocation())); 
         
-        // Send improvement for sub2
         p1.send(new PublicationWithLocation(new simulator.core.Location(6.0, 3.0, 0.0)));
-        
-        // Send improvement for sub8
         p2.send(new PublicationWithLocation(new simulator.core.Location(19.0, 5.0, 0.0)));
-        
-        // Send far publication (filtered)
         p1.send(new PublicationWithLocation(new simulator.core.Location(15.0, 15.0, 0.0)));
 
         boolean success = sub2.getnPublications() == 2 && sub8.getnPublications() == 3;
@@ -59,10 +48,10 @@ public class FixedTopologyLocationFunctionalTests {
     public static final Predicate<BoundedBroker> SUBSCRIPTION_FILTERING_SCENARIO = root -> {
         logger.info("\n>>> SCENARIO: Testing Upper-Level Proxy Subscription Filtering (Location). <<<");
 
-        SubscriberWithLocation s2 = findNodeByName(root, "sub2", SubscriberWithLocation.class);
-        SubscriberWithLocation s3 = findNodeByName(root, "sub3", SubscriberWithLocation.class);
-        BoundedBroker child2 = findNodeByName(root, "child2", BoundedBroker.class);
-        PublisherWithLocation p2 = findNodeByName(root, "pub2", PublisherWithLocation.class);
+        SubscriberWithLocation s2 = TopologyAnalyzer.findNodeByName(root, "sub2", SubscriberWithLocation.class);
+        SubscriberWithLocation s3 = TopologyAnalyzer.findNodeByName(root, "sub3", SubscriberWithLocation.class);
+        BoundedBroker child2 = TopologyAnalyzer.findNodeByName(root, "child2", BoundedBroker.class);
+        PublisherWithLocation p2 = TopologyAnalyzer.findNodeByName(root, "pub2", PublisherWithLocation.class);
 
         if (s2 == null || s3 == null || child2 == null || p2 == null) {
             logger.severe("Test failed: Could not find all required nodes.");
@@ -72,8 +61,6 @@ public class FixedTopologyLocationFunctionalTests {
         s2.send(new SubscriptionWithLocation(s2.getLocation()));
         s3.send(new SubscriptionWithLocation(s3.getLocation()));
 
-        // --- Verification Part 1: Check Subscription Tables ---
-        // FIXED: Use new Store Accessors
         int intermediateBrokerSubscriptionCount = child2.getSubscriptionCount();
         
         long rootSubscriptionsFromChild2 = root.getInputSubscriptions().keySet().stream()
@@ -86,35 +73,14 @@ public class FixedTopologyLocationFunctionalTests {
 
         boolean filteringSuccess = (intermediateBrokerSubscriptionCount == 2) && (rootSubscriptionsFromChild2 == 1);
 
-        // --- Phase 3: Publication and Delivery ---
         p2.send(new PublicationWithLocation(p2.getLocation()));
 
         boolean deliverySuccess = s2.getnPublications() == 1 && s3.getnPublications() == 1;
         boolean finalSuccess = filteringSuccess && deliverySuccess;
 
-        if (finalSuccess) {
-            logger.info("SUCCESS: The Upper-Level Proxy Filtering test passed.");
-        } else {
-            logger.severe("FAILED: The Upper-Level Proxy Filtering test did not pass.");
-        }
+        if (finalSuccess) logger.info("SUCCESS: The Upper-Level Proxy Filtering test passed.");
+        else logger.severe("FAILED: The Upper-Level Proxy Filtering test did not pass.");
 
         return finalSuccess;
     };
-
-    private static <T extends TreeNode> T findNodeByName(TreeNode root, String name, Class<T> type) {
-        if (root == null || name == null) return null;
-        Queue<TreeNode> queue = new LinkedList<>();
-        queue.offer(root);
-
-        while (!queue.isEmpty()) {
-            TreeNode current = queue.poll();
-            if (type.isInstance(current) && name.equals(current.getName())) {
-                return type.cast(current);
-            }
-            if (current.getChildren() != null) {
-                queue.addAll(current.getChildren());
-            }
-        }
-        return null;
-    }
 }

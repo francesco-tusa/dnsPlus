@@ -59,8 +59,11 @@ public class GeoNamesTopologyConfiguration implements TopologyConfiguration {
 
     @Override
     public void logDetails(Logger logger) {
-        logger.info(String.format("  Topology Setup (GeoNames): File=%s", topologyFilePath));
-        logger.info(String.format("  Workload Config: %d Replicas, %d Subs/Rep, RegionSize=%.2f, RemoteProb=%.2f",
-                numberOfReplicas, subscribersPerReplica, subscriptionRegionSize, remoteInterestProbability));
+        logger.info(String.format("%-35s : %s", "Topology Setup (GeoNames)", "File=" + topologyFilePath));
+        
+        // TODO: Removing this for now as this information is already printed by the AbstractPerformanceSimulation
+        //String workloadSummary = String.format("Replicas=%d, Subs/Rep=%d, RegionSize=%.2f, RemoteProb=%.2f",
+        //        numberOfReplicas, subscribersPerReplica, subscriptionRegionSize, remoteInterestProbability);
+        //logger.info(String.format("%-35s : %s", "Workload Config", workloadSummary));
     }
 }

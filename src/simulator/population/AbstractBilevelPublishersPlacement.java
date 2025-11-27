@@ -37,7 +37,8 @@ public abstract class AbstractBilevelPublishersPlacement extends AbstractPublish
      */
     @Override
     public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalPublishersToCreate) {
-        logger.info("\n--- Starting Bilevel Publisher Placement (" + this.getClass().getSimpleName() + ") ---");
+        logger.info("");
+        logger.info("--- Starting Bilevel Publisher Placement (" + this.getClass().getSimpleName() + ") ---");
 
         if (rootNode == null) {
             logger.severe("Error: Root node is null. Cannot find Level 2 regions.");

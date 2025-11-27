@@ -135,16 +135,22 @@ public class SpatialMatchBroker extends BoundedBroker {
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         if (p instanceof PublicationWithLocation pub) {
-            
-            // Deterministic Cost Metric: 
-            // We assume cost = number of disjoint regions checked.
-            // This is equivalent to the size of the store (O(N) scan).
             this.totalMatchingComputations += inputStore.size();
             
             List<TreeNode> matches = inputStore.findMatches(pub.getLocation());
+            int usefulForwards = 0;
+            
             for (TreeNode target : matches) {
+                // Split Horizon Check
                 if (target == p.getSource()) continue;
+                
                 forwardPublicationToNode(p, target);
+                usefulForwards++;
+            }
+            
+            // If we processed it but sent it nowhere, it was a False Positive arrival.
+            if (usefulForwards == 0) {
+                this.totalFalsePositiveEvents++;
             }
         }
         return null;

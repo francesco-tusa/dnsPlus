@@ -26,7 +26,8 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
 
     @Override
     public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {
-        logger.info("\n--- Starting Proportional Subscriber Placement ---");
+        logger.info("");
+        logger.info("--- Starting Proportional Subscriber Placement ---");
         logger.info("Distributing " + totalSubscribersToCreate + " total subscribers...");
 
         if (leafBrokers == null || leafBrokers.isEmpty()) {

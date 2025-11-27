@@ -1,37 +1,34 @@
 package simulator.simulations.performance;
 
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import simulator.population.AmazonAwsPublishersPlacement;
+import simulator.population.AwsRegions;
 import simulator.population.PublishersPlacementStrategy;
+import simulator.regions.BoundedBroker;
 import simulator.topology.factories.SpatialMatchBrokerFactory;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
 import simulator.topology.geonames.GeoNamesTopologyGenerator;
-import simulator.visualisation.SimulationVisualiser;
 import utils.CustomLogger;
 
-/**
- * A concrete simulation run that uses the GeoNames topology and the
- * AmazonAwsPublishersPlacement strategy.
- */
 public class AwsGeonamesRegionPerformanceSimulation extends GeoNamesBasedRegionPerformanceSimulation {
 
     private static final Logger logger = CustomLogger.getLogger(AwsGeonamesRegionPerformanceSimulation.class.getName());
 
-    /**
-     * Implements the abstract method to provide the AWS-based strategy.
-     */
     @Override
     protected PublishersPlacementStrategy getPublisherPlacementStrategy() {
         return new AmazonAwsPublishersPlacement();
     }
+    
+    @Override
+    protected List<BoundedBroker> getInterestHotspots(BoundedBroker root) {
+        // Wire the AWS regions to the Workload Generator
+        return AwsRegions.findAwsBrokers(root);
+    }
 
-    /**
-     * Main entry point for this specific simulation.
-     */
     public static void main(String[] args) {
         logger.info("--- Starting GeoNames-Based Performance Simulation (AWS Region-Based) ---");
-
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
         GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new SpatialMatchBrokerFactory());
         
@@ -39,9 +36,8 @@ public class AwsGeonamesRegionPerformanceSimulation extends GeoNamesBasedRegionP
         
         if (config.isEnableVerboseLogs()) {
             simulation.setLogLevel(Level.FINE);
-            logger.info("--- Verbose logging enabled. Writing FINE logs to: " + CustomLogger.getLogFilePath() + " ---");
+            logger.info("--- Verbose logging enabled ---");
         }
-        
         simulation.run(factory, config);
     }
 }
