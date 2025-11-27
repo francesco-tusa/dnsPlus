@@ -1,49 +1,31 @@
 package simulator.entities;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import simulator.core.TreeNode;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.regions.BoundedBroker;
 
-/**
- * Abstract base class for all broker entities in the simulation.
- */
 public abstract class SimulationBroker extends TreeNode {
-    
-    // Metrics (Performance Counters)
+
+    // Metrics
     protected long totalSubscriptionProcessingEvents = 0;
-    private final List<Long> publicationProcessingCosts = new ArrayList<>();
+    protected long totalPublicationProcessingEvents = 0; // NEW: Tracks Traffic Volume
+    protected long totalMatchingComputations = 0;        // NEW: Tracks Computational Cost
 
     public SimulationBroker(String name) {
         super(name);
     }
 
     public abstract void addSubscription(SimulationSubscription s);
-
     public abstract SimulationSubscription matchPublication(SimulationPublication p);
-
     protected abstract void propagateSubscription(SimulationSubscription s);
-
-    public abstract int getSubscriptionCount();
-
-    /**
-     * Returns the Input Store state (Subscriptions received by this broker).
-     * Uniform accessor for all broker types.
-     */
-    public abstract Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions();
-
-    /**
-     * Returns the Output Store state (Subscriptions propagated TO neighbors).
-     * Uniform accessor for all broker types.
-     */
-    public abstract Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions();
     
-
+    // Metric Accessors
+    public abstract int getSubscriptionCount();
+    public abstract Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions();
+    public abstract Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions();
 
     public BoundedBroker getParentBroker() {
         TreeNode parent = getParent();
@@ -53,30 +35,29 @@ public abstract class SimulationBroker extends TreeNode {
         return null;
     }
     
-    /**
-     * Entry point for processing a subscription.
-     */
     public void processSubscription(SimulationSubscription s) {
         this.totalSubscriptionProcessingEvents++;
         this.propagateSubscription(s);
     }
 
-    /**
-     * Entry point for processing a publication.
-     */
     public void processPublication(SimulationPublication p) {
-        long startTime = System.nanoTime();
-        this.matchPublication(p);
-        long endTime = System.nanoTime();
+        // Track that a message arrived and was processed (Traffic Load)
+        this.totalPublicationProcessingEvents++;
         
-        this.publicationProcessingCosts.add(endTime - startTime);
+        // The subclass matchPublication is responsible for incrementing 
+        // totalMatchingComputations (Computational Load)
+        this.matchPublication(p);
     }
 
     public long getTotalSubscriptionProcessingEvents() {
         return this.totalSubscriptionProcessingEvents;
     }
+    
+    public long getTotalPublicationProcessingEvents() {
+        return this.totalPublicationProcessingEvents;
+    }
 
-    public List<Long> getPublicationProcessingCosts() {
-        return publicationProcessingCosts;
+    public long getTotalMatchingComputations() {
+        return totalMatchingComputations;
     }
 }

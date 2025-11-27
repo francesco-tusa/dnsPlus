@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IntSummaryStatistics;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import simulator.config.BrokerConfig;
 import simulator.config.SimConfiguration;
 import simulator.config.WorkloadConfig;
 import simulator.core.SimulationRunner;
@@ -85,30 +87,27 @@ public abstract class AbstractPerformanceSimulation<
         super.initialise(factory, config);
         
         WorkloadConfig workload = SimConfiguration.get().workload;
-        simulator.config.BrokerConfig brokerConfig = SimConfiguration.get().broker;
+        BrokerConfig brokerConfig = SimConfiguration.get().broker; 
         
         printBanner("SIMULATION CONFIGURATION");
         logConfigItem("Run ID", this.simulationTimestamp);
         logConfigItem("Topology Factory", factory.getClass().getSimpleName());
         
+        config.logDetails(logger);
+
         logConfigItem("Broker Strategy", brokerConfig.strategy);
         if (brokerConfig.isSmartStrategy()) {
             logConfigItem("Smart Threshold", brokerConfig.smartThreshold);
+        } else {
+            logConfigItem("Smart Threshold", "N/A (Simple Mode)");
         }
         
-        // Delegate to specific config for Topology details
-        config.logDetails(logger);
-
-        // Workload Configuration from SimConfiguration
         logConfigItem("Number of Replicas", workload.numberOfReplicas);
         logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);
         logConfigItem("Total Subscribers", workload.getTotalSubscribers());
         logConfigItem("Publisher Strategy", getPublisherPlacementStrategy().getClass().getSimpleName());
-        logConfigItem("CSV Output Enabled", SimConfiguration.get().paths.enableVerboseLogs); // Or derived logic
-
-        // Hook for subclass specific config
-        logSpecificConfiguration();
         
+        logSpecificConfiguration();
         printSeparator();
     }
 
@@ -300,20 +299,11 @@ public abstract class AbstractPerformanceSimulation<
         return leaves;
     }
     
-    /**
-     * Collects high-level metrics from brokers and clients.
+/**
+     * Collects and prints all relevant metrics.
      */
     protected void collectAndPrintMetrics() {
-        // Reset counters
-        totalSubscriptionTableEntries = 0;
-        totalRegionUpdates = 0;
-        totalPublicationsSent = 0;
-        totalPropagationFilterExpansions = 0;
-        totalMainTableExpansions = 0;
-        totalSubscriptionProcessingEvents = 0;
-        successfulNotifications = 0;
-
-        // Collect Broker Metrics
+        // --- 1. Gather Data Sources ---
         List<SimulationBroker> allBrokers = new ArrayList<>();
         Queue<TreeNode> queue = new LinkedList<>();
         if (this.rootNode != null) queue.add(this.rootNode);
@@ -324,41 +314,84 @@ public abstract class AbstractPerformanceSimulation<
             if (current.getChildren() != null) queue.addAll(current.getChildren());
         }
 
+        // --- 2. Calculate Broker Metrics ---
+        long totalTableEntries = 0;
+        IntSummaryStatistics tableSizeStats = new IntSummaryStatistics();
+
+        // Traffic vs Cost
+        long totalPubTraffic = 0;        // Count of messages
+        long totalMatchingCost = 0;      // Count of comparisons (Cost)
+        long totalSubTraffic = 0;
+
+        // Subscription Logic Breakdown
+        long totalSubCovered = 0;
+        long totalSubExpanded = 0;
+        long totalSubAdded = 0;
+
         for (SimulationBroker broker : allBrokers) {
-            totalSubscriptionTableEntries += broker.getSubscriptionCount();
-            totalSubscriptionProcessingEvents += broker.getTotalSubscriptionProcessingEvents();
+            int tableSize = broker.getSubscriptionCount();
+            tableSizeStats.accept(tableSize);
+            totalTableEntries += tableSize;
+
+            totalPubTraffic += broker.getTotalPublicationProcessingEvents(); // Messages processed
+            totalMatchingCost += broker.getTotalMatchingComputations();      // Comparisons made
+            totalSubTraffic += broker.getTotalSubscriptionProcessingEvents();
             
             if (broker instanceof BoundedBroker br) {
-                totalRegionUpdates += br.getNumOfRegionUpdates();
-                totalPropagationFilterExpansions += br.getNumPropagationFilterExpansions();
-                totalMainTableExpansions += br.getNumMainTableExpansions(); 
+                totalSubCovered += br.getSubCoveredCount();
+                totalSubExpanded += br.getSubExpandedCount();
+                totalSubAdded += br.getSubAddedCount();
             }
         }
         
-        // Collect Client Metrics
+        // --- 3. Calculate Client Metrics ---
+        long totalNotifications = 0;
+        long totalPubsSent = 0;
+        IntSummaryStatistics hopStats = new IntSummaryStatistics();
+
         for (SubscriberWithLocation subscriber : allSubscribers) {
-            successfulNotifications += subscriber.getnPublications();
+            totalNotifications += subscriber.getnPublications();
+            for(int h : subscriber.getReceivedHopsList()) {
+                hopStats.accept(h);
+            }
         }
         
         for (PublisherWithLocation publisher : allPublishers) {
-            totalPublicationsSent += publisher.getnPublications();
+            totalPubsSent += publisher.getnPublications();
         }
 
-        // --- PRINT METRICS BLOCK ---
+        // --- 4. Print Report ---
         printBanner("SIMULATION RESULT METRICS");
         
-        logger.info("System Overhead:");
-        logMetricItem("Total Subscription Table Entries", totalSubscriptionTableEntries);
-        logMetricItem("Total Region Updates", totalRegionUpdates);
-        logMetricItem("Total Subscription Process Events", totalSubscriptionProcessingEvents);
-        logMetricItem("Total Expansions (Main/Filter)", totalMainTableExpansions + " / " + totalPropagationFilterExpansions);
+        logger.info("1. SUBSCRIPTION STATE (Memory):");
+        logMetricItem("Total Table Entries (Network)", totalTableEntries);
+        logMetricItem("Max Table Size (Single Broker)", tableSizeStats.getMax());
+        logMetricItem("Avg Table Size", String.format("%.2f", tableSizeStats.getAverage()));
 
-        logger.info("\nService Delivery:");
-        logMetricItem("Total Publications Sent", totalPublicationsSent);
-        logMetricItem("Total Notifications Received", successfulNotifications);
+        logger.info("\n2. SUBSCRIPTION PROCESSING (Logic):");
+        logMetricItem("Total Subscriptions Processed", totalSubTraffic);
+        logMetricItem("  -> Covered (Filtered)", totalSubCovered);
+        logMetricItem("  -> Expanded (Merged)", totalSubExpanded);
+        logMetricItem("  -> Added (Disjoint)", totalSubAdded);
+
+        logger.info("\n3. PUBLICATION TRAFFIC & COST:");
+        logMetricItem("Total Publications Sent (Origins)", totalPubsSent);
+        logMetricItem("Total Forwarding Events (Traffic)", totalPubTraffic);
+        logMetricItem("Total Matching Computations (Cost)", totalMatchingCost);
+        
+        double avgCostPerMessage = (totalPubTraffic > 0) ? (double) totalMatchingCost / totalPubTraffic : 0.0;
+        logMetricItem("Avg Comparisons per Message", String.format("%.2f", avgCostPerMessage));
+
+        logger.info("\n4. DELIVERY PERFORMANCE (Quality):");
+        logMetricItem("Total Notifications Received", totalNotifications);
+        if (hopStats.getCount() > 0) {
+            logMetricItem("Hop Count (Min / Avg / Max)", 
+                String.format("%d / %.2f / %d", hopStats.getMin(), hopStats.getAverage(), hopStats.getMax()));
+        } else {
+            logMetricItem("Hop Count", "N/A");
+        }
         
         logSpecificMetrics();
-        
         printSeparator();
     }
 

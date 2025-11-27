@@ -13,7 +13,6 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
 import simulator.regions.BoundedBroker;
-import simulator.regions.SpatialMatchBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import utils.CustomLogger;
@@ -56,7 +55,6 @@ public class GeoNamesPropagationTest {
 
         // Adjusted coordinates to be EXCLUSIVELY inside Sylhet (East of 91.25) 
         // to avoid intersecting Dhaka and causing side-effect propagations.
-        // Sylhet: ~[90.77 - 92.45]. Dhaka: ~[89.31 - 91.25].
         Region regionSylhet = new Region(new Location(91.5, 23.0, 0), new Location(92.0, 24.0, 0));
         logger.info("Sub-Dhaka-Local subscribing to: " + regionSylhet.toLogString());
         subLocal.send(new SubscriptionWithRegion(regionSylhet));
@@ -89,14 +87,20 @@ public class GeoNamesPropagationTest {
         Region smallSylhet = new Region(new Location(91.6, 23.2, 0), new Location(91.8, 23.8, 0));
         logger.info("Sub-Rajshahi subscribing to Contained Region: " + smallSylhet.toLogString());
         
-        long expansionsBefore = bangladesh.getNumPropagationFilterExpansions();
-        subRajshahi.send(new SubscriptionWithRegion(smallSylhet));
-        long expansionsAfter = bangladesh.getNumPropagationFilterExpansions();
+        // UPDATE: Use valid counters from the new architecture
+        long expansionsBefore = bangladesh.getSubExpandedCount();
+        long addedBefore = bangladesh.getSubAddedCount();
         
-        if (expansionsAfter == expansionsBefore) {
-            logger.info("SUCCESS: Bangladesh filtered the redundant downward subscription.");
+        subRajshahi.send(new SubscriptionWithRegion(smallSylhet));
+        
+        long expansionsAfter = bangladesh.getSubExpandedCount();
+        long addedAfter = bangladesh.getSubAddedCount();
+        
+        if (expansionsAfter == expansionsBefore && addedAfter == addedBefore) {
+            logger.info("SUCCESS: Bangladesh filtered the redundant downward subscription (No State Change).");
         } else {
-            logger.severe("FAILURE: Bangladesh propagated redundant subscription! Expansions went from " + expansionsBefore + " to " + expansionsAfter);
+            logger.severe(String.format("FAILURE: Bangladesh propagated redundant subscription! Expanded: %d->%d, Added: %d->%d", 
+                    expansionsBefore, expansionsAfter, addedBefore, addedAfter));
             allPassed = false;
         }
 

@@ -20,22 +20,23 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     private final Map<TreeNode, SubscriptionWithRegion> map = new HashMap<>();
 
     @Override
-    public boolean addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
+    public StoreOpResult addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         SubscriptionWithRegion existing = map.get(source);
         
         if (existing == null) {
             map.put(source, new SubscriptionWithRegion(new Region(sub.getRegion())));
-            return true;
+            return StoreOpResult.ADDED; // New Neighbor
         }
 
         Region currentRegion = existing.getRegion();
         Region newRegion = sub.getRegion();
 
         if (currentRegion.contains(newRegion)) {
-            return false; 
+            return StoreOpResult.NO_CHANGE; // Covered
         }
 
-        return currentRegion.expand(newRegion);
+        currentRegion.expand(newRegion);
+        return StoreOpResult.EXPANDED; // Merged
     }
 
     @Override
@@ -58,9 +59,7 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     @Override
     public Map<TreeNode, List<SimulationSubscription>> getAllSubscriptions() {
         Map<TreeNode, List<SimulationSubscription>> result = new HashMap<>();
-        
         for (Map.Entry<TreeNode, SubscriptionWithRegion> entry : map.entrySet()) {
-            // Wrap in singleton list
             result.put(entry.getKey(), Collections.singletonList(entry.getValue()));
         }
         return result;

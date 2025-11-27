@@ -14,6 +14,7 @@ import simulator.events.metrics.EventMetrics;
 import simulator.regions.store.MultiRegionStore;
 import simulator.regions.store.RegionSubscriptionStore;
 import simulator.regions.store.SimpleRegionStore;
+import simulator.regions.store.StoreOpResult;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
@@ -34,9 +35,9 @@ public class SpatialMatchBroker extends BoundedBroker {
         }
     }
     
-    public SpatialMatchBroker(String name, Location p1, Location p2, boolean forceSingleRegion, double thresh) {
+    public SpatialMatchBroker(String name, Location p1, Location p2, boolean force, double thresh) {
         super(name, p1, p2);
-        if (forceSingleRegion) {
+        if (force) {
             this.inputStore = new SimpleRegionStore();
             this.outputStore = new SimpleRegionStore();
         } else {
@@ -46,19 +47,13 @@ public class SpatialMatchBroker extends BoundedBroker {
     }
 
     @Override
-    public int getSubscriptionCount() {
-        return inputStore.size();
-    }
+    public int getSubscriptionCount() { return inputStore.size(); }
 
     @Override
-    public Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions() {
-        return inputStore.getAllSubscriptions();
-    }
+    public Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions() { return inputStore.getAllSubscriptions(); }
 
     @Override
-    public Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions() {
-        return outputStore.getAllSubscriptions();
-    }
+    public Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions() { return outputStore.getAllSubscriptions(); }
 
     @Override
     public void addSubscription(SimulationSubscription s) {
@@ -69,10 +64,14 @@ public class SpatialMatchBroker extends BoundedBroker {
         }
 
         if (s instanceof SubscriptionWithRegion sub) {
-            boolean changed = inputStore.addOrUpdate(s.getSource(), sub);
-            if (changed) incrementMainTableExpansions();
-        } else {
-            logger.warning(getName() + ": Received non-Region subscription in SpatialMatchBroker. Ignoring.");        }
+            // Update Input Store & Counters
+            StoreOpResult result = inputStore.addOrUpdate(s.getSource(), sub);
+            switch (result) {
+                case NO_CHANGE -> recordSubCovered();
+                case EXPANDED -> recordSubExpanded();
+                case ADDED -> recordSubAdded();
+            }
+        }
     }
 
     @Override
@@ -88,10 +87,10 @@ public class SpatialMatchBroker extends BoundedBroker {
         if (parent == null) return;
 
         SubscriptionWithRegion candidate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
-        boolean changed = outputStore.addOrUpdate(parent, candidate);
+        StoreOpResult result = outputStore.addOrUpdate(parent, candidate);
 
-        if (changed) {
-            incrementPropagationFilterExpansions();
+        // Propagate only if state changed (Added or Expanded)
+        if (result != StoreOpResult.NO_CHANGE) {
             List<SimulationSubscription> outputs = outputStore.getOutputFor(parent);
             for(SimulationSubscription out : outputs) {
                  SubscriptionWithRegion toSend = (SubscriptionWithRegion) out.getSubscription();
@@ -114,10 +113,9 @@ public class SpatialMatchBroker extends BoundedBroker {
              if (childBroker.getRegion() != null && childBroker.getRegion().intersects(newSub.getRegion())) {
                  
                  SubscriptionWithRegion candidate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
-                 boolean changed = outputStore.addOrUpdate(childBroker, candidate);
+                 StoreOpResult result = outputStore.addOrUpdate(childBroker, candidate);
                  
-                 if (changed) {
-                     incrementPropagationFilterExpansions();
+                 if (result != StoreOpResult.NO_CHANGE) {
                      List<SimulationSubscription> outputs = outputStore.getOutputFor(childBroker);
                      for(SimulationSubscription out : outputs) {
                          SubscriptionWithRegion toSend = (SubscriptionWithRegion) out.getSubscription();
@@ -136,22 +134,21 @@ public class SpatialMatchBroker extends BoundedBroker {
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-        // We only send if there is a matching subscription.
-        // Since subscriptions propagate from Root to Leaves (and vice-versa),
-        // the inputStore will contain the Parent IF the Parent is interested.
-        
         if (p instanceof PublicationWithLocation pub) {
+            
+            // Deterministic Cost Metric: 
+            // We assume cost = number of disjoint regions checked.
+            // This is equivalent to the size of the store (O(N) scan).
+            this.totalMatchingComputations += inputStore.size();
+            
             List<TreeNode> matches = inputStore.findMatches(pub.getLocation());
             for (TreeNode target : matches) {
-                // Ensure we don't send it back to where it came from
                 if (target == p.getSource()) continue;
-                
                 forwardPublicationToNode(p, target);
             }
         }
         return null;
     }
-    
 
     public void forwardPublicationToNode(SimulationPublication p, TreeNode next) {
         if (next instanceof BoundedBroker broker) {

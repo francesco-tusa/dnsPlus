@@ -1,12 +1,13 @@
 package simulator.entities;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
-import simulator.events.SubscriptionWithLocation;
 import simulator.events.metrics.EventMetrics;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.visualisation.TopologyVisualiser;
@@ -21,6 +22,9 @@ public class SubscriberWithLocation extends TreeNode {
     private int nSubscriptions;
     private int nPublications;
     private PublicationWithLocation lastReceivedPublication;
+    
+    // Store hop counts for statistical analysis
+    private final List<Integer> receivedHopsList = new ArrayList<>();
 
     public SubscriberWithLocation(String name, Location location) {
         super(name);
@@ -35,10 +39,15 @@ public class SubscriberWithLocation extends TreeNode {
         nPublications++;
         
         if (p.getMetrics() != null && p instanceof PublicationWithLocation pub) {
+            int hops = p.getMetrics().getHops();
+            
+            // Record hops
+            receivedHopsList.add(hops);
+
             CsvMetricWriter.getInstance().logPublicationDelivery(
                 p.getMetrics().getTraceId(),
                 this.getName(),
-                p.getMetrics().getHops(),
+                hops,
                 pub.getLocation().getX(),
                 pub.getLocation().getY()
             );
@@ -54,21 +63,17 @@ public class SubscriberWithLocation extends TreeNode {
             visualizer.updatePublicationEdge(p.getSource().getName(), getName(), isUpward);
         }
     }
-    
+        
     public void send(SimulationSubscription s) {
         SimulationBroker broker = getBroker();
         s.setSource(this);
-        
         String traceId = this.getName() + "-" + System.nanoTime();
         s.setMetrics(new EventMetrics(traceId));
 
         if (broker != null) {
-            String subInfo = "";
-            if (s instanceof SubscriptionWithLocation sl) {
-                subInfo = " for location " + sl.getLocation();
-            } else if (s instanceof SubscriptionWithRegion sr) {
-                subInfo = " for region " + sr.getRegion().toShortString();
-            }
+            String subInfo = (s instanceof simulator.events.SubscriptionWithLocation sl) 
+                ? " for location " + sl.getLocation() 
+                : " for region " + ((SubscriptionWithRegion)s).getRegion().toShortString();
             logger.fine("\n" + getName() + ": sending subscription" + subInfo);
 
             broker.processSubscription(s);
@@ -79,7 +84,6 @@ public class SubscriberWithLocation extends TreeNode {
                 visualizer.setNodeActive(getName());
                 visualizer.updateSubscriberLabel(this, s);
             }
-
         } else {
             logger.severe(getName() + ": topology error, there is no broker to send the subscription to");
         }
@@ -88,6 +92,10 @@ public class SubscriberWithLocation extends TreeNode {
     public Location getLocation() { return location; }
     public int getnSubscriptions() { return nSubscriptions; }
     public int getnPublications() { return nPublications; }
+    
+    public List<Integer> getReceivedHopsList() {
+        return receivedHopsList;
+    }
     
     public SimulationBroker getBroker() { 
         if (getParent() instanceof SimulationBroker) {

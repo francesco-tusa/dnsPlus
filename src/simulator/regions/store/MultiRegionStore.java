@@ -14,21 +14,11 @@ import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import utils.CustomLogger;
 
-/**
- * Implements "Threshold Aggregation".
- * Maintains a list of disjoint regions per neighbor unless they overlap significantly.
- * Uses a Summary Region (MBR) to optimize lookup performance.
- */
 public class MultiRegionStore implements RegionSubscriptionStore {
     private static final Logger logger = CustomLogger.getLogger(MultiRegionStore.class.getName());
     
-    // The detailed list of disjoint regions
     private final Map<TreeNode, List<SubscriptionWithRegion>> map = new HashMap<>();
-    
-    // OPTIMIZATION: The Bounding Box of all regions in the list.
-    // Used to quickly filter out neighbors during matching.
     private final Map<TreeNode, Region> summaryRegions = new HashMap<>();
-    
     private final double mergeThreshold;
 
     public MultiRegionStore(double threshold) {
@@ -36,54 +26,45 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     }
 
     @Override
-    public boolean addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
+    public StoreOpResult addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         List<SubscriptionWithRegion> regions = map.computeIfAbsent(source, k -> new ArrayList<>());
         Region newReg = sub.getRegion();
 
-        // 1. Check Redundancy
+        // 1. Check Redundancy (Coverage)
         for (SubscriptionWithRegion existing : regions) {
-            if (existing.getRegion().contains(newReg)) return false;
+            if (existing.getRegion().contains(newReg)) return StoreOpResult.NO_CHANGE;
         }
 
-        boolean listChanged = false;
-
-        // 2. Check Merge
         boolean merged = false;
+        // 2. Check Merge
         for (int i = regions.size() - 1; i >= 0; i--) {
             SubscriptionWithRegion existingSub = regions.get(i);
             Region existing = existingSub.getRegion();
 
-            // Case A: New contains Old -> Replace
             if (newReg.contains(existing)) {
-                regions.set(i, new SubscriptionWithRegion(new Region(newReg))); 
+                regions.set(i, new SubscriptionWithRegion(new Region(newReg)));
                 optimizeList(regions);
                 merged = true;
-                listChanged = true;
                 break;
             }
 
-            // Case B: Overlap Threshold -> Merge
             if (shouldMerge(existing, newReg)) {
                 existing.expand(newReg);
                 optimizeList(regions);
                 merged = true;
-                listChanged = true;
                 break;
             }
         }
 
-        // 3. Add Disjoint
-        if (!merged) {
-            regions.add(new SubscriptionWithRegion(new Region(newReg)));
-            listChanged = true;
-        }
-        
-        // 4. Update the Summary Region if the list changed
-        if (listChanged) {
+        if (merged) {
             updateSummary(source);
+            return StoreOpResult.EXPANDED;
+        } else {
+            // 3. Add Disjoint
+            regions.add(new SubscriptionWithRegion(new Region(newReg)));
+            updateSummary(source);
+            return StoreOpResult.ADDED;
         }
-        
-        return listChanged;
     }
 
     private void updateSummary(TreeNode source) {
@@ -92,15 +73,10 @@ public class MultiRegionStore implements RegionSubscriptionStore {
             summaryRegions.remove(source);
             return;
         }
-        
-        // Start with the first region
         Region summary = new Region(list.get(0).getRegion());
-        
-        // Expand to include all others
         for (int i = 1; i < list.size(); i++) {
             summary.expand(list.get(i).getRegion());
         }
-        
         summaryRegions.put(source, summary);
     }
 
@@ -133,17 +109,14 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         List<TreeNode> matches = new ArrayList<>();
         for (Map.Entry<TreeNode, List<SubscriptionWithRegion>> entry : map.entrySet()) {
             TreeNode neighbor = entry.getKey();
-
-            // OPTIMIZATION: Check Summary Region first
-            // If the point is not in the summary, it cannot be in any sub-region.
             Region summary = summaryRegions.get(neighbor);
+            
+            // Optimization check
             if (summary != null && summary.contains(loc)) {
-                
-                // Detailed Check: Check the specific disjoint regions
                 for (SubscriptionWithRegion sub : entry.getValue()) {
                     if (sub.getRegion().contains(loc)) {
                         matches.add(neighbor);
-                        break; 
+                        break;
                     }
                 }
             }
@@ -157,14 +130,20 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         return list != null ? new ArrayList<>(list) : Collections.emptyList();
     }
     
+    @Override
+    public Map<TreeNode, List<SimulationSubscription>> getAllSubscriptions() {
+        Map<TreeNode, List<SimulationSubscription>> result = new HashMap<>();
+        for (Map.Entry<TreeNode, List<SubscriptionWithRegion>> entry : map.entrySet()) {
+            List<SimulationSubscription> genericList = new ArrayList<>(entry.getValue());
+            result.put(entry.getKey(), genericList);
+        }
+        return result;
+    }
 
     @Override
     public int size() {
-        // Returns the total number of disjoint regions tracked across all neighbors
         int count = 0;
-        for (List<SubscriptionWithRegion> list : map.values()) {
-            count += list.size();
-        }
+        for (List<SubscriptionWithRegion> list : map.values()) count += list.size();
         return count;
     }
 
@@ -172,18 +151,4 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     public boolean isEmpty() {
         return map.isEmpty();
     }
-
-    @Override
-    public Map<TreeNode, List<SimulationSubscription>> getAllSubscriptions() {
-        Map<TreeNode, List<SimulationSubscription>> result = new HashMap<>();
-        
-        for (Map.Entry<TreeNode, List<SubscriptionWithRegion>> entry : map.entrySet()) {
-            // Create a new list with the generic type
-            List<SimulationSubscription> genericList = new ArrayList<>(entry.getValue());
-            result.put(entry.getKey(), genericList);
-        }
-        return result;
-    }
-
-
 }
