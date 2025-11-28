@@ -3,6 +3,7 @@ package simulator.regions.store;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -28,43 +29,56 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     @Override
     public StoreOpResult addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         List<SubscriptionWithRegion> regions = map.computeIfAbsent(source, k -> new ArrayList<>());
-        Region newReg = sub.getRegion();
-
-        // 1. Check Redundancy (Coverage)
+        
+        // 1. Check Coverage: Is the new subscription already fully covered?
+        // This is the fast path for redundant subscriptions.
         for (SubscriptionWithRegion existing : regions) {
-            if (existing.getRegion().contains(newReg)) return StoreOpResult.NO_CHANGE;
-        }
-
-        boolean merged = false;
-        // 2. Check Merge
-        for (int i = regions.size() - 1; i >= 0; i--) {
-            SubscriptionWithRegion existingSub = regions.get(i);
-            Region existing = existingSub.getRegion();
-
-            if (newReg.contains(existing)) {
-                regions.set(i, new SubscriptionWithRegion(new Region(newReg)));
-                optimizeList(regions);
-                merged = true;
-                break;
-            }
-
-            if (shouldMerge(existing, newReg)) {
-                existing.expand(newReg);
-                optimizeList(regions);
-                merged = true;
-                break;
+            if (existing.getRegion().contains(sub.getRegion())) {
+                return StoreOpResult.NO_CHANGE;
             }
         }
 
-        if (merged) {
-            updateSummary(source);
-            return StoreOpResult.EXPANDED;
-        } else {
-            // 3. Add Disjoint
-            regions.add(new SubscriptionWithRegion(new Region(newReg)));
-            updateSummary(source);
-            return StoreOpResult.ADDED;
-        }
+        // 2. Greedy Accumulator Merge
+        // Start with the new region as the "Accumulator".
+        // Iterate through the list, absorbing any regions that should merge with it.
+        Region accumulator = new Region(sub.getRegion());
+        boolean changed = false;
+        boolean mergedInPass;
+
+        do {
+            mergedInPass = false;
+            Iterator<SubscriptionWithRegion> it = regions.iterator();
+            while (it.hasNext()) {
+                SubscriptionWithRegion existing = it.next();
+                Region rExisting = existing.getRegion();
+
+                // Case A: Accumulator eats Existing (Redundancy reverse check)
+                if (accumulator.contains(rExisting)) {
+                    it.remove();
+                    changed = true;
+                    // No need to restart scan, just continue consuming
+                }
+                // Case B: Merge Condition Met (Overlap > Threshold)
+                else if (shouldMerge(accumulator, rExisting)) {
+                    accumulator.expand(rExisting);
+                    it.remove();
+                    changed = true;
+                    mergedInPass = true;
+                    // The accumulator grew. It might now overlap with regions we
+                    // already checked in this pass. We must restart the scan 
+                    // to ensure we catch everything (Cascading Merge).
+                    break; 
+                }
+            }
+        } while (mergedInPass);
+
+        // 3. Add the final (potentially merged) region to the list
+        regions.add(new SubscriptionWithRegion(accumulator));
+        
+        // 4. Update the global summary for this neighbor
+        updateSummary(source);
+
+        return changed ? StoreOpResult.EXPANDED : StoreOpResult.ADDED;
     }
 
     private void updateSummary(TreeNode source) {
@@ -73,6 +87,7 @@ public class MultiRegionStore implements RegionSubscriptionStore {
             summaryRegions.remove(source);
             return;
         }
+        // Rebuild summary from scratch (O(N))
         Region summary = new Region(list.get(0).getRegion());
         for (int i = 1; i < list.size(); i++) {
             summary.expand(list.get(i).getRegion());
@@ -87,23 +102,6 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         return (intersection / union) >= mergeThreshold;
     }
 
-    private void optimizeList(List<SubscriptionWithRegion> regions) {
-        boolean changed = true;
-        while (changed) {
-            changed = false;
-            for (int i = 0; i < regions.size(); i++) {
-                for (int j = i + 1; j < regions.size(); j++) {
-                    Region r1 = regions.get(i).getRegion();
-                    Region r2 = regions.get(j).getRegion();
-                    if (r1.contains(r2)) { regions.remove(j); changed = true; break; }
-                    else if (r2.contains(r1)) { regions.set(i, regions.get(j)); regions.remove(j); changed = true; break; }
-                    else if (shouldMerge(r1, r2)) { r1.expand(r2); regions.remove(j); changed = true; break; }
-                }
-                if (changed) break;
-            }
-        }
-    }
-
     @Override
     public List<TreeNode> findMatches(Location loc) {
         List<TreeNode> matches = new ArrayList<>();
@@ -111,12 +109,14 @@ public class MultiRegionStore implements RegionSubscriptionStore {
             TreeNode neighbor = entry.getKey();
             Region summary = summaryRegions.get(neighbor);
             
-            // Optimization check
+            // OPTIMIZATION: Check Summary Region first
+            // If the point is not in the summary, it cannot be in any sub-region.
             if (summary != null && summary.contains(loc)) {
+                // Detailed Check: Check the specific disjoint regions
                 for (SubscriptionWithRegion sub : entry.getValue()) {
                     if (sub.getRegion().contains(loc)) {
                         matches.add(neighbor);
-                        break;
+                        break; // Found one match for this neighbor, enough to forward
                     }
                 }
             }
@@ -134,8 +134,7 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     public Map<TreeNode, List<SimulationSubscription>> getAllSubscriptions() {
         Map<TreeNode, List<SimulationSubscription>> result = new HashMap<>();
         for (Map.Entry<TreeNode, List<SubscriptionWithRegion>> entry : map.entrySet()) {
-            List<SimulationSubscription> genericList = new ArrayList<>(entry.getValue());
-            result.put(entry.getKey(), genericList);
+            result.put(entry.getKey(), new ArrayList<>(entry.getValue()));
         }
         return result;
     }
