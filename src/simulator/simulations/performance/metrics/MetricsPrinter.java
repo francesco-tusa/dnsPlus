@@ -13,17 +13,33 @@ public class MetricsPrinter {
     public void print(PerformanceMetricsData data) {
         printBanner("SIMULATION RESULT METRICS");
 
-        logger.info("1. SUBSCRIPTION STATE (Memory):");
-        logItem("Total Table Entries (Network)", data.tableSizeStats.getSum());
-        logItem("Max Table Size (Single Broker)", data.tableSizeStats.getMax());
-        logItem("Avg Table Size", String.format("%.2f", data.tableSizeStats.getAverage()));
+        logger.info("1. SUBSCRIPTION STATE (Memory & Aggregation):");
+        
+        long totalInput = data.inputTableStats.getSum();
+        long totalOutput = data.outputTableStats.getSum();
+        
+        logItem("Total Input Entries (Received)", totalInput);
+        logItem("Total Output Entries (Propagated)", totalOutput);
+        
+        // Calculate Aggregation Ratio
+        double aggregationRatio = (totalOutput > 0) 
+            ? (double) totalInput / totalOutput 
+            : 0.0;
+            
+        logItem("Aggregation Factor (Input/Output)", String.format("%.2f", aggregationRatio));
+        
+        logItem("Avg Input Table Size", String.format("%.2f", data.inputTableStats.getAverage()));
+        logItem("Max Input Table Size", data.inputTableStats.getMax());
 
         logger.info(""); 
         logger.info("2. SUBSCRIPTION PROCESSING (Logic):");
         logItem("Total Subscriptions Processed", data.totalSubscriptionTraffic);
+        
+        long effectiveUpdates = data.totalSubExpanded + data.totalSubAdded;
         logItem("  -> Covered (Filtered)", data.totalSubCovered);
-        logItem("  -> Expanded (Merged)", data.totalSubExpanded);
-        logItem("  -> Added (Disjoint)", data.totalSubAdded);
+        logItem("  -> Effective Updates (Forwarded)", effectiveUpdates);
+        logItem("      -> Expanded (Merged)", data.totalSubExpanded);
+        logItem("      -> Added (Disjoint)", data.totalSubAdded);
 
         logger.info("");
         logger.info("3. PUBLICATION TRAFFIC & COST:");
@@ -51,12 +67,9 @@ public class MetricsPrinter {
             logger.info("");
             logger.info("5. ROUTING EFFICIENCY:");
             
-            // Count of messages that hit a dead end (aggregated region was too big)
             long deadEnds = data.totalFalsePositiveEvents;
             double fpRate = (double) deadEnds / data.totalPubForwardingEvents * 100.0;
             
-            // Events per Delivery: Lower is better. 1.0 is ideal unicast. Multicast can be >1 or <1 depending on fanout.
-            // Ideally compared against the "Perfect" routing scenario.
             double trafficRatio = (data.totalNotifications > 0) 
                 ? (double) data.totalPubForwardingEvents / data.totalNotifications 
                 : 0.0;
@@ -79,6 +92,7 @@ public class MetricsPrinter {
 
     private void printBanner(String title) {
         String line = "==================================================================================";
+        logger.info("");
         logger.info(line);
         logger.info(String.format("  %s", title));
         logger.info(line);

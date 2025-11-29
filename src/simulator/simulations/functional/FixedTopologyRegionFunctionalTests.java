@@ -87,7 +87,7 @@ public class FixedTopologyRegionFunctionalTests {
                 .filter(node -> node == child2.getParentBroker())
                 .count();
 
-        logger.info("  - Broker 'child2' subscriptions table size: " + child2.getSubscriptionCount()); 
+        logger.info("  - Broker 'child2' subscriptions table size: " + child2.getInputSubscriptionCount()); 
         logger.info("  - Broker 'child2' upward propagations: " + upwardPropagations);
 
         boolean filteringSuccess = (upwardPropagations == 1);

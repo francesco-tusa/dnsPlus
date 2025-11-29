@@ -30,8 +30,13 @@ public class CoordinateRoutingBroker extends SimulationBroker {
     }
     
     @Override
-    public int getSubscriptionCount() {
+    public int getInputSubscriptionCount() {
         return inputStore.size();
+    }
+
+    @Override
+    public int getOutputSubscriptionCount() {
+        return 0; // No aggregation/output logic defined yet
     }
 
     @Override

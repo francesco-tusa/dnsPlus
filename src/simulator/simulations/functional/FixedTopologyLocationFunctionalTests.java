@@ -61,7 +61,7 @@ public class FixedTopologyLocationFunctionalTests {
         s2.send(new SubscriptionWithLocation(s2.getLocation()));
         s3.send(new SubscriptionWithLocation(s3.getLocation()));
 
-        int intermediateBrokerSubscriptionCount = child2.getSubscriptionCount();
+        int intermediateBrokerSubscriptionCount = child2.getInputSubscriptionCount();
         
         long rootSubscriptionsFromChild2 = root.getInputSubscriptions().keySet().stream()
                 .filter(node -> node.getName().equals("child2"))

@@ -22,6 +22,8 @@ public class ProximityRoutingBroker extends BoundedBroker {
     protected final BasicSubscriptionStore inputStore = new BasicSubscriptionStore();
 
     private final Map<Location, SimulationPublication> bestPublicationCache = new HashMap<>();
+
+    // TODO: cross check whether this should be migrated to a SubscriptionStore
     private final Map<Location, Boolean> propagatedSubscriptions = new HashMap<>();
     private List<Location> keyPointsCache = null;
 
@@ -34,8 +36,13 @@ public class ProximityRoutingBroker extends BoundedBroker {
     }
     
     @Override
-    public int getSubscriptionCount() {
+    public int getInputSubscriptionCount() {
         return inputStore.size();
+    }
+
+    @Override
+    public int getOutputSubscriptionCount() { 
+        return propagatedSubscriptions.size(); 
     }
 
     @Override

@@ -26,7 +26,9 @@ public abstract class SimulationBroker extends TreeNode {
     protected abstract void propagateSubscription(SimulationSubscription s);
     
     // Metric Accessors
-    public abstract int getSubscriptionCount();
+    public abstract int getInputSubscriptionCount();
+    public abstract int getOutputSubscriptionCount();
+
     public abstract Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions();
     public abstract Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions();
 

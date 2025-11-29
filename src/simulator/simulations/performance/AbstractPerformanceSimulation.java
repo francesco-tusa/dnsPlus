@@ -43,6 +43,7 @@ public abstract class AbstractPerformanceSimulation<
 
     // --- Logging Helpers ---
     protected void printBanner(String t) {
+        logger.info("");
         logger.info("==================================================================================");
         logger.info("  " + t);
         logger.info("==================================================================================");

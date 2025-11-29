@@ -1,6 +1,5 @@
 package simulator.regions;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -47,7 +46,14 @@ public class SpatialMatchBroker extends BoundedBroker {
     }
 
     @Override
-    public int getSubscriptionCount() { return inputStore.size(); }
+    public int getInputSubscriptionCount() {
+        return inputStore.size();
+    }
+
+    @Override
+    public int getOutputSubscriptionCount() { 
+        return outputStore.size(); 
+    }
 
     @Override
     public Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions() { return inputStore.getAllSubscriptions(); }
