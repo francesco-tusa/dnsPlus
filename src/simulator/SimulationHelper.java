@@ -11,7 +11,7 @@ import simulator.topology.factories.BoundedBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyLoader;
 import simulator.topology.grid.GridTopologyConfiguration;
 import simulator.topology.grid.GridTopologyGenerator;
 import utils.CustomLogger;
@@ -43,7 +43,7 @@ public class SimulationHelper {
                                        Predicate<BoundedBroker> testPredicate) {
 
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
-        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(brokerFactory);
+        GeoNamesTopologyLoader factory = new GeoNamesTopologyLoader(brokerFactory);
 
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): " + testName);

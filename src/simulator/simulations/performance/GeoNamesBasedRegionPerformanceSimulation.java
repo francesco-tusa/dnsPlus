@@ -2,7 +2,7 @@ package simulator.simulations.performance;
 
 import simulator.topology.factories.SpatialMatchBrokerFactory;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyLoader;
 
 /**
  * Abstract base class for Region-Based simulations using GeoNames.
@@ -10,14 +10,14 @@ import simulator.topology.geonames.GeoNamesTopologyGenerator;
  */
 public abstract class GeoNamesBasedRegionPerformanceSimulation extends AbstractRegionPerformanceSimulation<
     GeoNamesTopologyConfiguration,
-    GeoNamesTopologyGenerator
+    GeoNamesTopologyLoader
 > {
 
     
     public void run() {
         // Config automatically loads all params from SimConfiguration
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
-        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new SpatialMatchBrokerFactory());
+        GeoNamesTopologyLoader factory = new GeoNamesTopologyLoader(new SpatialMatchBrokerFactory());
         super.run(factory, config);
     }
 }

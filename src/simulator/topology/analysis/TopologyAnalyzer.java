@@ -9,8 +9,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 
+import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
@@ -24,19 +26,31 @@ public class TopologyAnalyzer {
     // --- Graph Traversal Utilities ---
 
     /**
-     * Finds a node in the tree by its name and expected type.
-     * Performs a standard Breadth-First Search visiting ALL descendants.
+     * Generic Breadth-First Search to find the first node matching a condition.
+     * This replaces specific traversal loops with a reusable pattern.
+     *
+     * @param root The starting node.
+     * @param type The class type of the node to find.
+     * @param condition The condition to match.
+     * @return The found node, or null.
      */
-    public static <T extends TreeNode> T findNodeByName(TreeNode root, String name, Class<T> type) {
-        if (root == null || name == null) return null;
+    public static <T extends TreeNode> T findFirstNode(TreeNode root, Class<T> type, Predicate<T> condition) {
+        if (root == null) return null;
         Queue<TreeNode> queue = new LinkedList<>();
         queue.add(root);
 
         while (!queue.isEmpty()) {
             TreeNode current = queue.poll();
-            if (type.isInstance(current) && name.equals(current.getName())) {
-                return type.cast(current);
+            
+            // Check match
+            if (type.isInstance(current)) {
+                T casted = type.cast(current);
+                if (condition.test(casted)) {
+                    return casted;
+                }
             }
+            
+            // Continue traversal
             if (current.getChildren() != null) {
                 queue.addAll(current.getChildren());
             }
@@ -45,9 +59,20 @@ public class TopologyAnalyzer {
     }
 
     /**
+     * Uses the generic findFirstNode method.
+     * Finds a node in the tree by its name and expected type.
+     */
+    public static <T extends TreeNode> T findNodeByName(TreeNode root, String name, Class<T> type) {
+        return findFirstNode(root, type, node -> name.equals(node.getName()));
+    }
+
+    /**
      * Optimized search that looks ONLY for BoundedBrokers by name.
      */
     public static BoundedBroker findBrokerByName(BoundedBroker root, String name) {
+        // We keep the optimized broker-only traversal here for performance if needed, 
+        // or it could also be refactored to use findFirstNode(root, BoundedBroker.class, ...)
+        // For now, retaining specific implementation to restrict search scope to Brokers only (skipping clients).
         if (root == null || name == null) return null;
         if (root.getName().equals(name)) return root;
 
@@ -62,6 +87,29 @@ public class TopologyAnalyzer {
         return null;
     }
 
+    /**
+     * Finds the first Leaf Broker whose region contains the specified location.
+     * This generalizes the geometric fallback logic previously in AwsRegions.
+     */
+    public static BoundedBroker findLeafBrokerAtLocation(BoundedBroker root, Location location) {
+        return findFirstNode(root, BoundedBroker.class, broker -> 
+            isLeafBroker(broker) && 
+            broker.getRegion() != null && 
+            broker.getRegion().contains(location)
+        );
+    }
+
+    /**
+     * Helper to determine if a broker is a leaf (has no broker children).
+     */
+    public static boolean isLeafBroker(BoundedBroker broker) {
+        if (broker.getChildren() == null) return true;
+        for (TreeNode child : broker.getChildren()) {
+            if (child instanceof BoundedBroker) return false;
+        }
+        return true;
+    }
+
     private static void addBrokerChildrenToQueue(BoundedBroker parent, Queue<BoundedBroker> queue) {
         if (parent.getChildren() != null) {
             for (TreeNode child : parent.getChildren()) {
@@ -70,12 +118,6 @@ public class TopologyAnalyzer {
         }
     }
 
-    /**
-     * Finds all brokers at a specific depth level relative to the root (Root = Level 0).
-     * @param root The starting node.
-     * @param targetLevel The desired depth level.
-     * @return A list of brokers at that level.
-     */
     public static List<BoundedBroker> findBrokersAtLevel(BoundedBroker root, int targetLevel) {
         List<BoundedBroker> result = new ArrayList<>();
         if (root == null || root.getNodeLevel() > targetLevel) return result;
@@ -95,34 +137,24 @@ public class TopologyAnalyzer {
         return result;
     }
 
-    /**
-     * Finds all leaf brokers (brokers with no broker children) in the topology.
-     */
     public static List<BoundedBroker> findLeafBrokers(BoundedBroker root) {
         List<BoundedBroker> leaves = new ArrayList<>();
+        // Could now use findFirstNode logic, but we need ALL leaves, not just the first.
+        // Keeping manual traversal for collection.
         Queue<TreeNode> queue = new LinkedList<>();
         if (root != null) queue.add(root);
         
         while (!queue.isEmpty()) {
             TreeNode current = queue.poll();
-            if (current instanceof BoundedBroker) {
-                boolean hasBrokerChild = false;
-                for (TreeNode child : current.getChildren()) {
-                    if (child instanceof BoundedBroker) {
-                        hasBrokerChild = true;
-                        break; 
-                    }
-                }
-                if (!hasBrokerChild) {
-                    leaves.add((BoundedBroker) current);
+            if (current instanceof BoundedBroker broker) {
+                if (isLeafBroker(broker)) {
+                    leaves.add(broker);
                 }
             }
             if (current.getChildren() != null) queue.addAll(current.getChildren());
         }
         return leaves;
     }
-
-    // --- Structure Logging & Analysis ---
 
     public static void logStructure(BoundedBroker root, Logger logger) {
         if (root == null) return;
@@ -178,7 +210,6 @@ public class TopologyAnalyzer {
     }
 
     // --- Plane Sweep Algorithm ---
-
     private static class SweepEvent implements Comparable<SweepEvent> {
         enum EventType { START, END }
         final double x;

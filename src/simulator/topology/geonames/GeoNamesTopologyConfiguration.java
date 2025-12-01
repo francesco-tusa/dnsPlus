@@ -18,8 +18,8 @@ public class GeoNamesTopologyConfiguration implements TopologyConfiguration {
 
     public GeoNamesTopologyConfiguration() {
         SimConfiguration config = SimConfiguration.get();
-        this.topologyFilePath = config.paths.getActiveTopologyFile();
 
+        this.topologyFilePath = config.paths.getActiveTopologyFile(config.topology.simulationStrategy);
         this.numberOfReplicas = config.workload.numberOfReplicas;
         this.subscribersPerReplica = config.workload.subscribersPerReplica;
         this.totalSubscribers = numberOfReplicas * subscribersPerReplica;

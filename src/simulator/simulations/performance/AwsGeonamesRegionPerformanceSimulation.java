@@ -9,7 +9,7 @@ import simulator.population.PublishersPlacementStrategy;
 import simulator.regions.BoundedBroker;
 import simulator.topology.factories.SpatialMatchBrokerFactory;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyLoader;
 import utils.CustomLogger;
 
 public class AwsGeonamesRegionPerformanceSimulation extends GeoNamesBasedRegionPerformanceSimulation {
@@ -30,7 +30,7 @@ public class AwsGeonamesRegionPerformanceSimulation extends GeoNamesBasedRegionP
     public static void main(String[] args) {
         logger.info("--- Starting GeoNames-Based Performance Simulation (AWS Region-Based) ---");
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
-        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new SpatialMatchBrokerFactory());
+        GeoNamesTopologyLoader factory = new GeoNamesTopologyLoader(new SpatialMatchBrokerFactory());
         
         AwsGeonamesRegionPerformanceSimulation simulation = new AwsGeonamesRegionPerformanceSimulation();
         

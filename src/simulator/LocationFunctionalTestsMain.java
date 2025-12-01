@@ -10,7 +10,7 @@ import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyLoader;
 import simulator.topology.grid.GridTopologyConfiguration;
 import simulator.topology.grid.GridTopologyGenerator;
 import utils.CustomLogger; // Import CustomLogger
@@ -67,7 +67,7 @@ public class LocationFunctionalTestsMain {
     // TODO: Should include here a complete regression test for location based algorithm, like we do in RegionFunctionalTestsMain
     public static void runGeoNamesTest() {        
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
-        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new LocationBrokerFactory());
+        GeoNamesTopologyLoader factory = new GeoNamesTopologyLoader(new LocationBrokerFactory());
 
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): GeoNames Topology - Location Propagation");
@@ -79,7 +79,7 @@ public class LocationFunctionalTestsMain {
             return true; 
         };
 
-        ConfigurableFunctionalTest<GeoNamesTopologyConfiguration, BoundedBroker, GeoNamesTopologyGenerator> validation =
+        ConfigurableFunctionalTest<GeoNamesTopologyConfiguration, BoundedBroker, GeoNamesTopologyLoader> validation =
             new ConfigurableFunctionalTest<>(placeholderTest, "GeoNames Location Propagation");
             
         validation.setVisualisationEnabled(false);

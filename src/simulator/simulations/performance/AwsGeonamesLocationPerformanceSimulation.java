@@ -6,7 +6,7 @@ import simulator.population.AmazonAwsPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyLoader;
 import utils.CustomLogger;
 
 /**
@@ -33,7 +33,7 @@ public class AwsGeonamesLocationPerformanceSimulation extends GeoNamesBasedLocat
         logger.info("--- Starting GeoNames-Based Performance Simulation (AWS Location-Based) ---");
 
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
-        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new LocationBrokerFactory());
+        GeoNamesTopologyLoader factory = new GeoNamesTopologyLoader(new LocationBrokerFactory());
         
         AwsGeonamesLocationPerformanceSimulation simulation = new AwsGeonamesLocationPerformanceSimulation();
         

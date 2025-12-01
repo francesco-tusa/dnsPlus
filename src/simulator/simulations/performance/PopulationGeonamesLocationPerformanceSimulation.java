@@ -6,7 +6,7 @@ import simulator.population.PopulationBasedPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyLoader;
 import utils.CustomLogger;
 
 /**
@@ -34,7 +34,7 @@ public class PopulationGeonamesLocationPerformanceSimulation extends GeoNamesBas
         logger.info("--- Starting GeoNames-Based Performance Simulation (Population Location-Based) ---");
 
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
-        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new LocationBrokerFactory());
+        GeoNamesTopologyLoader factory = new GeoNamesTopologyLoader(new LocationBrokerFactory());
         
         PopulationGeonamesLocationPerformanceSimulation simulation = new PopulationGeonamesLocationPerformanceSimulation();
         

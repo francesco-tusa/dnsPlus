@@ -12,7 +12,7 @@ import simulator.topology.factories.SpatialMatchBrokerFactory;
 import simulator.topology.fixed.FixedTestTopologyConfiguration;
 import simulator.topology.fixed.FixedTestTopologyGenerator;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyLoader;
 import simulator.topology.grid.GridTopologyConfiguration;
 import simulator.topology.grid.GridTopologyGenerator;
 import utils.CustomLogger;
@@ -104,14 +104,14 @@ public class RegionFunctionalTestsMain {
 
     public static void runGeoNamesTest() {        
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
-        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new SpatialMatchBrokerFactory());
+        GeoNamesTopologyLoader factory = new GeoNamesTopologyLoader(new SpatialMatchBrokerFactory());
 
         logger.info("===============================================================");
         logger.info("  RUNNING (Functional): GeoNames Topology - Propagation & Metrics");
         logger.info("  Topology File: " + config.getTopologyFilePath());
         logger.info("===============================================================");
         
-        ConfigurableFunctionalTest<GeoNamesTopologyConfiguration, BoundedBroker, GeoNamesTopologyGenerator> validation =
+        ConfigurableFunctionalTest<GeoNamesTopologyConfiguration, BoundedBroker, GeoNamesTopologyLoader> validation =
             new ConfigurableFunctionalTest<>(GeoNamesPropagationTest.COMPREHENSIVE_REGRESSION_TEST, "GeoNames Propagation");
         
         validation.setVisualisationEnabled(false);

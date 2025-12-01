@@ -10,15 +10,20 @@ import simulator.config.SimConfiguration;
 import simulator.config.TopologyConfig;
 import utils.CustomLogger;
 
-public class GeoNamesTopologyBuilder {
-    private static final Logger logger = CustomLogger.getLogger(GeoNamesTopologyBuilder.class.getName());
+/**
+ * The main entry point for the "Offline" phase.
+ * It reads raw GeoNames data, constructs an intermediate tree structure,
+ * and writes the final topology definition to a JSON file.
+ */
+public class TopologyFileBuilder {
+    private static final Logger logger = CustomLogger.getLogger(TopologyFileBuilder.class.getName());
 
     public static void main(String[] args) {
         GeoNamesDataLoader loader = new GeoNamesDataLoader();
         loader.loadAll();
 
         SimConfiguration simConfig = SimConfiguration.get();
-        TopologyConfig.StrategyType type = simConfig.topology.strategy;
+        TopologyConfig.StrategyType type = simConfig.topology.generationStrategy;
         TopologyBuilderStrategy strategy;
 
         switch (type) {
@@ -29,11 +34,11 @@ public class GeoNamesTopologyBuilder {
 
         logger.info("Executing Strategy: " + strategy.getClass().getSimpleName());
         
-        // Build Full
+        // Build the intermediate node structure
         GeoNamesBuilderNode root = strategy.build(loader);
         exportToJson(root, strategy.getOutputFilePath());
         
-        // Build Subset (Delegated)
+        // Build and export the subset (if supported)
         GeoNamesBuilderNode subset = strategy.createSubset(root);
         if (subset != null) {
             exportToJson(subset, strategy.getSubsetOutputFilePath());

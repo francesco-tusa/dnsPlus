@@ -21,15 +21,13 @@ import java.util.Objects;
 import java.util.logging.Logger;
 
 /**
- * Generator for building broker topologies based on a JSON file definition.
- * It now uses a BrokerFactory to remain agnostic of the specific broker implementation.
- * This implementation uses a streaming JsonParser to build the 
- * topology, avoiding OutOfMemoryError for very large topology files.
+ * Loads the runtime broker topology from a pre-computed JSON file.
+ * Extends AbstractTopologyFactory to fit the simulation framework.
  */
-public class GeoNamesTopologyGenerator
+public class GeoNamesTopologyLoader
         extends AbstractTopologyFactory<GeoNamesTopologyConfiguration, BoundedBroker> {
 
-    private static final Logger logger = CustomLogger.getLogger(GeoNamesTopologyGenerator.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(GeoNamesTopologyLoader.class.getName());
     
     private final BoundedBrokerFactory brokerFactory;
     private final List<BoundedBroker> allBrokers = new ArrayList<>();
@@ -51,7 +49,7 @@ public class GeoNamesTopologyGenerator
     private static final Location DEFAULT_LOCATION = new Location(0.0, 0.0, 0.0);
 
 
-    public GeoNamesTopologyGenerator(BoundedBrokerFactory brokerFactory) {
+    public GeoNamesTopologyLoader(BoundedBrokerFactory brokerFactory) {
         Objects.requireNonNull(brokerFactory, "BrokerFactory cannot be null.");
         this.brokerFactory = brokerFactory;
     }

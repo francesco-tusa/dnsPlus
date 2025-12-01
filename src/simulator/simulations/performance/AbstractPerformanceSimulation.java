@@ -2,7 +2,6 @@ package simulator.simulations.performance;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -86,6 +85,21 @@ public abstract class AbstractPerformanceSimulation<
     protected void setupSimulation() {
         CsvMetricWriter.getInstance().initialize(this.simulationTimestamp);
         
+        if (SimConfiguration.get().paths.enableVisualisation) {
+            SimulationVisualiser.getInstance().launch();
+            
+            // Wait for initialization
+            try {
+                int retries = 0;
+                while (!SimulationVisualiser.getInstance().isInitialized() && retries < 20) {
+                    Thread.sleep(100);
+                    retries++;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        
         logSectionHeader("Populating Topology for Performance Simulation");
 
         if (this.rootNode == null) {
@@ -93,6 +107,7 @@ public abstract class AbstractPerformanceSimulation<
             return;
         }
 
+        // This method will now successfully push Level 1 regions (Spatial Continents) to the visualiser
         TopologyAnalyzer.logStructure(this.rootNode, logger);
 
         List<BoundedBroker> leafBrokers = TopologyAnalyzer.findLeafBrokers(this.rootNode);
@@ -142,7 +157,10 @@ public abstract class AbstractPerformanceSimulation<
             CsvMetricWriter.getInstance().close();
             logger.info("Metrics writer closed.");
         }
-        SimulationVisualiser.getInstance().saveMapImage(simulationTimestamp);
-        SimulationVisualiser.getInstance().close();
+        
+        if (SimConfiguration.get().paths.enableVisualisation) {
+            SimulationVisualiser.getInstance().saveMapImage(simulationTimestamp);
+            SimulationVisualiser.getInstance().close();
+        }
     }
 }

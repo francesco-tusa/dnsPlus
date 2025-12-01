@@ -11,7 +11,7 @@ import simulator.regions.BoundedBroker;
 import simulator.topology.analysis.TopologyAnalyzer;
 import simulator.topology.factories.SpatialMatchBrokerFactory;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
-import simulator.topology.geonames.GeoNamesTopologyGenerator;
+import simulator.topology.geonames.GeoNamesTopologyLoader;
 import utils.CustomLogger;
 
 public class PopulationGeonamesRegionPerformanceSimulation extends GeoNamesBasedRegionPerformanceSimulation {
@@ -37,7 +37,7 @@ public class PopulationGeonamesRegionPerformanceSimulation extends GeoNamesBased
     public static void main(String[] args) {
         logger.info("--- Starting GeoNames-Based Performance Simulation (Top-N Population-Based) ---");
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
-        GeoNamesTopologyGenerator factory = new GeoNamesTopologyGenerator(new SpatialMatchBrokerFactory());
+        GeoNamesTopologyLoader factory = new GeoNamesTopologyLoader(new SpatialMatchBrokerFactory());
         
         PopulationGeonamesRegionPerformanceSimulation simulation = new PopulationGeonamesRegionPerformanceSimulation();
         

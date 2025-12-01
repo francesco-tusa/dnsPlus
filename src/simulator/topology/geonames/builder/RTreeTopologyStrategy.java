@@ -9,37 +9,34 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import simulator.config.SimConfiguration;
+import simulator.topology.geonames.builder.GeoNamesBuilderNode.NodeType;
 import utils.CustomLogger;
 
 public class RTreeTopologyStrategy implements TopologyBuilderStrategy {
     private static final Logger logger = CustomLogger.getLogger(RTreeTopologyStrategy.class.getName());
 
     private final SimConfiguration config = SimConfiguration.get();
-    private final int maxChildren;
+    private final int branchFactor;
+    private final int leafCapacity;
 
     public RTreeTopologyStrategy() {
-        this.maxChildren = config.topology.rTreeBranchingFactor;
-        if (this.maxChildren < 2) {
-            throw new IllegalArgumentException("RTree Branching factor (topology.rtreeBranchingFactor) must be >= 2");
-        }
+        this.branchFactor = config.topology.rTreeBranchingFactor;
+        this.leafCapacity = config.topology.rTreeLeafCapacity;
+        
+        if (this.branchFactor < 2) throw new IllegalArgumentException("RTree Branching factor must be >= 2");
+        if (this.leafCapacity < 1) throw new IllegalArgumentException("RTree Leaf Capacity must be >= 1");
     }
 
     @Override
-    public String getOutputFilePath() {
-        return config.paths.fullTopologyRTree;
-    }
+    public String getOutputFilePath() { return config.paths.fullTopologyRTree; }
     
     @Override
-    public String getSubsetOutputFilePath() {
-        // Return generic subset path, or null/warning if R-Tree subset generation isn't distinct
-        return config.paths.subsetTopology;
-    }
+    public String getSubsetOutputFilePath() { return config.paths.subsetTopology; }
 
     @Override
     public GeoNamesBuilderNode build(GeoNamesDataLoader loader) {
-        logger.info("Executing R-Tree Topology Strategy (STR Bulk Loading, M=" + maxChildren + ")...");
+        logger.info(String.format("Executing Hybrid R-Tree Strategy (Branching=%d, LeafCap=%d)...", branchFactor, leafCapacity));
 
-        // Use centralized config path for allCountries.txt via loader logic or direct config
         List<GeoNamesEntry> allPpls = loadAllPpls(config.paths.allCountriesFile);
         logger.info("Loaded " + allPpls.size() + " Populated Places.");
 
@@ -48,52 +45,61 @@ public class RTreeTopologyStrategy implements TopologyBuilderStrategy {
 
         List<GeoNamesBuilderNode> countryNodes = new ArrayList<>();
 
+        // --- PHASE 1: Build Internal Country Structures (R-Tree Below Country) ---
         for (String isoCode : pplsByCountry.keySet()) {
             List<GeoNamesEntry> points = pplsByCountry.get(isoCode);
             if (points.isEmpty()) continue;
 
-            // 1. Build Internal Tree
-            GeoNamesBuilderNode countryRoot = STRTreeBuilder.build(points, maxChildren);
+            // 1a. Cluster points into Leaf Brokers (ADM2) and aggregate into States (ADM1)
+            GeoNamesBuilderNode countryRoot = STRBulkLoader.build(points, branchFactor, leafCapacity, NodeType.ADM1);
             
+            if (countryRoot == null) continue;
+
+            // 1b. Identity Preservation: Ensure this node acts as the COUNTRY
             countryRoot.name = loader.countryCodeToNameMap.getOrDefault(isoCode, isoCode);
-            countryRoot.type = GeoNamesBuilderNode.NodeType.COUNTRY;
+            countryRoot.type = NodeType.COUNTRY; // STRICTLY set as COUNTRY
             countryRoot.code = isoCode;
             countryRoot.featureCode = "PCLI";
             
-            // 2. Scale Population
+            // 1c. Data Injection: Scale Population & Apply Penetration
             Long officialPop = loader.countryCodeToPopulationMap.get(isoCode);
             if (officialPop != null && countryRoot.aggregatedPopulation > 0) {
                 scalePopulation(countryRoot, officialPop);
                 countryRoot.officialPopulation = officialPop;
             }
 
-            // 3. Apply Internet Penetration
             Double penetration = loader.countryIsoToPenetrationMap.get(isoCode);
             if (penetration == null) penetration = 0.0;
-            
             applyPenetrationRate(countryRoot, penetration);
 
             countryNodes.add(countryRoot);
         }
 
-        logger.info("Building Global Index from " + countryNodes.size() + " countries...");
-        GeoNamesBuilderNode worldRoot = STRTreeBuilder.buildFromNodes(countryNodes, maxChildren);
+        logger.info("Built " + countryNodes.size() + " country-level R-Trees. Now aggregating globally...");
+
+        // --- PHASE 2: Build Global Super-Structure (R-Tree Above Country) ---
+        // We pack the COUNTRY nodes into SPATIAL CONTINENTS to minimize overlap.
         
-        worldRoot.name = "World";
-        worldRoot.type = GeoNamesBuilderNode.NodeType.WORLD;
-        worldRoot.code = "WORLD";
+        GeoNamesBuilderNode worldRoot = STRBulkLoader.buildFromNodes(countryNodes, branchFactor, NodeType.CONTINENT);
         
+        if (worldRoot == null) {
+             worldRoot = new GeoNamesBuilderNode(0, "World", NodeType.WORLD, "WORLD", "");
+        } else {
+             worldRoot.name = "World";
+             worldRoot.type = NodeType.WORLD;
+             worldRoot.code = "WORLD";
+        }
+
         logger.info("World Aggregated Pop: " + worldRoot.aggregatedPopulation);
         logger.info("World Internet Pop: " + worldRoot.internetPopulation);
 
         return worldRoot;
     }
     
+    // ... [Helper methods createSubset, scalePopulation, loadAllPpls, applyPenetrationRate remain unchanged] ...
+    
     @Override
-    public GeoNamesBuilderNode createSubset(GeoNamesBuilderNode root) {
-        logger.warning("Subset generation not yet implemented for R-Tree strategy.");
-        return null;
-    }
+    public GeoNamesBuilderNode createSubset(GeoNamesBuilderNode root) { return null; }
     
     private void scalePopulation(GeoNamesBuilderNode node, long targetPop) {
         long currentTotal = node.aggregatedPopulation;
