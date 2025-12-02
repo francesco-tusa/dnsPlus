@@ -2,13 +2,17 @@ package simulator.config;
 
 import java.util.Properties;
 
+import com.fasterxml.jackson.databind.ser.std.StdKeySerializers.Default;
+
 public class TopologyConfig {
     public enum StrategyType { POLITICAL, RTREE, GRID, FIXED }
 
     // --- Generation Parameters (Used by Builder) ---
     public final StrategyType generationStrategy;
+
     public final int rTreeBranchingFactor;
-    public final int rTreeLeafCapacity; // [NEW] PPLs per Leaf Broker
+    public final int rTreeLeafCapacity;
+    public final double rTreeMaxCountryWidth;
 
     // --- Simulation Parameters (Used by Runner) ---
     public final StrategyType simulationStrategy;
@@ -44,6 +48,7 @@ public class TopologyConfig {
         // R-Tree Params
         this.rTreeBranchingFactor = parseInt(props, "topology.rtree.branchingFactor", "20");
         this.rTreeLeafCapacity = parseInt(props, "topology.rtree.leafCapacity", "50");
+        this.rTreeMaxCountryWidth = parseDouble(props, "topology.rtree.maxCountryWidth", "20.0"); // Default to 20.0 degrees (approx width of Poland/Germany).
 
         // Grid Params
         this.gridDimension = parseInt(props, "topology.grid.dimension", "10");

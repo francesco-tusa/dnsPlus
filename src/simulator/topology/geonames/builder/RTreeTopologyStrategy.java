@@ -18,10 +18,12 @@ public class RTreeTopologyStrategy implements TopologyBuilderStrategy {
     private final SimConfiguration config = SimConfiguration.get();
     private final int branchFactor;
     private final int leafCapacity;
+    private final double maxCountryWidth; // [NEW]
 
     public RTreeTopologyStrategy() {
         this.branchFactor = config.topology.rTreeBranchingFactor;
         this.leafCapacity = config.topology.rTreeLeafCapacity;
+        this.maxCountryWidth = config.topology.rTreeMaxCountryWidth; // [NEW]
         
         if (this.branchFactor < 2) throw new IllegalArgumentException("RTree Branching factor must be >= 2");
         if (this.leafCapacity < 1) throw new IllegalArgumentException("RTree Leaf Capacity must be >= 1");
@@ -35,7 +37,8 @@ public class RTreeTopologyStrategy implements TopologyBuilderStrategy {
 
     @Override
     public GeoNamesBuilderNode build(GeoNamesDataLoader loader) {
-        logger.info(String.format("Executing Hybrid R-Tree Strategy (Branching=%d, LeafCap=%d)...", branchFactor, leafCapacity));
+        logger.info(String.format("Executing Hybrid R-Tree Strategy (Branch=%d, LeafCap=%d, SplitWidth=%.1f)...", 
+                branchFactor, leafCapacity, maxCountryWidth));
 
         List<GeoNamesEntry> allPpls = loadAllPpls(config.paths.allCountriesFile);
         logger.info("Loaded " + allPpls.size() + " Populated Places.");
@@ -43,44 +46,66 @@ public class RTreeTopologyStrategy implements TopologyBuilderStrategy {
         Map<String, List<GeoNamesEntry>> pplsByCountry = allPpls.stream()
             .collect(Collectors.groupingBy(e -> e.countryCode));
 
-        List<GeoNamesBuilderNode> countryNodes = new ArrayList<>();
+        List<GeoNamesBuilderNode> globalNodes = new ArrayList<>();
+        int splitCount = 0;
 
-        // --- PHASE 1: Build Internal Country Structures (R-Tree Below Country) ---
         for (String isoCode : pplsByCountry.keySet()) {
             List<GeoNamesEntry> points = pplsByCountry.get(isoCode);
             if (points.isEmpty()) continue;
 
-            // 1a. Cluster points into Leaf Brokers (ADM2) and aggregate into States (ADM1)
+            // 1. Build the local R-Tree for the country
+            // The root is temporarily typed as ADM1 so we can potentially use it as a container
             GeoNamesBuilderNode countryRoot = STRBulkLoader.build(points, branchFactor, leafCapacity, NodeType.ADM1);
-            
             if (countryRoot == null) continue;
 
-            // 1b. Identity Preservation: Ensure this node acts as the COUNTRY
-            countryRoot.name = loader.countryCodeToNameMap.getOrDefault(isoCode, isoCode);
-            countryRoot.type = NodeType.COUNTRY; // STRICTLY set as COUNTRY
+            // 2. Apply Country Metadata & Stats
+            String countryName = loader.countryCodeToNameMap.getOrDefault(isoCode, isoCode);
+            countryRoot.name = countryName;
+            countryRoot.type = NodeType.COUNTRY;
             countryRoot.code = isoCode;
             countryRoot.featureCode = "PCLI";
             
-            // 1c. Data Injection: Scale Population & Apply Penetration
             Long officialPop = loader.countryCodeToPopulationMap.get(isoCode);
             if (officialPop != null && countryRoot.aggregatedPopulation > 0) {
                 scalePopulation(countryRoot, officialPop);
                 countryRoot.officialPopulation = officialPop;
             }
-
             Double penetration = loader.countryIsoToPenetrationMap.get(isoCode);
             if (penetration == null) penetration = 0.0;
             applyPenetrationRate(countryRoot, penetration);
 
-            countryNodes.add(countryRoot);
+            // 3. Check for "Approximation Error" (Massive Bounding Box)
+            // If the country is too wide, we "explode" it into its constituent clusters.
+            double width = countryRoot.bounds.getWidth();
+            
+            if (width > maxCountryWidth && !countryRoot.children.isEmpty()) {
+                splitCount++;
+                int part = 1;
+                // Add the *children* (Leaf Clusters or ADM1s) to the global list instead of the Country node
+                for (GeoNamesBuilderNode child : countryRoot.children) {
+                    // We tag these parts with the Country Code so they are still identified as "part of Country X"
+                    // but they will be spatially indexed independently.
+                    child.name = countryName + " (Part " + part++ + ")";
+                    // We keep them as 'COUNTRY' type to preserve logic that looks for countries,
+                    // or we could use 'ADM1' if we want them strictly hierarchical. 
+                    // Using 'COUNTRY' ensures they are treated as major regions.
+                    child.type = NodeType.COUNTRY; 
+                    child.code = isoCode; 
+                    child.officialPopulation = 0L; // Avoid double counting official stats
+                    
+                    globalNodes.add(child);
+                }
+            } else {
+                // Country is compact enough; keep it as a single node
+                globalNodes.add(countryRoot);
+            }
         }
 
-        logger.info("Built " + countryNodes.size() + " country-level R-Trees. Now aggregating globally...");
+        logger.info("Split " + splitCount + " wide countries into smaller spatial clusters to reduce overlap.");
+        logger.info("Building Global Index from " + globalNodes.size() + " spatial nodes...");
 
-        // --- PHASE 2: Build Global Super-Structure (R-Tree Above Country) ---
-        // We pack the COUNTRY nodes into SPATIAL CONTINENTS to minimize overlap.
-        
-        GeoNamesBuilderNode worldRoot = STRBulkLoader.buildFromNodes(countryNodes, branchFactor, NodeType.CONTINENT);
+        // 4. Build Global Super-Structure
+        GeoNamesBuilderNode worldRoot = STRBulkLoader.buildFromNodes(globalNodes, branchFactor, NodeType.CONTINENT);
         
         if (worldRoot == null) {
              worldRoot = new GeoNamesBuilderNode(0, "World", NodeType.WORLD, "WORLD", "");
@@ -95,9 +120,7 @@ public class RTreeTopologyStrategy implements TopologyBuilderStrategy {
 
         return worldRoot;
     }
-    
-    // ... [Helper methods createSubset, scalePopulation, loadAllPpls, applyPenetrationRate remain unchanged] ...
-    
+        
     @Override
     public GeoNamesBuilderNode createSubset(GeoNamesBuilderNode root) { return null; }
     

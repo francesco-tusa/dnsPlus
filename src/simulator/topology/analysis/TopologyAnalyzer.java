@@ -20,6 +20,7 @@ import simulator.visualisation.SimulationVisualiser;
 
 /**
  * Utility class for analyzing topology structure, geometric properties, and graph traversal.
+ * 
  */
 public class TopologyAnalyzer {
 
@@ -27,12 +28,6 @@ public class TopologyAnalyzer {
 
     /**
      * Generic Breadth-First Search to find the first node matching a condition.
-     * This replaces specific traversal loops with a reusable pattern.
-     *
-     * @param root The starting node.
-     * @param type The class type of the node to find.
-     * @param condition The condition to match.
-     * @return The found node, or null.
      */
     public static <T extends TreeNode> T findFirstNode(TreeNode root, Class<T> type, Predicate<T> condition) {
         if (root == null) return null;
@@ -42,7 +37,6 @@ public class TopologyAnalyzer {
         while (!queue.isEmpty()) {
             TreeNode current = queue.poll();
             
-            // Check match
             if (type.isInstance(current)) {
                 T casted = type.cast(current);
                 if (condition.test(casted)) {
@@ -50,7 +44,6 @@ public class TopologyAnalyzer {
                 }
             }
             
-            // Continue traversal
             if (current.getChildren() != null) {
                 queue.addAll(current.getChildren());
             }
@@ -59,20 +52,31 @@ public class TopologyAnalyzer {
     }
 
     /**
-     * Uses the generic findFirstNode method.
-     * Finds a node in the tree by its name and expected type.
+     * Finds a node in the tree by its exact name and type.
      */
     public static <T extends TreeNode> T findNodeByName(TreeNode root, String name, Class<T> type) {
         return findFirstNode(root, type, node -> name.equals(node.getName()));
     }
 
     /**
-     * Optimized search that looks ONLY for BoundedBrokers by name.
+     * Finds a node where the name contains the given substring.
      */
+    public static <T extends TreeNode> T findNodeByNameContains(TreeNode root, String partialName, Class<T> type) {
+        return findFirstNode(root, type, node -> node.getName().contains(partialName));
+    }
+
+    /**
+     * Finds the first Leaf Broker whose region contains the specified location.
+     */
+    public static BoundedBroker findLeafBrokerAtLocation(BoundedBroker root, Location location) {
+        return findFirstNode(root, BoundedBroker.class, broker -> 
+            isLeafBroker(broker) && 
+            broker.getRegion() != null && 
+            broker.getRegion().contains(location)
+        );
+    }
+
     public static BoundedBroker findBrokerByName(BoundedBroker root, String name) {
-        // We keep the optimized broker-only traversal here for performance if needed, 
-        // or it could also be refactored to use findFirstNode(root, BoundedBroker.class, ...)
-        // For now, retaining specific implementation to restrict search scope to Brokers only (skipping clients).
         if (root == null || name == null) return null;
         if (root.getName().equals(name)) return root;
 
@@ -85,29 +89,6 @@ public class TopologyAnalyzer {
             addBrokerChildrenToQueue(current, queue);
         }
         return null;
-    }
-
-    /**
-     * Finds the first Leaf Broker whose region contains the specified location.
-     * This generalizes the geometric fallback logic previously in AwsRegions.
-     */
-    public static BoundedBroker findLeafBrokerAtLocation(BoundedBroker root, Location location) {
-        return findFirstNode(root, BoundedBroker.class, broker -> 
-            isLeafBroker(broker) && 
-            broker.getRegion() != null && 
-            broker.getRegion().contains(location)
-        );
-    }
-
-    /**
-     * Helper to determine if a broker is a leaf (has no broker children).
-     */
-    public static boolean isLeafBroker(BoundedBroker broker) {
-        if (broker.getChildren() == null) return true;
-        for (TreeNode child : broker.getChildren()) {
-            if (child instanceof BoundedBroker) return false;
-        }
-        return true;
     }
 
     private static void addBrokerChildrenToQueue(BoundedBroker parent, Queue<BoundedBroker> queue) {
@@ -127,7 +108,6 @@ public class TopologyAnalyzer {
 
         while (!queue.isEmpty()) {
             BoundedBroker current = queue.poll();
-
             if (current.getNodeLevel() == targetLevel) {
                 result.add(current);
             } else if (current.getNodeLevel() < targetLevel) {
@@ -139,8 +119,6 @@ public class TopologyAnalyzer {
 
     public static List<BoundedBroker> findLeafBrokers(BoundedBroker root) {
         List<BoundedBroker> leaves = new ArrayList<>();
-        // Could now use findFirstNode logic, but we need ALL leaves, not just the first.
-        // Keeping manual traversal for collection.
         Queue<TreeNode> queue = new LinkedList<>();
         if (root != null) queue.add(root);
         
@@ -156,9 +134,16 @@ public class TopologyAnalyzer {
         return leaves;
     }
 
+    public static boolean isLeafBroker(BoundedBroker broker) {
+        if (broker.getChildren() == null) return true;
+        for (TreeNode child : broker.getChildren()) {
+            if (child instanceof BoundedBroker) return false;
+        }
+        return true;
+    }
+
     public static void logStructure(BoundedBroker root, Logger logger) {
         if (root == null) return;
-        
         logger.info("");
         logger.info("--- Broker Topology Structure Summary ---");
         
@@ -175,7 +160,6 @@ public class TopologyAnalyzer {
                 BoundedBroker broker = queue.poll();
                 if (broker == null) continue;
                 brokersAtThisLevel.add(broker); 
-                
                 if (broker.getChildren() != null) {
                     for (TreeNode child : broker.getChildren()) {
                         if (child instanceof BoundedBroker childBroker) { 
@@ -185,18 +169,15 @@ public class TopologyAnalyzer {
                     }
                 }
             }
-            
             if (levelSize > 0) {
                 double avgFanOut = (totalBrokerChildrenAtLevel > 0) ? (double) totalBrokerChildrenAtLevel / levelSize : 0.0;
                 logger.info(String.format("  Level %d: %d brokers, Avg. Fan-Out: %.2f", currentLevel, levelSize, avgFanOut));
-
                 long totalPossiblePairs = (long) levelSize * (levelSize - 1) / 2;
                 if (totalPossiblePairs > 0) {
                     long overlappingPairs = calculateSiblingOverlaps(brokersAtThisLevel);
                     double overlapPercent = (double) overlappingPairs / totalPossiblePairs * 100.0;
                     logger.info(String.format("    -> Overlapping Sibling Pairs: %d / %d (%.4f%%)", overlappingPairs, totalPossiblePairs, overlapPercent));
                 }
-                
                 if (currentLevel == 1) {
                     SimulationVisualiser visualizer = SimulationVisualiser.getInstance();
                     for (BoundedBroker broker : brokersAtThisLevel) {
@@ -247,11 +228,9 @@ public class TopologyAnalyzer {
             }
         }
         Collections.sort(events);
-
         long overlapCount = 0;
         Map<BoundedBroker, Integer> activeSegments = new HashMap<>();
         Set<String> countedPairs = new HashSet<>(); 
-
         for (SweepEvent event : events) {
             BoundedBroker eventBroker = event.broker;
             Region r1 = eventBroker.getRegion();
