@@ -18,12 +18,12 @@ public class RTreeTopologyStrategy implements TopologyBuilderStrategy {
     private final SimConfiguration config = SimConfiguration.get();
     private final int branchFactor;
     private final int leafCapacity;
-    private final double maxCountryWidth; // [NEW]
+    private final double maxCountryWidth;
 
     public RTreeTopologyStrategy() {
-        this.branchFactor = config.topology.rTreeBranchingFactor;
+        this.branchFactor = config.topology.branchingFactor;
         this.leafCapacity = config.topology.rTreeLeafCapacity;
-        this.maxCountryWidth = config.topology.rTreeMaxCountryWidth; // [NEW]
+        this.maxCountryWidth = config.topology.rTreeMaxCountryWidth;
         
         if (this.branchFactor < 2) throw new IllegalArgumentException("RTree Branching factor must be >= 2");
         if (this.leafCapacity < 1) throw new IllegalArgumentException("RTree Leaf Capacity must be >= 1");

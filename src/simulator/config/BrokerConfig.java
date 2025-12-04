@@ -22,11 +22,6 @@ public class BrokerConfig {
         this.smartThreshold = parseDouble(props, "broker.smartThreshold", "0.5");
         
         validate();
-
-        // Log the settings with the requested clarification
-        logger.info(String.format("Broker Strategy Loaded: %s (Threshold: %.2f). " +
-                                  "NOTE: These settings apply ONLY to SpatialMatchBroker (Region-Based Routing).", 
-                                  this.strategy, this.smartThreshold));
     }
     
     private void validate() {

@@ -14,6 +14,7 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
     
     private final SimConfiguration config = SimConfiguration.get();
 
+    // Data structures for building the hierarchy
     private final Map<Integer, RelevantAdminInfo> relevantAdminMap = new HashMap<>();
     private final Map<Integer, Long> adm1PopMap = new HashMap<>();
     private final Map<Integer, Region> adm1BoundsMap = new HashMap<>();
@@ -93,14 +94,30 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         logger.info("Pass 7: Scaling populations...");
         scalePopulations(root, loader);
         
-        // Pass 8 & 9: Grid Expansion
-        LeafExpansionStrategy grid1M = new GridLeafExpansionStrategy(false);
-        logger.info("Pass 8: Expanding Leaves > 1M...");
-        expandLeaves(root, 1_000_000, grid1M, GeoNamesBuilderNode.NodeType.S_ADM3);
+        // Retrieve parameters from TopologyConfig
+        int maxBranching = config.topology.branchingFactor;
+        long thresholdCoarse = config.topology.politicalThresholdLvl1; // Default 1,000,000
+        long thresholdFine = config.topology.politicalThresholdLvl2;   // Default 10,000
+
+        // Pass 8: Coarse Expansion
+        // Uses "Bin Packing" logic (distributeEqually=false) to create large semantic districts.
+        // Node Type: GRID_COARSE
+        LeafExpansionStrategy gridPass1 = new GridLeafExpansionStrategy(false, maxBranching);
         
-        LeafExpansionStrategy grid10K = new GridLeafExpansionStrategy(true);
-        logger.info("Pass 9: Expanding Leaves > 10K...");
-        expandLeaves(root, 10_000, grid10K, GeoNamesBuilderNode.NodeType.S_ADM4);
+        logger.info(String.format("Pass 8: Expanding Leaves > %d (Branching=%s)...", 
+                thresholdCoarse, (maxBranching > 0 ? maxBranching : "Flat")));
+        
+        expandLeaves(root, thresholdCoarse, gridPass1, GeoNamesBuilderNode.NodeType.GRID_COARSE);
+        
+        // Pass 9: Fine Expansion
+        // Uses "Load Balancing" logic (distributeEqually=true) to create recursive routing trees.
+        // Node Type: GRID_FINE
+        LeafExpansionStrategy gridPass2 = new GridLeafExpansionStrategy(true, maxBranching);
+        
+        logger.info(String.format("Pass 9: Expanding Leaves > %d (Branching=%s)...", 
+                thresholdFine, (maxBranching > 0 ? maxBranching : "Flat")));
+        
+        expandLeaves(root, thresholdFine, gridPass2, GeoNamesBuilderNode.NodeType.GRID_FINE);
         
         // Pass 10: Final Aggregation
         logger.info("Pass 10: Final Aggregation...");
@@ -193,7 +210,8 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         if (node.type == GeoNamesBuilderNode.NodeType.ADM1) {
             node.aggregatedPopulation = adm1PopMap.getOrDefault(node.geonameId, 0L);
             node.bounds = adm1BoundsMap.getOrDefault(node.geonameId, new Region());
-            if (node.aggregatedPopulation > 1_000_000) expandList.add(node);
+            // ADM1s larger than the Coarse Threshold are candidates for expansion
+            if (node.aggregatedPopulation > config.topology.politicalThresholdLvl1) expandList.add(node);
         }
         for (GeoNamesBuilderNode child : node.children) assignInitialProps(child, expandList);
     }

@@ -7,9 +7,11 @@ import utils.CustomLogger;
 
 public class GridLeafExpansionStrategy implements LeafExpansionStrategy {
     private final boolean distributeEqually;
+    private final int maxBranching;
 
-    public GridLeafExpansionStrategy(boolean distributeEqually) {
+    public GridLeafExpansionStrategy(boolean distributeEqually, int maxBranching) {
         this.distributeEqually = distributeEqually;
+        this.maxBranching = maxBranching;
     }
 
     @Override
@@ -20,13 +22,19 @@ public class GridLeafExpansionStrategy implements LeafExpansionStrategy {
         long parentPop = leafNode.aggregatedPopulation;
         long parentInternetPop = leafNode.internetPopulation;
         
-        // 1. Calculate Grid Size
-        int numChildren = distributeEqually 
+        // 1. Calculate ideal children count
+        int totalChildrenNeeded = distributeEqually 
             ? (int) Math.max(2, Math.ceil((double) parentPop / threshold))
             : (int) Math.max(2, (parentPop + threshold - 1) / threshold);
 
-        int gridCols = (int) Math.ceil(Math.sqrt(numChildren));
-        int gridRows = (int) Math.ceil((double) numChildren / gridCols);
+        // 2. Apply Branching Constraint
+        int actualNumChildren = (maxBranching > 0 && totalChildrenNeeded > maxBranching) 
+            ? maxBranching 
+            : totalChildrenNeeded;
+
+        // 3. Grid Layout
+        int gridCols = (int) Math.ceil(Math.sqrt(actualNumChildren));
+        int gridRows = (int) Math.ceil((double) actualNumChildren / gridCols);
 
         double startLat = leafNode.bounds.getBottomLeft().getY();
         double cellHeight = (gridRows > 0) ? leafNode.bounds.getHeight() / gridRows : 0;
@@ -36,26 +44,34 @@ public class GridLeafExpansionStrategy implements LeafExpansionStrategy {
         long remainingPop = parentPop;
         long internetPopSum = 0;
 
-        for (int i = 0; i < numChildren; i++) {
+        for (int i = 0; i < actualNumChildren; i++) {
             String childName = leafNode.name + " part " + (i + 1);
-            int childId = -(Objects.hash(leafNode.geonameId, childName)); // Artificial ID
+            int childId = -(Objects.hash(leafNode.geonameId, childName)); 
             
             GeoNamesBuilderNode child = new GeoNamesBuilderNode(childId, childName, childType, leafNode.code, "ARTIFICIAL");
 
             // Population logic
-            long childPop = distributeEqually 
-                ? parentPop / numChildren + (i < parentPop % numChildren ? 1 : 0)
-                : (i == numChildren - 1 ? remainingPop : Math.min(remainingPop, threshold));
+            long childPop;
+            if (distributeEqually) {
+                childPop = parentPop / actualNumChildren + (i < parentPop % actualNumChildren ? 1 : 0);
+            } else {
+                // If hierarchical, prefer even split. If flat bin-packing, fill threshold.
+                if (maxBranching > 0) {
+                     childPop = parentPop / actualNumChildren + (i < parentPop % actualNumChildren ? 1 : 0);
+                } else {
+                     childPop = (i == actualNumChildren - 1 ? remainingPop : Math.min(remainingPop, threshold));
+                }
+            }
+            
             remainingPop -= childPop;
             child.aggregatedPopulation = childPop;
 
-            // Internet Pop logic
             long iPop = (parentPop > 0) ? Math.round(((double) childPop / parentPop) * parentInternetPop) : 0;
-            if (i == numChildren - 1) iPop = parentInternetPop - internetPopSum;
+            if (i == actualNumChildren - 1 && remainingPop <= 0) iPop = parentInternetPop - internetPopSum;
+            
             child.internetPopulation = Math.max(0, iPop);
             internetPopSum += child.internetPopulation;
 
-            // Bounds logic
             int r = i / gridCols;
             int c = i % gridCols;
             double minLat = Math.max(leafNode.bounds.getBottomLeft().getY(), startLat + r * cellHeight);
@@ -65,6 +81,11 @@ public class GridLeafExpansionStrategy implements LeafExpansionStrategy {
             
             child.bounds = new Region(new Location(minLon, minLat, 0), new Location(maxLon, maxLat, 0));
             leafNode.addChild(child);
+            
+            // --- RECURSIVE EXPANSION ---
+            if (child.aggregatedPopulation > threshold) {
+                this.expand(child, threshold, childType);
+            }
         }
         return true;
     }

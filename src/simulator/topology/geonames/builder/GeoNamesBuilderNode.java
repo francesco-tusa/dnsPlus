@@ -20,7 +20,10 @@ public class GeoNamesBuilderNode {
     public List<GeoNamesBuilderNode> children = new ArrayList<>();
 
     public enum NodeType {
-        WORLD, CONTINENT, COUNTRY, ADM1, ADM2, S_ADM3, S_ADM4, PPL
+        WORLD, CONTINENT, COUNTRY, ADM1, ADM2, PPL,
+        GRID_COARSE,  // Large-scale partitions (e.g., > 1M people)
+        GRID_FINE     // Fine-grained partitions (e.g., > 10k people)
+
     }
 
     public GeoNamesBuilderNode() {}
