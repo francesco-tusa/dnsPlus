@@ -26,7 +26,6 @@ public class SimulationVisualiser {
         return instance;
     }
 
-    // NEW: Check if initialized
     public boolean isInitialized() {
         return worldMapPanel != null;
     }
@@ -70,12 +69,15 @@ public class SimulationVisualiser {
             g2d.dispose();
 
             try {
-                String dir = "output/maps/";
+                String dir = "output/" + simulationTimestamp + "/";
+                
                 String fileName = "topology_map_" + simulationTimestamp + ".png";
+                
                 File outputDir = new File(dir);
                 if (!outputDir.exists()) outputDir.mkdirs();
+                
                 ImageIO.write(image, "png", new File(dir + fileName));
-                logger.info("Visualiser: Map image saved to " + fileName);
+                logger.info("Visualiser: Map image saved to " + dir + fileName);
             } catch (IOException e) {
                 logger.warning("Visualiser: Failed to save map image: " + e.getMessage());
             }

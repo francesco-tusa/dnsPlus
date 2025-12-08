@@ -15,7 +15,7 @@ public final class CustomLogger {
     private static Level globalLevel = Level.INFO; 
     private static FileHandler fileHandler = null;
     private static String logFilePath = ""; 
-    private static final int LOG_FILE_LIMIT_BYTES = 95 * 1024 * 1024; // 95 MB
+    private static final int LOG_FILE_LIMIT_BYTES = 90 * 1024 * 1024; // 90 MB
     private static final int LOG_FILE_COUNT = 100; // Keep up to 100 rotated files
 
     static {
@@ -77,20 +77,18 @@ public final class CustomLogger {
 
         // Configure Rotating File Handler
         try {
-            // Create directory: output/logs/<RunID>/
-            String logDir = "output/logs/" + simulationTimestamp;
+            String logDir = "output/" + simulationTimestamp;
             new File(logDir).mkdirs();
             
-            // Pattern: simulation_log_%g.log (%g is the rotation generation number)
-            // Note: FileHandler requires the directory to exist.
-            String pattern = logDir + "/simulation_log_%g.log";
+            String pattern = logDir + "/simulation_log_" + simulationTimestamp + "_%g.log";
             
             fileHandler = new FileHandler(pattern, LOG_FILE_LIMIT_BYTES, LOG_FILE_COUNT, true);
             fileHandler.setFormatter(new SimpleFileFormatter());
             fileHandler.setLevel(globalLevel);
             rootLogger.addHandler(fileHandler);
             
-            logFilePath = logDir + "/simulation_log_0.log"; // Approximate current file
+            // Approximate current file path for logging info
+            logFilePath = logDir + "/simulation_log_" + simulationTimestamp + "_0.log"; 
             selfLogger.info("--- Log file initialized at: " + logDir + " (Max " + (LOG_FILE_LIMIT_BYTES/1024/1024) + "MB per file) ---");
             
         } catch (IOException | SecurityException e) {

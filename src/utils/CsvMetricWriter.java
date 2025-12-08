@@ -12,7 +12,7 @@ public class CsvMetricWriter {
     private RotatingFileWriter publicationWriter;
     private boolean initialized = false;
     
-    private static final long MAX_FILE_SIZE_BYTES = 95 * 1024 * 1024; // 95 MB
+    private static final long MAX_FILE_SIZE_BYTES = 90 * 1024 * 1024; // 90 MB
 
     private CsvMetricWriter() { }
 
@@ -26,22 +26,25 @@ public class CsvMetricWriter {
     public synchronized void initialize(String runId) {
         if (initialized) return;
         try {
-            String dirPath = "output/metrics/" + runId;
-            File metricsDir = new File(dirPath);
-            if (!metricsDir.exists()) {
-                metricsDir.mkdirs();
-            }
+            String baseDir = "output/" + runId;
             
-            // Initialize Rotating Writers
-            // subscriptions_1.csv, subscriptions_2.csv ...
+            String subDir = baseDir + "/subscriptions";
+            String pubDir = baseDir + "/publications";
+            
+            File subFolder = new File(subDir);
+            if (!subFolder.exists()) subFolder.mkdirs();
+            
+            File pubFolder = new File(pubDir);
+            if (!pubFolder.exists()) pubFolder.mkdirs();
+            
+            // Initialize Rotating Writers pointing to the specific subfolders
             subscriptionWriter = new RotatingFileWriter(
-                dirPath, "subscriptions", 
+                subDir, "subscriptions", 
                 "TraceID,Source,Receiver,Hops,Region\n"
             );
             
-            // publications_1.csv, publications_2.csv ...
             publicationWriter = new RotatingFileWriter(
-                dirPath, "publications", 
+                pubDir, "publications", 
                 "TraceID,Subscriber,Hops,LocationX,LocationY\n"
             );
             
