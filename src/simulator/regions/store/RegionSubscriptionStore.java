@@ -10,9 +10,9 @@ import simulator.regions.SubscriptionWithRegion;
 public interface RegionSubscriptionStore extends SubscriptionStore{
     /**
      * Adds or updates a subscription from a specific source.
-     * @return The result of the operation (COVERED, EXPANDED, ADDED).
+     * Returns a StoreUpdate containing the result status and the specific region that changed.
      */
-    StoreOpResult addOrUpdate(TreeNode source, SubscriptionWithRegion sub);
+    StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub);
 
     /**
      * Finds all neighbors whose stored subscriptions cover the given location.

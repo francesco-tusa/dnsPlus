@@ -20,23 +20,24 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     private final Map<TreeNode, SubscriptionWithRegion> map = new HashMap<>();
 
     @Override
-    public StoreOpResult addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
+    public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         SubscriptionWithRegion existing = map.get(source);
         
         if (existing == null) {
-            map.put(source, new SubscriptionWithRegion(new Region(sub.getRegion())));
-            return StoreOpResult.ADDED; // New Neighbor
+            SubscriptionWithRegion newEntry = new SubscriptionWithRegion(new Region(sub.getRegion()));
+            map.put(source, newEntry);
+            return new StoreUpdate(StoreOpResult.ADDED, newEntry);
         }
 
         Region currentRegion = existing.getRegion();
         Region newRegion = sub.getRegion();
 
         if (currentRegion.contains(newRegion)) {
-            return StoreOpResult.NO_CHANGE; // Covered
+            return new StoreUpdate(StoreOpResult.NO_CHANGE, null);
         }
 
         currentRegion.expand(newRegion);
-        return StoreOpResult.EXPANDED; // Merged
+        return new StoreUpdate(StoreOpResult.EXPANDED, existing);
     }
 
     @Override

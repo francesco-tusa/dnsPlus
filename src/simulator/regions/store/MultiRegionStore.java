@@ -27,20 +27,17 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     }
 
     @Override
-    public StoreOpResult addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
+    public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         List<SubscriptionWithRegion> regions = map.computeIfAbsent(source, k -> new ArrayList<>());
         
-        // 1. Check Coverage: Is the new subscription already fully covered?
-        // This is the fast path for redundant subscriptions.
+        // 1. Check Coverage
         for (SubscriptionWithRegion existing : regions) {
             if (existing.getRegion().contains(sub.getRegion())) {
-                return StoreOpResult.NO_CHANGE;
+                return new StoreUpdate(StoreOpResult.NO_CHANGE, null);
             }
         }
 
         // 2. Greedy Accumulator Merge
-        // Start with the new region as the "Accumulator".
-        // Iterate through the list, absorbing any regions that should merge with it.
         Region accumulator = new Region(sub.getRegion());
         boolean changed = false;
         boolean mergedInPass;
@@ -72,13 +69,14 @@ public class MultiRegionStore implements RegionSubscriptionStore {
             }
         } while (mergedInPass);
 
-        // 3. Add the final (potentially merged) region to the list
-        regions.add(new SubscriptionWithRegion(accumulator));
+        // 3. Add the final region to the list
+        SubscriptionWithRegion resultingEntry = new SubscriptionWithRegion(accumulator);
+        regions.add(resultingEntry);
         
-        // 4. Update the global summary for this neighbor
         updateSummary(source);
 
-        return changed ? StoreOpResult.EXPANDED : StoreOpResult.ADDED;
+        StoreOpResult opResult = changed ? StoreOpResult.EXPANDED : StoreOpResult.ADDED;
+        return new StoreUpdate(opResult, resultingEntry);
     }
 
     private void updateSummary(TreeNode source) {

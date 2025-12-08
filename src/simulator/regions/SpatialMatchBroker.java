@@ -14,6 +14,7 @@ import simulator.regions.store.MultiRegionStore;
 import simulator.regions.store.RegionSubscriptionStore;
 import simulator.regions.store.SimpleRegionStore;
 import simulator.regions.store.StoreOpResult;
+import simulator.regions.store.StoreUpdate;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
@@ -65,11 +66,15 @@ public class SpatialMatchBroker extends BoundedBroker {
     public void addSubscription(SimulationSubscription s) {
         if (s.getSource() == null) throw new IllegalArgumentException("Source null");
 
-        StoreOpResult result = StoreOpResult.NO_CHANGE;
+        StoreOpResult resultForLog = StoreOpResult.NO_CHANGE;
 
         if (s instanceof SubscriptionWithRegion sub) {
-            result = inputStore.addOrUpdate(s.getSource(), sub);
-            switch (result) {
+            // Update Input Store
+            StoreUpdate update = inputStore.addOrUpdate(s.getSource(), sub);
+            resultForLog = update.getResult();
+            
+            // Update Counters based on the result
+            switch (resultForLog) {
                 case NO_CHANGE -> recordSubCovered();
                 case EXPANDED -> recordSubExpanded();
                 case ADDED -> recordSubAdded();
@@ -85,7 +90,7 @@ public class SpatialMatchBroker extends BoundedBroker {
                 s.getSource().getName(), 
                 s.getMetrics().getHops(), 
                 regionToLog, 
-                result.name() 
+                resultForLog.name() 
             );
         }
     }
@@ -110,46 +115,63 @@ public class SpatialMatchBroker extends BoundedBroker {
         if (parent == null) return;
 
         SubscriptionWithRegion candidate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
-        StoreOpResult result = outputStore.addOrUpdate(parent, candidate);
+        
+        // Capture the specific update result
+        StoreUpdate update = outputStore.addOrUpdate(parent, candidate);
 
-        // Propagate only if state changed (Added or Expanded)
-        if (result != StoreOpResult.NO_CHANGE) {
-            List<SimulationSubscription> outputs = outputStore.getOutputFor(parent);
-            for(SimulationSubscription out : outputs) {
-                 SubscriptionWithRegion toSend = (SubscriptionWithRegion) out.getSubscription();
-                 toSend.setSource(this);
-                 if (newSub.getMetrics() != null) {
-                     EventMetrics m = new EventMetrics(newSub.getMetrics());
-                     m.incrementHops();
-                     toSend.setMetrics(m);
-                 }
-                 parent.processSubscription(toSend);
-            }
+        // Only propagate if a change occurred
+        if (update.isChange()) {
+             // Retrieve the specific region that needs to be sent (The Delta)
+             SubscriptionWithRegion regionToSend = update.getRegion();
+             
+             // Create a safe copy for the message
+             SubscriptionWithRegion toSend = (SubscriptionWithRegion) regionToSend.getSubscription();
+             toSend.setSource(this);
+             
+             if (newSub.getMetrics() != null) {
+                 EventMetrics m = new EventMetrics(newSub.getMetrics());
+                 m.incrementHops();
+                 toSend.setMetrics(m);
+             }
+             
+             // Send only one message
+             parent.processSubscription(toSend);
         }
     }
 
     private void propagateSubscriptionDownward(SubscriptionWithRegion newSub) {
         for (TreeNode child : getChildren()) {
+             // 1. Split Horizon: Don't send back to the source
              if (child == newSub.getSource()) continue;
+             
+             // 2. Type Check: Only propagate to other Brokers (Subscribers don't need routing updates)
              if (!(child instanceof BoundedBroker childBroker)) continue;
 
+             // 3. Spatial Filter: Only propagate if the subscription overlaps the child's domain
              if (childBroker.getRegion() != null && childBroker.getRegion().intersects(newSub.getRegion())) {
                  
                  SubscriptionWithRegion candidate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
-                 StoreOpResult result = outputStore.addOrUpdate(childBroker, candidate);
                  
-                 if (result != StoreOpResult.NO_CHANGE) {
-                     List<SimulationSubscription> outputs = outputStore.getOutputFor(childBroker);
-                     for(SimulationSubscription out : outputs) {
-                         SubscriptionWithRegion toSend = (SubscriptionWithRegion) out.getSubscription();
-                         toSend.setSource(this);
-                         if (newSub.getMetrics() != null) {
-                             EventMetrics m = new EventMetrics(newSub.getMetrics());
-                             m.incrementHops();
-                             toSend.setMetrics(m);
-                         }
-                         childBroker.processSubscription(toSend);
+                 // Capture the specific update result (The Delta)
+                 StoreUpdate update = outputStore.addOrUpdate(childBroker, candidate);
+                 
+                 // Only propagate if the state for this child actually changed
+                 if (update.isChange()) {
+                     // Retrieve the specific region that needs to be sent (New Disjoint or New Merged)
+                     SubscriptionWithRegion regionToSend = update.getRegion();
+
+                     // Create a safe copy for the message
+                     SubscriptionWithRegion toSend = (SubscriptionWithRegion) regionToSend.getSubscription();
+                     toSend.setSource(this);
+                     
+                     if (newSub.getMetrics() != null) {
+                         EventMetrics m = new EventMetrics(newSub.getMetrics());
+                         m.incrementHops();
+                         toSend.setMetrics(m);
                      }
+                     
+                     // Send only one message
+                     childBroker.processSubscription(toSend);
                  }
              }
         }
