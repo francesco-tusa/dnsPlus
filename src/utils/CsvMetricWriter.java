@@ -40,7 +40,7 @@ public class CsvMetricWriter {
             // Initialize Rotating Writers pointing to the specific subfolders
             subscriptionWriter = new RotatingFileWriter(
                 subDir, "subscriptions", 
-                "TraceID,Source,Receiver,Hops,Region\n"
+                "TraceID,Source,Receiver,Hops,Region,Result\n"
             );
             
             publicationWriter = new RotatingFileWriter(
@@ -54,10 +54,10 @@ public class CsvMetricWriter {
         }
     }
 
-    public synchronized void logSubscription(String traceId, String receiver, String source, int hops, String region) {
+public synchronized void logSubscription(String traceId, String receiver, String source, int hops, String region, String result) {
         if (!initialized) return;
         try {
-            String line = String.format("%s,%s,%s,%d,\"%s\"\n", traceId, source, receiver, hops, region);
+            String line = String.format("%s,%s,%s,%d,\"%s\",%s\n", traceId, source, receiver, hops, region, result);
             subscriptionWriter.write(line);
         } catch (IOException e) {
             e.printStackTrace();

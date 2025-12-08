@@ -64,20 +64,37 @@ public class SpatialMatchBroker extends BoundedBroker {
     @Override
     public void addSubscription(SimulationSubscription s) {
         if (s.getSource() == null) throw new IllegalArgumentException("Source null");
-        if (s.getMetrics() != null) {
-            String rStr = (s instanceof SubscriptionWithRegion swr) ? swr.getRegion().toLogString() : "N/A";
-            CsvMetricWriter.getInstance().logSubscription(s.getMetrics().getTraceId(), getName(), s.getSource().getName(), s.getMetrics().getHops(), rStr);
-        }
+
+        StoreOpResult result = StoreOpResult.NO_CHANGE;
 
         if (s instanceof SubscriptionWithRegion sub) {
-            // Update Input Store & Counters
-            StoreOpResult result = inputStore.addOrUpdate(s.getSource(), sub);
+            result = inputStore.addOrUpdate(s.getSource(), sub);
             switch (result) {
                 case NO_CHANGE -> recordSubCovered();
                 case EXPANDED -> recordSubExpanded();
                 case ADDED -> recordSubAdded();
             }
         }
+        
+        if (s.getMetrics() != null && s instanceof SubscriptionWithRegion sub) {
+            String regionToLog = getRegionToLog(sub); 
+
+            CsvMetricWriter.getInstance().logSubscription(
+                s.getMetrics().getTraceId(), 
+                getName(), 
+                s.getSource().getName(), 
+                s.getMetrics().getHops(), 
+                regionToLog, 
+                result.name() 
+            );
+        }
+    }
+
+    /**
+     * Determines which region to log. Default behavior is to log the broker's own region.
+     */
+    protected String getRegionToLog(SubscriptionWithRegion sub) {
+        return this.getRegion().toLogString();
     }
 
     @Override

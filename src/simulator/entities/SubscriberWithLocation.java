@@ -67,7 +67,7 @@ public class SubscriberWithLocation extends TreeNode {
     public void send(SimulationSubscription s) {
         SimulationBroker broker = getBroker();
         s.setSource(this);
-        String traceId = this.getName() + "-" + System.nanoTime();
+        String traceId = this.getName() + "-" + s.getId();
         s.setMetrics(new EventMetrics(traceId));
 
         if (broker != null) {

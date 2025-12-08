@@ -2,6 +2,7 @@ package simulator.regions;
 
 import java.util.logging.Logger;
 import simulator.core.Location;
+import simulator.entities.SubscriberWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import utils.CustomLogger;
@@ -25,6 +26,19 @@ public class SpatialMatchLeafBroker extends SpatialMatchBroker implements LeafBr
 
     public SpatialMatchLeafBroker(String name, Location p1, Location p2) {
         super(name, p1, p2, true, 0.5);
+    }
+
+    @Override
+    protected String getRegionToLog(SubscriptionWithRegion sub) {
+        // If the source is a direct subscriber (client), log the subscription region 
+        // to see the bounding box the subscriber actually requested.
+        if (sub.getSource() instanceof SubscriberWithLocation) {
+            return sub.getRegion().toLogString();
+        }
+        
+        // If the source is a peer broker, fall back to the non-leaf logic: 
+        // log this broker's own region (MBR of its clients/children).
+        return this.getRegion().toLogString();
     }
 
     @Override
