@@ -66,16 +66,6 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
     }
 
     @Override
-    public String getOutputFilePath() {
-        return config.paths.fullTopologyPolitical;
-    }
-
-    @Override
-    public String getSubsetOutputFilePath() {
-        return config.paths.subsetTopology;
-    }
-
-    @Override
     public GeoNamesBuilderNode build(GeoNamesDataLoader loader) {
         logger.info("Executing Political Topology Strategy...");
         
@@ -122,6 +112,11 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         // Pass 10: Final Aggregation
         logger.info("Pass 10: Final Aggregation...");
         finalAggregate(root);
+
+        //  Analysis
+        if (config.topology.enablePoliticalAnalysis) {
+            analyzeContinentExtremities(root);
+        }
         
         // Diagnostics
         printTopologyStats(root);
@@ -356,7 +351,65 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         }
         node.aggregatedPopulation = aggPop;
         node.internetPopulation = netPop;
-        if (bounds.getBottomLeft() != null) node.bounds = bounds;
+
+        // For the World node, ignore the calculated bounds (which are just the MBR of 
+        // component corners) and force the full global extent.
+        if (node.type == GeoNamesBuilderNode.NodeType.WORLD) {
+            node.bounds = new Region(new Location(-180, -90, 0), new Location(180, 90, 0));
+        } else {
+            if (bounds.getBottomLeft() != null) node.bounds = bounds;
+        }
+    }
+
+    /* Debugging method to identify which children defined the bounding box limits
+     * of the continents.
+     */
+    private void analyzeContinentExtremities(GeoNamesBuilderNode root) {
+        logger.info("\n=== CONTINENT BOUNDING BOX PROVENANCE ANALYSIS ===");
+        
+        double epsilon = 1e-5; // Tolerance for floating point comparison
+
+        for (GeoNamesBuilderNode continent : root.children) {
+            if (continent.type != GeoNamesBuilderNode.NodeType.CONTINENT || continent.bounds == null) continue;
+
+            Region cReg = continent.bounds;
+            List<String> north = new ArrayList<>();
+            List<String> south = new ArrayList<>();
+            List<String> east = new ArrayList<>();
+            List<String> west = new ArrayList<>();
+
+            // Iterate over Countries
+            for (GeoNamesBuilderNode country : continent.children) {
+                if (country.bounds == null || country.bounds.getBottomLeft() == null) continue;
+
+                Region childReg = country.bounds;
+
+                // Check North (Max Y)
+                if (Math.abs(childReg.getTopRight().getY() - cReg.getTopRight().getY()) < epsilon) {
+                    north.add(country.name);
+                }
+                // Check South (Min Y)
+                if (Math.abs(childReg.getBottomLeft().getY() - cReg.getBottomLeft().getY()) < epsilon) {
+                    south.add(country.name);
+                }
+                // Check East (Max X)
+                if (Math.abs(childReg.getTopRight().getX() - cReg.getTopRight().getX()) < epsilon) {
+                    east.add(country.name);
+                }
+                // Check West (Min X)
+                if (Math.abs(childReg.getBottomLeft().getX() - cReg.getBottomLeft().getX()) < epsilon) {
+                    west.add(country.name);
+                }
+            }
+
+            logger.info(String.format("Continent: %-15s %s", continent.name, cReg.toShortString()));
+            if (!north.isEmpty()) logger.info("  -> NORTH limit: " + String.join(", ", north));
+            if (!south.isEmpty()) logger.info("  -> SOUTH limit: " + String.join(", ", south));
+            if (!east.isEmpty())  logger.info("  -> EAST  limit: " + String.join(", ", east));
+            if (!west.isEmpty())  logger.info("  -> WEST  limit: " + String.join(", ", west));
+            logger.info("------------------------------------------------------------");
+        }
+        logger.info("=== END ANALYSIS ===\n");
     }
 
     private void printTopologyStats(GeoNamesBuilderNode root) {

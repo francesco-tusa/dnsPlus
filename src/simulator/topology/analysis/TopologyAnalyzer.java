@@ -16,7 +16,6 @@ import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
-import simulator.visualisation.SimulationVisualiser;
 
 /**
  * Utility class for analyzing topology structure, geometric properties, and graph traversal.
@@ -178,12 +177,7 @@ public class TopologyAnalyzer {
                     double overlapPercent = (double) overlappingPairs / totalPossiblePairs * 100.0;
                     logger.info(String.format("    -> Overlapping Sibling Pairs: %d / %d (%.4f%%)", overlappingPairs, totalPossiblePairs, overlapPercent));
                 }
-                if (currentLevel == 1) {
-                    SimulationVisualiser visualizer = SimulationVisualiser.getInstance();
-                    for (BoundedBroker broker : brokersAtThisLevel) {
-                        visualizer.updateRegion(broker.getName(), broker.getRegion());
-                    }
-                }
+                
                 currentLevel++;
             }
         }

@@ -53,7 +53,11 @@ public class SimulationVisualiser {
         });
     }
 
-    public void saveMapImage(String simulationTimestamp) {
+    /**
+     * Saves the current map state to the specified file.
+     * @param destinationFile The full path and filename for the output image.
+     */
+    public void saveMapImage(File destinationFile) {
         if (worldMapPanel == null) return;
 
         javax.swing.SwingUtilities.invokeLater(() -> {
@@ -69,15 +73,14 @@ public class SimulationVisualiser {
             g2d.dispose();
 
             try {
-                String dir = "output/" + simulationTimestamp + "/";
+                // Ensure parent directory exists
+                File parent = destinationFile.getParentFile();
+                if (parent != null && !parent.exists()) {
+                    parent.mkdirs();
+                }
                 
-                String fileName = "topology_map_" + simulationTimestamp + ".png";
-                
-                File outputDir = new File(dir);
-                if (!outputDir.exists()) outputDir.mkdirs();
-                
-                ImageIO.write(image, "png", new File(dir + fileName));
-                logger.info("Visualiser: Map image saved to " + dir + fileName);
+                ImageIO.write(image, "png", destinationFile);
+                logger.info("Visualiser: Map image saved to " + destinationFile.getAbsolutePath());
             } catch (IOException e) {
                 logger.warning("Visualiser: Failed to save map image: " + e.getMessage());
             }

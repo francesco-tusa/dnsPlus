@@ -30,12 +30,6 @@ public class RTreeTopologyStrategy implements TopologyBuilderStrategy {
     }
 
     @Override
-    public String getOutputFilePath() { return config.paths.fullTopologyRTree; }
-    
-    @Override
-    public String getSubsetOutputFilePath() { return config.paths.subsetTopology; }
-
-    @Override
     public GeoNamesBuilderNode build(GeoNamesDataLoader loader) {
         logger.info(String.format("Executing Hybrid R-Tree Strategy (Branch=%d, LeafCap=%d, SplitWidth=%.1f)...", 
                 branchFactor, leafCapacity, maxCountryWidth));

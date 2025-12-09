@@ -15,6 +15,7 @@ public class TopologyConfig {
     // --- Political Topology Specifics ---
     public final long politicalThresholdLvl1;    // Default: 1,000,000 (Pass 8)
     public final long politicalThresholdLvl2;    // Default: 10,000 (Pass 9)
+    public final boolean enablePoliticalAnalysis;
 
     // --- R-tree Topology Specifics ---
     public final int rTreeLeafCapacity;
@@ -59,6 +60,7 @@ public class TopologyConfig {
         // The population thresholds for the two expansion passes
         this.politicalThresholdLvl1 = parseLong(props, "topology.political.threshold.adm3", "1000000");
         this.politicalThresholdLvl2 = parseLong(props, "topology.political.threshold.adm4", "10000");
+        this.enablePoliticalAnalysis = Boolean.parseBoolean(props.getProperty("topology.political.enableAnalysis", "false"));
 
         // R-Tree Params
         this.rTreeLeafCapacity = parseInt(props, "topology.rtree.leafCapacity", "50");

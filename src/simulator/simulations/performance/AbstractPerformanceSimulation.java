@@ -85,21 +85,6 @@ public abstract class AbstractPerformanceSimulation<
     protected void setupSimulation() {
         CsvMetricWriter.getInstance().initialize(this.simulationTimestamp);
         
-        if (SimConfiguration.get().paths.enableVisualisation) {
-            SimulationVisualiser.getInstance().launch();
-            
-            // Wait for initialization
-            try {
-                int retries = 0;
-                while (!SimulationVisualiser.getInstance().isInitialized() && retries < 20) {
-                    Thread.sleep(100);
-                    retries++;
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
-        
         logSectionHeader("Populating Topology for Performance Simulation");
 
         if (this.rootNode == null) {
@@ -156,11 +141,6 @@ public abstract class AbstractPerformanceSimulation<
         if (SimConfiguration.get().paths.enableVerboseLogs) {
             CsvMetricWriter.getInstance().close();
             logger.info("Metrics writer closed.");
-        }
-        
-        if (SimConfiguration.get().paths.enableVisualisation) {
-            SimulationVisualiser.getInstance().saveMapImage(simulationTimestamp);
-            SimulationVisualiser.getInstance().close();
         }
     }
 }

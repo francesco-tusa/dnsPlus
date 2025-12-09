@@ -11,14 +11,4 @@ public interface TopologyBuilderStrategy {
      * Strategies implement this based on their specific tree structure.
      */
     GeoNamesBuilderNode createSubset(GeoNamesBuilderNode root);
-
-    /**
-     * Returns the full output file path for the Full Topology.
-     */
-    String getOutputFilePath();
-    
-    /**
-     * Returns the full output file path for the Subset Topology.
-     */
-    String getSubsetOutputFilePath();
 }
