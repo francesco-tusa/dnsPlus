@@ -14,7 +14,6 @@ import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.topology.analysis.TopologyAnalyzer;
-import simulator.topology.geonames.PoliticalTopologyInspector;
 import utils.CustomLogger;
 
 public class GeoNamesPropagationTest {
@@ -91,20 +90,22 @@ public class GeoNamesPropagationTest {
         Region smallSylhet = new Region(new Location(91.6, 23.2, 0), new Location(91.8, 23.8, 0));
         logger.info("Sub-Rajshahi subscribing to Contained Region: " + smallSylhet.toLogString());
         
-        // UPDATE: Use valid counters from the new architecture
-        long expansionsBefore = bangladesh.getSubExpandedCount();
-        long addedBefore = bangladesh.getSubAddedCount();
+        // Verification: Check SYLHET (downstream), not Bangladesh (upstream input).
+        // Since the region is redundant, Bangladesh should NOT propagate it to Sylhet.
+        // Therefore, Sylhet's counters should remain unchanged.
+        long sylhetExpandedBefore = sylhet.getSubExpandedCount();
+        long sylhetAddedBefore = sylhet.getSubAddedCount();
         
         subRajshahi.send(new SubscriptionWithRegion(smallSylhet));
         
-        long expansionsAfter = bangladesh.getSubExpandedCount();
-        long addedAfter = bangladesh.getSubAddedCount();
+        long sylhetExpandedAfter = sylhet.getSubExpandedCount();
+        long sylhetAddedAfter = sylhet.getSubAddedCount();
         
-        if (expansionsAfter == expansionsBefore && addedAfter == addedBefore) {
-            logger.info("SUCCESS: Bangladesh filtered the redundant downward subscription (No State Change).");
+        if (sylhetExpandedAfter == sylhetExpandedBefore && sylhetAddedAfter == sylhetAddedBefore) {
+            logger.info("SUCCESS: Bangladesh correctly filtered the redundant subscription (Sylhet undisturbed).");
         } else {
-            logger.severe(String.format("FAILURE: Bangladesh propagated redundant subscription! Expanded: %d->%d, Added: %d->%d", 
-                    expansionsBefore, expansionsAfter, addedBefore, addedAfter));
+            logger.severe(String.format("FAILURE: Redundant subscription leaked to Sylhet! Added: %d->%d, Expanded: %d->%d", 
+                    sylhetAddedBefore, sylhetAddedAfter, sylhetExpandedBefore, sylhetExpandedAfter));
             allPassed = false;
         }
 

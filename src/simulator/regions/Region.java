@@ -57,7 +57,6 @@ public class Region extends AbstractRegion {
         if (minLon <= maxLon) {
             centerLon = (minLon + maxLon) / 2.0;
         } else {
-            // Wrapped center logic
             double width = getWidth();
             double midOffset = width / 2.0;
             centerLon = minLon + midOffset;
@@ -84,6 +83,7 @@ public class Region extends AbstractRegion {
     @Override
     public boolean contains(SpatialRegion r) {
         if (r == null || r.getBottomLeft() == null) return false;
+        if (this.getWidth() >= 360.0 - EPSILON) return true;
         return contains(r.getBottomLeft()) && contains(r.getTopRight());
     }
 
@@ -108,7 +108,7 @@ public class Region extends AbstractRegion {
         } else if (!wraps1 && wraps2) {
             noOverlapX = (min1 > max2 + EPSILON) && (min2 > max1 + EPSILON);
         } else {
-            noOverlapX = false; // Both wrap -> must intersect
+            noOverlapX = false; 
         }
         return !noOverlapX;
     }
@@ -149,16 +149,9 @@ public class Region extends AbstractRegion {
                     newMinLon = originalMinLon;
                     newMaxLon = lon2;
                 }
-                
-                if ((newMinLon - newMaxLon) < EPSILON) {
-                     logger.warning("Expanding wrapped region resulted in unwrap. Assuming full longitude coverage [-180, 180].");
-                     newMinLon = -180.0;
-                     newMaxLon = 180.0;
-                }
             } else {
                 double testMin = Math.min(originalMinLon, lon2);
                 double testMax = Math.max(originalMaxLon, lon2);
-                
                 double directWidth = testMax - testMin;
                 double wrapWidth = 360.0 - directWidth;
                 
@@ -172,6 +165,24 @@ public class Region extends AbstractRegion {
             }
         }
         
+        // Normalize 180/-180 if needed, but preserve full globe
+        // Relax check with EPSILON to avoid jitter
+        if (newMinLon < -180.0 - EPSILON) newMinLon += 360.0;
+        if (newMinLon > 180.0 + EPSILON) newMinLon -= 360.0;
+        if (newMaxLon < -180.0 - EPSILON) newMaxLon += 360.0;
+        if (newMaxLon > 180.0 + EPSILON) newMaxLon -= 360.0;
+
+        // CRITICAL FIX: If we have a full globe [-180, 180], do NOT normalize it to [180, 180]
+        if (Math.abs(newMinLon - (-180.0)) < EPSILON && Math.abs(newMaxLon - 180.0) < EPSILON) {
+            // Keep as is
+        } else {
+            // Standard clamp
+            if (newMinLon > 180.0) newMinLon = 180.0;
+            if (newMaxLon > 180.0) newMaxLon = 180.0;
+            if (newMinLon < -180.0) newMinLon = -180.0;
+            if (newMaxLon < -180.0) newMaxLon = -180.0;
+        }
+
         boolean updated = ( Math.abs(newMinLon - originalMinLon) > EPSILON ||
                             Math.abs(newMaxLon - originalMaxLon) > EPSILON ||
                             Math.abs(newBlY - originalMinLat) > EPSILON ||
@@ -188,10 +199,114 @@ public class Region extends AbstractRegion {
 
     @Override
     public boolean expand(SpatialRegion r) {
-        if (r == null) return false;
-        boolean c1 = expand(r.getBottomLeft());
-        boolean c2 = expand(r.getTopRight());
-        return c1 || c2;
+        if (r == null || r.getBottomLeft() == null) return false;
+        
+        boolean changed = false;
+        double minLat = Math.min(this.bottomLeft.getY(), r.getBottomLeft().getY());
+        double maxLat = Math.max(this.topRight.getY(), r.getTopRight().getY());
+        double minAlt = Math.min(this.bottomLeft.getZ(), r.getBottomLeft().getZ());
+        double maxAlt = Math.max(this.topRight.getZ(), r.getTopRight().getZ());
+        
+        if (Math.abs(minLat - this.bottomLeft.getY()) > EPSILON ||
+            Math.abs(maxLat - this.topRight.getY()) > EPSILON ||
+            Math.abs(minAlt - this.bottomLeft.getZ()) > EPSILON ||
+            Math.abs(maxAlt - this.topRight.getZ()) > EPSILON) {
+            changed = true;
+        }
+
+        List<double[]> intervals = new ArrayList<>();
+        intervals.addAll(getLonIntervals(this.bottomLeft.getX(), this.topRight.getX()));
+        intervals.addAll(getLonIntervals(r.getBottomLeft().getX(), r.getTopRight().getX()));
+        
+        intervals = mergeIntervals(intervals);
+        
+        double newMinLon, newMaxLon;
+        
+        if (intervals.size() == 1) {
+            double[] i = intervals.get(0);
+            if (Math.abs(i[1] - i[0] - 360.0) < EPSILON) {
+                newMinLon = -180.0;
+                newMaxLon = 180.0;
+            } else {
+                newMinLon = i[0];
+                newMaxLon = i[1];
+            }
+        } else {
+            double maxGapSize = -1.0;
+            double[] maxGap = null;
+            
+            for (int i = 0; i < intervals.size(); i++) {
+                double[] current = intervals.get(i);
+                double[] next = intervals.get((i + 1) % intervals.size());
+                
+                double gapStart = current[1];
+                double gapEnd = next[0];
+                double gapSize;
+                
+                if (gapEnd >= gapStart) {
+                    gapSize = gapEnd - gapStart;
+                } else {
+                    gapSize = (180.0 - gapStart) + (gapEnd - (-180.0));
+                }
+                
+                if (gapSize > maxGapSize) {
+                    maxGapSize = gapSize;
+                    maxGap = new double[]{gapStart, gapEnd};
+                }
+            }
+            newMinLon = maxGap[1];
+            newMaxLon = maxGap[0];
+        }
+        
+        // Normalize
+        if (newMinLon < -180.0 - EPSILON) newMinLon += 360.0;
+        if (newMinLon > 180.0 + EPSILON) newMinLon -= 360.0;
+        if (newMaxLon < -180.0 - EPSILON) newMaxLon += 360.0;
+        if (newMaxLon > 180.0 + EPSILON) newMaxLon -= 360.0;
+
+        // Protect Full Globe State
+        boolean isFullGlobe = (Math.abs(newMinLon - (-180.0)) < EPSILON && Math.abs(newMaxLon - 180.0) < EPSILON);
+        if (!isFullGlobe) {
+             // Basic clamping to ensure we stay within valid range if not wrapping
+             if (newMinLon < -180.0) newMinLon = -180.0;
+             if (newMinLon > 180.0) newMinLon = 180.0; 
+             // Note: do not forcefully clamp Max < Min here or we break wrapping.
+        }
+
+        if (Math.abs(newMinLon - this.bottomLeft.getX()) > EPSILON ||
+            Math.abs(newMaxLon - this.topRight.getX()) > EPSILON) {
+            changed = true;
+        }
+
+        if (changed) {
+            this.bottomLeft = new Location(newMinLon, minLat, minAlt);
+            this.topRight = new Location(newMaxLon, maxLat, maxAlt);
+        }
+        
+        return changed;
+    }
+    
+    private List<double[]> mergeIntervals(List<double[]> intervals) {
+        if (intervals.isEmpty()) return intervals;
+        Collections.sort(intervals, (a, b) -> Double.compare(a[0], b[0]));
+        
+        List<double[]> merged = new ArrayList<>();
+        double[] current = intervals.get(0);
+        merged.add(current);
+        
+        for (int i = 1; i < intervals.size(); i++) {
+            double[] next = intervals.get(i);
+            if (next[0] <= current[1] + EPSILON) { 
+                current[1] = Math.max(current[1], next[1]);
+            } else {
+                current = next;
+                merged.add(current);
+            }
+        }
+        // Check for wrapping merge: If the last interval ends at 180 and first starts at -180,
+        // and they are effectively the same boundary, we merge them?
+        // No, standard intervals are bounded by -180/180. The gap logic handles the connection.
+        return merged;
     }
 
     @Override
@@ -276,7 +391,6 @@ public class Region extends AbstractRegion {
         double maxLon = topRight.getX();
         double minLat = bottomLeft.getY();
         double maxLat = topRight.getY();
-        
         Location center = getCenter();
         
         points.add(bottomLeft);
@@ -325,7 +439,5 @@ public class Region extends AbstractRegion {
 
     @Override
     @JsonIgnore
-    public String toLogString() {
-        return toShortString();
-    }
+    public String toLogString() { return toShortString(); }
 }

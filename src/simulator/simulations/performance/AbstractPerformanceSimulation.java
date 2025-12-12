@@ -64,12 +64,16 @@ public abstract class AbstractPerformanceSimulation<
         config.logDetails(logger);
 
         logConfigItem("Broker Strategy", brokerConfig.strategy);
-        if (brokerConfig.isSmartStrategy()) {
-            logConfigItem("Smart Threshold", brokerConfig.smartThreshold);
-        } else {
-            logConfigItem("Smart Threshold", "N/A (Simple Mode)");
-        }
-        
+
+if (brokerConfig.isSmartStrategy()) {
+    // In SMART mode, we use the getter (fields are now private)
+    logConfigItem("Smart Threshold", brokerConfig.getSmartThreshold());
+    logConfigItem("Intersection Optimization", "N/A (Smart uses Strict)");
+} else {
+    // In SIMPLE mode, Threshold is N/A, but we log the Optimization flag
+    logConfigItem("Smart Threshold", "N/A (Simple Mode)");
+    logConfigItem("Intersection Optimization", brokerConfig.isIntersectionOptimizationEnabled());
+}
         logConfigItem("Number of Replicas", workload.numberOfReplicas);
         logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);
         logConfigItem("Total Subscribers", workload.getTotalSubscribers());

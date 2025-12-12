@@ -27,7 +27,7 @@ public class RegionFunctionalTestsMain {
 
     public static void main(String[] args) {
         // Run the most fundamental test first
-        runRegionFloatingPointTest();
+        //runRegionFloatingPointTest();
 
         //runManualTopologyComprehensiveTest();
         //runSubscriptionCoveringTest();
@@ -36,7 +36,7 @@ public class RegionFunctionalTestsMain {
 
         // Run a comprehensive end-to-end test using (a subset of)
         // the GeoNames world topolgy        
-        // runGeoNamesTest();
+        runGeoNamesTest();
     }
 
 

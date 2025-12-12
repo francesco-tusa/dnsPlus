@@ -54,7 +54,6 @@ public abstract class AbstractRegion implements SpatialRegion {
     @Override
     public int compareTo(SpatialRegion o) {
         Objects.requireNonNull(o, "Cannot compare to null Region");
-        // Handle null bounds gracefully for comparison
         if (this.bottomLeft == null && o.getBottomLeft() == null) return 0;
         if (this.bottomLeft == null) return -1;
         if (o.getBottomLeft() == null) return 1;

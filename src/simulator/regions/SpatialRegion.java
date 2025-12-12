@@ -21,7 +21,7 @@ public interface SpatialRegion extends Comparable<SpatialRegion> {
     
     /**
      * Returns the 9 key points (corners, midpoints, center) defining the region.
-     * Crucial for location-based routing.
+     * Crucial for location-based routing strategies.
      */
     List<Location> getKeyPoints(); 
 

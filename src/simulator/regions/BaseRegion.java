@@ -120,7 +120,6 @@ public class BaseRegion extends AbstractRegion {
     public List<Location> getKeyPoints() {
         if (bottomLeft == null) return Collections.emptyList();
         List<Location> points = new ArrayList<>();
-        // Simple corners/midpoints logic (Flat)
         double minX = bottomLeft.getX(); double maxX = topRight.getX();
         double minY = bottomLeft.getY(); double maxY = topRight.getY();
         double midX = (minX + maxX) / 2.0;
@@ -153,7 +152,5 @@ public class BaseRegion extends AbstractRegion {
     }
 
     @Override
-    public String toLogString() {
-        return toShortString();
-    }
+    public String toLogString() { return toShortString(); }
 }
