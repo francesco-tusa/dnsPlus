@@ -1,14 +1,16 @@
 package simulator.regions;
 
 import java.text.DecimalFormat;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import simulator.core.Location;
-
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.logging.Logger;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import simulator.core.Location;
 import utils.CustomLogger;
 
-public class Region extends BaseRegion {
+public class Region extends AbstractRegion {
 
     private static final Logger logger = CustomLogger.getLogger(Region.class.getName());
     private static final double EPSILON = 1e-9;
@@ -17,165 +19,105 @@ public class Region extends BaseRegion {
     public Region() { super(); }
     public Region(Location location) { super(location); }
     public Region(Location bottomLeft, Location topRight) { super(bottomLeft, topRight); }
-    public Region(Region r) { super(r); }
-    public Region(BaseRegion r) { super(r); }
-    
-    public void set(BaseRegion other) {
-        if (other == null || other.getBottomLeft() == null || other.getTopRight() == null) {
-            this.bottomLeft = null; this.topRight = null; return;
-        }
-        this.bottomLeft = new Location(other.getBottomLeft());
-        this.topRight = new Location(other.getTopRight());
-    }
+    public Region(SpatialRegion r) { super(r); }
 
+    @Override
     @JsonIgnore
     public double getWidth() {
         if (bottomLeft == null || topRight == null) return 0.0;
-        double minLon = bottomLeft.getX(); double maxLon = topRight.getX();
+        double minLon = bottomLeft.getX(); 
+        double maxLon = topRight.getX();
         if (minLon <= maxLon) { return maxLon - minLon; }
         else { return (180.0 - minLon) + (maxLon + 180.0); }
     }
 
+    @Override
     @JsonIgnore
     public double getHeight() {
-        if (bottomLeft == null || topRight == null) {
-            return 0.0;
-        }
+        if (bottomLeft == null || topRight == null) return 0.0;
         return topRight.getY() - bottomLeft.getY();
     }
 
-    /**
-     * Calculates the geometric center (centroid) of the region.
-     * Handles longitude wrapping correctly.
-     * @return The center Location.
-     */
+    @Override
+    @JsonIgnore
+    public double getArea() {
+        return getWidth() * getHeight();
+    }
+
+    @Override
     @JsonIgnore
     public Location getCenter() {
-        if (bottomLeft == null || topRight == null) {
-            return new Location(0, 0, 0);
-        }
+        if (bottomLeft == null || topRight == null) return new Location(0, 0, 0);
 
         double minLon = bottomLeft.getX();
         double maxLon = topRight.getX();
-        double minLat = bottomLeft.getY();
-        double maxLat = topRight.getY();
-
-        // Latitude simply averages (clamped -90 to 90 in world terms)
-        double centerLat = (minLat + maxLat) / 2.0;
+        double centerLat = (bottomLeft.getY() + topRight.getY()) / 2.0;
         double centerLon;
 
         if (minLon <= maxLon) {
-            // Standard case: Region does not cross the dateline
             centerLon = (minLon + maxLon) / 2.0;
         } else {
-            // Wrapped case: Region crosses 180/-180
-            // Total width spans across the dateline
-            double width = (180.0 - minLon) + (maxLon - (-180.0));
+            // Wrapped center logic
+            double width = getWidth();
             double midOffset = width / 2.0;
-            
             centerLon = minLon + midOffset;
-            // Normalize if it crosses past 180
-            if (centerLon > 180.0) {
-                centerLon -= 360.0;
-            }
+            if (centerLon > 180.0) centerLon -= 360.0;
         }
-        
         return new Location(centerLon, centerLat, 0);
     }
 
     private boolean containsLongitude(double lon) {
-        if (bottomLeft == null || topRight == null) return false;
-        double minLon = bottomLeft.getX();
-        double maxLon = topRight.getX();
-
-        boolean gteMin = (lon - minLon) > -EPSILON; 
-        boolean lteMax = (lon - maxLon) < EPSILON;  
-
-        if ((minLon - maxLon) < EPSILON) { 
-            return gteMin && lteMax;
-        } else { 
-            return gteMin || lteMax;
-        }
+        if (bottomLeft == null) return false;
+        double min = bottomLeft.getX(); double max = topRight.getX();
+        boolean gteMin = (lon - min) > -EPSILON;
+        boolean lteMax = (lon - max) < EPSILON;
+        return (min <= max) ? (gteMin && lteMax) : (gteMin || lteMax);
     }
 
     @Override
     public boolean contains(Location l) {
-        if (l == null || bottomLeft == null || topRight == null) {
-            return false;
-        }
-        
-        boolean latGteMin = (l.getY() - bottomLeft.getY()) > -EPSILON;
-        boolean latLteMax = (l.getY() - topRight.getY()) < EPSILON;
-        boolean latOk = latGteMin && latLteMax;
-
-        boolean altGteMin = (l.getZ() - bottomLeft.getZ()) > -EPSILON;
-        boolean altLteMax = (l.getZ() - topRight.getZ()) < EPSILON;
-        boolean altOk = altGteMin && altLteMax;
-
-        if (!latOk || !altOk) {
-            return false;
-        }
-        return containsLongitude(l.getX());
-    }
-    
-    public boolean contains(BaseRegion r) {
-        if (r == null || r.getBottomLeft() == null || r.getTopRight() == null) return false;
-        return this.contains(r.getBottomLeft()) && this.contains(r.getTopRight());
+        if (l == null || bottomLeft == null) return false;
+        boolean latOk = l.getY() >= bottomLeft.getY() - EPSILON && l.getY() <= topRight.getY() + EPSILON;
+        return latOk && containsLongitude(l.getX());
     }
 
     @Override
-       public boolean intersects(BaseRegion r) {
-        if (r == null || r.getBottomLeft() == null || r.getTopRight() == null || this.bottomLeft == null || this.topRight == null) {
-            return false;
-        }
+    public boolean contains(SpatialRegion r) {
+        if (r == null || r.getBottomLeft() == null) return false;
+        return contains(r.getBottomLeft()) && contains(r.getTopRight());
+    }
+
+    @Override
+    public boolean intersects(SpatialRegion r) {
+        if (r == null || bottomLeft == null || r.getBottomLeft() == null) return false;
         
-        boolean noOverlapY = (r.getBottomLeft().getY() - this.topRight.getY()) > -EPSILON ||
-                             (this.bottomLeft.getY() - r.getTopRight().getY()) > -EPSILON;
+        boolean noOverlapY = (r.getBottomLeft().getY() > topRight.getY() + EPSILON) ||
+                             (bottomLeft.getY() > r.getTopRight().getY() + EPSILON);
+        if (noOverlapY) return false;
 
-        if (noOverlapY) { 
-            return false; 
-        }
-
-        double minLon1 = this.bottomLeft.getX();
-        double maxLon1 = this.topRight.getX();
-        double minLon2 = r.getBottomLeft().getX();
-        double maxLon2 = r.getTopRight().getX();
-
-        boolean wraps1 = (minLon1 - maxLon1) > EPSILON; 
-        boolean wraps2 = (minLon2 - maxLon2) > EPSILON; 
+        double min1 = bottomLeft.getX(), max1 = topRight.getX();
+        double min2 = r.getBottomLeft().getX(), max2 = r.getTopRight().getX();
+        boolean wraps1 = min1 > max1 + EPSILON;
+        boolean wraps2 = min2 > max2 + EPSILON;
 
         boolean noOverlapX;
-        
         if (!wraps1 && !wraps2) {
-            noOverlapX = (r.getBottomLeft().getX() - this.topRight.getX()) > -EPSILON ||
-                         (this.bottomLeft.getX() - r.getTopRight().getX()) > -EPSILON;
-            
+            noOverlapX = (min2 > max1 + EPSILON) || (min1 > max2 + EPSILON);
         } else if (wraps1 && !wraps2) {
-            boolean rMaxLessEqThisMin = (this.bottomLeft.getX() - r.getTopRight().getX()) > -EPSILON;
-            boolean rMinMoreEqThisMax = (r.getBottomLeft().getX() - this.topRight.getX()) > -EPSILON;
-            noOverlapX = rMaxLessEqThisMin && rMinMoreEqThisMax;
-
+            noOverlapX = (min2 > max1 + EPSILON) && (min1 > max2 + EPSILON);
         } else if (!wraps1 && wraps2) {
-            boolean thisMaxLessEqRMin = (r.getBottomLeft().getX() - this.topRight.getX()) > -EPSILON;
-            boolean thisMinMoreEqRMax = (this.bottomLeft.getX() - r.getTopRight().getX()) > -EPSILON;
-            noOverlapX = thisMaxLessEqRMin && thisMinMoreEqRMax;
-            
+            noOverlapX = (min1 > max2 + EPSILON) && (min2 > max1 + EPSILON);
         } else {
-            noOverlapX = false;
+            noOverlapX = false; // Both wrap -> must intersect
         }
-        
-        return !(noOverlapX || noOverlapY);
+        return !noOverlapX;
     }
-    
+
     @Override
     public boolean expand(Location l) {
         if (l == null) return false;
+        if (bottomLeft == null) { set(new Region(l)); return true; }
         
-        if (bottomLeft == null || topRight == null) {
-            bottomLeft = new Location(l);
-            topRight = new Location(l);
-            return true;
-        }
         double originalMinLon = bottomLeft.getX();
         double originalMaxLon = topRight.getX();
         double originalMinLat = bottomLeft.getY();
@@ -243,114 +185,147 @@ public class Region extends BaseRegion {
         }
         return updated;
     }
-    
+
     @Override
-    public boolean expand(BaseRegion r) {
+    public boolean expand(SpatialRegion r) {
         if (r == null) return false;
+        boolean c1 = expand(r.getBottomLeft());
+        boolean c2 = expand(r.getTopRight());
+        return c1 || c2;
+    }
+
+    @Override
+    public SpatialRegion intersection(SpatialRegion other) {
+        if (!this.intersects(other)) return null;
+
+        double maxMinY = Math.max(this.bottomLeft.getY(), other.getBottomLeft().getY());
+        double minMaxY = Math.min(this.topRight.getY(), other.getTopRight().getY());
+        double maxMinZ = Math.max(this.bottomLeft.getZ(), other.getBottomLeft().getZ());
+        double minMaxZ = Math.min(this.topRight.getZ(), other.getTopRight().getZ());
+
+        List<double[]> thisIntervals = getLonIntervals(this.bottomLeft.getX(), this.topRight.getX());
+        List<double[]> otherIntervals = getLonIntervals(other.getBottomLeft().getX(), other.getTopRight().getX());
         
-        boolean updated = false;
-        if (r.getBottomLeft() != null) {
-             updated |= this.expand(r.getBottomLeft());
-        }
-        if (r.getTopRight() != null) {
-            if (!r.getTopRight().equals(r.getBottomLeft())) {
-                 updated |= this.expand(r.getTopRight());
-            } else if (this.bottomLeft == null || this.topRight == null) {
-                 updated |= this.expand(r.getTopRight());
+        List<double[]> overlaps = new ArrayList<>();
+        for (double[] i1 : thisIntervals) {
+            for (double[] i2 : otherIntervals) {
+                double start = Math.max(i1[0], i2[0]);
+                double end = Math.min(i1[1], i2[1]);
+                if (end - start > -EPSILON) { 
+                    overlaps.add(new double[]{start, end});
+                }
             }
         }
-        return updated;
-    }
-
-    @JsonIgnore
-    public double getArea() {
-        return getWidth() * getHeight();
-    }
-
-    public double getIntersectionArea(Region other) {
-        if (!this.intersects(other)) return 0.0;
         
-        double x1 = Math.max(this.bottomLeft.getX(), other.bottomLeft.getX());
-        double y1 = Math.max(this.bottomLeft.getY(), other.bottomLeft.getY());
-        double x2 = Math.min(this.topRight.getX(), other.topRight.getX());
-        double y2 = Math.min(this.topRight.getY(), other.topRight.getY());
-
-        double w = Math.max(0, x2 - x1);
-        double h = Math.max(0, y2 - y1);
-        return w * h;
+        if (overlaps.isEmpty()) return null;
+        
+        double finalMinLon, finalMaxLon;
+        if (overlaps.size() == 1) {
+            finalMinLon = overlaps.get(0)[0];
+            finalMaxLon = overlaps.get(0)[1];
+        } else {
+            double[] leftPart = null; 
+            double[] rightPart = null; 
+            for (double[] ov : overlaps) {
+                if (Math.abs(ov[0] - (-180.0)) < EPSILON) leftPart = ov;
+                if (Math.abs(ov[1] - 180.0) < EPSILON) rightPart = ov;
+            }
+            if (leftPart != null && rightPart != null) {
+                finalMinLon = rightPart[0]; 
+                finalMaxLon = leftPart[1];  
+            } else {
+                finalMinLon = overlaps.get(0)[0];
+                finalMaxLon = overlaps.get(0)[1];
+            }
+        }
+        
+        return new Region(
+            new Location(finalMinLon, maxMinY, maxMinZ),
+            new Location(finalMaxLon, minMaxY, minMaxZ)
+        );
     }
 
-    public double getUnionArea(Region other) {
+    private List<double[]> getLonIntervals(double min, double max) {
+        List<double[]> intervals = new ArrayList<>();
+        if ((min - max) < EPSILON) { 
+            intervals.add(new double[]{min, max});
+        } else { 
+            intervals.add(new double[]{min, 180.0});
+            intervals.add(new double[]{-180.0, max});
+        }
+        return intervals;
+    }
+
+    @Override
+    public double getIntersectionArea(SpatialRegion other) {
+        SpatialRegion inter = intersection(other);
+        return (inter == null) ? 0.0 : inter.getArea();
+    }
+
+    @Override
+    public double getUnionArea(SpatialRegion other) {
         return this.getArea() + other.getArea() - getIntersectionArea(other);
     }
-    
 
-    /**
-     * Generates a random location strictly within the given region bounds.
-     * Correctly handles regions that wrap around the International Date Line.
-     */
+    @Override
+    public List<Location> getKeyPoints() {
+        if (bottomLeft == null) return Collections.emptyList();
+        List<Location> points = new ArrayList<>();
+        
+        double minLon = bottomLeft.getX();
+        double maxLon = topRight.getX();
+        double minLat = bottomLeft.getY();
+        double maxLat = topRight.getY();
+        
+        Location center = getCenter();
+        
+        points.add(bottomLeft);
+        points.add(topRight);
+        points.add(new Location(minLon, maxLat, 0));
+        points.add(new Location(maxLon, minLat, 0));
+        
+        double midLat = center.getY();
+        double midLon = center.getX();
+        
+        points.add(new Location(midLon, minLat, 0)); 
+        points.add(new Location(midLon, maxLat, 0)); 
+        points.add(new Location(minLon, midLat, 0)); 
+        points.add(new Location(maxLon, midLat, 0)); 
+        points.add(center); 
+        
+        return points;
+    }
+
+    @Override
     public Location getRandomLocation() {
         Random random = new Random();
-        if (bottomLeft == null || topRight == null) {
-            return new Location(0, 0, 0); 
-        }
+        if (bottomLeft == null) return new Location(0, 0, 0); 
         double minX = bottomLeft.getX();
         double maxX = topRight.getX();
         double minY = bottomLeft.getY();
         double maxY = topRight.getY();
         
-        // 1. Calculate Width (handling wrapping)
-        double width;
-        if (minX <= maxX) {
-            width = maxX - minX;
-        } else {
-            // Wrapping case: Distance from minX to 180 + Distance from -180 to maxX
-            width = (180.0 - minX) + (maxX - (-180.0));
-        }
-
-        // 2. Generate Offset
+        double width = getWidth();
         double xOffset = width * random.nextDouble();
-        
-        // 3. Apply Offset and Normalize
         double x = minX + xOffset;
-        if (x > 180.0) {
-            x -= 360.0;
-        }
+        if (x > 180.0) x -= 360.0;
         
-        // Latitude (Y) generally doesn't wrap like Longitude
         double y = minY + (maxY - minY) * random.nextDouble();
-        
         return new Location(x, y, 0);
     }
 
-    
+    @Override
     @JsonIgnore
     public String toShortString() {
-        if (bottomLeft == null || topRight == null) {
-            return "[]";
-        }
+        if (bottomLeft == null) return "[]";
         return String.format("[%s,%s:%s,%s]", 
-                             df.format(bottomLeft.getX()), 
-                             df.format(bottomLeft.getY()), 
-                             df.format(topRight.getX()), 
-                             df.format(topRight.getY()));
+             df.format(bottomLeft.getX()), df.format(bottomLeft.getY()), 
+             df.format(topRight.getX()), df.format(topRight.getY()));
     }
-    
+
+    @Override
     @JsonIgnore
     public String toLogString() {
-        if (bottomLeft == null || topRight == null) {
-            return "[]";
-        }
-        return String.format("[%.4f,%.4f:%.4f,%.4f]", 
-                             bottomLeft.getX(), 
-                             bottomLeft.getY(), 
-                             topRight.getX(), 
-                             topRight.getY());
-    }
-    
-    @Override
-    public String toString() {
-        boolean wraps = (bottomLeft != null && topRight != null && (bottomLeft.getX() - topRight.getX()) > EPSILON);
-        return "Region{" + "bl=" + bottomLeft + ", tr=" + topRight + (wraps ? " [Wraps]" : "") + '}';
+        return toShortString();
     }
 }

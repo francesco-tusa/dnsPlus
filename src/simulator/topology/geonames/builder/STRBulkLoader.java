@@ -113,8 +113,6 @@ public class STRBulkLoader {
         Location newBl = new Location(bl.getX() - padding, bl.getY() - padding, 0);
         Location newTr = new Location(tr.getX() + padding, tr.getY() + padding, 0);
         
-        // Update the region
-        r.setBottomLeft(newBl);
-        r.setTopRight(newTr);
+        r.set(new Region(newBl, newTr));
     }
 }

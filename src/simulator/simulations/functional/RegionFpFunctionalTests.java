@@ -3,6 +3,7 @@ package simulator.simulations.functional;
 import simulator.core.Location;
 import simulator.regions.BaseRegion;
 import simulator.regions.Region;
+import simulator.regions.SpatialRegion;
 import utils.CustomLogger;
 
 import java.util.function.Predicate;
@@ -26,7 +27,7 @@ public class RegionFpFunctionalTests {
      * It takes a BaseRegion (which will be null) to match the new constructor
      * in ConfigurableFunctionalTest.
      */
-    public static final Predicate<BaseRegion> ALL_REGION_TESTS = root -> {
+    public static final Predicate<SpatialRegion> ALL_REGION_TESTS = root -> {
         logger.info("\n>>> SCENARIO: Running Self-Contained Region Class Floating-Point Tests. <<<");
         
         boolean containsTests = testContainsLogic();
