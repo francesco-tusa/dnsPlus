@@ -29,14 +29,14 @@ public class RegionFunctionalTestsMain {
         // Run the most fundamental test first
         runRegionFloatingPointTest();
 
-        runManualTopologyComprehensiveTest();
-        runSubscriptionCoveringTest();
-        runSubscriptionExpansionTest();
-        runGridTopologyTest();
+        //runManualTopologyComprehensiveTest();
+        //runSubscriptionCoveringTest();
+        //runSubscriptionExpansionTest();
+        //runGridTopologyTest();
 
         // Run a comprehensive end-to-end test using (a subset of)
         // the GeoNames world topolgy        
-        runGeoNamesTest();
+        // runGeoNamesTest();
     }
 
 

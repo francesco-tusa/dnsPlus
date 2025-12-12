@@ -1,6 +1,5 @@
 package simulator.regions.store;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -23,26 +22,42 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         SubscriptionWithRegion existing = map.get(source);
         
+        SubscriptionWithRegion resultingEntry;
+        StoreOpResult opResult;
+        String logInfo;
+
         if (existing == null) {
+            // New Entry
             SubscriptionWithRegion newEntry = new SubscriptionWithRegion(new Region(sub.getRegion()));
             map.put(source, newEntry);
-            return new StoreUpdate(StoreOpResult.ADDED, newEntry);
+            
+            resultingEntry = newEntry;
+            opResult = StoreOpResult.ADDED;
+            logInfo = "NeighborMBR(Pre): None"; 
+        } else {
+            // Update Existing
+            Region currentRegion = existing.getRegion();
+            Region newRegion = sub.getRegion();
+            
+            // Capture state BEFORE expansion
+            logInfo = "NeighborMBR(Pre): " + currentRegion.toLogString();
+
+            if (currentRegion.contains(newRegion)) {
+                resultingEntry = existing;
+                opResult = StoreOpResult.NO_CHANGE;
+            } else {
+                currentRegion.expand(newRegion);
+                resultingEntry = existing;
+                opResult = StoreOpResult.EXPANDED;
+            }
         }
-
-        Region currentRegion = existing.getRegion();
-        Region newRegion = sub.getRegion();
-
-        if (currentRegion.contains(newRegion)) {
-            return new StoreUpdate(StoreOpResult.NO_CHANGE, null);
-        }
-
-        currentRegion.expand(newRegion);
-        return new StoreUpdate(StoreOpResult.EXPANDED, existing);
+        
+        return new StoreUpdate(opResult, resultingEntry, logInfo);
     }
 
     @Override
     public List<TreeNode> findMatches(Location loc) {
-        List<TreeNode> matches = new ArrayList<>();
+        java.util.ArrayList<TreeNode> matches = new java.util.ArrayList<>();
         for (Map.Entry<TreeNode, SubscriptionWithRegion> entry : map.entrySet()) {
             if (entry.getValue().getRegion().contains(loc)) {
                 matches.add(entry.getKey());
@@ -67,12 +82,8 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     }
 
     @Override
-    public int size() {
-        return map.size();
-    }
+    public int size() { return map.size(); }
 
     @Override
-    public boolean isEmpty() {
-        return map.isEmpty();
-    }
+    public boolean isEmpty() { return map.isEmpty(); }
 }

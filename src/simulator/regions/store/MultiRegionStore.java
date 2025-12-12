@@ -33,7 +33,8 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         // 1. Check Coverage
         for (SubscriptionWithRegion existing : regions) {
             if (existing.getRegion().contains(sub.getRegion())) {
-                return new StoreUpdate(StoreOpResult.NO_CHANGE, null);
+                String info = "Covered by: " + existing.getRegion().toLogString();
+                return new StoreUpdate(StoreOpResult.NO_CHANGE, null, info);
             }
         }
 
@@ -41,6 +42,9 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         Region accumulator = new Region(sub.getRegion());
         boolean changed = false;
         boolean mergedInPass;
+        
+        int absorbedCount = 0; // Existing regions swallowed by Incoming (Accumulator doesn't grow)
+        int mergedCount = 0;   // Existing regions that caused Accumulator to grow
 
         do {
             mergedInPass = false;
@@ -49,34 +53,45 @@ public class MultiRegionStore implements RegionSubscriptionStore {
                 SubscriptionWithRegion existing = it.next();
                 Region rExisting = existing.getRegion();
 
-                // Case A: Accumulator eats Existing (Redundancy reverse check)
+                // Case A: Accumulator eats Existing (Superset)
                 if (accumulator.contains(rExisting)) {
                     it.remove();
                     changed = true;
-                    // No need to restart scan, just continue consuming
-                }
-                // Case B: Merge Condition Met (Overlap > Threshold)
+                    absorbedCount++; 
+                } 
+                // Case B: Merge Condition Met (Intersection)
                 else if (shouldMerge(accumulator, rExisting)) {
-                    accumulator.expand(rExisting);
+                    accumulator.expand(rExisting); // Accumulator GROWS here
                     it.remove();
                     changed = true;
                     mergedInPass = true;
-                    // The accumulator grew. It might now overlap with regions we
-                    // already checked in this pass. We must restart the scan 
-                    // to ensure we catch everything (Cascading Merge).
+                    mergedCount++;
                     break; 
                 }
             }
         } while (mergedInPass);
 
-        // 3. Add the final region to the list
+        // 3. Add result
         SubscriptionWithRegion resultingEntry = new SubscriptionWithRegion(accumulator);
         regions.add(resultingEntry);
-        
         updateSummary(source);
 
         StoreOpResult opResult = changed ? StoreOpResult.EXPANDED : StoreOpResult.ADDED;
-        return new StoreUpdate(opResult, resultingEntry);
+        
+        // 4. Construct Log String
+        String info;
+        if (!changed) {
+            info = "New Disjoint Region";
+        } else {
+            // Distinguish between Absorbing (geometry didn't change) vs Merging (geometry grew)
+            StringBuilder sb = new StringBuilder();
+            if (absorbedCount > 0) sb.append("Absorbed ").append(absorbedCount).append(" regions. ");
+            if (mergedCount > 0) sb.append("Merged with ").append(mergedCount).append(" regions. ");
+            sb.append("Result: ").append(accumulator.toLogString());
+            info = sb.toString();
+        }
+
+        return new StoreUpdate(opResult, resultingEntry, info);
     }
 
     private void updateSummary(TreeNode source) {
@@ -85,7 +100,6 @@ public class MultiRegionStore implements RegionSubscriptionStore {
             summaryRegions.remove(source);
             return;
         }
-        // Rebuild summary from scratch (O(N))
         Region summary = new Region(list.get(0).getRegion());
         for (int i = 1; i < list.size(); i++) {
             summary.expand(list.get(i).getRegion());
@@ -106,15 +120,11 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         for (Map.Entry<TreeNode, List<SubscriptionWithRegion>> entry : map.entrySet()) {
             TreeNode neighbor = entry.getKey();
             Region summary = summaryRegions.get(neighbor);
-            
-            // OPTIMIZATION: Check Summary Region first
-            // If the point is not in the summary, it cannot be in any sub-region.
             if (summary != null && summary.contains(loc)) {
-                // Detailed Check: Check the specific disjoint regions
                 for (SubscriptionWithRegion sub : entry.getValue()) {
                     if (sub.getRegion().contains(loc)) {
                         matches.add(neighbor);
-                        break; // Found one match for this neighbor, enough to forward
+                        break;
                     }
                 }
             }
@@ -145,7 +155,5 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     }
 
     @Override
-    public boolean isEmpty() {
-        return map.isEmpty();
-    }
+    public boolean isEmpty() { return map.isEmpty(); }
 }

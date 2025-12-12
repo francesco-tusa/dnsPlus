@@ -4,6 +4,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class CsvMetricWriter {
 
@@ -11,6 +13,9 @@ public class CsvMetricWriter {
     private RotatingFileWriter subscriptionWriter;
     private RotatingFileWriter publicationWriter;
     private boolean initialized = false;
+    
+    // Map to track the running count of messages per TraceID
+    private final Map<String, Integer> traceCounts = new HashMap<>();
     
     private static final long MAX_FILE_SIZE_BYTES = 90 * 1024 * 1024; // 90 MB
 
@@ -26,6 +31,9 @@ public class CsvMetricWriter {
     public synchronized void initialize(String runId) {
         if (initialized) return;
         try {
+            // Clear counters from previous runs to avoid memory leaks or incorrect counts
+            traceCounts.clear();
+
             String baseDir = "output/" + runId;
             
             String subDir = baseDir + "/subscriptions";
@@ -37,10 +45,10 @@ public class CsvMetricWriter {
             File pubFolder = new File(pubDir);
             if (!pubFolder.exists()) pubFolder.mkdirs();
             
-            // Initialize Rotating Writers pointing to the specific subfolders
+            // NEW: Added "MsgCount" to the header
             subscriptionWriter = new RotatingFileWriter(
                 subDir, "subscriptions", 
-                "TraceID,Source,Receiver,Hops,Region,Result\n"
+                "TraceID,MsgCount,Source,Receiver,Hops,Region,Result\n"
             );
             
             publicationWriter = new RotatingFileWriter(
@@ -54,10 +62,15 @@ public class CsvMetricWriter {
         }
     }
 
-public synchronized void logSubscription(String traceId, String receiver, String source, int hops, String region, String result) {
+    public synchronized void logSubscription(String traceId, String receiver, String source, int hops, String region, String result) {
         if (!initialized) return;
         try {
-            String line = String.format("%s,%s,%s,%d,\"%s\",%s\n", traceId, source, receiver, hops, region, result);
+            // Increment and retrieve the running count for this TraceID
+            int count = traceCounts.getOrDefault(traceId, 0) + 1;
+            traceCounts.put(traceId, count);
+
+            // Append the count to the CSV line
+            String line = String.format("%s,%d,%s,%s,%d,\"%s\",%s\n", traceId, count, source, receiver, hops, region, result);
             subscriptionWriter.write(line);
         } catch (IOException e) {
             e.printStackTrace();
@@ -78,6 +91,7 @@ public synchronized void logSubscription(String traceId, String receiver, String
         try {
             if (subscriptionWriter != null) subscriptionWriter.close();
             if (publicationWriter != null) publicationWriter.close();
+            traceCounts.clear();
             initialized = false;
         } catch (IOException e) {
             e.printStackTrace();
@@ -128,7 +142,7 @@ public synchronized void logSubscription(String traceId, String receiver, String
             }
             
             currentWriter.write(line);
-            currentWriter.flush(); // Ensure data is safe on disk
+            currentWriter.flush();
             currentBytes += line.length();
         }
 

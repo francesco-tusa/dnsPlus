@@ -47,18 +47,11 @@ public class SpatialMatchBroker extends BoundedBroker {
     }
 
     @Override
-    public int getInputSubscriptionCount() {
-        return inputStore.size();
-    }
-
+    public int getInputSubscriptionCount() { return inputStore.size(); }
     @Override
-    public int getOutputSubscriptionCount() { 
-        return outputStore.size(); 
-    }
-
+    public int getOutputSubscriptionCount() { return outputStore.size(); }
     @Override
     public Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions() { return inputStore.getAllSubscriptions(); }
-
     @Override
     public Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions() { return outputStore.getAllSubscriptions(); }
 
@@ -67,13 +60,22 @@ public class SpatialMatchBroker extends BoundedBroker {
         if (s.getSource() == null) throw new IllegalArgumentException("Source null");
 
         StoreOpResult resultForLog = StoreOpResult.NO_CHANGE;
+        String logDetail = "";
 
         if (s instanceof SubscriptionWithRegion sub) {
             // Update Input Store
             StoreUpdate update = inputStore.addOrUpdate(s.getSource(), sub);
             resultForLog = update.getResult();
             
-            // Update Counters based on the result
+            // Build the log string using the strategy-specific info from the store
+            String brokerRegion = this.getRegion().toLogString();
+            String incomingSub = sub.getRegion().toLogString();
+            String storeInfo = update.getAdditionalInfo(); 
+            
+            logDetail = String.format("Broker: %s; Incoming: %s; %s", 
+                                      brokerRegion, incomingSub, storeInfo);
+            
+            // Update Counters
             switch (resultForLog) {
                 case NO_CHANGE -> recordSubCovered();
                 case EXPANDED -> recordSubExpanded();
@@ -82,24 +84,16 @@ public class SpatialMatchBroker extends BoundedBroker {
         }
         
         if (s.getMetrics() != null && s instanceof SubscriptionWithRegion sub) {
-            String regionToLog = getRegionToLog(sub); 
-
+            // Log to CSV
             CsvMetricWriter.getInstance().logSubscription(
                 s.getMetrics().getTraceId(), 
                 getName(), 
                 s.getSource().getName(), 
                 s.getMetrics().getHops(), 
-                regionToLog, 
+                logDetail, 
                 resultForLog.name() 
             );
         }
-    }
-
-    /**
-     * Determines which region to log. Default behavior is to log the broker's own region.
-     */
-    protected String getRegionToLog(SubscriptionWithRegion sub) {
-        return this.getRegion().toLogString();
     }
 
     @Override
@@ -115,16 +109,10 @@ public class SpatialMatchBroker extends BoundedBroker {
         if (parent == null) return;
 
         SubscriptionWithRegion candidate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
-        
-        // Capture the specific update result
         StoreUpdate update = outputStore.addOrUpdate(parent, candidate);
 
-        // Only propagate if a change occurred
         if (update.isChange()) {
-             // Retrieve the specific region that needs to be sent (The Delta)
              SubscriptionWithRegion regionToSend = update.getRegion();
-             
-             // Create a safe copy for the message
              SubscriptionWithRegion toSend = (SubscriptionWithRegion) regionToSend.getSubscription();
              toSend.setSource(this);
              
@@ -133,34 +121,21 @@ public class SpatialMatchBroker extends BoundedBroker {
                  m.incrementHops();
                  toSend.setMetrics(m);
              }
-             
-             // Send only one message
              parent.processSubscription(toSend);
         }
     }
 
     private void propagateSubscriptionDownward(SubscriptionWithRegion newSub) {
         for (TreeNode child : getChildren()) {
-             // 1. Split Horizon: Don't send back to the source
              if (child == newSub.getSource()) continue;
-             
-             // 2. Type Check: Only propagate to other Brokers (Subscribers don't need routing updates)
              if (!(child instanceof BoundedBroker childBroker)) continue;
 
-             // 3. Spatial Filter: Only propagate if the subscription overlaps the child's domain
              if (childBroker.getRegion() != null && childBroker.getRegion().intersects(newSub.getRegion())) {
-                 
                  SubscriptionWithRegion candidate = new SubscriptionWithRegion(new Region(newSub.getRegion()));
-                 
-                 // Capture the specific update result (The Delta)
                  StoreUpdate update = outputStore.addOrUpdate(childBroker, candidate);
                  
-                 // Only propagate if the state for this child actually changed
                  if (update.isChange()) {
-                     // Retrieve the specific region that needs to be sent (New Disjoint or New Merged)
                      SubscriptionWithRegion regionToSend = update.getRegion();
-
-                     // Create a safe copy for the message
                      SubscriptionWithRegion toSend = (SubscriptionWithRegion) regionToSend.getSubscription();
                      toSend.setSource(this);
                      
@@ -169,8 +144,6 @@ public class SpatialMatchBroker extends BoundedBroker {
                          m.incrementHops();
                          toSend.setMetrics(m);
                      }
-                     
-                     // Send only one message
                      childBroker.processSubscription(toSend);
                  }
              }
@@ -181,19 +154,13 @@ public class SpatialMatchBroker extends BoundedBroker {
     public SimulationSubscription matchPublication(SimulationPublication p) {
         if (p instanceof PublicationWithLocation pub) {
             this.totalMatchingComputations += inputStore.size();
-            
             List<TreeNode> matches = inputStore.findMatches(pub.getLocation());
             int usefulForwards = 0;
-            
             for (TreeNode target : matches) {
-                // Split Horizon Check
                 if (target == p.getSource()) continue;
-                
                 forwardPublicationToNode(p, target);
                 usefulForwards++;
             }
-            
-            // If we processed it but sent it nowhere, it was a False Positive arrival.
             if (usefulForwards == 0) {
                 this.totalFalsePositiveEvents++;
             }
@@ -211,7 +178,6 @@ public class SpatialMatchBroker extends BoundedBroker {
                 forwardedCopy.setMetrics(copiedMetrics);
             }
             broker.processPublication(forwardedCopy);
-            
         } else if (next instanceof SubscriberWithLocation subscriber) {
             subscriber.receive(p);
         }
