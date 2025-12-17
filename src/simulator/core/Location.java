@@ -75,12 +75,11 @@ public final class Location implements Comparable<Location> {
     }
 
     /**
-     * Provides a compact string representation of the location for display purposes,
-     * showing coordinates as integers.
-     * @return A formatted string like "[x,y]".
+     * Provides a compact string representation of the location for display purposes.
+     * @return A formatted string like "[x.xxxx, y.yyyy]".
      */
     public String toShortString() {
-        DecimalFormat df = new DecimalFormat("#");
+        DecimalFormat df = new DecimalFormat("#.####"); 
         return String.format("[%s,%s]", df.format(this.x), df.format(this.y));
     }
 

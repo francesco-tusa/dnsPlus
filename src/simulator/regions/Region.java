@@ -200,6 +200,11 @@ public class Region extends AbstractRegion {
     @Override
     public boolean expand(SpatialRegion r) {
         if (r == null || r.getBottomLeft() == null) return false;
+
+        if (this.bottomLeft == null) {
+            this.set(new Region(r)); // Adopt the incoming region's bounds
+            return true;
+        }
         
         boolean changed = false;
         double minLat = Math.min(this.bottomLeft.getY(), r.getBottomLeft().getY());
@@ -383,6 +388,7 @@ public class Region extends AbstractRegion {
     }
 
     @Override
+    @JsonIgnore
     public List<Location> getKeyPoints() {
         if (bottomLeft == null) return Collections.emptyList();
         List<Location> points = new ArrayList<>();
@@ -411,6 +417,7 @@ public class Region extends AbstractRegion {
     }
 
     @Override
+    @JsonIgnore
     public Location getRandomLocation() {
         Random random = new Random();
         if (bottomLeft == null) return new Location(0, 0, 0); 

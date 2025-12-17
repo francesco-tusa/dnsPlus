@@ -25,6 +25,8 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
         SubscriptionWithRegion resultingEntry;
         StoreOpResult opResult;
         String logInfo;
+        int absorbed = 0;
+        int merged = 0;
 
         if (existing == null) {
             // New Entry
@@ -46,13 +48,22 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
                 resultingEntry = existing;
                 opResult = StoreOpResult.NO_CHANGE;
             } else {
+                // If the new region completely engulfs the existing one, we count it as "Absorbing" the old one.
+                // Otherwise, it's a "Merge" (Expansion).
+                boolean isAbsorption = newRegion.contains(currentRegion);
+                if (isAbsorption) {
+                    absorbed = 1;
+                } else {
+                    merged = 1;
+                }
+                
                 currentRegion.expand(newRegion);
                 resultingEntry = existing;
                 opResult = StoreOpResult.EXPANDED;
             }
         }
         
-        return new StoreUpdate(opResult, resultingEntry, logInfo);
+        return new StoreUpdate(opResult, resultingEntry, logInfo, absorbed, merged);
     }
 
     @Override

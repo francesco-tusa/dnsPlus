@@ -28,6 +28,9 @@ public class MetricsCollector {
                     data.totalSubCovered += bb.getSubCoveredCount();
                     data.totalSubExpanded += bb.getSubExpandedCount();
                     data.totalSubAdded += bb.getSubAddedCount();
+                    
+                    data.totalSubAbsorbed += bb.getSubAbsorbedCount();
+                    data.totalSubMerged += bb.getSubMergedCount();
                 }
             }
             if (curr.getChildren() != null)

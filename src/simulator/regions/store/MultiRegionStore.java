@@ -29,12 +29,13 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     @Override
     public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         List<SubscriptionWithRegion> regions = map.computeIfAbsent(source, k -> new ArrayList<>());
-        
-        // 1. Check Coverage
+
+        // 1. Check Coverage (Incoming is covered by Existing)
+        // If an existing region already fully contains the new one, no update is needed.
         for (SubscriptionWithRegion existing : regions) {
             if (existing.getRegion().contains(sub.getRegion())) {
                 String info = "Covered by: " + existing.getRegion().toLogString();
-                return new StoreUpdate(StoreOpResult.NO_CHANGE, null, info);
+                return new StoreUpdate(StoreOpResult.NO_CHANGE, null, info, 0, 0);
             }
         }
 
@@ -42,9 +43,10 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         Region accumulator = new Region(sub.getRegion());
         boolean changed = false;
         boolean mergedInPass;
-        
-        int absorbedCount = 0; // Existing regions swallowed by Incoming (Accumulator doesn't grow)
+
+        int absorbedCount = 0; // Existing regions swallowed by Incoming
         int mergedCount = 0;   // Existing regions that caused Accumulator to grow
+        double absorbedArea = 0.0; // To track if we are just replacing identical regions
 
         do {
             mergedInPass = false;
@@ -54,36 +56,55 @@ public class MultiRegionStore implements RegionSubscriptionStore {
                 Region rExisting = existing.getRegion();
 
                 // Case A: Accumulator eats Existing (Superset)
+                // We remove 'existing' because 'accumulator' replaces it.
                 if (accumulator.contains(rExisting)) {
+                    absorbedArea += rExisting.getArea();
                     it.remove();
                     changed = true;
-                    absorbedCount++; 
-                } 
-                // Case B: Merge Condition Met (Intersection)
+                    absorbedCount++;
+                }
+                // Case B: Merge Condition Met (Intersection or Proximity)
                 else if (shouldMerge(accumulator, rExisting)) {
                     accumulator.expand(rExisting); // Accumulator GROWS here
                     it.remove();
                     changed = true;
                     mergedInPass = true;
                     mergedCount++;
-                    break; 
+                    break; // Restart iterator because accumulator changed shape
                 }
             }
         } while (mergedInPass);
 
-        // 3. Add result
+        // 3. Add result to store
         SubscriptionWithRegion resultingEntry = new SubscriptionWithRegion(accumulator);
         regions.add(resultingEntry);
         updateSummary(source);
 
-        StoreOpResult opResult = changed ? StoreOpResult.EXPANDED : StoreOpResult.ADDED;
-        
-        // 4. Construct Log String
-        String info;
+        // 4. Determine OpResult (CRITICAL FIX)
+        StoreOpResult opResult;
         if (!changed) {
+            opResult = StoreOpResult.ADDED;
+        } else {
+            // Optimization: If we absorbed regions but the area didn't change (sub == existing),
+            // treat it as NO_CHANGE to stop propagation "churn".
+            // We check if mergedCount is 0 (pure absorption) and areas match.
+            double accumArea = accumulator.getArea();
+            boolean isIdenticalReplacement = (mergedCount == 0 && Math.abs(accumArea - absorbedArea) < 0.000001);
+
+            if (isIdenticalReplacement) {
+                opResult = StoreOpResult.NO_CHANGE;
+            } else {
+                opResult = StoreOpResult.EXPANDED;
+            }
+        }
+
+        // 5. Construct Log String
+        String info;
+        if (opResult == StoreOpResult.NO_CHANGE && changed) {
+            info = "Redundant Update (Identical Replacement)";
+        } else if (!changed) {
             info = "New Disjoint Region";
         } else {
-            // Distinguish between Absorbing (geometry didn't change) vs Merging (geometry grew)
             StringBuilder sb = new StringBuilder();
             if (absorbedCount > 0) sb.append("Absorbed ").append(absorbedCount).append(" regions. ");
             if (mergedCount > 0) sb.append("Merged with ").append(mergedCount).append(" regions. ");
@@ -91,7 +112,34 @@ public class MultiRegionStore implements RegionSubscriptionStore {
             info = sb.toString();
         }
 
-        return new StoreUpdate(opResult, resultingEntry, info);
+        return new StoreUpdate(opResult, resultingEntry, info, absorbedCount, mergedCount);
+    }
+
+    // Updated with Debug Logging to diagnose why Merges (0) are failing
+    private boolean shouldMerge(Region r1, Region r2) {
+        double intersectionArea = r1.getIntersectionArea(r2);
+
+        // Calculate Areas involved
+        double area1 = r1.getArea();
+        double area2 = r2.getArea();
+
+        // The actual geometric area covered by the two regions (A U B)
+        double geometricUnionArea = area1 + area2 - intersectionArea;
+
+        // Calculate the MBR (Minimum Bounding Rectangle) of the result
+        Region mbr = new Region(r1);
+        mbr.expand(r2);
+        double mbrArea = mbr.getArea();
+
+        if (mbrArea <= 0) return false;
+
+        // Calculate False Positive Region (Waste)
+        double fprArea = mbrArea - geometricUnionArea;
+        double fprRatio = fprArea / mbrArea;
+
+        boolean merge = fprRatio < mergeThreshold;
+
+        return merge;
     }
 
     private void updateSummary(TreeNode source) {
@@ -105,13 +153,6 @@ public class MultiRegionStore implements RegionSubscriptionStore {
             summary.expand(list.get(i).getRegion());
         }
         summaryRegions.put(source, summary);
-    }
-
-    private boolean shouldMerge(Region r1, Region r2) {
-        double intersection = r1.getIntersectionArea(r2);
-        if (intersection <= 0) return false;
-        double union = r1.getUnionArea(r2);
-        return (intersection / union) >= mergeThreshold;
     }
 
     @Override

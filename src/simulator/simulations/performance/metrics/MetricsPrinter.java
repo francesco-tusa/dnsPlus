@@ -18,8 +18,8 @@ public class MetricsPrinter {
         long totalInput = data.inputTableStats.getSum();
         long totalOutput = data.outputTableStats.getSum();
         
-        logItem("Total Input Entries (Received)", totalInput);
-        logItem("Total Output Entries (Propagated)", totalOutput);
+        logItem("Total Input Entries (Received)", format(totalInput));
+        logItem("Total Output Entries (Propagated)", format(totalOutput));
         
         // Calculate Aggregation Ratio
         double aggregationRatio = (totalOutput > 0) 
@@ -29,23 +29,26 @@ public class MetricsPrinter {
         logItem("Aggregation Factor (Input/Output)", String.format("%.2f", aggregationRatio));
         
         logItem("Avg Input Table Size", String.format("%.2f", data.inputTableStats.getAverage()));
-        logItem("Max Input Table Size", data.inputTableStats.getMax());
+        logItem("Max Input Table Size", format(data.inputTableStats.getMax()));
 
         logger.info(""); 
         logger.info("2. SUBSCRIPTION PROCESSING (Logic):");
-        logItem("Total Subscriptions Processed", data.totalSubscriptionTraffic);
+        logItem("Total Subscriptions Processed", format(data.totalSubscriptionTraffic));
         
         long effectiveUpdates = data.totalSubExpanded + data.totalSubAdded;
-        logItem("  -> Covered (Filtered)", data.totalSubCovered);
-        logItem("  -> Effective Updates (Forwarded)", effectiveUpdates);
-        logItem("      -> Expanded (Merged)", data.totalSubExpanded);
-        logItem("      -> Added (Disjoint)", data.totalSubAdded);
+        logItem("  -> Covered (Filtered)", format(data.totalSubCovered));
+        logItem("   -> Effective Updates (Forwarded)", format(effectiveUpdates));
+        logItem("       -> Expansion Events", format(data.totalSubExpanded));
+        logger.info("           [Entries Affected by Expansions]:");
+        logItem("           -> Entries Merged (contributed to growth)", format(data.totalSubMerged));
+        logItem("           -> Entries Absorbed (removed as subset)", format(data.totalSubAbsorbed));
+        logItem("       -> New Entries Added (Disjoint)", format(data.totalSubAdded));
 
         logger.info("");
         logger.info("3. PUBLICATION TRAFFIC & COST:");
-        logItem("Total Publications Sent (Origins)", data.totalPubsSent);
-        logItem("Total Forwarding Events (Traffic)", data.totalPubForwardingEvents);
-        logItem("Total Matching Computations (Cost)", data.totalMatchingComputations);
+        logItem("Total Publications Sent (Origins)", format(data.totalPubsSent));
+        logItem("Total Forwarding Events (Traffic)", format(data.totalPubForwardingEvents));
+        logItem("Total Matching Computations (Cost)", format(data.totalMatchingComputations));
 
         double avgCostPerMessage = (data.totalPubForwardingEvents > 0) 
             ? (double) data.totalMatchingComputations / data.totalPubForwardingEvents 
@@ -54,7 +57,7 @@ public class MetricsPrinter {
 
         logger.info("");
         logger.info("4. DELIVERY PERFORMANCE (Quality):");
-        logItem("Total Notifications Received", data.totalNotifications);
+        logItem("Total Notifications Received", format(data.totalNotifications));
         
         if (data.hopStats.getCount() > 0) {
             logItem("Hop Count (Min / Avg / Max)", 
@@ -74,7 +77,7 @@ public class MetricsPrinter {
                 ? (double) data.totalPubForwardingEvents / data.totalNotifications 
                 : 0.0;
 
-            logItem("False Positive Events (Dead Ends)", deadEnds);
+            logItem("False Positive Events (Dead Ends)", format(deadEnds));
             logItem("False Positive Rate", String.format("%.2f%%", fpRate));
             logItem("Traffic Ratio (Events per Delivery)", String.format("%.2f", trafficRatio));
         }
@@ -82,7 +85,7 @@ public class MetricsPrinter {
         if (data.groundTruthMatches > 0) {
             logger.info("");
             logger.info("6. REGION ACCURACY:");
-            logItem("Ground Truth Matches", data.groundTruthMatches);
+            logItem("Ground Truth Matches", format(data.groundTruthMatches));
             double accuracy = (double) data.totalNotifications / data.groundTruthMatches * 100.0;
             logItem("Delivery Accuracy", String.format("%.2f%%", accuracy));
         }
@@ -102,7 +105,15 @@ public class MetricsPrinter {
         logger.info("----------------------------------------------------------------------------------");
     }
 
-    private void logItem(String key, Object value) {
+    private void logItem(String key, String value) {
         logger.info(String.format("%-40s : %s", key, value));
+    }
+    
+    private String format(long number) {
+        return String.format("%,d", number);
+    }
+    
+    private String format(int number) {
+        return String.format("%,d", number);
     }
 }

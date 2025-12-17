@@ -11,6 +11,10 @@ public class PerformanceMetricsData {
     public long totalSubExpanded = 0;
     public long totalSubAdded = 0;
     public long totalSubscriptionTraffic = 0;
+    
+    // Detailed expansion breakdown
+    public long totalSubAbsorbed = 0;
+    public long totalSubMerged = 0;
 
     // 3. Traffic & Cost
     public long totalPubsSent = 0;

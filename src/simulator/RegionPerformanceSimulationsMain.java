@@ -1,7 +1,6 @@
 package simulator;
 
 import java.util.logging.Logger;
-// Import the new simulation classes
 
 import simulator.simulations.performance.AwsGeonamesRegionPerformanceSimulation;
 import simulator.simulations.performance.PopulationGeonamesRegionPerformanceSimulation;

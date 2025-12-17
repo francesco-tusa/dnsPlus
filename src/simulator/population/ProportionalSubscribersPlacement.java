@@ -24,11 +24,18 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
         // Removed debug flag
     }
 
+    // In src/simulator/population/ProportionalSubscribersPlacement.java
+
     @Override
     public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {
         logger.info("");
         logger.info("--- Starting Proportional Subscriber Placement ---");
-        logger.info("Distributing " + totalSubscribersToCreate + " total subscribers...");
+        
+        // --- VALIDATION SETUP ---
+        int suspiciousBrokerCount = 0;
+        int totalLogged = 0;
+        int maxLogs = 50; // Limit logs to prevent massive files
+        // ------------------------
 
         if (leafBrokers == null || leafBrokers.isEmpty()) {
             logger.severe("Error: The provided list of leaf brokers is empty. Cannot generate subscribers.");
@@ -36,23 +43,11 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
         }
 
         long worldTotalInternetPopulation = rootNode.getInternetPopulation();
-
-        if (worldTotalInternetPopulation == 0) {
-            logger.warning("Warning: Total internet population is zero. Using uniform random distribution.");
-            generateAndAttachUniformly(leafBrokers, totalSubscribersToCreate);
-            return;
-        }
-        
         long[] cumulativeWeights = new long[leafBrokers.size()];
         long runningTotal = 0;
         for (int i = 0; i < leafBrokers.size(); i++) {
             runningTotal += leafBrokers.get(i).getInternetPopulation();
             cumulativeWeights[i] = runningTotal;
-        }
-
-        boolean isDebug = logger.isLoggable(Level.FINE);
-        if (isDebug) {
-            logger.fine("  --- DEBUG: Subscriber Placement (Sample) ---");
         }
 
         long subscribersCreated = 0;
@@ -62,29 +57,49 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
 
             if (chosenBroker != null) {
                 Region brokerRegion = chosenBroker.getRegion();
+                
+                // --- DIAGNOSTIC LOGGING ---
+                // Check if this broker has a "Point Region" (Width/Height near zero)
+                boolean isPointRegion = false;
+                if (brokerRegion != null && brokerRegion.getBottomLeft() != null) {
+                    double w = brokerRegion.getWidth();
+                    double h = brokerRegion.getHeight();
+                    if (w < 1e-6 || h < 1e-6) isPointRegion = true;
+                }
+
+                // Log if it's a Point Region OR if it's one of the first few iterations
+                if ((isPointRegion && suspiciousBrokerCount < maxLogs) || totalLogged < 20) {
+                    if (isPointRegion) suspiciousBrokerCount++;
+                    totalLogged++;
+                    
+                    Location debugLoc = generateLocationInRegion(brokerRegion);
+                    String status = isPointRegion ? "[ZERO-SIZE]" : "[VALID]";
+                    
+                    logger.info(String.format("PLACEMENT TRACE %s: Broker='%s' (Pop=%d) Region=%s -> Generated Sub Location: %s",
+                        status,
+                        chosenBroker.getName(),
+                        chosenBroker.getInternetPopulation(),
+                        (brokerRegion != null ? brokerRegion.toShortString() : "null"),
+                        debugLoc.toShortString()
+                    ));
+                }
+                // ---------------------------
+
                 if (brokerRegion == null || brokerRegion.getBottomLeft() == null) {
-                    logger.warning("Skipping subscriber placement: Chosen broker " + chosenBroker.getName() + " has a null or incomplete region.");
-                    continue;
+                    continue; 
                 }
 
                 Location subLocation = generateLocationInRegion(brokerRegion);
                 SubscriberWithLocation subscriber = new SubscriberWithLocation(generateSubscriberName(), subLocation);
                 chosenBroker.addChild(subscriber);
                 subscribersCreated++;
-                
-                if (isDebug && i < DEBUG_SAMPLE_SIZE) {
-                     logger.fine(String.format("  DEBUG: Placed %s at %s in Region %s (Pop: %d)",
-                                      subscriber.getName(), subLocation.toShortString(), chosenBroker.getName(), chosenBroker.getInternetPopulation()));
-                }
             }
         }
         
-        if (isDebug && totalSubscribersToCreate > DEBUG_SAMPLE_SIZE) {
-             logger.fine(String.format("  DEBUG: ... (logged first %d of %d subscribers)", DEBUG_SAMPLE_SIZE, totalSubscribersToCreate));
-             logger.fine("  --------------------------------------------");
+        logger.info("--- Placement Complete. Total created: " + subscribersCreated + " ---");
+        if (suspiciousBrokerCount > 0) {
+            logger.warning("WARNING: Detected " + suspiciousBrokerCount + " placements into ZERO-SIZE regions during sampling.");
         }
-        
-        logger.info("--- Proportional Subscriber Placement Complete. Total subscribers created: " + subscribersCreated + " ---");
     }
 
     private BoundedBroker findBrokerForWeight(long weight, List<BoundedBroker> brokers, long[] cumulativeWeights) {

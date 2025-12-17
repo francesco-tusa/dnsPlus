@@ -22,6 +22,11 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
     private final Map<Integer, Region> adm2BoundsMap = new HashMap<>();
     private final Map<Integer, GeoNamesBuilderNode> nodeMap = new HashMap<>();
 
+    // Configurable Estimator (Defaulting to PowerLaw)
+    private final AreaEstimator areaEstimator = new PowerLawAreaEstimator(); 
+    // private final AreaEstimator areaEstimator = new LinearDensityAreaEstimator();
+
+
     private static class RelevantAdminInfo {
         int id; String name; GeoNamesBuilderNode.NodeType type; String code; String feature; String country; String admin1;
         long officialPop;
@@ -79,19 +84,26 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         assignInitialProps(root, nodesToExpand);
         addAdm2Layer(nodesToExpand);
         distributeAdm1Pop(nodesToExpand);
+
+        logger.info("Pass 6.5: Inflating zero-size regions based on final population...");
+        applyAreaEstimation(root);
+
         estimateAdm2Bounds(nodesToExpand);
         
         logger.info("Pass 7: Scaling populations...");
         scalePopulations(root, loader);
         
+        // --- VALIDATION (SORTED) ---
+        logger.info("Validating pre-expansion leaf bounds (Sorted by Pop Desc)...");
+        validateLeafBounds(root, "N/A"); 
+        // ---------------------------
+
         // Retrieve parameters from TopologyConfig
         int maxBranching = config.topology.branchingFactor;
-        long thresholdCoarse = config.topology.politicalThresholdLvl1; // Default 1,000,000
-        long thresholdFine = config.topology.politicalThresholdLvl2;   // Default 10,000
+        long thresholdCoarse = config.topology.politicalThresholdLvl1; 
+        long thresholdFine = config.topology.politicalThresholdLvl2;   
 
         // Pass 8: Coarse Expansion
-        // Uses "Bin Packing" logic (distributeEqually=false) to create large semantic districts.
-        // Node Type: GRID_COARSE
         LeafExpansionStrategy gridPass1 = new GridLeafExpansionStrategy(false, maxBranching);
         
         logger.info(String.format("Pass 8: Expanding Leaves > %d (Branching=%s)...", 
@@ -100,8 +112,6 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         expandLeaves(root, thresholdCoarse, gridPass1, GeoNamesBuilderNode.NodeType.GRID_COARSE);
         
         // Pass 9: Fine Expansion
-        // Uses "Load Balancing" logic (distributeEqually=true) to create recursive routing trees.
-        // Node Type: GRID_FINE
         LeafExpansionStrategy gridPass2 = new GridLeafExpansionStrategy(true, maxBranching);
         
         logger.info(String.format("Pass 9: Expanding Leaves > %d (Branching=%s)...", 
@@ -113,12 +123,12 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         logger.info("Pass 10: Final Aggregation...");
         finalAggregate(root);
 
-        //  Analysis
+        // Analysis & Diagnostics
         if (config.topology.enablePoliticalAnalysis) {
             analyzeContinentExtremities(root);
         }
-        
-        // Diagnostics
+
+        logLeafRegionStatistics(root);
         printTopologyStats(root);
         
         return root;
@@ -284,6 +294,26 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         }
     }
 
+    private void applyAreaEstimation(GeoNamesBuilderNode node) {
+        // Target ADM1, ADM2, and COUNTRY nodes (e.g. Vatican, Nauru). 
+        if (node.type == GeoNamesBuilderNode.NodeType.ADM1 || 
+            node.type == GeoNamesBuilderNode.NodeType.ADM2 ||
+            node.type == GeoNamesBuilderNode.NodeType.COUNTRY) {
+            
+            // If bounds exist, try to inflate them based on population
+            if (node.bounds != null) {
+                node.bounds = areaEstimator.estimate(node.bounds, node.aggregatedPopulation);
+            }
+        }
+        
+        // Recurse to children
+        if (node.children != null) {
+            for (GeoNamesBuilderNode child : node.children) {
+                applyAreaEstimation(child);
+            }
+        }
+    }
+
     private void scalePopulations(GeoNamesBuilderNode root, GeoNamesDataLoader loader) {
         for (GeoNamesBuilderNode continent : root.children) {
             for (GeoNamesBuilderNode country : continent.children) {
@@ -361,6 +391,63 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         }
     }
 
+    /**
+     * Recursively collects all Zero-Size leaf nodes, sorts them by population (Descending),
+     * and logs them for analysis.
+     */
+    private void validateLeafBounds(GeoNamesBuilderNode root, String initialContext) {
+        List<ZeroSizeIssue> issues = new ArrayList<>();
+        collectZeroSizeLeaves(root, initialContext, issues);
+        
+        // Sort: Descending Population
+        issues.sort((a, b) -> Long.compare(b.node.aggregatedPopulation, a.node.aggregatedPopulation));
+
+        if (!issues.isEmpty()) {
+            logger.info(String.format("Found %d Zero-Size Leaves. Top listings by Population:", issues.size()));
+        }
+
+        for (ZeroSizeIssue issue : issues) {
+            GeoNamesBuilderNode node = issue.node;
+            logger.warning(String.format(
+                "WARNING: Zero-Size Leaf Detected! Node '%s' (ID: %d) " +
+                "| Pop: %d | ADM1: [%s] | Bounds: %s. " +
+                "Grid Expansion here will fail.", 
+                node.name, 
+                node.geonameId, 
+                node.aggregatedPopulation, 
+                issue.adm1Context,
+                node.bounds != null ? node.bounds.toShortString() : "null"));
+        }
+    }
+
+    private void collectZeroSizeLeaves(GeoNamesBuilderNode node, String currentAdm1Info, List<ZeroSizeIssue> issues) {
+        // Update context if we are at an ADM1 node
+        String adm1Context = currentAdm1Info;
+        if (node.type == GeoNamesBuilderNode.NodeType.ADM1) {
+            adm1Context = String.format("%s (ID: %d)", node.name, node.geonameId);
+        }
+
+        // If the node has no children, it is currently a leaf.
+        if (node.children.isEmpty()) {
+            if (node.bounds != null && node.bounds.getBottomLeft() != null) {
+                double w = node.bounds.getWidth();
+                double h = node.bounds.getHeight();
+                
+                // Threshold: 1e-6 degrees is approx 10cm. 
+                if (w < 1e-6 || h < 1e-6) {
+                    issues.add(new ZeroSizeIssue(node, adm1Context));
+                }
+            }
+            return;
+        }
+        
+        // Recurse down the tree passing the context
+        for (GeoNamesBuilderNode child : node.children) {
+            collectZeroSizeLeaves(child, adm1Context, issues);
+        }
+    }
+
+
     /* Debugging method to identify which children defined the bounding box limits
      * of the continents.
      */
@@ -412,6 +499,67 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         logger.info("=== END ANALYSIS ===\n");
     }
 
+    /**
+     * Traverses the entire topology tree to count total leaf nodes and identify
+     * how many of them have collapsed into zero-size point regions.
+     */
+    private void logLeafRegionStatistics(GeoNamesBuilderNode root) {
+        long totalLeaves = 0;
+        long zeroSizeIssues = 0; // Only counts if Pop > 0
+        long emptyNodes = 0;     // Counts if Pop == 0 (Harmless)
+        long affectedPop = 0;
+
+        Queue<GeoNamesBuilderNode> queue = new LinkedList<>();
+        if (root != null) queue.add(root);
+
+        while (!queue.isEmpty()) {
+            GeoNamesBuilderNode node = queue.poll();
+
+            // If a node has no children, it is a Leaf Broker in the final topology
+            if (node.children == null || node.children.isEmpty()) {
+                totalLeaves++;
+                
+                boolean isZeroSize = false;
+                if (node.bounds == null || node.bounds.getBottomLeft() == null) {
+                    isZeroSize = true;
+                } else {
+                    double w = node.bounds.getWidth();
+                    double h = node.bounds.getHeight();
+                    // Check if effectively a point
+                    if (w < 1e-6 || h < 1e-6) {
+                        isZeroSize = true;
+                    }
+                }
+
+                if (isZeroSize) {
+                    if (node.aggregatedPopulation > 0) {
+                        zeroSizeIssues++;
+                        affectedPop += node.aggregatedPopulation;
+                    } else {
+                        emptyNodes++;
+                    }
+                }
+            } else {
+                queue.addAll(node.children);
+            }
+        }
+
+        double percentIssue = (totalLeaves > 0) ? (100.0 * zeroSizeIssues / totalLeaves) : 0.0;
+
+        logger.info("\n=== LEAF REGION QUALITY ANALYSIS ===");
+        logger.info(String.format("Total Leaf Brokers      : %d", totalLeaves));
+        logger.info(String.format("Zero-Size Issues        : %d (%.2f%%) [Nodes with Pop > 0]", zeroSizeIssues, percentIssue));
+        logger.info(String.format("Empty/Unused Nodes      : %d [Nodes with Pop = 0]", emptyNodes));
+        logger.info(String.format("Population at Risk      : %d", affectedPop));
+        
+        if (zeroSizeIssues > 0) {
+            logger.warning("(!) High number of Point Regions with Population detected. Subscriber stacking is likely.");
+        } else {
+            logger.info("(OK) All populated leaf regions have valid spatial extent.");
+        }
+        logger.info("====================================\n");
+    }
+
     private void printTopologyStats(GeoNamesBuilderNode root) {
         Map<GeoNamesBuilderNode.NodeType, Long> typeCounts = new HashMap<>();
         Map<GeoNamesBuilderNode.NodeType, Long> typePop = new HashMap<>();
@@ -441,5 +589,102 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
             ));
         }
         logger.info("============================\n");
+    }
+
+
+    // --- AREA ESTIMATION STRATEGIES ---
+    
+    private interface AreaEstimator {
+        Region estimate(Region currentBounds, long population);
+    }
+
+    /**
+     * Estimates area using Power Law regression from Global Urban Data.
+     * Formula: Area = k * Pop^alpha
+     * Best for preventing stacking in both Megacities (sub-linear scaling) and Villages.
+     */
+    private static class PowerLawAreaEstimator implements AreaEstimator {
+        // Regression constants (R^2 ~0.85)
+        private static final double K_CONST = 0.061779;
+        private static final double ALPHA_EXP = 0.631462;
+        private static final double KM_PER_DEGREE = 111.0;
+        private static final double MIN_DEGREE = 0.02; // ~2.2km min size
+        private static final double MAX_DEGREE = 2.0;  // ~220km max cap
+
+        @Override
+        public Region estimate(Region r, long population) {
+            if (r == null || r.getBottomLeft() == null) return new Region();
+
+            // If region already has valid spatial extent (> ~10 meters), preserve it.
+            if (r.getWidth() > 1e-4 && r.getHeight() > 1e-4) {
+                return r;
+            }
+
+            long effectivePop = (population <= 0) ? 1000 : population;
+            
+            // Area = 0.061 * Pop^0.631
+            double impliedAreaKm2 = K_CONST * Math.pow(effectivePop, ALPHA_EXP);
+            
+            double sideLengthKm = Math.sqrt(impliedAreaKm2);
+            double degrees = sideLengthKm / KM_PER_DEGREE;
+            
+            return expandPoint(r, degrees, MIN_DEGREE, MAX_DEGREE);
+        }
+    }
+
+    /**
+     * Estimates area using Linear Density Model.
+     * Formula: Density = 178 * (Pop_Millions) + 5800
+     * Note: Can be too aggressive for small towns (creates <1km boxes).
+     */
+    private static class LinearDensityAreaEstimator implements AreaEstimator {
+        private static final double KM_PER_DEGREE = 111.0;
+        private static final double MIN_DEGREE = 0.02;
+        private static final double MAX_DEGREE = 2.0;
+
+        @Override
+        public Region estimate(Region r, long population) {
+            if (r == null || r.getBottomLeft() == null) return new Region();
+            if (r.getWidth() > 1e-4 && r.getHeight() > 1e-4) return r;
+
+            long effectivePop = (population <= 0) ? 1000 : population;
+            double popMillions = effectivePop / 1_000_000.0;
+            
+            // Density = 178.05 * x + 5800.2
+            double density = (178.05 * popMillions) + 5800.2;
+            if (density < 100) density = 100; // Safety floor
+            
+            double impliedAreaKm2 = effectivePop / density;
+            double sideLengthKm = Math.sqrt(impliedAreaKm2);
+            double degrees = sideLengthKm / KM_PER_DEGREE;
+
+            return expandPoint(r, degrees, MIN_DEGREE, MAX_DEGREE);
+        }
+    }
+
+    // Helper to inflate a point region around its center
+    private static Region expandPoint(Region r, double targetDegrees, double min, double max) {
+        double size = Math.max(min, Math.min(max, targetDegrees));
+        double half = size / 2.0;
+        
+        double centerX = (r.getBottomLeft().getX() + r.getTopRight().getX()) / 2.0;
+        double centerY = (r.getBottomLeft().getY() + r.getTopRight().getY()) / 2.0;
+
+        return new Region(
+            new Location(centerX - half, centerY - half, 0),
+            new Location(centerX + half, centerY + half, 0)
+        );
+    }
+
+
+    // --- Helper Class for Sorting Issues ---
+    private static class ZeroSizeIssue {
+        final GeoNamesBuilderNode node;
+        final String adm1Context;
+        
+        ZeroSizeIssue(GeoNamesBuilderNode node, String adm1Context) {
+            this.node = node;
+            this.adm1Context = adm1Context;
+        }
     }
 }

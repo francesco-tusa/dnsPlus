@@ -108,7 +108,7 @@ public class SpatialMatchBroker extends BoundedBroker {
             // Re-use logic for logging details
             logDetail = buildLogDetail(sub, update);
             
-            updateCounters(resultForLog);
+            updateCounters(update);
         }
         
         logToCsv(s, logDetail, resultForLog);
@@ -128,7 +128,7 @@ public class SpatialMatchBroker extends BoundedBroker {
 
         // 2. Logging & Metrics (Using the helpers present in your class)
         String logDetail = buildLogDetail(newSub, inputUpdate);
-        updateCounters(inputUpdate.getResult());
+        updateCounters(inputUpdate);
         logToCsv(s, logDetail, inputUpdate.getResult());
 
         // 3. Propagation Logic
@@ -214,10 +214,14 @@ public class SpatialMatchBroker extends BoundedBroker {
                               update.getAdditionalInfo());
     }
 
-    private void updateCounters(StoreOpResult result) {
-        switch (result) {
+    private void updateCounters(StoreUpdate update) {
+        switch (update.getResult()) {
             case NO_CHANGE -> recordSubCovered();
-            case EXPANDED -> recordSubExpanded();
+            case EXPANDED -> {
+                recordSubExpanded();
+                recordSubAbsorbed(update.getAbsorbedCount());
+                recordSubMerged(update.getMergedCount());
+            }
             case ADDED -> recordSubAdded();
         }
     }

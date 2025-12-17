@@ -7,3 +7,4 @@ resources/world/allCountries.txt
 resources/world/countryInfo.txt
 resources/simulation.properties
 .gitignore
+.vscode/launch.json

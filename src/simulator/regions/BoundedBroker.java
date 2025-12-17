@@ -18,6 +18,8 @@ public abstract class BoundedBroker extends SimulationBroker {
     private long subCoveredCount = 0;
     private long subExpandedCount = 0;
     private long subAddedCount = 0;
+    private long subAbsorbedCount = 0; // New
+    private long subMergedCount = 0;   // New
 
     public BoundedBroker(String name) {
         super(name);
@@ -73,9 +75,15 @@ public abstract class BoundedBroker extends SimulationBroker {
     protected void recordSubCovered() { subCoveredCount++; }
     protected void recordSubExpanded() { subExpandedCount++; }
     protected void recordSubAdded() { subAddedCount++; }
+    
+    // New helper methods accepting counts from the store
+    protected void recordSubAbsorbed(int count) { subAbsorbedCount += count; }
+    protected void recordSubMerged(int count) { subMergedCount += count; }
 
     // --- Getters ---
     public long getSubCoveredCount() { return subCoveredCount; }
     public long getSubExpandedCount() { return subExpandedCount; }
     public long getSubAddedCount() { return subAddedCount; }
+    public long getSubAbsorbedCount() { return subAbsorbedCount; }
+    public long getSubMergedCount() { return subMergedCount; }
 }
