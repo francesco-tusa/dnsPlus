@@ -25,12 +25,19 @@ public class MetricsCollector {
                 data.totalFalsePositiveEvents += b.getTotalFalsePositiveEvents();
 
                 if (b instanceof BoundedBroker bb) {
+                    // INPUT
                     data.totalSubCovered += bb.getSubCoveredCount();
                     data.totalSubExpanded += bb.getSubExpandedCount();
                     data.totalSubAdded += bb.getSubAddedCount();
-                    
                     data.totalSubAbsorbed += bb.getSubAbsorbedCount();
                     data.totalSubMerged += bb.getSubMergedCount();
+                    
+                    // OUTPUT
+                    data.totalOutSubCovered += bb.getOutSubCoveredCount();
+                    data.totalOutSubExpanded += bb.getOutSubExpandedCount();
+                    data.totalOutSubAdded += bb.getOutSubAddedCount();
+                    data.totalOutSubAbsorbed += bb.getOutSubAbsorbedCount();
+                    data.totalOutSubMerged += bb.getOutSubMergedCount();
                 }
             }
             if (curr.getChildren() != null)

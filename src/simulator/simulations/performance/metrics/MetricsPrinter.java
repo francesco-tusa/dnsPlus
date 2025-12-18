@@ -21,28 +21,30 @@ public class MetricsPrinter {
         logItem("Total Input Entries (Received)", format(totalInput));
         logItem("Total Output Entries (Propagated)", format(totalOutput));
         
-        // Calculate Aggregation Ratio
         double aggregationRatio = (totalOutput > 0) 
             ? (double) totalInput / totalOutput 
             : 0.0;
             
         logItem("Aggregation Factor (Input/Output)", String.format("%.2f", aggregationRatio));
-        
         logItem("Avg Input Table Size", String.format("%.2f", data.inputTableStats.getAverage()));
         logItem("Max Input Table Size", format(data.inputTableStats.getMax()));
 
         logger.info(""); 
-        logger.info("2. SUBSCRIPTION PROCESSING (Logic):");
+        logger.info("2. SUBSCRIPTION PROCESSING (Logic) [Input / Output]:");
         logItem("Total Subscriptions Processed", format(data.totalSubscriptionTraffic));
         
-        long effectiveUpdates = data.totalSubExpanded + data.totalSubAdded;
-        logItem("  -> Covered (Filtered)", format(data.totalSubCovered));
-        logItem("   -> Effective Updates (Forwarded)", format(effectiveUpdates));
-        logItem("       -> Expansion Events", format(data.totalSubExpanded));
-        logger.info("           [Entries Affected by Expansions]:");
-        logItem("           -> Entries Merged (contributed to growth)", format(data.totalSubMerged));
-        logItem("           -> Entries Absorbed (removed as subset)", format(data.totalSubAbsorbed));
-        logItem("       -> New Entries Added (Disjoint)", format(data.totalSubAdded));
+        long effectiveUpdatesIn = data.totalSubExpanded + data.totalSubAdded;
+        long effectiveUpdatesOut = data.totalOutSubExpanded + data.totalOutSubAdded;
+
+        logSplitItem("  -> Covered (Filtered)", data.totalSubCovered, data.totalOutSubCovered);
+        logSplitItem("   -> Effective Updates (Forwarded)", effectiveUpdatesIn, effectiveUpdatesOut);
+        logSplitItem("       -> Expansion Events", data.totalSubExpanded, data.totalOutSubExpanded);
+        
+        logger.info("           [Entries Affected by Expansions (Input / Output)]:");
+        logSplitItem("           -> Entries Merged", data.totalSubMerged, data.totalOutSubMerged);
+        logSplitItem("           -> Entries Absorbed", data.totalSubAbsorbed, data.totalOutSubAbsorbed);
+        
+        logSplitItem("       -> New Entries Added (Disjoint)", data.totalSubAdded, data.totalOutSubAdded);
 
         logger.info("");
         logger.info("3. PUBLICATION TRAFFIC & COST:");
@@ -72,7 +74,6 @@ public class MetricsPrinter {
             
             long deadEnds = data.totalFalsePositiveEvents;
             double fpRate = (double) deadEnds / data.totalPubForwardingEvents * 100.0;
-            
             double trafficRatio = (data.totalNotifications > 0) 
                 ? (double) data.totalPubForwardingEvents / data.totalNotifications 
                 : 0.0;
@@ -106,7 +107,12 @@ public class MetricsPrinter {
     }
 
     private void logItem(String key, String value) {
-        logger.info(String.format("%-40s : %s", key, value));
+        logger.info(String.format("%-45s : %s", key, value));
+    }
+    
+    private void logSplitItem(String key, long valIn, long valOut) {
+        String value = String.format("%s / %s", format(valIn), format(valOut));
+        logger.info(String.format("%-45s : %s", key, value));
     }
     
     private String format(long number) {

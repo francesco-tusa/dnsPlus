@@ -6,15 +6,21 @@ public class PerformanceMetricsData {
     public final IntSummaryStatistics inputTableStats = new IntSummaryStatistics();  
     public final IntSummaryStatistics outputTableStats = new IntSummaryStatistics(); 
 
-    // 2. Processing Logic
+    // 2. Processing Logic (INPUT)
     public long totalSubCovered = 0;
     public long totalSubExpanded = 0;
     public long totalSubAdded = 0;
-    public long totalSubscriptionTraffic = 0;
-    
-    // Detailed expansion breakdown
     public long totalSubAbsorbed = 0;
     public long totalSubMerged = 0;
+
+    // 2b. Processing Logic (OUTPUT)
+    public long totalOutSubCovered = 0;
+    public long totalOutSubExpanded = 0;
+    public long totalOutSubAdded = 0;
+    public long totalOutSubAbsorbed = 0;
+    public long totalOutSubMerged = 0;
+
+    public long totalSubscriptionTraffic = 0;
 
     // 3. Traffic & Cost
     public long totalPubsSent = 0;

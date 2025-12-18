@@ -3,7 +3,6 @@ package simulator.population;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.entities.SubscriberWithLocation;
@@ -18,24 +17,15 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
 
     private final Random random = new Random();
     private int subscriberIdCounter = 0;
-    private static final int DEBUG_SAMPLE_SIZE = 10; // Log this many placements
 
     public ProportionalSubscribersPlacement() {
         // Removed debug flag
     }
 
-    // In src/simulator/population/ProportionalSubscribersPlacement.java
-
     @Override
     public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {
         logger.info("");
         logger.info("--- Starting Proportional Subscriber Placement ---");
-        
-        // --- VALIDATION SETUP ---
-        int suspiciousBrokerCount = 0;
-        int totalLogged = 0;
-        int maxLogs = 50; // Limit logs to prevent massive files
-        // ------------------------
 
         if (leafBrokers == null || leafBrokers.isEmpty()) {
             logger.severe("Error: The provided list of leaf brokers is empty. Cannot generate subscribers.");
@@ -57,34 +47,8 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
 
             if (chosenBroker != null) {
                 Region brokerRegion = chosenBroker.getRegion();
-                
-                // --- DIAGNOSTIC LOGGING ---
-                // Check if this broker has a "Point Region" (Width/Height near zero)
-                boolean isPointRegion = false;
-                if (brokerRegion != null && brokerRegion.getBottomLeft() != null) {
-                    double w = brokerRegion.getWidth();
-                    double h = brokerRegion.getHeight();
-                    if (w < 1e-6 || h < 1e-6) isPointRegion = true;
-                }
 
-                // Log if it's a Point Region OR if it's one of the first few iterations
-                if ((isPointRegion && suspiciousBrokerCount < maxLogs) || totalLogged < 20) {
-                    if (isPointRegion) suspiciousBrokerCount++;
-                    totalLogged++;
-                    
-                    Location debugLoc = generateLocationInRegion(brokerRegion);
-                    String status = isPointRegion ? "[ZERO-SIZE]" : "[VALID]";
-                    
-                    logger.info(String.format("PLACEMENT TRACE %s: Broker='%s' (Pop=%d) Region=%s -> Generated Sub Location: %s",
-                        status,
-                        chosenBroker.getName(),
-                        chosenBroker.getInternetPopulation(),
-                        (brokerRegion != null ? brokerRegion.toShortString() : "null"),
-                        debugLoc.toShortString()
-                    ));
-                }
-                // ---------------------------
-
+                // Ensure the region is valid before attempting placement
                 if (brokerRegion == null || brokerRegion.getBottomLeft() == null) {
                     continue; 
                 }
@@ -97,9 +61,6 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
         }
         
         logger.info("--- Placement Complete. Total created: " + subscribersCreated + " ---");
-        if (suspiciousBrokerCount > 0) {
-            logger.warning("WARNING: Detected " + suspiciousBrokerCount + " placements into ZERO-SIZE regions during sampling.");
-        }
     }
 
     private BoundedBroker findBrokerForWeight(long weight, List<BoundedBroker> brokers, long[] cumulativeWeights) {

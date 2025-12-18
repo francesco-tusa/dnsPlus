@@ -14,12 +14,19 @@ public abstract class BoundedBroker extends SimulationBroker {
     private final Region region;
     private long internetPopulation;
     
-    // Detailed Subscription Counters
+    // Detailed Subscription Counters (INPUT Store)
     private long subCoveredCount = 0;
     private long subExpandedCount = 0;
     private long subAddedCount = 0;
-    private long subAbsorbedCount = 0; // New
-    private long subMergedCount = 0;   // New
+    private long subAbsorbedCount = 0;
+    private long subMergedCount = 0;
+
+    // Detailed Subscription Counters (OUTPUT Store)
+    private long outSubCoveredCount = 0;
+    private long outSubExpandedCount = 0;
+    private long outSubAddedCount = 0;
+    private long outSubAbsorbedCount = 0;
+    private long outSubMergedCount = 0;
 
     public BoundedBroker(String name) {
         super(name);
@@ -71,19 +78,31 @@ public abstract class BoundedBroker extends SimulationBroker {
         }
     }
     
-    // --- Metric Incrementers ---
+    // --- INPUT Metric Incrementers ---
     protected void recordSubCovered() { subCoveredCount++; }
     protected void recordSubExpanded() { subExpandedCount++; }
     protected void recordSubAdded() { subAddedCount++; }
-    
-    // New helper methods accepting counts from the store
     protected void recordSubAbsorbed(int count) { subAbsorbedCount += count; }
     protected void recordSubMerged(int count) { subMergedCount += count; }
 
-    // --- Getters ---
+    // --- OUTPUT Metric Incrementers ---
+    protected void recordOutSubCovered() { outSubCoveredCount++; }
+    protected void recordOutSubExpanded() { outSubExpandedCount++; }
+    protected void recordOutSubAdded() { outSubAddedCount++; }
+    protected void recordOutSubAbsorbed(int count) { outSubAbsorbedCount += count; }
+    protected void recordOutSubMerged(int count) { outSubMergedCount += count; }
+
+    // --- Getters (INPUT) ---
     public long getSubCoveredCount() { return subCoveredCount; }
     public long getSubExpandedCount() { return subExpandedCount; }
     public long getSubAddedCount() { return subAddedCount; }
     public long getSubAbsorbedCount() { return subAbsorbedCount; }
     public long getSubMergedCount() { return subMergedCount; }
+
+    // --- Getters (OUTPUT) ---
+    public long getOutSubCoveredCount() { return outSubCoveredCount; }
+    public long getOutSubExpandedCount() { return outSubExpandedCount; }
+    public long getOutSubAddedCount() { return outSubAddedCount; }
+    public long getOutSubAbsorbedCount() { return outSubAbsorbedCount; }
+    public long getOutSubMergedCount() { return outSubMergedCount; }
 }

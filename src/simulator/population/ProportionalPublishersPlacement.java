@@ -1,12 +1,12 @@
 package simulator.population;
 
 import java.util.List;
-import java.util.logging.Logger; // Import Logger
+import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.entities.PublisherWithLocation;
 import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
-import utils.CustomLogger; // Import CustomLogger
+import utils.CustomLogger;
 
 /**
  * Generates publishers for local/niche services proportionally to the internet population.
