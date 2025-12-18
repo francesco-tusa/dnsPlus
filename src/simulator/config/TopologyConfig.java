@@ -2,29 +2,30 @@ package simulator.config;
 
 import java.util.Properties;
 
-import com.fasterxml.jackson.databind.ser.std.StdKeySerializers.Default;
-
 public class TopologyConfig {
     public enum StrategyType { POLITICAL, RTREE, GRID, FIXED }
 
-    // --- Generation Parameters (Used by Builder) ---
+    // --- Generation Parameters ---
     public final StrategyType generationStrategy;
-    // Controls fan-out for both R-Tree and Political Grid
     public final int branchingFactor;
 
     // --- Political Topology Specifics ---
-    public final long politicalThresholdLvl1;    // Default: 1,000,000 (Pass 8)
-    public final long politicalThresholdLvl2;    // Default: 10,000 (Pass 9)
+    public final boolean enablePoliticalExpansion; // Master switch for Grid Expansion
+    public final long politicalCoarseThreshold;    // Pass 8 Threshold
+    public final long politicalLeafCapacity;       // Pass 9 Threshold
+    
+    // Analysis Flags
     public final boolean enablePoliticalAnalysis;
+    public final boolean enableTopologyAnalysis;
 
-    // --- R-tree Topology Specifics ---
+    // --- R-tree Specifics ---
     public final int rTreeLeafCapacity;
     public final double rTreeMaxCountryWidth;
 
-    // --- Simulation Parameters (Used by Runner) ---
+    // --- Simulation Parameters ---
     public final StrategyType simulationStrategy;
 
-    // --- Synthetic Topology Parameters ---
+    // --- Synthetic Topology ---
     public final int gridDimension;
     public final double overlapFactor;
     
@@ -36,35 +37,29 @@ public class TopologyConfig {
     public final int treeDepth;
 
     public TopologyConfig(Properties props) {
-        // 1. Load Generation Strategy
-        String genStratStr = props.getProperty("topology.generation.strategy", "POLITICAL").toUpperCase();
-        try {
-            this.generationStrategy = StrategyType.valueOf(genStratStr);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Config Error: Unknown topology.generation.strategy '" + genStratStr + "'");
-        }
+        // Strategies
+        this.generationStrategy = StrategyType.valueOf(props.getProperty("topology.generation.strategy", "POLITICAL").toUpperCase());
+        this.simulationStrategy = StrategyType.valueOf(props.getProperty("topology.simulation.strategy", "POLITICAL").toUpperCase());
 
-        // 2. Load Simulation Strategy
-        String simStratStr = props.getProperty("topology.simulation.strategy", "POLITICAL").toUpperCase();
-        try {
-            this.simulationStrategy = StrategyType.valueOf(simStratStr);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Config Error: Unknown topology.simulation.strategy '" + simStratStr + "'");
-        }
-
-        // Unified Branching Factor (Default 20)
-        // For R-Tree: Controls max children per node.
-        // For Political: Controls max children per grid split (0 = Flat/Infinite).
+        // Unified Branching
         this.branchingFactor = parseInt(props, "topology.branchingFactor", "20");
              
-        // The population thresholds for the two expansion passes
-        this.politicalThresholdLvl1 = parseLong(props, "topology.political.threshold.adm3", "1000000");
-        this.politicalThresholdLvl2 = parseLong(props, "topology.political.threshold.adm4", "10000");
+        // Political Params
+        // Toggle for Grid Expansion (Pass 8 & 9)
+        this.enablePoliticalExpansion = Boolean.parseBoolean(props.getProperty("topology.political.enableExpansion", "true"));
+        
+        this.politicalCoarseThreshold = parseLong(props, "topology.political.threshold.adm3", "1000000");
+        
+        String legacyVal = props.getProperty("topology.political.threshold.adm4", "10000");
+        this.politicalLeafCapacity = parseLong(props, "topology.political.leafCapacity", legacyVal);
+
+        // Analysis Flags
         this.enablePoliticalAnalysis = Boolean.parseBoolean(props.getProperty("topology.political.enableAnalysis", "false"));
+        this.enableTopologyAnalysis = Boolean.parseBoolean(props.getProperty("topology.analysis.enabled", "true"));
 
         // R-Tree Params
         this.rTreeLeafCapacity = parseInt(props, "topology.rtree.leafCapacity", "50");
-        this.rTreeMaxCountryWidth = parseDouble(props, "topology.rtree.maxCountryWidth", "20.0"); // Default to 20.0 degrees (approx width of Poland/Germany).
+        this.rTreeMaxCountryWidth = parseDouble(props, "topology.rtree.maxCountryWidth", "20.0");
 
         // Grid Params
         this.gridDimension = parseInt(props, "topology.grid.dimension", "10");

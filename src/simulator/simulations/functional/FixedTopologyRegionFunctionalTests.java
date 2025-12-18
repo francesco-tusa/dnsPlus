@@ -14,7 +14,7 @@ import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.regions.SpatialMatchBroker;
 import simulator.regions.SubscriptionWithRegion;
-import simulator.topology.analysis.TopologyAnalyzer; // Import
+import simulator.topology.analysis.TopologyAnalyser; // Import
 import utils.CustomLogger;
 
 public class FixedTopologyRegionFunctionalTests {
@@ -25,11 +25,11 @@ public class FixedTopologyRegionFunctionalTests {
         logger.info("\n>>> SCENARIO: Running Comprehensive Cross-Branch and Local Propagation Test. <<<");
 
         // Use TopologyAnalyzer
-        SubscriberWithLocation s2 = TopologyAnalyzer.findNodeByName(root, "sub2", SubscriberWithLocation.class);
-        SubscriberWithLocation s8 = TopologyAnalyzer.findNodeByName(root, "sub8", SubscriberWithLocation.class);
-        SubscriberWithLocation s5 = TopologyAnalyzer.findNodeByName(root, "sub5", SubscriberWithLocation.class);
-        PublisherWithLocation p1 = TopologyAnalyzer.findNodeByName(root, "pub1", PublisherWithLocation.class);
-        PublisherWithLocation p2 = TopologyAnalyzer.findNodeByName(root, "pub2", PublisherWithLocation.class);
+        SubscriberWithLocation s2 = TopologyAnalyser.findNodeByName(root, "sub2", SubscriberWithLocation.class);
+        SubscriberWithLocation s8 = TopologyAnalyser.findNodeByName(root, "sub8", SubscriberWithLocation.class);
+        SubscriberWithLocation s5 = TopologyAnalyser.findNodeByName(root, "sub5", SubscriberWithLocation.class);
+        PublisherWithLocation p1 = TopologyAnalyser.findNodeByName(root, "pub1", PublisherWithLocation.class);
+        PublisherWithLocation p2 = TopologyAnalyser.findNodeByName(root, "pub2", PublisherWithLocation.class);
 
         if (s2 == null || s8 == null || s5 == null || p1 == null || p2 == null) {
             logger.severe("TEST SETUP FAILURE: Could not find all required nodes for the comprehensive test.");
@@ -72,10 +72,10 @@ public class FixedTopologyRegionFunctionalTests {
     public static final Predicate<BoundedBroker> SUBSCRIPTION_COVERING_SCENARIO = root -> {
         logger.info("\n>>> SCENARIO: Running Subscription Covering Test (Large contains Small). <<<");
 
-        SubscriberWithLocation s2 = TopologyAnalyzer.findNodeByName(root, "sub2", SubscriberWithLocation.class);
-        SubscriberWithLocation s3 = TopologyAnalyzer.findNodeByName(root, "sub3", SubscriberWithLocation.class);
-        PublisherWithLocation p1 = TopologyAnalyzer.findNodeByName(root, "pub1", PublisherWithLocation.class);
-        SpatialMatchBroker child2 = TopologyAnalyzer.findNodeByName(root, "child2", SpatialMatchBroker.class);
+        SubscriberWithLocation s2 = TopologyAnalyser.findNodeByName(root, "sub2", SubscriberWithLocation.class);
+        SubscriberWithLocation s3 = TopologyAnalyser.findNodeByName(root, "sub3", SubscriberWithLocation.class);
+        PublisherWithLocation p1 = TopologyAnalyser.findNodeByName(root, "pub1", PublisherWithLocation.class);
+        SpatialMatchBroker child2 = TopologyAnalyser.findNodeByName(root, "child2", SpatialMatchBroker.class);
 
         if (s2 == null || s3 == null || p1 == null || child2 == null) return false;
 
@@ -101,11 +101,11 @@ public class FixedTopologyRegionFunctionalTests {
     public static final Predicate<BoundedBroker> SUBSCRIPTION_EXPANSION_SCENARIO = root -> {
         logger.info("\n>>> SCENARIO: Running Subscription Region EXPANSION Test. <<<");
 
-        SubscriberWithLocation s2 = TopologyAnalyzer.findNodeByName(root, "sub2", SubscriberWithLocation.class);
-        SubscriberWithLocation s3 = TopologyAnalyzer.findNodeByName(root, "sub3", SubscriberWithLocation.class);
-        SpatialMatchBroker child2 = TopologyAnalyzer.findNodeByName(root, "child2", SpatialMatchBroker.class);
-        TreeNode grandchild2 = TopologyAnalyzer.findNodeByName(root, "grandchild2", TreeNode.class);
-        TreeNode grandchild3 = TopologyAnalyzer.findNodeByName(root, "grandchild3", TreeNode.class);
+        SubscriberWithLocation s2 = TopologyAnalyser.findNodeByName(root, "sub2", SubscriberWithLocation.class);
+        SubscriberWithLocation s3 = TopologyAnalyser.findNodeByName(root, "sub3", SubscriberWithLocation.class);
+        SpatialMatchBroker child2 = TopologyAnalyser.findNodeByName(root, "child2", SpatialMatchBroker.class);
+        TreeNode grandchild2 = TopologyAnalyser.findNodeByName(root, "grandchild2", TreeNode.class);
+        TreeNode grandchild3 = TopologyAnalyser.findNodeByName(root, "grandchild3", TreeNode.class);
 
         if (s2 == null || s3 == null || child2 == null) {
             logger.severe("TEST SETUP FAILURE: Could not find required nodes.");

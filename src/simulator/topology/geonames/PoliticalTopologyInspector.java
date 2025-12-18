@@ -1,7 +1,7 @@
 package simulator.topology.geonames;
 
 import simulator.regions.BoundedBroker;
-import simulator.topology.analysis.TopologyAnalyzer;
+import simulator.topology.analysis.TopologyAnalyser;
 
 /**
  * Utility class for inspecting topologies that follow the Political structure.
@@ -16,13 +16,13 @@ public class PoliticalTopologyInspector {
         if (countryBroker == null) return null;
 
         // 1. Try to find specific Admin1 region under the country using optimized search
-        BoundedBroker admin1Broker = TopologyAnalyzer.findBrokerByName(countryBroker, admin1Name);
+        BoundedBroker admin1Broker = TopologyAnalyser.findBrokerByName(countryBroker, admin1Name);
         if (admin1Broker == null) {
             return countryBroker; // Fallback to Country if Admin1 not found
         }
 
         // 2. Try to find specific City/Admin2 under Admin1
-        BoundedBroker cityBroker = TopologyAnalyzer.findBrokerByName(admin1Broker, cityName);
+        BoundedBroker cityBroker = TopologyAnalyser.findBrokerByName(admin1Broker, cityName);
         
         // Return City if found, otherwise return the State/Province (Admin1)
         return (cityBroker != null) ? cityBroker : admin1Broker;

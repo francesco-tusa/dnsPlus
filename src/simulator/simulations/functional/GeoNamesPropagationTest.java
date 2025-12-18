@@ -13,7 +13,7 @@ import simulator.events.SimulationSubscription;
 import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
-import simulator.topology.analysis.TopologyAnalyzer;
+import simulator.topology.analysis.TopologyAnalyser;
 import utils.CustomLogger;
 
 public class GeoNamesPropagationTest {
@@ -29,12 +29,12 @@ public class GeoNamesPropagationTest {
         // ----------------------------------------------------------------
         // SETUP: Use Generic Topology Analyzer for partial matches
         // ----------------------------------------------------------------
-        BoundedBroker dhaka = TopologyAnalyzer.findNodeByNameContains(root, "Dhaka", BoundedBroker.class); 
-        BoundedBroker sylhet = TopologyAnalyzer.findNodeByNameContains(root, "Sylhet", BoundedBroker.class); 
-        BoundedBroker rajshahi = TopologyAnalyzer.findNodeByNameContains(root, "Rajshahi", BoundedBroker.class); 
-        BoundedBroker chittagong = TopologyAnalyzer.findNodeByNameContains(root, "Chittagong", BoundedBroker.class);
-        BoundedBroker beijing = TopologyAnalyzer.findNodeByNameContains(root, "Beijing", BoundedBroker.class);
-        BoundedBroker bangladesh = TopologyAnalyzer.findNodeByNameContains(root, "Bangladesh", BoundedBroker.class);
+        BoundedBroker dhaka = TopologyAnalyser.findNodeByNameContains(root, "Dhaka", BoundedBroker.class); 
+        BoundedBroker sylhet = TopologyAnalyser.findNodeByNameContains(root, "Sylhet", BoundedBroker.class); 
+        BoundedBroker rajshahi = TopologyAnalyser.findNodeByNameContains(root, "Rajshahi", BoundedBroker.class); 
+        BoundedBroker chittagong = TopologyAnalyser.findNodeByNameContains(root, "Chittagong", BoundedBroker.class);
+        BoundedBroker beijing = TopologyAnalyser.findNodeByNameContains(root, "Beijing", BoundedBroker.class);
+        BoundedBroker bangladesh = TopologyAnalyser.findNodeByNameContains(root, "Bangladesh", BoundedBroker.class);
 
         if (dhaka == null || sylhet == null || rajshahi == null || chittagong == null || beijing == null || bangladesh == null) {
             logger.severe("FAILURE: Could not find all required brokers.");

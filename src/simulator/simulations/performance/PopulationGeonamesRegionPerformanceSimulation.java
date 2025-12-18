@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 import simulator.population.PopulationBasedPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.regions.BoundedBroker;
-import simulator.topology.analysis.TopologyAnalyzer;
+import simulator.topology.analysis.TopologyAnalyser;
 import simulator.topology.factories.SpatialMatchBrokerFactory;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
 import simulator.topology.geonames.GeoNamesTopologyLoader;
@@ -27,7 +27,7 @@ public class PopulationGeonamesRegionPerformanceSimulation extends GeoNamesBased
     @Override
     protected List<BoundedBroker> getInterestHotspots(BoundedBroker root) {
         // Wire Top-Pop brokers to the Workload Generator
-        List<BoundedBroker> leafBrokers = TopologyAnalyzer.findLeafBrokers(root);
+        List<BoundedBroker> leafBrokers = TopologyAnalyser.findLeafBrokers(root);
         return leafBrokers.stream()
             .sorted(Comparator.comparingLong(BoundedBroker::getInternetPopulation).reversed())
             .limit(poolSize)

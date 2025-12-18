@@ -14,7 +14,7 @@ import simulator.regions.SubscriptionWithRegion;
 import simulator.simulations.performance.metrics.GroundTruthCalculator;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.analysis.TopologyAnalyzer;
+import simulator.topology.analysis.TopologyAnalyser;
 import simulator.workload.RegionWorkloadGenerator;
 import simulator.workload.SubscriptionWorkloadGenerator;
 import utils.CustomLogger;
@@ -52,7 +52,7 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
 
         if (allSubscribers.isEmpty()) return;
         
-        List<BoundedBroker> leafBrokers = TopologyAnalyzer.findLeafBrokers(this.rootNode);
+        List<BoundedBroker> leafBrokers = TopologyAnalyser.findLeafBrokers(this.rootNode);
         
         List<BoundedBroker> hotspots = getInterestHotspots(this.rootNode);
         workloadGenerator.setHotspots(hotspots);

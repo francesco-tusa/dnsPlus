@@ -9,7 +9,7 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BoundedBroker;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.analysis.TopologyAnalyzer; // Import Analyzer
+import simulator.topology.analysis.TopologyAnalyser; // Import Analyzer
 import simulator.topology.factories.BoundedBrokerFactory;
 import utils.CustomLogger;
 
@@ -62,10 +62,10 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
         logger.fine("Attaching fixed subscribers...");
         
         // Use TopologyAnalyzer instead of private method
-        BoundedBroker grandchild1 = TopologyAnalyzer.findNodeByName(root, "grandchild1", BoundedBroker.class);
-        BoundedBroker grandchild2 = TopologyAnalyzer.findNodeByName(root, "grandchild2", BoundedBroker.class);
-        BoundedBroker grandchild3 = TopologyAnalyzer.findNodeByName(root, "grandchild3", BoundedBroker.class);
-        BoundedBroker grandchild4 = TopologyAnalyzer.findNodeByName(root, "grandchild4", BoundedBroker.class);
+        BoundedBroker grandchild1 = TopologyAnalyser.findNodeByName(root, "grandchild1", BoundedBroker.class);
+        BoundedBroker grandchild2 = TopologyAnalyser.findNodeByName(root, "grandchild2", BoundedBroker.class);
+        BoundedBroker grandchild3 = TopologyAnalyser.findNodeByName(root, "grandchild3", BoundedBroker.class);
+        BoundedBroker grandchild4 = TopologyAnalyser.findNodeByName(root, "grandchild4", BoundedBroker.class);
 
         SubscriberWithLocation sub1 = new SubscriberWithLocation("sub1", new Location(0, 0, 0));
         grandchild1.addChild(sub1);
@@ -107,8 +107,8 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     public void attachPublishers(BoundedBroker root) {
         logger.fine("Attaching fixed publishers...");
         // Use TopologyAnalyzer
-        BoundedBroker grandchild1 = TopologyAnalyzer.findNodeByName(root, "grandchild1", BoundedBroker.class);
-        BoundedBroker grandchild4 = TopologyAnalyzer.findNodeByName(root, "grandchild4", BoundedBroker.class);
+        BoundedBroker grandchild1 = TopologyAnalyser.findNodeByName(root, "grandchild1", BoundedBroker.class);
+        BoundedBroker grandchild4 = TopologyAnalyser.findNodeByName(root, "grandchild4", BoundedBroker.class);
         
         grandchild1.addChild(new PublisherWithLocation("pub1", new Location(1, 1, 0)));
         grandchild4.addChild(new PublisherWithLocation("pub2", new Location(18, 4, 0)));
@@ -118,7 +118,7 @@ public class FixedTestTopologyGenerator extends AbstractTopologyFactory<FixedTes
     private void calculateBrokerRegions(BoundedBroker root) {
         logger.fine("Calculating parent broker regions...");
         // Use TopologyAnalyzer
-        List<BoundedBroker> leaves = TopologyAnalyzer.findLeafBrokers(root);
+        List<BoundedBroker> leaves = TopologyAnalyser.findLeafBrokers(root);
         
         for (BoundedBroker leaf : leaves) {
             if (leaf.getParentBroker() != null) {

@@ -7,7 +7,7 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SubscriptionWithLocation;
 import simulator.regions.BoundedBroker;
-import simulator.topology.analysis.TopologyAnalyzer;
+import simulator.topology.analysis.TopologyAnalyser;
 import utils.CustomLogger;
 
 public class FixedTopologyLocationFunctionalTests {
@@ -17,10 +17,10 @@ public class FixedTopologyLocationFunctionalTests {
     public static final Predicate<BoundedBroker> COMPREHENSIVE_SCENARIO = root -> {
         logger.info("\n>>> SCENARIO: Testing Multi-Client Closest Publication Filtering (Location). <<<");
 
-        SubscriberWithLocation sub2 = TopologyAnalyzer.findNodeByName(root, "sub2", SubscriberWithLocation.class);
-        SubscriberWithLocation sub8 = TopologyAnalyzer.findNodeByName(root, "sub8", SubscriberWithLocation.class);
-        PublisherWithLocation p1 = TopologyAnalyzer.findNodeByName(root, "pub1", PublisherWithLocation.class);
-        PublisherWithLocation p2 = TopologyAnalyzer.findNodeByName(root, "pub2", PublisherWithLocation.class);
+        SubscriberWithLocation sub2 = TopologyAnalyser.findNodeByName(root, "sub2", SubscriberWithLocation.class);
+        SubscriberWithLocation sub8 = TopologyAnalyser.findNodeByName(root, "sub8", SubscriberWithLocation.class);
+        PublisherWithLocation p1 = TopologyAnalyser.findNodeByName(root, "pub1", PublisherWithLocation.class);
+        PublisherWithLocation p2 = TopologyAnalyser.findNodeByName(root, "pub2", PublisherWithLocation.class);
 
         if (sub2 == null || sub8 == null || p1 == null || p2 == null) {
             logger.severe("Test failed: Could not find all required nodes.");
@@ -48,10 +48,10 @@ public class FixedTopologyLocationFunctionalTests {
     public static final Predicate<BoundedBroker> SUBSCRIPTION_FILTERING_SCENARIO = root -> {
         logger.info("\n>>> SCENARIO: Testing Upper-Level Proxy Subscription Filtering (Location). <<<");
 
-        SubscriberWithLocation s2 = TopologyAnalyzer.findNodeByName(root, "sub2", SubscriberWithLocation.class);
-        SubscriberWithLocation s3 = TopologyAnalyzer.findNodeByName(root, "sub3", SubscriberWithLocation.class);
-        BoundedBroker child2 = TopologyAnalyzer.findNodeByName(root, "child2", BoundedBroker.class);
-        PublisherWithLocation p2 = TopologyAnalyzer.findNodeByName(root, "pub2", PublisherWithLocation.class);
+        SubscriberWithLocation s2 = TopologyAnalyser.findNodeByName(root, "sub2", SubscriberWithLocation.class);
+        SubscriberWithLocation s3 = TopologyAnalyser.findNodeByName(root, "sub3", SubscriberWithLocation.class);
+        BoundedBroker child2 = TopologyAnalyser.findNodeByName(root, "child2", BoundedBroker.class);
+        PublisherWithLocation p2 = TopologyAnalyser.findNodeByName(root, "pub2", PublisherWithLocation.class);
 
         if (s2 == null || s3 == null || child2 == null || p2 == null) {
             logger.severe("Test failed: Could not find all required nodes.");

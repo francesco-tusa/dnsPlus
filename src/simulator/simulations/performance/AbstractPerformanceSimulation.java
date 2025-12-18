@@ -18,8 +18,7 @@ import simulator.regions.BoundedBroker;
 import simulator.simulations.performance.metrics.*;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
-import simulator.topology.analysis.TopologyAnalyzer;
-import simulator.visualisation.SimulationVisualiser;
+import simulator.topology.analysis.TopologyAnalyser;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
@@ -47,9 +46,19 @@ public abstract class AbstractPerformanceSimulation<
         logger.info("  " + t);
         logger.info("==================================================================================");
     }
-    protected void printSeparator() { logger.info("----------------------------------------------------------------------------------"); }
-    protected void logConfigItem(String k, Object v) { logger.info(String.format("%-35s : %s", k, v)); }
-    protected void logMetricItem(String k, Object v) { logger.info(String.format("%-40s : %s", k, v)); }
+    
+    protected void printSeparator() { 
+        logger.info("----------------------------------------------------------------------------------"); 
+    }
+    
+    protected void logConfigItem(String k, Object v) { 
+        logger.info(String.format("%-35s : %s", k, v)); 
+    }
+
+    // Restored Helper for Subclasses
+    protected void logMetricItem(String k, Object v) {
+        logger.info(String.format("%-35s : %s", k, v));
+    }
 
     @Override
     protected void initialise(F factory, C config) {
@@ -65,15 +74,14 @@ public abstract class AbstractPerformanceSimulation<
 
         logConfigItem("Broker Strategy", brokerConfig.strategy);
 
-if (brokerConfig.isSmartStrategy()) {
-    // In SMART mode, we use the getter (fields are now private)
-    logConfigItem("Smart Threshold", brokerConfig.getSmartThreshold());
-    logConfigItem("Intersection Optimization", "N/A (Smart uses Strict)");
-} else {
-    // In SIMPLE mode, Threshold is N/A, but we log the Optimization flag
-    logConfigItem("Smart Threshold", "N/A (Simple Mode)");
-    logConfigItem("Intersection Optimization", brokerConfig.isIntersectionOptimizationEnabled());
-}
+        if (brokerConfig.isSmartStrategy()) {
+            logConfigItem("Smart Threshold", brokerConfig.getSmartThreshold());
+            logConfigItem("Intersection Optimization", "N/A (Smart uses Strict)");
+        } else {
+            logConfigItem("Smart Threshold", "N/A (Simple Mode)");
+            logConfigItem("Intersection Optimization", brokerConfig.isIntersectionOptimizationEnabled());
+        }
+        
         logConfigItem("Number of Replicas", workload.numberOfReplicas);
         logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);
         logConfigItem("Total Subscribers", workload.getTotalSubscribers());
@@ -88,7 +96,6 @@ if (brokerConfig.isSmartStrategy()) {
     @Override
     protected void setupSimulation() {
         CsvMetricWriter.getInstance().initialize(this.simulationTimestamp);
-        
         logSectionHeader("Populating Topology for Performance Simulation");
 
         if (this.rootNode == null) {
@@ -96,10 +103,10 @@ if (brokerConfig.isSmartStrategy()) {
             return;
         }
 
-        // This method will now successfully push Level 1 regions (Spatial Continents) to the visualiser
-        TopologyAnalyzer.logStructure(this.rootNode, logger);
+        // Lightweight structural logging only
+        TopologyAnalyser.logStructure(this.rootNode, logger);
 
-        List<BoundedBroker> leafBrokers = TopologyAnalyzer.findLeafBrokers(this.rootNode);
+        List<BoundedBroker> leafBrokers = TopologyAnalyser.findLeafBrokers(this.rootNode);
         if (leafBrokers.isEmpty()) {
             logger.severe("Error: No leaf brokers found.");
             return;
@@ -127,8 +134,6 @@ if (brokerConfig.isSmartStrategy()) {
     protected void collectAndPrintMetrics() {
         MetricsCollector collector = new MetricsCollector();
         PerformanceMetricsData collected = collector.collect(this.rootNode, allSubscribers, allPublishers);
-        
-        // Merge subclass data
         collected.groundTruthMatches = this.metricsData.groundTruthMatches;
         
         MetricsPrinter printer = new MetricsPrinter(logger);

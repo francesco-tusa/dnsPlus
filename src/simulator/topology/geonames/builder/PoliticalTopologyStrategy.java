@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 import simulator.config.SimConfiguration;
 import simulator.core.Location;
 import simulator.regions.Region;
+import simulator.topology.analysis.TopologyStatisticsCalculator; 
 import utils.CustomLogger;
 
 public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
@@ -22,10 +23,7 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
     private final Map<Integer, Region> adm2BoundsMap = new HashMap<>();
     private final Map<Integer, GeoNamesBuilderNode> nodeMap = new HashMap<>();
 
-    // Configurable Estimator (Defaulting to PowerLaw)
     private final AreaEstimator areaEstimator = new PowerLawAreaEstimator(); 
-    // private final AreaEstimator areaEstimator = new LinearDensityAreaEstimator();
-
 
     private static class RelevantAdminInfo {
         int id; String name; GeoNamesBuilderNode.NodeType type; String code; String feature; String country; String admin1;
@@ -48,20 +46,13 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
             if ("AS".equals(continent.code)) {
                 GeoNamesBuilderNode subsetAsia = new GeoNamesBuilderNode(continent);
                 subsetRoot.addChild(subsetAsia);
-                
                 for (GeoNamesBuilderNode country : continent.children) {
-                    // Keep Bangladesh
-                    if ("BD".equals(country.code)) {
-                        subsetAsia.addChild(country); 
-                    }
-                    // Keep China -> Beijing
+                    if ("BD".equals(country.code)) subsetAsia.addChild(country); 
                     if ("CN".equals(country.code)) {
                         GeoNamesBuilderNode subsetChina = new GeoNamesBuilderNode(country);
                         subsetAsia.addChild(subsetChina);
                         for (GeoNamesBuilderNode adm1 : country.children) {
-                            if (adm1.name.contains("Beijing")) {
-                                subsetChina.addChild(adm1);
-                            }
+                            if (adm1.name.contains("Beijing")) subsetChina.addChild(adm1);
                         }
                     }
                 }
@@ -75,11 +66,8 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         logger.info("Executing Political Topology Strategy...");
         
         processPass1(loader);
-        
-        // Pass 2: Build Hierarchy
         GeoNamesBuilderNode root = buildInitialHierarchy(loader);
         
-        // Pass 3-7: Bounds & Scaling
         List<GeoNamesBuilderNode> nodesToExpand = new ArrayList<>();
         assignInitialProps(root, nodesToExpand);
         addAdm2Layer(nodesToExpand);
@@ -87,53 +75,51 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
 
         logger.info("Pass 6.5: Inflating zero-size regions based on final population...");
         applyAreaEstimation(root);
-
         estimateAdm2Bounds(nodesToExpand);
         
         logger.info("Pass 7: Scaling populations...");
         scalePopulations(root, loader);
         
-        // --- VALIDATION (SORTED) ---
         logger.info("Validating pre-expansion leaf bounds (Sorted by Pop Desc)...");
         validateLeafBounds(root, "N/A"); 
-        // ---------------------------
 
-        // Retrieve parameters from TopologyConfig
-        int maxBranching = config.topology.branchingFactor;
-        long thresholdCoarse = config.topology.politicalThresholdLvl1; 
-        long thresholdFine = config.topology.politicalThresholdLvl2;   
-
-        // Pass 8: Coarse Expansion
-        LeafExpansionStrategy gridPass1 = new GridLeafExpansionStrategy(false, maxBranching);
+        if (config.topology.enablePoliticalExpansion) {
+            int maxBranching = config.topology.branchingFactor;
+            
+            // Pass 8: Coarse Expansion
+            long thresholdCoarse = config.topology.politicalCoarseThreshold; 
+            LeafExpansionStrategy gridPass1 = new GridLeafExpansionStrategy(false, maxBranching);
+            
+            logger.info(String.format("Pass 8: Expanding Leaves > %d (Branching=%s)...", 
+                    thresholdCoarse, (maxBranching > 0 ? maxBranching : "Flat")));
+            expandLeaves(root, thresholdCoarse, gridPass1, GeoNamesBuilderNode.NodeType.GRID_COARSE);
+            
+            // Pass 9: Fine Expansion
+            long thresholdFine = config.topology.politicalLeafCapacity;
+            LeafExpansionStrategy gridPass2 = new GridLeafExpansionStrategy(true, maxBranching);
+            
+            logger.info(String.format("Pass 9: Expanding Leaves > %d (Branching=%s)...", 
+                    thresholdFine, (maxBranching > 0 ? maxBranching : "Flat")));
+            
+            expandLeaves(root, thresholdFine, gridPass2, GeoNamesBuilderNode.NodeType.GRID_FINE);
+        } else {
+            logger.info("Pass 8 & 9 (Grid Expansion) SKIPPED by configuration.");
+        }
         
-        logger.info(String.format("Pass 8: Expanding Leaves > %d (Branching=%s)...", 
-                thresholdCoarse, (maxBranching > 0 ? maxBranching : "Flat")));
-        
-        expandLeaves(root, thresholdCoarse, gridPass1, GeoNamesBuilderNode.NodeType.GRID_COARSE);
-        
-        // Pass 9: Fine Expansion
-        LeafExpansionStrategy gridPass2 = new GridLeafExpansionStrategy(true, maxBranching);
-        
-        logger.info(String.format("Pass 9: Expanding Leaves > %d (Branching=%s)...", 
-                thresholdFine, (maxBranching > 0 ? maxBranching : "Flat")));
-        
-        expandLeaves(root, thresholdFine, gridPass2, GeoNamesBuilderNode.NodeType.GRID_FINE);
-        
-        // Pass 10: Final Aggregation
         logger.info("Pass 10: Final Aggregation...");
         finalAggregate(root);
 
-        // Analysis & Diagnostics
         if (config.topology.enablePoliticalAnalysis) {
-            analyzeContinentExtremities(root);
+            TopologyStatisticsCalculator.analyzeContinentExtremities(root);
         }
 
-        logLeafRegionStatistics(root);
-        printTopologyStats(root);
+        TopologyStatisticsCalculator.logLeafRegionStatistics(root);
+        TopologyStatisticsCalculator.printNodeTypeStatistics(root);
         
         return root;
     }
 
+    // ... [Rest of the file remains exactly the same] ...
     private void processPass1(GeoNamesDataLoader loader) {
         try (BufferedReader reader = loader.getRawDataReader()) {
             String line;
@@ -141,17 +127,14 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
                 if (line.startsWith("#")) continue;
                 GeoNamesEntry entry = new GeoNamesEntry(line.split("\t", -1));
                 if (entry.geonameId == -1) continue;
-
                 GeoNamesBuilderNode.NodeType type = determineType(entry.featureClass, entry.featureCode);
                 if (type == null) continue;
-
                 if (type == GeoNamesBuilderNode.NodeType.PPL) {
                     String adm1Key = entry.countryCode + "." + entry.admin1Code;
                     Integer adm1Id = loader.admin1CodeToIdMap.get(adm1Key);
                     if (adm1Id != null) {
                         adm1PopMap.merge(adm1Id, entry.population, Long::sum);
                         adm1BoundsMap.computeIfAbsent(adm1Id, k -> new Region()).expand(new Location(entry.longitude, entry.latitude, 0));
-                        
                         String adm2Key = adm1Key + "." + entry.admin2Code;
                         Integer adm2Id = loader.admin2CodeToIdMap.get(adm2Key);
                         if (adm2Id != null) {
@@ -184,11 +167,9 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
             int id = loader.countryCodeToIdMap.get(iso);
             String name = loader.countryCodeToNameMap.getOrDefault(iso, iso);
             GeoNamesBuilderNode country = new GeoNamesBuilderNode(id, name, GeoNamesBuilderNode.NodeType.COUNTRY, iso, "PCLI");
-            
             RelevantAdminInfo info = relevantAdminMap.get(id);
             if (info != null) country.officialPopulation = info.officialPop;
             nodeMap.put(id, country);
-            
             String contCode = loader.countryToContinentMap.getOrDefault(iso, "XX");
             continents.computeIfAbsent(contCode, k -> {
                 GeoNamesBuilderNode c = new GeoNamesBuilderNode(0, k, GeoNamesBuilderNode.NodeType.CONTINENT, k, "");
@@ -196,7 +177,6 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
                 return c;
             }).addChild(country);
         }
-
         for (RelevantAdminInfo info : relevantAdminMap.values()) {
             if (info.type == GeoNamesBuilderNode.NodeType.ADM1) {
                 GeoNamesBuilderNode adm1 = new GeoNamesBuilderNode(info.id, info.name, info.type, info.code, info.feature);
@@ -215,8 +195,9 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         if (node.type == GeoNamesBuilderNode.NodeType.ADM1) {
             node.aggregatedPopulation = adm1PopMap.getOrDefault(node.geonameId, 0L);
             node.bounds = adm1BoundsMap.getOrDefault(node.geonameId, new Region());
-            // ADM1s larger than the Coarse Threshold are candidates for expansion
-            if (node.aggregatedPopulation > config.topology.politicalThresholdLvl1) expandList.add(node);
+            
+            // Note: We populate expandList regardless, but check config later before acting on it
+            if (node.aggregatedPopulation > config.topology.politicalCoarseThreshold) expandList.add(node);
         }
         for (GeoNamesBuilderNode child : node.children) assignInitialProps(child, expandList);
     }
@@ -225,11 +206,9 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         for (GeoNamesBuilderNode adm1 : adm1Nodes) {
             RelevantAdminInfo info = relevantAdminMap.get(adm1.geonameId);
             if (info == null) continue;
-            
             for (RelevantAdminInfo cand : relevantAdminMap.values()) {
                 if (cand.type == GeoNamesBuilderNode.NodeType.ADM2 && 
                     cand.country.equals(info.country) && cand.admin1.equals(info.code)) {
-                        
                     GeoNamesBuilderNode adm2 = new GeoNamesBuilderNode(cand.id, cand.name, cand.type, cand.code, cand.feature);
                     adm2.aggregatedPopulation = adm2PopMap.getOrDefault(cand.id, 0L);
                     adm2.bounds = adm2BoundsMap.getOrDefault(cand.id, new Region());
@@ -244,17 +223,14 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
             long total = adm1.aggregatedPopulation;
             List<GeoNamesBuilderNode> zeroPopChildren = new ArrayList<>();
             long currentSum = 0;
-            
             for(GeoNamesBuilderNode c : adm1.children) {
                 if (c.aggregatedPopulation == 0) zeroPopChildren.add(c);
                 else currentSum += c.aggregatedPopulation;
             }
-            
             long remaining = total - currentSum;
             if (remaining > 0 && !zeroPopChildren.isEmpty()) {
                 long share = remaining / zeroPopChildren.size();
                 long remainder = remaining % zeroPopChildren.size();
-                
                 for (int i = 0; i < zeroPopChildren.size(); i++) {
                     GeoNamesBuilderNode child = zeroPopChildren.get(i);
                     child.aggregatedPopulation = share + (i < remainder ? 1 : 0);
@@ -271,16 +247,13 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
                 if (child.bounds == null || child.bounds.getBottomLeft() == null) missingBounds.add(child);
             }
             if (missingBounds.isEmpty()) continue;
-
             int n = missingBounds.size();
             int cols = (int) Math.ceil(Math.sqrt(n));
             int rows = (int) Math.ceil((double) n / cols);
-            
             double w = adm1.bounds.getWidth() / cols;
             double h = adm1.bounds.getHeight() / rows;
             double startX = adm1.bounds.getBottomLeft().getX();
             double startY = adm1.bounds.getBottomLeft().getY();
-            
             missingBounds.sort(Comparator.comparing(n2 -> n2.name));
             for (int i = 0; i < n; i++) {
                 int r = i / cols;
@@ -295,22 +268,15 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
     }
 
     private void applyAreaEstimation(GeoNamesBuilderNode node) {
-        // Target ADM1, ADM2, and COUNTRY nodes (e.g. Vatican, Nauru). 
         if (node.type == GeoNamesBuilderNode.NodeType.ADM1 || 
             node.type == GeoNamesBuilderNode.NodeType.ADM2 ||
             node.type == GeoNamesBuilderNode.NodeType.COUNTRY) {
-            
-            // If bounds exist, try to inflate them based on population
             if (node.bounds != null) {
                 node.bounds = areaEstimator.estimate(node.bounds, node.aggregatedPopulation);
             }
         }
-        
-        // Recurse to children
         if (node.children != null) {
-            for (GeoNamesBuilderNode child : node.children) {
-                applyAreaEstimation(child);
-            }
+            for (GeoNamesBuilderNode child : node.children) applyAreaEstimation(child);
         }
     }
 
@@ -318,20 +284,13 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         for (GeoNamesBuilderNode continent : root.children) {
             for (GeoNamesBuilderNode country : continent.children) {
                 if (country.type != GeoNamesBuilderNode.NodeType.COUNTRY) continue;
-                
                 Long official = country.officialPopulation != null ? country.officialPopulation : 0L;
                 Double rate = loader.countryIsoToPenetrationMap.get(country.code);
                 if (rate == null) rate = 0.0;
                 country.internetPenetrationRate = rate;
-                
-                // Trust children sum
                 long currentTotal = sumSubtreePopulation(country);
-                
                 double scaleFactor = 1.0;
-                if (official > 0 && currentTotal > 0) {
-                    scaleFactor = (double) official / currentTotal;
-                }
-                
+                if (official > 0 && currentTotal > 0) scaleFactor = (double) official / currentTotal;
                 applyScaling(country, scaleFactor, rate);
             }
         }
@@ -341,9 +300,7 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         if (node == null) return 0;
         if (node.children.isEmpty()) return node.aggregatedPopulation;
         long sum = 0;
-        for (GeoNamesBuilderNode child : node.children) {
-            sum += sumSubtreePopulation(child);
-        }
+        for (GeoNamesBuilderNode child : node.children) sum += sumSubtreePopulation(child);
         return sum;
     }
 
@@ -351,10 +308,7 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         node.aggregatedPopulation = Math.max(0, Math.round(node.aggregatedPopulation * scale));
         node.internetPopulation = Math.min(node.aggregatedPopulation, 
             Math.max(0, Math.round(node.aggregatedPopulation * rate)));
-            
-        for (GeoNamesBuilderNode child : node.children) {
-            applyScaling(child, scale, rate);
-        }
+        for (GeoNamesBuilderNode child : node.children) applyScaling(child, scale, rate);
     }
 
     private void expandLeaves(GeoNamesBuilderNode node, long threshold, LeafExpansionStrategy strategy, GeoNamesBuilderNode.NodeType type) {
@@ -363,9 +317,7 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
             return;
         }
         List<GeoNamesBuilderNode> childrenCopy = new ArrayList<>(node.children);
-        for (GeoNamesBuilderNode child : childrenCopy) {
-            expandLeaves(child, threshold, strategy, type);
-        }
+        for (GeoNamesBuilderNode child : childrenCopy) expandLeaves(child, threshold, strategy, type);
     }
 
     private void finalAggregate(GeoNamesBuilderNode node) {
@@ -381,9 +333,6 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         }
         node.aggregatedPopulation = aggPop;
         node.internetPopulation = netPop;
-
-        // For the World node, ignore the calculated bounds (which are just the MBR of 
-        // component corners) and force the full global extent.
         if (node.type == GeoNamesBuilderNode.NodeType.WORLD) {
             node.bounds = new Region(new Location(-180, -90, 0), new Location(180, 90, 0));
         } else {
@@ -391,300 +340,56 @@ public class PoliticalTopologyStrategy implements TopologyBuilderStrategy {
         }
     }
 
-    /**
-     * Recursively collects all Zero-Size leaf nodes, sorts them by population (Descending),
-     * and logs them for analysis.
-     */
     private void validateLeafBounds(GeoNamesBuilderNode root, String initialContext) {
         List<ZeroSizeIssue> issues = new ArrayList<>();
         collectZeroSizeLeaves(root, initialContext, issues);
-        
-        // Sort: Descending Population
         issues.sort((a, b) -> Long.compare(b.node.aggregatedPopulation, a.node.aggregatedPopulation));
-
-        if (!issues.isEmpty()) {
-            logger.info(String.format("Found %d Zero-Size Leaves. Top listings by Population:", issues.size()));
-        }
-
+        if (!issues.isEmpty()) logger.info(String.format("Found %d Zero-Size Leaves. Top listings by Population:", issues.size()));
         for (ZeroSizeIssue issue : issues) {
             GeoNamesBuilderNode node = issue.node;
-            logger.warning(String.format(
-                "WARNING: Zero-Size Leaf Detected! Node '%s' (ID: %d) " +
-                "| Pop: %d | ADM1: [%s] | Bounds: %s. " +
-                "Grid Expansion here will fail.", 
-                node.name, 
-                node.geonameId, 
-                node.aggregatedPopulation, 
-                issue.adm1Context,
-                node.bounds != null ? node.bounds.toShortString() : "null"));
+            logger.warning(String.format("WARNING: Zero-Size Leaf Detected! Node '%s' (ID: %d) | Pop: %d | ADM1: [%s] | Bounds: %s", 
+                node.name, node.geonameId, node.aggregatedPopulation, issue.adm1Context, node.bounds != null ? node.bounds.toShortString() : "null"));
         }
     }
 
     private void collectZeroSizeLeaves(GeoNamesBuilderNode node, String currentAdm1Info, List<ZeroSizeIssue> issues) {
-        // Update context if we are at an ADM1 node
         String adm1Context = currentAdm1Info;
-        if (node.type == GeoNamesBuilderNode.NodeType.ADM1) {
-            adm1Context = String.format("%s (ID: %d)", node.name, node.geonameId);
-        }
-
-        // If the node has no children, it is currently a leaf.
+        if (node.type == GeoNamesBuilderNode.NodeType.ADM1) adm1Context = String.format("%s (ID: %d)", node.name, node.geonameId);
         if (node.children.isEmpty()) {
             if (node.bounds != null && node.bounds.getBottomLeft() != null) {
                 double w = node.bounds.getWidth();
                 double h = node.bounds.getHeight();
-                
-                // Threshold: 1e-6 degrees is approx 10cm. 
-                if (w < 1e-6 || h < 1e-6) {
-                    issues.add(new ZeroSizeIssue(node, adm1Context));
-                }
+                if (w < 1e-6 || h < 1e-6) issues.add(new ZeroSizeIssue(node, adm1Context));
             }
             return;
         }
-        
-        // Recurse down the tree passing the context
-        for (GeoNamesBuilderNode child : node.children) {
-            collectZeroSizeLeaves(child, adm1Context, issues);
-        }
+        for (GeoNamesBuilderNode child : node.children) collectZeroSizeLeaves(child, adm1Context, issues);
     }
 
-
-    /* Debugging method to identify which children defined the bounding box limits
-     * of the continents.
-     */
-    private void analyzeContinentExtremities(GeoNamesBuilderNode root) {
-        logger.info("\n=== CONTINENT BOUNDING BOX PROVENANCE ANALYSIS ===");
-        
-        double epsilon = 1e-5; // Tolerance for floating point comparison
-
-        for (GeoNamesBuilderNode continent : root.children) {
-            if (continent.type != GeoNamesBuilderNode.NodeType.CONTINENT || continent.bounds == null) continue;
-
-            Region cReg = continent.bounds;
-            List<String> north = new ArrayList<>();
-            List<String> south = new ArrayList<>();
-            List<String> east = new ArrayList<>();
-            List<String> west = new ArrayList<>();
-
-            // Iterate over Countries
-            for (GeoNamesBuilderNode country : continent.children) {
-                if (country.bounds == null || country.bounds.getBottomLeft() == null) continue;
-
-                Region childReg = country.bounds;
-
-                // Check North (Max Y)
-                if (Math.abs(childReg.getTopRight().getY() - cReg.getTopRight().getY()) < epsilon) {
-                    north.add(country.name);
-                }
-                // Check South (Min Y)
-                if (Math.abs(childReg.getBottomLeft().getY() - cReg.getBottomLeft().getY()) < epsilon) {
-                    south.add(country.name);
-                }
-                // Check East (Max X)
-                if (Math.abs(childReg.getTopRight().getX() - cReg.getTopRight().getX()) < epsilon) {
-                    east.add(country.name);
-                }
-                // Check West (Min X)
-                if (Math.abs(childReg.getBottomLeft().getX() - cReg.getBottomLeft().getX()) < epsilon) {
-                    west.add(country.name);
-                }
-            }
-
-            logger.info(String.format("Continent: %-15s %s", continent.name, cReg.toShortString()));
-            if (!north.isEmpty()) logger.info("  -> NORTH limit: " + String.join(", ", north));
-            if (!south.isEmpty()) logger.info("  -> SOUTH limit: " + String.join(", ", south));
-            if (!east.isEmpty())  logger.info("  -> EAST  limit: " + String.join(", ", east));
-            if (!west.isEmpty())  logger.info("  -> WEST  limit: " + String.join(", ", west));
-            logger.info("------------------------------------------------------------");
-        }
-        logger.info("=== END ANALYSIS ===\n");
-    }
-
-    /**
-     * Traverses the entire topology tree to count total leaf nodes and identify
-     * how many of them have collapsed into zero-size point regions.
-     */
-    private void logLeafRegionStatistics(GeoNamesBuilderNode root) {
-        long totalLeaves = 0;
-        long zeroSizeIssues = 0; // Only counts if Pop > 0
-        long emptyNodes = 0;     // Counts if Pop == 0 (Harmless)
-        long affectedPop = 0;
-
-        Queue<GeoNamesBuilderNode> queue = new LinkedList<>();
-        if (root != null) queue.add(root);
-
-        while (!queue.isEmpty()) {
-            GeoNamesBuilderNode node = queue.poll();
-
-            // If a node has no children, it is a Leaf Broker in the final topology
-            if (node.children == null || node.children.isEmpty()) {
-                totalLeaves++;
-                
-                boolean isZeroSize = false;
-                if (node.bounds == null || node.bounds.getBottomLeft() == null) {
-                    isZeroSize = true;
-                } else {
-                    double w = node.bounds.getWidth();
-                    double h = node.bounds.getHeight();
-                    // Check if effectively a point
-                    if (w < 1e-6 || h < 1e-6) {
-                        isZeroSize = true;
-                    }
-                }
-
-                if (isZeroSize) {
-                    if (node.aggregatedPopulation > 0) {
-                        zeroSizeIssues++;
-                        affectedPop += node.aggregatedPopulation;
-                    } else {
-                        emptyNodes++;
-                    }
-                }
-            } else {
-                queue.addAll(node.children);
-            }
-        }
-
-        double percentIssue = (totalLeaves > 0) ? (100.0 * zeroSizeIssues / totalLeaves) : 0.0;
-
-        logger.info("\n=== LEAF REGION QUALITY ANALYSIS ===");
-        logger.info(String.format("Total Leaf Brokers      : %d", totalLeaves));
-        logger.info(String.format("Zero-Size Issues        : %d (%.2f%%) [Nodes with Pop > 0]", zeroSizeIssues, percentIssue));
-        logger.info(String.format("Empty/Unused Nodes      : %d [Nodes with Pop = 0]", emptyNodes));
-        logger.info(String.format("Population at Risk      : %d", affectedPop));
-        
-        if (zeroSizeIssues > 0) {
-            logger.warning("(!) High number of Point Regions with Population detected. Subscriber stacking is likely.");
-        } else {
-            logger.info("(OK) All populated leaf regions have valid spatial extent.");
-        }
-        logger.info("====================================\n");
-    }
-
-    private void printTopologyStats(GeoNamesBuilderNode root) {
-        Map<GeoNamesBuilderNode.NodeType, Long> typeCounts = new HashMap<>();
-        Map<GeoNamesBuilderNode.NodeType, Long> typePop = new HashMap<>();
-        Map<GeoNamesBuilderNode.NodeType, Long> typeNetPop = new HashMap<>();
-
-        Queue<GeoNamesBuilderNode> queue = new LinkedList<>();
-        queue.add(root);
-        
-        while (!queue.isEmpty()) {
-            GeoNamesBuilderNode node = queue.poll();
-            typeCounts.merge(node.type, 1L, Long::sum);
-            typePop.merge(node.type, node.aggregatedPopulation, Long::sum);
-            typeNetPop.merge(node.type, node.internetPopulation, Long::sum);
-            
-            if (node.children != null) queue.addAll(node.children);
-        }
-
-        logger.info("\n=== TOPOLOGY DIAGNOSTICS ===");
-        logger.info(String.format("%-12s | %-10s | %-15s | %-15s", "TYPE", "COUNT", "TOTAL POP", "INTERNET POP"));
-        logger.info("------------------------------------------------------------");
-        for (GeoNamesBuilderNode.NodeType type : GeoNamesBuilderNode.NodeType.values()) {
-            logger.info(String.format("%-12s | %-10d | %-15d | %-15d", 
-                type, 
-                typeCounts.getOrDefault(type, 0L), 
-                typePop.getOrDefault(type, 0L),
-                typeNetPop.getOrDefault(type, 0L)
-            ));
-        }
-        logger.info("============================\n");
-    }
-
-
-    // --- AREA ESTIMATION STRATEGIES ---
-    
-    private interface AreaEstimator {
-        Region estimate(Region currentBounds, long population);
-    }
-
-    /**
-     * Estimates area using Power Law regression from Global Urban Data.
-     * Formula: Area = k * Pop^alpha
-     * Best for preventing stacking in both Megacities (sub-linear scaling) and Villages.
-     */
+    private interface AreaEstimator { Region estimate(Region currentBounds, long population); }
     private static class PowerLawAreaEstimator implements AreaEstimator {
-        // Regression constants (R^2 ~0.85)
-        private static final double K_CONST = 0.061779;
-        private static final double ALPHA_EXP = 0.631462;
-        private static final double KM_PER_DEGREE = 111.0;
-        private static final double MIN_DEGREE = 0.02; // ~2.2km min size
-        private static final double MAX_DEGREE = 2.0;  // ~220km max cap
-
-        @Override
-        public Region estimate(Region r, long population) {
-            if (r == null || r.getBottomLeft() == null) return new Region();
-
-            // If region already has valid spatial extent (> ~10 meters), preserve it.
-            if (r.getWidth() > 1e-4 && r.getHeight() > 1e-4) {
-                return r;
-            }
-
-            long effectivePop = (population <= 0) ? 1000 : population;
-            
-            // Area = 0.061 * Pop^0.631
-            double impliedAreaKm2 = K_CONST * Math.pow(effectivePop, ALPHA_EXP);
-            
-            double sideLengthKm = Math.sqrt(impliedAreaKm2);
-            double degrees = sideLengthKm / KM_PER_DEGREE;
-            
-            return expandPoint(r, degrees, MIN_DEGREE, MAX_DEGREE);
-        }
-    }
-
-    /**
-     * Estimates area using Linear Density Model.
-     * Formula: Density = 178 * (Pop_Millions) + 5800
-     * Note: Can be too aggressive for small towns (creates <1km boxes).
-     */
-    private static class LinearDensityAreaEstimator implements AreaEstimator {
-        private static final double KM_PER_DEGREE = 111.0;
-        private static final double MIN_DEGREE = 0.02;
-        private static final double MAX_DEGREE = 2.0;
-
+        private static final double K_CONST = 0.061779; private static final double ALPHA_EXP = 0.631462;
+        private static final double KM_PER_DEGREE = 111.0; private static final double MIN_DEGREE = 0.02; private static final double MAX_DEGREE = 2.0;
         @Override
         public Region estimate(Region r, long population) {
             if (r == null || r.getBottomLeft() == null) return new Region();
             if (r.getWidth() > 1e-4 && r.getHeight() > 1e-4) return r;
-
             long effectivePop = (population <= 0) ? 1000 : population;
-            double popMillions = effectivePop / 1_000_000.0;
-            
-            // Density = 178.05 * x + 5800.2
-            double density = (178.05 * popMillions) + 5800.2;
-            if (density < 100) density = 100; // Safety floor
-            
-            double impliedAreaKm2 = effectivePop / density;
+            double impliedAreaKm2 = K_CONST * Math.pow(effectivePop, ALPHA_EXP);
             double sideLengthKm = Math.sqrt(impliedAreaKm2);
             double degrees = sideLengthKm / KM_PER_DEGREE;
-
             return expandPoint(r, degrees, MIN_DEGREE, MAX_DEGREE);
         }
     }
-
-    // Helper to inflate a point region around its center
     private static Region expandPoint(Region r, double targetDegrees, double min, double max) {
         double size = Math.max(min, Math.min(max, targetDegrees));
         double half = size / 2.0;
-        
         double centerX = (r.getBottomLeft().getX() + r.getTopRight().getX()) / 2.0;
         double centerY = (r.getBottomLeft().getY() + r.getTopRight().getY()) / 2.0;
-
-        return new Region(
-            new Location(centerX - half, centerY - half, 0),
-            new Location(centerX + half, centerY + half, 0)
-        );
+        return new Region(new Location(centerX - half, centerY - half, 0), new Location(centerX + half, centerY + half, 0));
     }
-
-
-    // --- Helper Class for Sorting Issues ---
     private static class ZeroSizeIssue {
-        final GeoNamesBuilderNode node;
-        final String adm1Context;
-        
-        ZeroSizeIssue(GeoNamesBuilderNode node, String adm1Context) {
-            this.node = node;
-            this.adm1Context = adm1Context;
-        }
+        final GeoNamesBuilderNode node; final String adm1Context;
+        ZeroSizeIssue(GeoNamesBuilderNode node, String adm1Context) { this.node = node; this.adm1Context = adm1Context; }
     }
 }

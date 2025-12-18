@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.regions.BoundedBroker;
-import simulator.topology.analysis.TopologyAnalyzer;
+import simulator.topology.analysis.TopologyAnalyser;
 import simulator.topology.geonames.PoliticalTopologyInspector;
 import utils.CustomLogger;
 
@@ -57,7 +57,7 @@ public class AwsRegions {
 
     public static List<BoundedBroker> findAwsBrokers(BoundedBroker rootNode) {
         // 1. Prepare map for Political lookup (Country Level)
-        List<BoundedBroker> allLevel2Regions = TopologyAnalyzer.findBrokersAtLevel(rootNode, 2);
+        List<BoundedBroker> allLevel2Regions = TopologyAnalyser.findBrokersAtLevel(rootNode, 2);
         Map<String, BoundedBroker> l2BrokerMap = allLevel2Regions.stream()
             .collect(Collectors.toMap(TreeNode::getName, b -> b, (b1, b2) -> b1));
 
@@ -83,7 +83,7 @@ public class AwsRegions {
         // --- Strategy B: Geometric Fallback (Essential for R-Tree) ---
         // Uses the new generic method in TopologyAnalyzer
         Location targetLoc = new Location(def.lon(), def.lat(), 0);
-        BoundedBroker geoMatch = TopologyAnalyzer.findLeafBrokerAtLocation(rootNode, targetLoc);
+        BoundedBroker geoMatch = TopologyAnalyser.findLeafBrokerAtLocation(rootNode, targetLoc);
         
         if (geoMatch != null) {
             logger.finer("Found AWS region " + def.awsRegionName() + " (" + def.l4City() + ") via geometric match in broker: " + geoMatch.getName());
