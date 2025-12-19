@@ -16,13 +16,22 @@ import utils.ExperimentTimestamp;
 public class TopologyFileBuilder {
     private static final Logger logger = CustomLogger.getLogger(TopologyFileBuilder.class.getName());
     
-    private static final String TOPOLOGY_OUTPUT_DIR = "output/topologies";
+    private static final String TOPOLOGY_OUTPUT_BASE_DIR = "output/topologies";
 
     public static void main(String[] args) {
-        File outputDir = new File(TOPOLOGY_OUTPUT_DIR);
-        if (!outputDir.exists()) outputDir.mkdirs();
-        
+        // 1. Generate Timestamp (Run ID) first
         String timestamp = ExperimentTimestamp.getTimestamp();
+        
+        // 2. Create the Run-Specific Directory: output/topologies/<TIMESTAMP>/
+        File runDir = new File(TOPOLOGY_OUTPUT_BASE_DIR, timestamp);
+        if (!runDir.exists()) {
+            boolean created = runDir.mkdirs();
+            if (!created && !runDir.exists()) {
+                System.err.println("CRITICAL: Failed to create run directory: " + runDir.getAbsolutePath());
+                return;
+            }
+        }
+        
         Logger rootLogger = Logger.getLogger(""); 
         java.util.logging.FileHandler fileHandler = null;
         
@@ -31,8 +40,9 @@ public class TopologyFileBuilder {
             TopologyConfig.StrategyType type = simConfig.topology.generationStrategy;
             String filePrefix = (type == TopologyConfig.StrategyType.POLITICAL) ? "political_topology" : "rtree_topology";
 
+            // 3. Update Log File Path to be inside runDir
             String logFileName = String.format("%s_generation_%s.log", filePrefix, timestamp);
-            File logFile = new File(outputDir, logFileName);
+            File logFile = new File(runDir, logFileName);
             
             fileHandler = new java.util.logging.FileHandler(logFile.getAbsolutePath());
             fileHandler.setFormatter(new utils.SimpleFileFormatter());
@@ -48,10 +58,9 @@ public class TopologyFileBuilder {
             rootLogger.addHandler(fileHandler);
             
             logger.info("=== TOPOLOGY GENERATION START ===");
-            logger.info("Log File: " + logFile.getAbsolutePath());
-            logger.info("Timestamp: " + timestamp);
+            logger.info("Run ID: " + timestamp);
+            logger.info("Output Directory: " + runDir.getAbsolutePath());
             
-            // [NEW] Log the detailed configuration summary
             logConfigurationSummary();
 
             GeoNamesDataLoader loader = new GeoNamesDataLoader();
@@ -74,18 +83,21 @@ public class TopologyFileBuilder {
                 logger.info("Topology structural analysis disabled in config.");
             }
             
+            // 4. Save Main JSON Topology to runDir
             String jsonFileName = String.format("%s_%s.json", filePrefix, timestamp);
-            File jsonFile = new File(outputDir, jsonFileName);
+            File jsonFile = new File(runDir, jsonFileName);
             exportToJson(root, jsonFile);
             
+            // 5. Save Map Snapshot to runDir
             String mapFileName = String.format("%s_map_%s.png", filePrefix, timestamp);
-            File mapFile = new File(outputDir, mapFileName);
+            File mapFile = new File(runDir, mapFileName);
             generateTopologyMap(root, mapFile);
             
+            // 6. Save Subset JSON (if applicable) to runDir
             GeoNamesBuilderNode subset = strategy.createSubset(root);
             if (subset != null) {
                 String subsetFileName = String.format("subset_%s_%s.json", filePrefix, timestamp);
-                File subsetFile = new File(outputDir, subsetFileName);
+                File subsetFile = new File(runDir, subsetFileName);
                 exportToJson(subset, subsetFile);
             } else {
                 logger.info("Skipping subset generation.");
@@ -115,7 +127,7 @@ public class TopologyFileBuilder {
         
         // General Settings
         logger.info(String.format("   -> %-25s : %s", "Generation Strategy", tConf.generationStrategy));
-        logger.info(String.format("   -> %-25s : %s", "Output Directory", TOPOLOGY_OUTPUT_DIR));
+        logger.info(String.format("   -> %-25s : %s", "Output Directory", TOPOLOGY_OUTPUT_BASE_DIR));
         logger.info(String.format("   -> %-25s : %d", "Base Branching Factor", tConf.branchingFactor));
 
         // Strategy Specifics

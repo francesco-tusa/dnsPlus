@@ -29,11 +29,9 @@ public class PathsConfig {
     public PathsConfig(Properties props) {
         this.resourcesDir = props.getProperty("paths.resourcesDir", "resources/world/");
         this.outputDir = props.getProperty("paths.outputDir", "output/");
-        // New dedicated directory for topology files
         this.topologiesDir = this.outputDir + "topologies/";
 
         this.enableVerboseLogs = Boolean.parseBoolean(props.getProperty("paths.enableVerboseLogs", "false"));
-        // enableVisualisation removed as per previous refactoring
 
         this.allCountriesFile = resourcesDir + "allCountries.txt";
         this.countryInfoFile = resourcesDir + "countryInfo.txt";
@@ -44,11 +42,6 @@ public class PathsConfig {
         this.useFullTopology = Boolean.parseBoolean(props.getProperty("paths.useFullTopology", "true"));
     }
     
-    /**
-     * Returns the absolute path to the latest topology file for the given strategy.
-     * Searches in output/topologies/ for files matching the pattern:
-     * [subset_]{strategy}_topology_{timestamp}.json
-     */
     public String getActiveTopologyFile(TopologyConfig.StrategyType strategy) {
         String filePrefix;
 
@@ -56,12 +49,10 @@ public class PathsConfig {
             case POLITICAL -> filePrefix = "political_topology";
             case RTREE -> filePrefix = "rtree_topology";
             default -> {
-                // Fixed, Grid, Random do not use the file loader mechanism
                 return null;
             }
         }
 
-        // Adjust prefix if we are running a subset simulation
         if (!useFullTopology) {
             filePrefix = "subset_" + filePrefix;
         }
@@ -69,7 +60,7 @@ public class PathsConfig {
         String latestFile = findLatestTopologyFile(filePrefix);
         
         if (latestFile == null) {
-            String msg = String.format("No topology file found in '%s' starting with '%s'. Please run TopologyFileBuilder first.", topologiesDir, filePrefix);
+            String msg = String.format("No topology file found in '%s' (or subdirs) starting with '%s'. Please run TopologyFileBuilder.", topologiesDir, filePrefix);
             logger.severe(msg);
             throw new IllegalStateException(msg);
         }
@@ -79,25 +70,38 @@ public class PathsConfig {
     }
 
     /**
-     * Scans the directory and returns the path of the file with the largest timestamp (latest).
+     * Finds the latest topology file. 
      */
     private String findLatestTopologyFile(String prefix) {
-        File dir = new File(topologiesDir);
-        if (!dir.exists() || !dir.isDirectory()) {
+        File baseDir = new File(topologiesDir);
+        if (!baseDir.exists() || !baseDir.isDirectory()) {
             return null;
         }
 
-        // Filter files that start with the prefix and end with .json
-        File[] matchingFiles = dir.listFiles((d, name) -> name.startsWith(prefix) && name.endsWith(".json"));
+        // 1. Get all subdirectories (timestamps) and files
+        File[] content = baseDir.listFiles();
+        if (content == null || content.length == 0) return null;
 
-        if (matchingFiles == null || matchingFiles.length == 0) {
-            return null;
+        // 2. Sort content descending (newest timestamps first)
+        Arrays.sort(content, Comparator.comparing(File::getName).reversed());
+
+        for (File fileOrDir : content) {
+            // A. Check if it is a directory (The new structure)
+            if (fileOrDir.isDirectory()) {
+                File[] matchingFiles = fileOrDir.listFiles((d, name) -> name.startsWith(prefix) && name.endsWith(".json"));
+                if (matchingFiles != null && matchingFiles.length > 0) {
+                    // Return the first match in this directory
+                    return matchingFiles[0].getAbsolutePath();
+                }
+            } 
+            // B. Backward Compatibility: Check if it is a flat file (The old structure)
+            else if (fileOrDir.isFile()) {
+                if (fileOrDir.getName().startsWith(prefix) && fileOrDir.getName().endsWith(".json")) {
+                    return fileOrDir.getAbsolutePath();
+                }
+            }
         }
 
-        // Sort by name in descending order. 
-        // Since filenames end with a timestamp, the lexicographically largest name is the latest.
-        Arrays.sort(matchingFiles, Comparator.comparing(File::getName).reversed());
-
-        return matchingFiles[0].getAbsolutePath();
+        return null;
     }
 }
