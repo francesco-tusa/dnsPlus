@@ -50,6 +50,9 @@ public class TopologyFileBuilder {
             logger.info("=== TOPOLOGY GENERATION START ===");
             logger.info("Log File: " + logFile.getAbsolutePath());
             logger.info("Timestamp: " + timestamp);
+            
+            // [NEW] Log the detailed configuration summary
+            logConfigurationSummary();
 
             GeoNamesDataLoader loader = new GeoNamesDataLoader();
             loader.loadAll();
@@ -99,6 +102,44 @@ public class TopologyFileBuilder {
                 fileHandler.close();
             }
         }
+    }
+
+    /**
+     * Logs a formatted summary of the active topology configuration parameters.
+     */
+    private static void logConfigurationSummary() {
+        TopologyConfig tConf = SimConfiguration.get().topology;
+        
+        logger.info("");
+        logger.info("=== TOPOLOGY CONFIGURATION SUMMARY ===");
+        
+        // General Settings
+        logger.info(String.format("   -> %-25s : %s", "Generation Strategy", tConf.generationStrategy));
+        logger.info(String.format("   -> %-25s : %s", "Output Directory", TOPOLOGY_OUTPUT_DIR));
+        logger.info(String.format("   -> %-25s : %d", "Base Branching Factor", tConf.branchingFactor));
+
+        // Strategy Specifics
+        if (tConf.generationStrategy == TopologyConfig.StrategyType.POLITICAL) {
+            if (tConf.enablePoliticalExpansion) {
+                logger.info("   --- Political Expansion (Active) ---");
+                logger.info(String.format("   -> %-25s : %,d", "Coarse Threshold (Pass 8)", tConf.politicalCoarseThreshold));
+                logger.info(String.format("   -> %-25s : %,d", "Leaf Capacity (Pass 9)", tConf.politicalLeafCapacity));
+            } else {
+                logger.info("   --- Political Expansion ---");
+                logger.info(String.format("   -> %-25s : %s", "Expansion Status", "DISABLED (Flat ADM2 Leaves)"));
+            }
+            logger.info(String.format("   -> %-25s : %s", "Political Analysis", tConf.enablePoliticalAnalysis));
+        } else if (tConf.generationStrategy == TopologyConfig.StrategyType.RTREE) {
+            logger.info("   --- R-Tree Settings ---");
+            logger.info(String.format("   -> %-25s : %d", "Leaf Capacity", tConf.rTreeLeafCapacity));
+            logger.info(String.format("   -> %-25s : %.2f", "Max Country Width", tConf.rTreeMaxCountryWidth));
+        }
+
+        // Analysis Settings
+        logger.info("   --- General Analysis ---");
+        logger.info(String.format("   -> %-25s : %s", "Structural Analysis", tConf.enableTopologyAnalysis));
+        logger.info("==========================================");
+        logger.info("");
     }
 
     private static void exportToJson(GeoNamesBuilderNode root, File file) {
