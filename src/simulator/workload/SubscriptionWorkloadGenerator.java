@@ -1,21 +1,26 @@
 package simulator.workload;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.SimulationSubscription;
 import simulator.regions.BoundedBroker;
 
-/**
- * Strategy interface for generating the content of subscriptions
- * (Workload Generation).
- */
 public interface SubscriptionWorkloadGenerator {
     
-    /**
-     * Generates a subscription event for a specific subscriber.
-     * @param subscriber The subscriber entity generating the event.
-     * @param leafBrokers The list of all leaf brokers (used for calculating remote interests).
-     * @return The subscription event to be sent.
-     */
     SimulationSubscription generateSubscription(SubscriberWithLocation subscriber, List<BoundedBroker> leafBrokers);
+
+    /**
+     * Generates a list of subscriptions for a subscriber.
+     * Implementing classes can override this to ensure diversity (e.g., preventing duplicate local subscriptions).
+     */
+    default List<SimulationSubscription> generateSubscriptionBatch(SubscriberWithLocation subscriber, List<BoundedBroker> leafBrokers, int count) {
+        if (count <= 0) return Collections.emptyList();
+        List<SimulationSubscription> batch = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            batch.add(generateSubscription(subscriber, leafBrokers));
+        }
+        return batch;
+    }
 }

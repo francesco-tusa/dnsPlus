@@ -8,6 +8,19 @@ public class WorkloadConfig {
     public final double subscriptionRegionSize;
     public final double remoteInterestProbability;
 
+    public enum ArrivalDistribution { UNIFORM, POISSON }
+    public final ArrivalDistribution arrivalDistribution;
+    public final double meanSubscriptionsPerSubscriber;
+    
+    // External Factor Skew (Activity Multiplier for high-density areas)
+    // If true, users in denser regions will send MORE subscriptions than users in sparse regions.
+    public final boolean enableDensitySkew;
+
+    // Spatial Jitter (Standard Deviation in degrees)
+    // Adds random noise to subscription coordinates to simulate user movement.
+    // Recommended: 0.01 - 0.05
+    public final double locationJitter;
+
     // for Random or Grid Simulations
     public final int subscribersPerLeafNode;
     public final int publishersPerLeafNode;
@@ -17,6 +30,13 @@ public class WorkloadConfig {
         this.subscribersPerReplica = parseInt(props, "workload.subscribersPerReplica", "2500");
         this.subscriptionRegionSize = parseDouble(props, "workload.subscriptionRegionSize", "10.0");
         this.remoteInterestProbability = parseDouble(props, "workload.remoteInterestProb", "0.1");
+
+        String distStr = props.getProperty("workload.arrivalDistribution", "POISSON").toUpperCase();
+        this.arrivalDistribution = ArrivalDistribution.valueOf(distStr);
+        
+        this.meanSubscriptionsPerSubscriber = parseDouble(props, "workload.meanSubscriptionsPerSubscriber", "1.0");
+        this.enableDensitySkew = Boolean.parseBoolean(props.getProperty("workload.enableDensitySkew", "false"));
+        this.locationJitter = parseDouble(props, "workload.locationJitter", "0.0"); // Default: No jitter
 
         // Load Random or Simulation Specifics
         this.subscribersPerLeafNode = parseInt(props, "workload.subscribersPerLeaf", "5");

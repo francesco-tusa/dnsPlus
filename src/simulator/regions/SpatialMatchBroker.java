@@ -96,27 +96,32 @@ public class SpatialMatchBroker extends BoundedBroker {
 
         // 1. Update Input Table
         StoreUpdate inputUpdate = inputStore.addOrUpdate(s.getSource(), newSub);
-        SubscriptionWithRegion aggregatedState = inputUpdate.getRegion();
-
-        aggregatedState.setSource(s.getSource());
-
+        
         // 2. Metrics (Input)
+        // Log details BEFORE accessing aggregatedState, as inputUpdate.getRegion() might be null on NO_CHANGE
         String logDetail = buildLogDetail(newSub, inputUpdate);
         updateInputCounters(inputUpdate);
         logToCsv(s, logDetail, inputUpdate.getResult());
 
         // 3. Propagation Logic
         if (inputUpdate.getResult() != StoreOpResult.NO_CHANGE) {
-            if (newSub.getMetrics() != null) {
-                 EventMetrics m = new EventMetrics(newSub.getMetrics());
-                 m.incrementHops();
-                 aggregatedState.setMetrics(m);
+            SubscriptionWithRegion aggregatedState = inputUpdate.getRegion();
+            
+            // Ensure we have a valid state to propagate
+            if (aggregatedState != null) {
+                aggregatedState.setSource(s.getSource());
+    
+                if (newSub.getMetrics() != null) {
+                     EventMetrics m = new EventMetrics(newSub.getMetrics());
+                     m.incrementHops();
+                     aggregatedState.setMetrics(m);
+                }
+    
+                if (s.getSource() != getParentBroker()) {
+                    propagateSubscriptionUpward(aggregatedState);
+                }
+                propagateSubscriptionDownward(aggregatedState);
             }
-
-            if (s.getSource() != getParentBroker()) {
-                propagateSubscriptionUpward(aggregatedState);
-            }
-            propagateSubscriptionDownward(aggregatedState);
         }
     }
 
@@ -132,14 +137,17 @@ public class SpatialMatchBroker extends BoundedBroker {
 
         if (update.isChange()) {
              SubscriptionWithRegion finalReg = update.getRegion();
-             SubscriptionWithRegion toSend = (SubscriptionWithRegion) finalReg.getSubscription();
-             toSend.setSource(this);
-             
-             if (aggregatedState.getMetrics() != null) {
-                 toSend.setMetrics(aggregatedState.getMetrics());
+             // Extra safety check
+             if (finalReg != null) {
+                 SubscriptionWithRegion toSend = (SubscriptionWithRegion) finalReg.getSubscription();
+                 toSend.setSource(this);
+                 
+                 if (aggregatedState.getMetrics() != null) {
+                     toSend.setMetrics(aggregatedState.getMetrics());
+                 }
+                 
+                 parent.processSubscription(toSend);
              }
-             
-             parent.processSubscription(toSend);
         }
     }
 
@@ -159,14 +167,17 @@ public class SpatialMatchBroker extends BoundedBroker {
                  
                  if (update.isChange()) {
                      SubscriptionWithRegion finalReg = update.getRegion();
-                     SubscriptionWithRegion toSend = (SubscriptionWithRegion) finalReg.getSubscription();
-                     toSend.setSource(this);
-                     
-                     if (aggregatedState.getMetrics() != null) {
-                         toSend.setMetrics(aggregatedState.getMetrics());
+                     // Extra safety check
+                     if (finalReg != null) {
+                         SubscriptionWithRegion toSend = (SubscriptionWithRegion) finalReg.getSubscription();
+                         toSend.setSource(this);
+                         
+                         if (aggregatedState.getMetrics() != null) {
+                             toSend.setMetrics(aggregatedState.getMetrics());
+                         }
+                         
+                         childBroker.processSubscription(toSend);
                      }
-                     
-                     childBroker.processSubscription(toSend);
                  }
              }
         }
