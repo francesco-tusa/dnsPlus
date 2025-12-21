@@ -13,6 +13,14 @@ public abstract class BoundedBroker extends SimulationBroker {
 
     private final Region region;
     private long internetPopulation;
+
+    /**
+     * Optimization Flag:
+     * TRUE if the Parent Broker has already sent a subscription that completely 
+     * covers this broker's region (100% saturation).
+     * This allows the parent to skip future containment checks.
+     */
+    private boolean saturatedByParent = false;
     
     // Detailed Subscription Counters (INPUT Store)
     private long subCoveredCount = 0;
@@ -76,6 +84,14 @@ public abstract class BoundedBroker extends SimulationBroker {
                 parentBroker.updateRegion(this);
             }
         }
+    }
+
+    public boolean isSaturatedByParent() {
+        return saturatedByParent;
+    }
+
+    public void setSaturatedByParent(boolean saturated) {
+        this.saturatedByParent = saturated;
     }
     
     // --- INPUT Metric Incrementers ---

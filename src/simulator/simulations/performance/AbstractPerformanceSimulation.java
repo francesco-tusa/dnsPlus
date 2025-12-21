@@ -55,7 +55,6 @@ public abstract class AbstractPerformanceSimulation<
         logger.info(String.format("%-35s : %s", k, v)); 
     }
 
-    // Restored Helper for Subclasses
     protected void logMetricItem(String k, Object v) {
         logger.info(String.format("%-35s : %s", k, v));
     }
@@ -76,11 +75,11 @@ public abstract class AbstractPerformanceSimulation<
 
         if (brokerConfig.isSmartStrategy()) {
             logConfigItem("Smart Threshold", brokerConfig.getSmartThreshold());
-            logConfigItem("Intersection Optimization", "N/A (Smart uses Strict)");
         } else {
             logConfigItem("Smart Threshold", "N/A (Simple Mode)");
-            logConfigItem("Intersection Optimization", brokerConfig.isIntersectionOptimizationEnabled());
         }
+
+        logConfigItem("Intersection Optimization", brokerConfig.isIntersectionOptimizationEnabled());
         
         logConfigItem("Number of Replicas", workload.numberOfReplicas);
         logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);
@@ -103,7 +102,6 @@ public abstract class AbstractPerformanceSimulation<
             return;
         }
 
-        // Lightweight structural logging only
         TopologyAnalyser.logStructure(this.rootNode, logger);
 
         List<BoundedBroker> leafBrokers = TopologyAnalyser.findLeafBrokers(this.rootNode);

@@ -23,11 +23,12 @@ import utils.CustomLogger;
 public class SpatialMatchBroker extends BoundedBroker {
 
     private static final Logger logger = CustomLogger.getLogger(SpatialMatchBroker.class.getName());
+    
     private final RegionSubscriptionStore inputStore;
     private final RegionSubscriptionStore outputStore;
-    
     private final PropagationRegionPolicy downwardPolicy;
 
+    // --- Constructors ---
     public SpatialMatchBroker(String name, boolean forceSingleRegion, double threshold, PropagationRegionPolicy policy) {
         super(name);
         this.downwardPolicy = (policy != null) ? policy : new StrictPropagationPolicy();
@@ -54,15 +55,7 @@ public class SpatialMatchBroker extends BoundedBroker {
         }
     }
     
-    // --- Legacy Constructors ---
-    public SpatialMatchBroker(String name, boolean forceSingleRegion, double threshold) {
-        this(name, forceSingleRegion, threshold, new StrictPropagationPolicy());
-    }
-    
-    public SpatialMatchBroker(String name, Location p1, Location p2, boolean force, double thresh) {
-        this(name, p1, p2, force, thresh, new StrictPropagationPolicy());
-    }
-
+    // --- Accessors ---
     @Override
     public int getInputSubscriptionCount() { return inputStore.size(); }
     @Override
@@ -72,6 +65,7 @@ public class SpatialMatchBroker extends BoundedBroker {
     @Override
     public Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions() { return outputStore.getAllSubscriptions(); }
 
+    // --- Core Logic ---
     @Override
     public void addSubscription(SimulationSubscription s) {
         if (s.getSource() == null) throw new IllegalArgumentException("Source null");
@@ -83,10 +77,8 @@ public class SpatialMatchBroker extends BoundedBroker {
             StoreUpdate update = inputStore.addOrUpdate(s.getSource(), sub);
             resultForLog = update.getResult();
             logDetail = buildLogDetail(sub, update);
-            
             updateInputCounters(update);
         }
-        
         logToCsv(s, logDetail, resultForLog);
     }
 
@@ -94,29 +86,20 @@ public class SpatialMatchBroker extends BoundedBroker {
     protected void propagateSubscription(SimulationSubscription s) {
         if (!(s instanceof SubscriptionWithRegion newSub)) return;
 
-        // 1. Update Input Table
         StoreUpdate inputUpdate = inputStore.addOrUpdate(s.getSource(), newSub);
-        
-        // 2. Metrics (Input)
-        // Log details BEFORE accessing aggregatedState, as inputUpdate.getRegion() might be null on NO_CHANGE
         String logDetail = buildLogDetail(newSub, inputUpdate);
         updateInputCounters(inputUpdate);
         logToCsv(s, logDetail, inputUpdate.getResult());
 
-        // 3. Propagation Logic
         if (inputUpdate.getResult() != StoreOpResult.NO_CHANGE) {
             SubscriptionWithRegion aggregatedState = inputUpdate.getRegion();
-            
-            // Ensure we have a valid state to propagate
             if (aggregatedState != null) {
                 aggregatedState.setSource(s.getSource());
-    
                 if (newSub.getMetrics() != null) {
                      EventMetrics m = new EventMetrics(newSub.getMetrics());
                      m.incrementHops();
                      aggregatedState.setMetrics(m);
                 }
-    
                 if (s.getSource() != getParentBroker()) {
                     propagateSubscriptionUpward(aggregatedState);
                 }
@@ -137,27 +120,31 @@ public class SpatialMatchBroker extends BoundedBroker {
 
         if (update.isChange()) {
              SubscriptionWithRegion finalReg = update.getRegion();
-             // Extra safety check
              if (finalReg != null) {
                  SubscriptionWithRegion toSend = (SubscriptionWithRegion) finalReg.getSubscription();
                  toSend.setSource(this);
-                 
                  if (aggregatedState.getMetrics() != null) {
                      toSend.setMetrics(aggregatedState.getMetrics());
                  }
-                 
                  parent.processSubscription(toSend);
              }
         }
     }
 
     private void propagateSubscriptionDownward(SubscriptionWithRegion aggregatedState) {
+        SpatialRegion incomingRegion = aggregatedState.getRegion();
+
         for (TreeNode child : getChildren()) {
              if (child == aggregatedState.getSource()) continue;
              if (!(child instanceof BoundedBroker childBroker)) continue;
 
-             SpatialRegion regionToSend = downwardPolicy.determineRegionToSend(childBroker.getRegion(), aggregatedState.getRegion());
+             // DELEGATION:
+             // The policy handles Clipping AND the Saturation Optimization internally.
+             SpatialRegion regionToSend = downwardPolicy.determineRegionToSend(childBroker, incomingRegion);
              
+             // If policy returns null, it means either:
+             // 1. No overlap
+             // 2. Child is Saturated (Optimization)
              if (regionToSend != null) {
                  Region concretePayload = new Region(regionToSend);
                  SubscriptionWithRegion candidate = new SubscriptionWithRegion(concretePayload);
@@ -167,15 +154,12 @@ public class SpatialMatchBroker extends BoundedBroker {
                  
                  if (update.isChange()) {
                      SubscriptionWithRegion finalReg = update.getRegion();
-                     // Extra safety check
                      if (finalReg != null) {
                          SubscriptionWithRegion toSend = (SubscriptionWithRegion) finalReg.getSubscription();
                          toSend.setSource(this);
-                         
                          if (aggregatedState.getMetrics() != null) {
                              toSend.setMetrics(aggregatedState.getMetrics());
                          }
-                         
                          childBroker.processSubscription(toSend);
                      }
                  }
@@ -183,14 +167,13 @@ public class SpatialMatchBroker extends BoundedBroker {
         }
     }
 
+    // --- Helpers & Metrics
     private String buildLogDetail(SubscriptionWithRegion sub, StoreUpdate update) {
         return String.format("Broker: %s; Incoming: %s; %s", 
                               this.getRegion().toLogString(), 
                               sub.getRegion().toLogString(), 
                               update.getAdditionalInfo());
     }
-
-    // --- Metric Updaters ---
 
     private void updateInputCounters(StoreUpdate update) {
         switch (update.getResult()) {
@@ -240,9 +223,7 @@ public class SpatialMatchBroker extends BoundedBroker {
                 forwardPublicationToNode(p, target);
                 usefulForwards++;
             }
-            if (usefulForwards == 0) {
-                this.totalFalsePositiveEvents++;
-            }
+            if (usefulForwards == 0) this.totalFalsePositiveEvents++;
         }
         return null;
     }

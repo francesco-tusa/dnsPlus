@@ -20,37 +20,40 @@ public class SpatialMatchBrokerFactory implements BoundedBrokerFactory {
         SimConfiguration config = SimConfiguration.get();
         BrokerConfig brokerConfig = config.broker;
         
+        // 1. Configure Storage Strategy (Simple vs Smart)
         if (brokerConfig.strategy == BrokerConfig.StrategyType.SIMPLE) {
-            // --- Configuration for SIMPLE Strategy ---
             this.forceSingleRegion = true;
             this.smartThreshold = 0.0; // Irrelevant for Simple Store
-            
-            // Select Policy: Intersection (Optimized) or Strict (Default)
-            if (brokerConfig.isIntersectionOptimizationEnabled()) {
-                this.propagationPolicy = new RegionIntersectionPropagationPolicy();
-            } else {
-                this.propagationPolicy = new StrictPropagationPolicy();
-            }
-            
         } else {
-            // --- Configuration for SMART Strategy ---
+            // Configuration for SMART Strategy
             this.forceSingleRegion = false;
             this.smartThreshold = brokerConfig.getSmartThreshold();
-            
-            // SMART always uses Strict policy (no MBR clipping allowed)
+        }
+
+        // 2. Configure Propagation Policy (Strict vs Clipping)
+        // This applies to BOTH Simple and Smart strategies based on the config flag.
+        if (brokerConfig.isIntersectionOptimizationEnabled()) {
+            this.propagationPolicy = new RegionIntersectionPropagationPolicy();
+        } else {
             this.propagationPolicy = new StrictPropagationPolicy();
         }
     }
     
-    // Manual/Test Constructor
     public SpatialMatchBrokerFactory(boolean forceSingleRegion, double threshold) {
         this.forceSingleRegion = forceSingleRegion;
         this.smartThreshold = threshold;
         this.propagationPolicy = new StrictPropagationPolicy();
     }
+    
+    public SpatialMatchBrokerFactory(boolean forceSingleRegion, double threshold, boolean enableClipping) {
+        this.forceSingleRegion = forceSingleRegion;
+        this.smartThreshold = threshold;
+        this.propagationPolicy = enableClipping ? new RegionIntersectionPropagationPolicy() : new StrictPropagationPolicy();
+    }
 
     @Override
     public BoundedBroker createBroker(String name) {
+        // The policy passed here will now be the one selected by the config flag
         return new SpatialMatchBroker(name, forceSingleRegion, smartThreshold, propagationPolicy);
     }
 

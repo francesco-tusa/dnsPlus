@@ -1,16 +1,19 @@
 package simulator.regions.policy;
 
+import simulator.regions.BoundedBroker;
 import simulator.regions.SpatialRegion;
 
-/**
- * Strategy interface to determine the region that should be propagated to a child.
- */
 public interface PropagationRegionPolicy {
     /**
-     * Determines the region to send downwards based on the aggregated input and the child's capability.
-     * @param childRegion The region covered by the child broker.
-     * @param candidateRegion The aggregated region from the input store (The Global Requirement).
-     * @return The region to propagate, or null if no propagation should occur.
+     * Determines the spatial region to send to a child broker.
      */
-    SpatialRegion determineRegionToSend(SpatialRegion childRegion, SpatialRegion candidateRegion);
+    SpatialRegion determineRegionToSend(BoundedBroker child, SpatialRegion demand);
+
+    /**
+     * Returns a human-readable description of this policy/strategy.
+     * Used for logging and configuration verification.
+     */
+    default String getDescription() {
+        return this.getClass().getSimpleName();
+    }
 }

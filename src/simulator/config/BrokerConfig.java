@@ -12,7 +12,7 @@ public class BrokerConfig {
     // Public so factories can switch on it easily
     public final StrategyType strategy;
     
-    // Strategy-specific fields are now private to enforce correct usage via getters
+    // Strategy-specific fields
     private final double smartThreshold;
     private final boolean intersectionOptimizationEnabled;
 
@@ -24,26 +24,24 @@ public class BrokerConfig {
             throw new IllegalArgumentException("Config Error: Unknown broker.strategy '" + stratStr + "'. Valid: SIMPLE, SMART");
         }
 
-        // --- Parameter Loading & Alignment ---
-        if (this.strategy == StrategyType.SMART) {
-            // SMART Strategy: Requires threshold, Intersect Opt is irrelevant
-            this.smartThreshold = parseDouble(props, "broker.smartThreshold", "0.5");
-            this.intersectionOptimizationEnabled = false; 
+        // --- 1. Load Universal Properties ---
+        this.intersectionOptimizationEnabled = Boolean.parseBoolean(
+            props.getProperty("broker.optimization.region_intersection", "true")
+        );
 
-            // Validation
+        // --- 2. Strategy-Specific Loading ---
+        if (this.strategy == StrategyType.SMART) {
+            // SMART Strategy: Requires threshold
+            this.smartThreshold = parseDouble(props, "broker.smartThreshold", "0.5");
+
+            // Validation for Threshold
             if (this.smartThreshold < 0.0 || this.smartThreshold > 1.0) {
                 throw new IllegalArgumentException("Config Error: broker.smartThreshold must be between 0.0 and 1.0.");
             }
-            if (props.containsKey("broker.optimization.region_intersection")) {
-                logger.warning("Config Warning: 'broker.optimization.region_intersection' is ignored because strategy is SMART.");
-            }
-
+            
         } else {
-            // SIMPLE Strategy: Requires Opt flag, Threshold is irrelevant
+            // SIMPLE Strategy: Threshold is irrelevant
             this.smartThreshold = -1.0; // Sentinel value
-            this.intersectionOptimizationEnabled = Boolean.parseBoolean(
-                props.getProperty("broker.optimization.region_intersection", "false")
-            );
 
             if (props.containsKey("broker.smartThreshold")) {
                 logger.warning("Config Warning: 'broker.smartThreshold' is ignored because strategy is SIMPLE.");
@@ -51,13 +49,12 @@ public class BrokerConfig {
         }
         
         logger.info("Broker Config Loaded: Strategy=" + strategy + 
-                    (strategy == StrategyType.SMART ? ", Threshold=" + smartThreshold : "") +
-                    (strategy == StrategyType.SIMPLE ? ", IntersectionOpt=" + intersectionOptimizationEnabled : ""));
+                    ", IntersectionOpt=" + intersectionOptimizationEnabled +
+                    (strategy == StrategyType.SMART ? ", Threshold=" + smartThreshold : ""));
     }
 
     /**
      * Helper method to check if the strategy is SMART.
-     * Restored to support logging and logic checks.
      */
     public boolean isSmartStrategy() {
         return strategy == StrategyType.SMART;
@@ -75,13 +72,10 @@ public class BrokerConfig {
     }
 
     /**
-     * Returns the optimization flag for the SIMPLE strategy.
-     * Returns false by default if strategy is SMART.
+     * Returns the optimization flag.
+     * Valid for both SIMPLE and SMART strategies.
      */
     public boolean isIntersectionOptimizationEnabled() {
-        if (strategy != StrategyType.SIMPLE) {
-            return false;
-        }
         return intersectionOptimizationEnabled;
     }
 
