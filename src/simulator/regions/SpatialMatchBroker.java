@@ -204,7 +204,7 @@ public class SpatialMatchBroker extends BoundedBroker {
             CsvMetricWriter.getInstance().logSubscription(
                 s.getMetrics().getTraceId(), 
                 getName(), 
-                s.getSource().getName(), 
+                s.getSource(),
                 s.getMetrics().getHops(), 
                 logDetail, 
                 result.name() 

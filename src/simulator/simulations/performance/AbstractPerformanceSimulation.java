@@ -145,8 +145,10 @@ public abstract class AbstractPerformanceSimulation<
     @Override
     protected void cleanup() {
         super.cleanup();
+        
+        CsvMetricWriter.getInstance().close();
+        
         if (SimConfiguration.get().paths.enableVerboseLogs) {
-            CsvMetricWriter.getInstance().close();
             logger.info("Metrics writer closed.");
         }
     }
