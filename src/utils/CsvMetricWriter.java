@@ -8,23 +8,28 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import simulator.core.Location;
 import simulator.core.TreeNode;
-import simulator.entities.SubscriberWithLocation;
 
 public class CsvMetricWriter {
 
     private static CsvMetricWriter instance;
     private RotatingFileWriter subscriptionWriter;
-    private RotatingFileWriter publicationWriter;
-    private BufferedWriter summaryWriter; 
+    private RotatingFileWriter publicationWriter; 
     
+    private BufferedWriter subSummaryWriter;
+    private BufferedWriter pubSummaryWriter; 
+
     private boolean initialized = false;
     
-    // Map to track the running count of messages per TraceID
-    private final Map<String, Integer> traceCounts = new HashMap<>();
+    // Maps to track running counts per TraceID
+    private final Map<String, Integer> subTraceCounts = new HashMap<>();
+    private final Map<String, Integer> pubTraceCounts = new HashMap<>(); 
 
-    // Map to store summary data for each trace
-    private final Map<String, SummaryEntry> summaryMap = new HashMap<>();
+    // Maps to store summary data
+    private final Map<String, SummaryEntry> subSummaryMap = new HashMap<>();
+    private final Map<String, SummaryEntry> pubSummaryMap = new HashMap<>(); 
     
     private static final long MAX_FILE_SIZE_BYTES = 90 * 1024 * 1024; // 90 MB
 
@@ -40,34 +45,31 @@ public class CsvMetricWriter {
     public synchronized void initialize(String runId) {
         if (initialized) return;
         try {
-            traceCounts.clear();
-            summaryMap.clear();
+            subTraceCounts.clear();
+            pubTraceCounts.clear();
+            subSummaryMap.clear();
+            pubSummaryMap.clear();
 
             String baseDir = "output/" + runId;
-            
             String subDir = baseDir + "/subscriptions";
             String pubDir = baseDir + "/publications";
             
-            File subFolder = new File(subDir);
-            if (!subFolder.exists()) subFolder.mkdirs();
+            new File(subDir).mkdirs();
+            new File(pubDir).mkdirs();
             
-            File pubFolder = new File(pubDir);
-            if (!pubFolder.exists()) pubFolder.mkdirs();
-            
+            // --- Subscription Writers ---
             subscriptionWriter = new RotatingFileWriter(
                 subDir, "subscriptions", 
                 "TraceID,MsgCount,Source,Receiver,Hops,Region,Result\n"
             );
-            
+            subSummaryWriter = initializeSummaryWriter(subDir, "subscription_summary.csv");
+
+            // --- Publication Writers ---
             publicationWriter = new RotatingFileWriter(
                 pubDir, "publications", 
-                "TraceID,Subscriber,Hops,LocationX,LocationY\n"
+                "TraceID,MsgCount,Source,Receiver,Hops,Location,Result\n"
             );
-
-            File summaryFile = new File(subDir, "subscription_summary.csv");
-            summaryWriter = new BufferedWriter(new FileWriter(summaryFile));
-            summaryWriter.write("id,country,long,lat,max_row_count\n");
-            summaryWriter.flush();
+            pubSummaryWriter = initializeSummaryWriter(pubDir, "publication_summary.csv");
             
             initialized = true;
         } catch (IOException e) {
@@ -75,43 +77,53 @@ public class CsvMetricWriter {
         }
     }
 
+    private BufferedWriter initializeSummaryWriter(String dir, String filename) throws IOException {
+        BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dir, filename)));
+        writer.write("id,country,long,lat,max_row_count\n");
+        writer.flush();
+        return writer;
+    }
+
+    // --- Subscription Logging ---
     public synchronized void logSubscription(String traceId, String receiver, TreeNode sourceNode, int hops, String region, String result) {
+        logEvent(traceId, receiver, sourceNode, hops, region, result, subscriptionWriter, subTraceCounts, subSummaryMap);
+    }
+
+    // --- Publication Logging ---
+   public synchronized void logPublication(String traceId, String receiver, TreeNode sourceNode, int hops, String location, String result) {
+        logEvent(traceId, receiver, sourceNode, hops, location, result, publicationWriter, pubTraceCounts, pubSummaryMap);
+    }
+    
+    // --- Generic Logging Helper ---
+    private synchronized void logEvent(
+            String traceId, String receiver, TreeNode sourceNode, int hops, 
+            String payload, String result,
+            RotatingFileWriter writer, 
+            Map<String, Integer> traceCounts,
+            Map<String, SummaryEntry> summaryMap) {
+        
         if (!initialized) return;
         try {
             int count = traceCounts.getOrDefault(traceId, 0) + 1;
             traceCounts.put(traceId, count);
 
             String sourceName = (sourceNode != null) ? sourceNode.getName() : "null";
+            // Format: TraceID,MsgCount,Source,Receiver,Hops,Payload,Result
+            writer.write(String.format("%s,%d,%s,%s,%d,\"%s\",%s\n", 
+                traceId, count, sourceName, receiver, hops, payload, result));
 
-            // Append the count to the CSV line
-            String line = String.format("%s,%d,%s,%s,%d,\"%s\",%s\n", traceId, count, sourceName, receiver, hops, region, result);
-            subscriptionWriter.write(line);
-
-            // NEW: Capture summary data if this is the start of the trace (from Subscriber)
-            if (sourceNode instanceof SubscriberWithLocation sub) {
+            if (sourceNode != null && sourceNode.getMetricLocation() != null) {
                 summaryMap.computeIfAbsent(traceId, k -> {
                     SummaryEntry entry = new SummaryEntry();
                     entry.id = k;
-                    entry.longitude = sub.getLocation().getX();
-                    entry.latitude = sub.getLocation().getY();
-                    entry.country = extractCountry(sub);
+                    Location loc = sourceNode.getMetricLocation();
+                    entry.longitude = loc.getX();
+                    entry.latitude = loc.getY();
+                    entry.country = extractCountry(sourceNode);
                     return entry;
                 });
             }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public synchronized void logPublicationDelivery(String traceId, String subscriber, int hops, double x, double y) {
-        if (!initialized) return;
-        try {
-            String line = String.format("%s,%s,%d,%.4f,%.4f\n", traceId, subscriber, hops, x, y);
-            publicationWriter.write(line);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        } catch (IOException e) { e.printStackTrace(); }
     }
     
     public void close() {
@@ -119,54 +131,53 @@ public class CsvMetricWriter {
             if (subscriptionWriter != null) subscriptionWriter.close();
             if (publicationWriter != null) publicationWriter.close();
             
-            if (summaryWriter != null) {
-                for (Map.Entry<String, SummaryEntry> entry : summaryMap.entrySet()) {
-                    SummaryEntry s = entry.getValue();
-                    // Get the final max count from traceCounts
-                    int maxCount = traceCounts.getOrDefault(s.id, 0);
-                    
-                    String line = String.format("%s,%s,%.4f,%.4f,%d\n", 
-                        s.id, s.country, s.longitude, s.latitude, maxCount);
-                    summaryWriter.write(line);
-                }
-                summaryWriter.close();
+            // Write Subscription Summary
+            if (subSummaryWriter != null) {
+                writeSummary(subSummaryWriter, subSummaryMap, subTraceCounts);
+            }
+            
+            // Write Publication Summary
+            if (pubSummaryWriter != null) {
+                writeSummary(pubSummaryWriter, pubSummaryMap, pubTraceCounts);
             }
 
-            traceCounts.clear();
-            summaryMap.clear();
+            subTraceCounts.clear();
+            pubTraceCounts.clear();
+            subSummaryMap.clear();
+            pubSummaryMap.clear();
             initialized = false;
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException e) { e.printStackTrace(); }
+    }
+
+    private void writeSummary(BufferedWriter writer, Map<String, SummaryEntry> map, Map<String, Integer> counts) throws IOException {
+        for (Map.Entry<String, SummaryEntry> entry : map.entrySet()) {
+            SummaryEntry s = entry.getValue();
+            int maxCount = counts.getOrDefault(s.id, 0);
+            writer.write(String.format("%s,%s,%.4f,%.4f,%d\n", s.id, s.country, s.longitude, s.latitude, maxCount));
         }
+        writer.flush();
+        writer.close();
     }
 
     /**
-     * Extracts the Country by traversing the topology tree up to Level 2.
-     * Hierarchy: Root (Level 0) -> Continent (Level 1) -> Country (Level 2).
+     * Generalized to work for both Subscribers and Publishers (any TreeNode).
+     * Extract Country at Level 2 (Root=L0, Continent=L1, Country=L2).
      */
-    private String extractCountry(SubscriberWithLocation sub) {
+    private String extractCountry(TreeNode node) {
         List<TreeNode> path = new ArrayList<>();
-        TreeNode current = sub;
-        
-        // 1. Traverse up to the root to build the full path
+        TreeNode current = node;
         while (current != null) {
             path.add(current);
             current = current.getParent();
         }
         
-        // Path is now Bottom-Up: [Subscriber, LeafBroker, ..., Level 2, Level 1, Root]
-        // We need to access Level 2 (Country).
-        
-        // Calculate index of Level 2 from the end of the list
+        // Path is [LeafEntity, LeafBroker, ..., Country, Continent, Root]
         // Root is at index: size - 1
         // Level 1 is at:    size - 2
         // Level 2 is at:    size - 3
-        
         if (path.size() >= 3) {
-            TreeNode countryNode = path.get(path.size() - 3);
-            return countryNode.getName();
+            return path.get(path.size() - 3).getName();
         }
-        
         return "Unknown";
     }
 
@@ -177,14 +188,10 @@ public class CsvMetricWriter {
         double latitude;
     }
 
-    /**
-     * Inner helper class to handle file rotation based on size.
-     */
     private class RotatingFileWriter {
         private final String dirPath;
         private final String baseName;
         private final String header;
-        
         private BufferedWriter currentWriter;
         private int fileIndex = 1;
         private long currentBytes = 0;
@@ -193,42 +200,25 @@ public class CsvMetricWriter {
             this.dirPath = dirPath;
             this.baseName = baseName;
             this.header = header;
-            rotate(); // Create the first file
+            rotate(); 
         }
 
         private void rotate() throws IOException {
-            if (currentWriter != null) {
-                currentWriter.close();
-            }
-            
-            // Create new file: name_1.csv, name_2.csv
+            if (currentWriter != null) currentWriter.close();
             File file = new File(dirPath, baseName + "_" + fileIndex + ".csv");
             currentWriter = new BufferedWriter(new FileWriter(file));
-            
-            // Write header
             currentWriter.write(header);
             currentWriter.flush();
-            
-            // Reset counters (header counts towards size)
             currentBytes = header.length();
             fileIndex++;
         }
 
         public void write(String line) throws IOException {
-            // Check if rotation is needed
-            if (currentBytes + line.length() > MAX_FILE_SIZE_BYTES) {
-                rotate();
-            }
-            
+            if (currentBytes + line.length() > MAX_FILE_SIZE_BYTES) rotate();
             currentWriter.write(line);
             currentWriter.flush();
             currentBytes += line.length();
         }
-
-        public void close() throws IOException {
-            if (currentWriter != null) {
-                currentWriter.close();
-            }
-        }
+        public void close() throws IOException { if (currentWriter != null) currentWriter.close(); }
     }
 }

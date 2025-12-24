@@ -26,12 +26,13 @@ public class PerformanceMetricsData {
     public long totalPubsSent = 0;
     public long totalPubForwardingEvents = 0; 
     public long totalMatchingComputations = 0; 
-    public long totalFalsePositiveEvents = 0;
 
     // 4. Delivery
     public long totalNotifications = 0;
     public final IntSummaryStatistics hopStats = new IntSummaryStatistics();
     
-    // 5. Accuracy
+    // 5. Accuracy / Routing Efficiency
     public long groundTruthMatches = 0;
+    public long totalFalsePositiveEvents = 0;      // Dead Ends (Broker Routing Errors)
+    public long totalFalsePositiveDeliveries = 0;  // Delivered but unwanted (Geometric Errors)
 }

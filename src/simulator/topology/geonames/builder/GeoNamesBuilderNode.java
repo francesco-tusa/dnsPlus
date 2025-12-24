@@ -4,9 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 import simulator.regions.Region;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonPropertyOrder({ "isLeaf", "geonameId", "name", "type", "featureCode", "code", "children" }) 
 public class GeoNamesBuilderNode {
+    
+    public boolean isLeaf = true; 
+
     public int geonameId;
     public String name;
     public String featureCode;
@@ -21,9 +26,8 @@ public class GeoNamesBuilderNode {
 
     public enum NodeType {
         WORLD, CONTINENT, COUNTRY, ADM1, ADM2, PPL,
-        GRID_COARSE,  // Large-scale partitions (e.g., > 1M people)
-        GRID_FINE     // Fine-grained partitions (e.g., > 10k people)
-
+        GRID_COARSE,  
+        GRID_FINE     
     }
 
     public GeoNamesBuilderNode() {}
@@ -34,6 +38,7 @@ public class GeoNamesBuilderNode {
         this.type = type;
         this.code = (code != null) ? code : "";
         this.featureCode = (featureCode != null) ? featureCode : "";
+        this.isLeaf = true; // Default to true
     }
     
     // Copy constructor for subsets
@@ -49,9 +54,13 @@ public class GeoNamesBuilderNode {
         this.internetPenetrationRate = other.internetPenetrationRate;
         if (other.bounds != null) this.bounds = new Region(other.bounds);
         this.children = new ArrayList<>();
+        this.isLeaf = true; 
     }
 
     public void addChild(GeoNamesBuilderNode child) {
-        if (child != null) children.add(child);
+        if (child != null) {
+            this.children.add(child);
+            this.isLeaf = false;
+        }
     }
 }

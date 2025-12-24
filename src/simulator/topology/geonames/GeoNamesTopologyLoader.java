@@ -38,17 +38,14 @@ public class GeoNamesTopologyLoader
     private static final String JSON_FIELD_INTERNET_POPULATION = "internetPopulation";
     private static final String JSON_FIELD_CHILDREN = "children";
     private static final String JSON_FIELD_BOUNDS = "bounds";
+    private static final String JSON_FIELD_IS_LEAF = "isLeaf";
     
     // --- Constants for Region fields (inside "bounds") ---
     private static final String JSON_FIELD_BOTTOM_LEFT = "bottomLeft";
     private static final String JSON_FIELD_TOP_RIGHT = "topRight";
-    private static final String JSON_FIELD_X = "x"; // Corresponds to Longitude
-    private static final String JSON_FIELD_Y = "y"; // Corresponds to Latitude
+    private static final String JSON_FIELD_X = "x"; 
+    private static final String JSON_FIELD_Y = "y"; 
     
-    // --- Default location for fallback ---
-    private static final Location DEFAULT_LOCATION = new Location(0.0, 0.0, 0.0);
-
-
     public GeoNamesTopologyLoader(BoundedBrokerFactory brokerFactory) {
         Objects.requireNonNull(brokerFactory, "BrokerFactory cannot be null.");
         this.brokerFactory = brokerFactory;
@@ -86,7 +83,6 @@ public class GeoNamesTopologyLoader
                     throw new IOException("Expected JSON to start with an object '{'.");
                 }
                 
-                // Recursively build the tree from the stream
                 this.rootNode = buildBrokerFromJsonStream(parser, null);
             }
 
@@ -124,156 +120,68 @@ public class GeoNamesTopologyLoader
     }
 
     /**
-     * Recursively builds a BrokerWithRegion from a streaming JsonParser.
-     * The parser is expected to be at the START_OBJECT ('{') token of a node.
-     * This method uses a "create-then-swap" logic to handle streaming.
-     * * @param parser The JsonParser, positioned at the '{' of a broker object.
-     * @param parent The parent broker (used for linking and region inheritance).
-     * @return The constructed BrokerWithRegion.
-     * @throws IOException
+     * Recursively builds a Broker from a streaming JsonParser.
+     * OPTIMIZATION: Uses 'isLeaf' field (if present) to instantiate the correct class immediately.
      */
     private BoundedBroker buildBrokerFromJsonStream(JsonParser parser, BoundedBroker parent) throws IOException {
         
-        // --- THIS IS THE "CREATE-THEN-SWAP" LOGIC ---
-        // 1. Create a broker *immediately*, assuming it's a NON-LEAF.
-        // We need this object to exist so it can be passed as a parent to its children.
-        String initialName = "broker_" + this.brokerIdCounter++;
-        BoundedBroker currentBroker = brokerFactory.createBroker(initialName);
-        if (parent != null) {
-            parent.addChild(currentBroker); // This sets the parent link immediately!
-        }
+        BoundedBroker currentBroker = null;
+        String pendingName = "broker_" + this.brokerIdCounter++; // Default name
         
-        String brokerName = initialName;
-        long internetPopulation = 0;
-        Region region = null;
-        boolean isLeafNodeInJson = true; // Assume leaf until "children" array is found
-
-        // 2. Loop through all fields and populate the broker
+        // Loop through fields
         while (parser.nextToken() != JsonToken.END_OBJECT) {
             String fieldName = parser.getCurrentName();
-            parser.nextToken(); // Move parser to the field's value
+            parser.nextToken(); // Move to value
 
-            if (JSON_FIELD_NAME.equals(fieldName)) {
-                brokerName = parser.getText();
-                currentBroker.setName(brokerName);
+            if (JSON_FIELD_IS_LEAF.equals(fieldName)) {
+                boolean isLeaf = parser.getBooleanValue();
+                
+                // INSTANTIATE IMMEDIATELY based on hint
+                // We create the broker without regions first, then populate them as we parse 'bounds'
+                if (isLeaf) {
+                    currentBroker = brokerFactory.createLeafBroker(pendingName);
+                } else {
+                    currentBroker = brokerFactory.createBroker(pendingName);
+                }
+                if (parent != null) parent.addChild(currentBroker);
+
+            } else if (JSON_FIELD_NAME.equals(fieldName)) {
+                pendingName = parser.getText();
+                if (currentBroker != null) {
+                    currentBroker.setName(pendingName);
+                }
             } else if (JSON_FIELD_INTERNET_POPULATION.equals(fieldName)) {
-                internetPopulation = parser.getLongValue();
-                currentBroker.setInternetPopulation(internetPopulation);
+                if (currentBroker != null) {
+                    currentBroker.setInternetPopulation(parser.getLongValue());
+                }
             } else if (JSON_FIELD_BOUNDS.equals(fieldName)) {
-                region = parseRegionFromStream(parser); 
-                if (region != null) {
+                Region region = parseRegionFromStream(parser);
+                if (currentBroker != null && region != null) {
                     currentBroker.getRegion().set(region);
                 }
             } else if (JSON_FIELD_CHILDREN.equals(fieldName)) {
-                isLeafNodeInJson = false; // We found children!
-                
-                // 3. Recurse. Pass 'currentBroker' as the parent for its children.
+                // If 'isLeaf' was processed correctly, currentBroker is already a BoundedBroker (Non-Leaf)
+                // Recurse
                 while (parser.nextToken() != JsonToken.END_ARRAY) {
-                    buildBrokerFromJsonStream(parser, currentBroker); // Pass self as parent
+                    buildBrokerFromJsonStream(parser, currentBroker); 
                 }
             } else {
-                parser.skipChildren(); 
+                parser.skipChildren();
             }
         }
         
-        // --- 4. THE "SWAP" ---
-        // We are at END_OBJECT. We now know if the broker was *actually* a leaf.
-        if (isLeafNodeInJson) {
-            
-            // It was a leaf, but we created a non-leaf. We must replace it.
-            Location p1 = null, p2 = null;
-            
-            if (region != null && region.getBottomLeft() != null) {
-                // This leaf had its own valid region.
-                p1 = region.getBottomLeft();
-                p2 = region.getTopRight();
-            } else {
-                // Leaf has no region. Find the first valid parent region.
-                logger.info("Leaf broker " + brokerName + " has null/missing bounds. Searching for parent region.");
-                Region parentRegion = findFirstValidParentRegion(parent); 
-                
-                if (parentRegion != null) {
-                    // Found one! Use its region.
-                    p1 = parentRegion.getBottomLeft();
-                    p2 = parentRegion.getTopRight();
-                    logger.info("  ... Found parent region: " + parentRegion.toShortString() + " and assigned to " + brokerName);
-                } else {
-                    // Last resort fallback (e.g., for the World node if it was a leaf)
-                    logger.warning("Leaf broker " + brokerName + " AND its parents have no region. Using default [0,0,0].");
-                    p1 = DEFAULT_LOCATION;
-                    p2 = DEFAULT_LOCATION;
-                }
-            }
-            
-            // Create the *correct* leaf broker
-            BoundedBroker leafBroker = brokerFactory.createLeafBroker(brokerName, p1, p2);
-            leafBroker.setInternetPopulation(internetPopulation);
-            
-            // Swap it into the parent's children list
-            if (parent != null) {
-                parent.removeChild(currentBroker); // Remove the temp non-leaf
-                parent.addChild(leafBroker);     // Add the correct leaf
-            }
-            return leafBroker; // Return the new leaf
-        }
-
-        // It was a non-leaf, so our original object was correct.
         return currentBroker;
     }
 
-
-    /**
-     * Walks up the tree from a broker to find the first ancestor with a valid region.
-     * @param broker The broker to start the search from (we search its parents).
-     * @return The first valid Region found, or null if no parents have a region.
-     */
-    private Region findFirstValidParentRegion(BoundedBroker broker) {
-        if (broker == null) {
-            return null;
-        }
-        
-        // Start search from the broker itself, then go up.
-        // A broker passed as 'parent' might have a region.
-        BoundedBroker p = broker;
-        
-        while (p != null) {
-            // Check if this parent is a BrokerWithRegion and has a valid region
-            Region r = p.getRegion();
-            if (r != null && r.getBottomLeft() != null) {
-                return r; // Found a valid region
-            }
-            
-            // Move up to the next parent
-            if (p.getParent() instanceof BoundedBroker) {
-                 p = (BoundedBroker) p.getParent();
-            } else {
-                 p = null; // Reached root or non-broker node
-            }
-        }
-        
-        return null; // No ancestor had a valid region
-    }
-
-
-    /**
-     * Parses a Region object from the JSON stream.
-     * * @param parser The JsonParser, positioned at the '{' of the bounds object.
-     * @return The parsed Region, or NULL if parsing fails (e.g., on "{}").
-     * @throws IOException
-     */
     private Region parseRegionFromStream(JsonParser parser) throws IOException {
         Location bottomLeft = null;
         Location topRight = null;
         
-        if (parser.currentToken() == JsonToken.VALUE_NULL) {
-             logger.finer("Parsed a null 'bounds' object.");
-             return null; // Handle "bounds": null
-        }
+        if (parser.currentToken() == JsonToken.VALUE_NULL) return null;
 
         while (parser.nextToken() != JsonToken.END_OBJECT) {
             String fieldName = parser.getCurrentName();
-            parser.nextToken(); // Move to value (or '{' of location)
-
+            parser.nextToken(); 
             if (JSON_FIELD_BOTTOM_LEFT.equals(fieldName)) {
                 bottomLeft = parseLocationFromStream(parser);
             } else if (JSON_FIELD_TOP_RIGHT.equals(fieldName)) {
@@ -286,28 +194,17 @@ public class GeoNamesTopologyLoader
         if (bottomLeft != null && topRight != null) {
             return new Region(bottomLeft, topRight);
         } else {
-             logger.finer("Failed to parse 'bottomLeft' or 'topRight' from bounds stream (region is likely empty). Returning null region.");
              return null; 
         }
     }
 
-    /**
-     * Parses a Location object from the JSON stream.
-     * * @param parser The JsonParser, positioned at the '{' of the location object.
-     * @return The parsed Location, or NULL if the JSON token is null.
-     * @throws IOException
-     */
     private Location parseLocationFromStream(JsonParser parser) throws IOException {
         double x = 0.0, y = 0.0, z = 0.0;
-        
-        if (parser.currentToken() == JsonToken.VALUE_NULL) {
-             logger.finer("Parsed a null location object (e.g., 'bottomLeft': null).");
-             return null;
-        }
+        if (parser.currentToken() == JsonToken.VALUE_NULL) return null;
 
         while (parser.nextToken() != JsonToken.END_OBJECT) {
             String fieldName = parser.getCurrentName();
-            parser.nextToken(); // Move to value
+            parser.nextToken(); 
 
             if (JSON_FIELD_X.equals(fieldName)) {
                 x = parser.getDoubleValue();

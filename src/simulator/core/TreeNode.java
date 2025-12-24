@@ -3,18 +3,18 @@ package simulator.core;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TreeNode {
+public class TreeNode implements LoggableEntity {
 
     private String name;
     private TreeNode parent;
     private List<TreeNode> children;
-    private int nodeLevel; // Re-added for deterministic visualisation layout
+    private int nodeLevel; 
 
     public TreeNode(String name) {
         this.name = name;
         this.children = new ArrayList<>();
         this.parent = null;
-        this.nodeLevel = 0; // Root is at level 0
+        this.nodeLevel = 0;
     }
 
     public TreeNode(TreeNode node) {
@@ -58,5 +58,25 @@ public class TreeNode {
     @Override
     public String toString() {
         return name;
+    }
+
+    // --- LoggableEntity Implementation ---
+
+    /**
+     * Default implementation: Logs the receiver's location info.
+     * Overridden by Publishers to force logging their own location.
+     */
+    @Override
+    public String resolveLogLocation(String receiverLocationInfo) {
+        return receiverLocationInfo;
+    }
+
+    /**
+     * Default implementation: No physical location.
+     * Overridden by Publishers/Subscribers to return their Location.
+     */
+    @Override
+    public Location getMetricLocation() {
+        return null;
     }
 }

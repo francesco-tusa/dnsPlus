@@ -46,6 +46,7 @@ public class MetricsCollector {
 
         for (SubscriberWithLocation s : subs) {
             data.totalNotifications += s.getnPublications();
+            data.totalFalsePositiveDeliveries += s.getFalsePositiveDeliveries();
             for (int h : s.getReceivedHopsList())
                 data.hopStats.accept(h);
         }

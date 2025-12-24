@@ -9,6 +9,7 @@ import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.events.metrics.EventMetrics;
+import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.visualisation.TopologyVisualiser;
 import utils.CsvMetricWriter;
@@ -17,6 +18,12 @@ import utils.CustomLogger;
 public class SubscriberWithLocation extends TreeNode {
 
     private static final Logger logger = CustomLogger.getLogger(SubscriberWithLocation.class.getName());
+
+    // Track the specific regions this subscriber is interested in
+    private final List<Region> activeRegions = new ArrayList<>();
+    
+    // Counter for messages received that fall OUTSIDE the specific region
+    private int falsePositiveDeliveries = 0;
 
     private final Location location;
     private int nSubscriptions;
@@ -37,26 +44,49 @@ public class SubscriberWithLocation extends TreeNode {
     public void receive(SimulationPublication p) {
         logger.fine(getName() + ": received publication " + p);
         nPublications++;
-        
-        if (p.getMetrics() != null && p instanceof PublicationWithLocation pub) {
-            int hops = p.getMetrics().getHops();
+
+        if (p instanceof PublicationWithLocation pub) {
             
-            // Record hops
-            receivedHopsList.add(hops);
+            // --- 1. False Positive Delivery Validation ---
+            boolean matchesInterest = false;
+            
+            // Check if this publication actually falls inside ANY of our requested regions
+            for (Region r : activeRegions) {
+                if (r.contains(pub.getLocation())) {
+                    matchesInterest = true;
+                    break;
+                }
+            }
+            
+            // If it arrived but we didn't want it (geometrically), it's a False Positive Delivery.
+            // We only count this if we have active regions (to distinguish from non-spatial logic).
+            if (!matchesInterest && !activeRegions.isEmpty()) {
+                falsePositiveDeliveries++;
+            }
 
-            CsvMetricWriter.getInstance().logPublicationDelivery(
-                p.getMetrics().getTraceId(),
-                this.getName(),
-                hops,
-                pub.getLocation().getX(),
-                pub.getLocation().getY()
-            );
-        }
-        
-        if (p instanceof PublicationWithLocation) {
-            this.lastReceivedPublication = (PublicationWithLocation) p;
+            // --- 2. Update Subscriber State ---
+            this.lastReceivedPublication = pub;
+
+            // --- 3. Metrics Logging ---
+            if (p.getMetrics() != null) {
+                int hops = p.getMetrics().getHops();
+                receivedHopsList.add(hops);
+
+                // Log the delivery. 
+                // Note: We use 'this.getLocation()' to visualize where the SUBSCRIBER is, 
+                // rather than where the EVENT happened.
+                CsvMetricWriter.getInstance().logPublication(
+                    p.getMetrics().getTraceId(),
+                    this.getName(),                 // Receiver
+                    p.getSource(),                  // Source (Last Broker)
+                    hops,
+                    this.getLocation().toString(),  // Subscriber Location (Payload for visualization)
+                    "Delivered"                     // Result
+                );
+            }
         }
 
+        // --- 4. Visualisation (Generic) ---
         TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
         if (visualizer != null && p.getSource() != null) {
             boolean isUpward = false; 
@@ -76,6 +106,10 @@ public class SubscriberWithLocation extends TreeNode {
                 : " for region " + ((SubscriptionWithRegion)s).getRegion().toShortString();
             logger.fine("\n" + getName() + ": sending subscription" + subInfo);
 
+            if (s instanceof SubscriptionWithRegion swr) {
+                this.activeRegions.add(swr.getRegion());
+            }
+
             broker.processSubscription(s);
             nSubscriptions++;
 
@@ -92,6 +126,7 @@ public class SubscriberWithLocation extends TreeNode {
     public Location getLocation() { return location; }
     public int getnSubscriptions() { return nSubscriptions; }
     public int getnPublications() { return nPublications; }
+    public int getFalsePositiveDeliveries() { return falsePositiveDeliveries; }
     
     public List<Integer> getReceivedHopsList() {
         return receivedHopsList;
@@ -105,4 +140,10 @@ public class SubscriberWithLocation extends TreeNode {
     }
     
     public PublicationWithLocation getLastReceivedPublication() { return lastReceivedPublication; }
+
+
+    @Override
+    public Location getMetricLocation() {
+        return this.location;
+    }
 }

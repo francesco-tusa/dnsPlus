@@ -24,7 +24,7 @@ public class PublisherWithLocation extends TreeNode {
     }
     
     public void send(PublicationWithLocation pub) {
-        String traceId = this.getName();
+        String traceId = this.getName() + "-" + pub.getId();
         pub.setMetrics(new EventMetrics(traceId));
         pub.setSource(this);
 
@@ -58,4 +58,15 @@ public class PublisherWithLocation extends TreeNode {
     public Location getLocation() { return location; }
     public int getnPublications() { return nPublications; }
     public SimulationBroker getBroker() { return (SimulationBroker) getParent(); }
+
+
+    @Override
+    public String resolveLogLocation(String receiverLocationInfo) {
+        return this.location.toString();
+    }
+
+    @Override
+    public Location getMetricLocation() {
+        return this.location;
+    }
 }

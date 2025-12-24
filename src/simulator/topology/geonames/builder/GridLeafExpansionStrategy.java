@@ -3,7 +3,6 @@ package simulator.topology.geonames.builder;
 import java.util.Objects;
 import simulator.core.Location;
 import simulator.regions.Region;
-import utils.CustomLogger;
 
 public class GridLeafExpansionStrategy implements LeafExpansionStrategy {
     private final boolean distributeEqually;
@@ -18,6 +17,9 @@ public class GridLeafExpansionStrategy implements LeafExpansionStrategy {
     public boolean expand(GeoNamesBuilderNode leafNode, long threshold, GeoNamesBuilderNode.NodeType childType) {
         if (leafNode == null || !leafNode.children.isEmpty() || leafNode.aggregatedPopulation <= threshold) return false;
         if (leafNode.bounds == null || leafNode.bounds.getBottomLeft() == null) return false;
+
+        // Explicitly mark as non-leaf before adding children
+        leafNode.isLeaf = false; 
 
         long parentPop = leafNode.aggregatedPopulation;
         long parentInternetPop = leafNode.internetPopulation;
@@ -48,6 +50,7 @@ public class GridLeafExpansionStrategy implements LeafExpansionStrategy {
             String childName = leafNode.name + " part " + (i + 1);
             int childId = -(Objects.hash(leafNode.geonameId, childName)); 
             
+            // New nodes are leaves by default (handled in Constructor)
             GeoNamesBuilderNode child = new GeoNamesBuilderNode(childId, childName, childType, leafNode.code, "ARTIFICIAL");
 
             // Population logic

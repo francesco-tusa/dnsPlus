@@ -138,13 +138,8 @@ public class SpatialMatchBroker extends BoundedBroker {
              if (child == aggregatedState.getSource()) continue;
              if (!(child instanceof BoundedBroker childBroker)) continue;
 
-             // DELEGATION:
-             // The policy handles Clipping AND the Saturation Optimization internally.
              SpatialRegion regionToSend = downwardPolicy.determineRegionToSend(childBroker, incomingRegion);
              
-             // If policy returns null, it means either:
-             // 1. No overlap
-             // 2. Child is Saturated (Optimization)
              if (regionToSend != null) {
                  Region concretePayload = new Region(regionToSend);
                  SubscriptionWithRegion candidate = new SubscriptionWithRegion(concretePayload);
@@ -215,6 +210,17 @@ public class SpatialMatchBroker extends BoundedBroker {
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         if (p instanceof PublicationWithLocation pub) {
+            if (p.getMetrics() != null) {
+                CsvMetricWriter.getInstance().logPublication(
+                    p.getMetrics().getTraceId(), 
+                    getName(), 
+                    p.getSource(), 
+                    p.getMetrics().getHops(), 
+                    this.getRegion().toLogString(),
+                    "Received"
+                );
+            }
+
             this.totalMatchingComputations += inputStore.size();
             List<TreeNode> matches = inputStore.findMatches(pub.getLocation());
             int usefulForwards = 0;
@@ -229,17 +235,21 @@ public class SpatialMatchBroker extends BoundedBroker {
     }
 
     public void forwardPublicationToNode(SimulationPublication p, TreeNode next) {
-        if (next instanceof BoundedBroker broker) {
-             SimulationPublication forwardedCopy = p.getPublication();
-             forwardedCopy.setSource(this);
-             if (p.getMetrics() != null) {
-                EventMetrics copiedMetrics = new EventMetrics(p.getMetrics());
+        SimulationPublication forwardedCopy = p.getPublication();
+        forwardedCopy.setSource(this);
+        
+        if (p.getMetrics() != null) {
+            EventMetrics copiedMetrics = new EventMetrics(p.getMetrics());
+            if (next instanceof BoundedBroker) {
                 copiedMetrics.incrementHops();
-                forwardedCopy.setMetrics(copiedMetrics);
             }
+            forwardedCopy.setMetrics(copiedMetrics);
+        }
+
+        if (next instanceof BoundedBroker broker) {
             broker.processPublication(forwardedCopy);
         } else if (next instanceof SubscriberWithLocation subscriber) {
-            subscriber.receive(p);
+            subscriber.receive(forwardedCopy);
         }
     }
 }
