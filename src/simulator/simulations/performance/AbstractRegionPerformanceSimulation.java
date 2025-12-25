@@ -35,7 +35,6 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
         WorkloadConfig w = SimConfiguration.get().workload;
         logConfigItem("Subscription Region Size", w.subscriptionRegionSize);
         logConfigItem("Remote Interest Probability", w.remoteInterestProbability);
-        logConfigItem("Arrival Distribution", w.arrivalDistribution);
         logConfigItem("Density Skew Enabled", w.enableDensitySkew);
     }
 

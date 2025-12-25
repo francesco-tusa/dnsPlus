@@ -84,6 +84,10 @@ public abstract class AbstractPerformanceSimulation<
         logConfigItem("Number of Replicas", workload.numberOfReplicas);
         logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);
         logConfigItem("Total Subscribers", workload.getTotalSubscribers());
+        
+        logConfigItem("Avg Subscriptions per Subscriber", workload.meanSubscriptionsPerSubscriber);
+        logConfigItem("Arrival Distribution", workload.arrivalDistribution);
+        
         logConfigItem("Publisher Strategy", getPublisherPlacementStrategy().getClass().getSimpleName());
         
         logSpecificConfiguration();
