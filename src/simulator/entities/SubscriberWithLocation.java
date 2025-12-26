@@ -14,6 +14,7 @@ import simulator.regions.SubscriptionWithRegion;
 import simulator.visualisation.TopologyVisualiser;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
+import utils.TraceIdGenerator;
 
 public class SubscriberWithLocation extends TreeNode {
 
@@ -77,11 +78,11 @@ public class SubscriberWithLocation extends TreeNode {
                 // rather than where the EVENT happened.
                 CsvMetricWriter.getInstance().logPublication(
                     p.getMetrics().getTraceId(),
-                    this.getName(),                 // Receiver
+                    this.getName(),                 // Receiver's Name
                     p.getSource(),                  // Source (Last Broker)
                     hops,
-                    this.getLocation().toString(),  // Subscriber Location (Payload for visualization)
-                    "Delivered"                     // Result
+                    this.getLocation().toShortString(),
+                    "Delivered"
                 );
             }
         }
@@ -97,7 +98,8 @@ public class SubscriberWithLocation extends TreeNode {
     public void send(SimulationSubscription s) {
         SimulationBroker broker = getBroker();
         s.setSource(this);
-        String traceId = this.getName() + "-" + s.getId();
+
+        long traceId = TraceIdGenerator.nextId();
         s.setMetrics(new EventMetrics(traceId));
 
         if (broker != null) {

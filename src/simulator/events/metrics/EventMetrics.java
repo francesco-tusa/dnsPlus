@@ -6,20 +6,14 @@ public class EventMetrics implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private final String traceId;
+    private final long traceId;
     private int hops;
 
-    /**
-     * Called by the Originator (Publisher/Subscriber) to start a new trace.
-     */
-    public EventMetrics(String traceId) {
+    public EventMetrics(long traceId) {
         this.traceId = traceId;
         this.hops = 0;
     }
 
-    /**
-     * Copy constructor for deep copying metrics during branching.
-     */
     public EventMetrics(EventMetrics other) {
         this.traceId = other.traceId;
         this.hops = other.hops;
@@ -33,7 +27,11 @@ public class EventMetrics implements Serializable {
         return hops; 
     }
     
-    public String getTraceId() { 
+    public long getTraceId() { 
         return traceId; 
+    }
+    
+    public String getTraceIdString() {
+        return String.valueOf(traceId);
     }
 }

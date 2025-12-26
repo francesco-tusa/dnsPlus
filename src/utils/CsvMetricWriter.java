@@ -22,18 +22,17 @@ public class CsvMetricWriter {
 
     private boolean initialized = false;
 
-    // Running counts (we will prune these dynamically now)
-    private final Map<String, Integer> subTraceCounts = new HashMap<>();
-    private final Map<String, Integer> pubTraceCounts = new HashMap<>();
+    private final Map<Long, Integer> subTraceCounts = new HashMap<>();
+    private final Map<Long, Integer> pubTraceCounts = new HashMap<>();
 
-    // --- Streaming State Buffers (Single Entry) ---
-    private String currentSubTraceId = null;
+    // Streaming State Buffers
+    private Long currentSubTraceId = null;
     private SummaryEntry currentSubSummary = null;
 
-    private String currentPubTraceId = null;
+    private Long currentPubTraceId = null;
     private SummaryEntry currentPubSummary = null;
 
-    private static final long MAX_FILE_SIZE_BYTES = 90 * 1024 * 1024; // 90 MB
+    private static final long MAX_FILE_SIZE_BYTES = 90 * 1024 * 1024; 
 
     private CsvMetricWriter() { }
 
@@ -50,7 +49,6 @@ public class CsvMetricWriter {
             subTraceCounts.clear();
             pubTraceCounts.clear();
             
-            // Reset streaming state
             currentSubTraceId = null;
             currentSubSummary = null;
             currentPubTraceId = null;
@@ -83,101 +81,100 @@ public class CsvMetricWriter {
 
     private BufferedWriter initializeSummaryWriter(String dir, String filename) throws IOException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dir, filename)));
-        writer.write("id,country,long,lat,max_row_count\n");
+        writer.write("id,source,country,long,lat,max_row_count\n");
         writer.flush();
         return writer;
     }
 
-    // --- Subscription Logging (Updated for Streaming) ---
-    public synchronized void logSubscription(String traceId, String receiver, TreeNode sourceNode, int hops, String region, String result) {
+    // --- Subscription Logging ---
+    public synchronized void logSubscription(long traceId, String receiver, TreeNode sourceNode, int hops, String region, String result) {
         if (!initialized) return;
 
-        // 1. Check for Trace ID Change (Flush)
-        if (currentSubTraceId != null && !traceId.equals(currentSubTraceId)) {
+        if (currentSubTraceId != null && traceId != currentSubTraceId) {
             flushSummary(subSummaryWriter, currentSubSummary, subTraceCounts.get(currentSubTraceId));
-            // Critical: Free memory for the old trace count
             subTraceCounts.remove(currentSubTraceId);
             currentSubSummary = null;
         }
         currentSubTraceId = traceId;
 
-        // 2. Initialize Summary if needed
         if (currentSubSummary == null) {
             currentSubSummary = new SummaryEntry();
             currentSubSummary.id = traceId;
         }
 
-        // 3. Update Summary Metadata (if this node has location info and we haven't captured it yet)
-        //    We prioritize the first node in the trace that has a valid physical location.
-        if (sourceNode != null && sourceNode.getMetricLocation() != null && currentSubSummary.country == null) {
-            Location loc = sourceNode.getMetricLocation();
-            currentSubSummary.longitude = loc.getX();
-            currentSubSummary.latitude = loc.getY();
-            currentSubSummary.country = extractCountry(sourceNode);
+        if (sourceNode != null) {
+            if (currentSubSummary.sourceName == null) {
+                currentSubSummary.sourceName = sourceNode.getName();
+            }
+            if (sourceNode.getMetricLocation() != null && currentSubSummary.country == null) {
+                Location loc = sourceNode.getMetricLocation();
+                currentSubSummary.longitude = loc.getX();
+                currentSubSummary.latitude = loc.getY();
+                currentSubSummary.country = extractCountry(sourceNode);
+            }
         }
 
-        // 4. Log the standard event
         logEvent(traceId, receiver, sourceNode, hops, region, result, subscriptionWriter, subTraceCounts);
     }
 
-    // --- Publication Logging (Updated for Streaming) ---
-    public synchronized void logPublication(String traceId, String receiver, TreeNode sourceNode, int hops, String location, String result) {
+    // --- Publication Logging ---
+    public synchronized void logPublication(long traceId, String receiver, TreeNode sourceNode, int hops, String location, String result) {
         if (!initialized) return;
 
-        // 1. Check for Trace ID Change (Flush)
-        if (currentPubTraceId != null && !traceId.equals(currentPubTraceId)) {
+        if (currentPubTraceId != null && traceId != currentPubTraceId) {
             flushSummary(pubSummaryWriter, currentPubSummary, pubTraceCounts.get(currentPubTraceId));
             pubTraceCounts.remove(currentPubTraceId);
             currentPubSummary = null;
         }
         currentPubTraceId = traceId;
 
-        // 2. Initialize Summary
         if (currentPubSummary == null) {
             currentPubSummary = new SummaryEntry();
             currentPubSummary.id = traceId;
         }
 
-        // 3. Update Summary Metadata
-        if (sourceNode != null && sourceNode.getMetricLocation() != null && currentPubSummary.country == null) {
-            Location loc = sourceNode.getMetricLocation();
-            currentPubSummary.longitude = loc.getX();
-            currentPubSummary.latitude = loc.getY();
-            currentPubSummary.country = extractCountry(sourceNode);
+        if (sourceNode != null) {
+            if (currentPubSummary.sourceName == null) {
+                currentPubSummary.sourceName = sourceNode.getName();
+            }
+            if (sourceNode.getMetricLocation() != null && currentPubSummary.country == null) {
+                Location loc = sourceNode.getMetricLocation();
+                currentPubSummary.longitude = loc.getX();
+                currentPubSummary.latitude = loc.getY();
+                currentPubSummary.country = extractCountry(sourceNode);
+            }
         }
 
-        // 4. Log the standard event
         logEvent(traceId, receiver, sourceNode, hops, location, result, publicationWriter, pubTraceCounts);
     }
     
-    // --- Helper to write the summary line immediately ---
     private void flushSummary(BufferedWriter writer, SummaryEntry summary, Integer maxCount) {
         if (writer == null || summary == null) return;
         try {
             int count = (maxCount != null) ? maxCount : 0;
-            // Handle cases where no location was ever found in the trace (e.g. abstract nodes only)
             String countryStr = (summary.country != null) ? summary.country : "Unknown";
+            String sourceStr = (summary.sourceName != null) ? summary.sourceName : "Unknown";
             
-            writer.write(String.format("%s,%s,%.4f,%.4f,%d\n", 
-                summary.id, countryStr, summary.longitude, summary.latitude, count));
-            writer.flush(); // Ensure it hits disk
+            writer.write(String.format("%d,%s,%s,%.4f,%.4f,%d\n", 
+                summary.id, sourceStr, countryStr, summary.longitude, summary.latitude, count));
+            writer.flush(); 
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     private synchronized void logEvent(
-            String traceId, String receiver, TreeNode sourceNode, int hops, 
+            long traceId, String receiver, TreeNode sourceNode, int hops, 
             String payload, String result,
             RotatingFileWriter writer, 
-            Map<String, Integer> counts) {
+            Map<Long, Integer> counts) {
         
         try {
             int count = counts.getOrDefault(traceId, 0) + 1;
             counts.put(traceId, count);
 
             String sourceName = (sourceNode != null) ? sourceNode.getName() : "null";
-            writer.write(String.format("%s,%d,%s,%s,%d,\"%s\",%s\n", 
+            writer.write(String.format("%d,%d,%s,%s,%d,\"%s\",%s\n", 
                 traceId, count, sourceName, receiver, hops, payload, result));
                 
         } catch (IOException e) { e.printStackTrace(); }
@@ -185,14 +182,12 @@ public class CsvMetricWriter {
     
     public void close() {
         try {
-            // Flush any currently active traces
             if (currentSubTraceId != null) {
                 flushSummary(subSummaryWriter, currentSubSummary, subTraceCounts.get(currentSubTraceId));
             }
             if (currentPubTraceId != null) {
                 flushSummary(pubSummaryWriter, currentPubSummary, pubTraceCounts.get(currentPubTraceId));
             }
-
             if (subscriptionWriter != null) subscriptionWriter.close();
             if (publicationWriter != null) publicationWriter.close();
             if (subSummaryWriter != null) subSummaryWriter.close();
@@ -205,7 +200,7 @@ public class CsvMetricWriter {
             e.printStackTrace();
         }
     }
-    
+
     private String extractCountry(TreeNode node) {
         List<TreeNode> path = new ArrayList<>();
         TreeNode current = node;
@@ -220,12 +215,13 @@ public class CsvMetricWriter {
     }
 
     private static class SummaryEntry {
-        String id;
+        long id;
+        String sourceName;
         String country;
         double longitude;
         double latitude;
     }
-
+    
     private class RotatingFileWriter {
         private final String dirPath;
         private final String baseName;

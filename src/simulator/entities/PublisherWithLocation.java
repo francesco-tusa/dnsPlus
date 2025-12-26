@@ -8,6 +8,7 @@ import simulator.core.TreeNode;
 import simulator.events.PublicationWithLocation;
 import simulator.events.metrics.EventMetrics;
 import utils.CustomLogger;
+import utils.TraceIdGenerator;
 import simulator.visualisation.TopologyVisualiser;
 
 public class PublisherWithLocation extends TreeNode {
@@ -24,9 +25,10 @@ public class PublisherWithLocation extends TreeNode {
     }
     
     public void send(PublicationWithLocation pub) {
-        String traceId = this.getName() + "-" + pub.getId();
-        pub.setMetrics(new EventMetrics(traceId));
         pub.setSource(this);
+
+        long traceId = TraceIdGenerator.nextId();
+        pub.setMetrics(new EventMetrics(traceId));
 
         TreeNode parent = getParent();
         
