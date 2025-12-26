@@ -1,6 +1,7 @@
 package simulator.entities;
 
 import java.util.ArrayList;
+import java.util.IntSummaryStatistics;
 import java.util.List;
 import java.util.logging.Logger;
 import simulator.core.Location;
@@ -30,9 +31,11 @@ public class SubscriberWithLocation extends TreeNode {
     private int nSubscriptions;
     private int nPublications;
     private PublicationWithLocation lastReceivedPublication;
+
+    private final IntSummaryStatistics hopStats = new IntSummaryStatistics();
     
     // Store hop counts for statistical analysis
-    private final List<Integer> receivedHopsList = new ArrayList<>();
+    //private final List<Integer> receivedHopsList = new ArrayList<>();
 
     public SubscriberWithLocation(String name, Location location) {
         super(name);
@@ -71,7 +74,10 @@ public class SubscriberWithLocation extends TreeNode {
             // --- 3. Metrics Logging ---
             if (p.getMetrics() != null) {
                 int hops = p.getMetrics().getHops();
-                receivedHopsList.add(hops);
+
+                synchronized(hopStats) {
+                    hopStats.accept(hops);
+                }
 
                 // Log the delivery. 
                 // Note: We use 'this.getLocation()' to visualize where the SUBSCRIBER is, 
@@ -130,9 +136,7 @@ public class SubscriberWithLocation extends TreeNode {
     public int getnPublications() { return nPublications; }
     public int getFalsePositiveDeliveries() { return falsePositiveDeliveries; }
     
-    public List<Integer> getReceivedHopsList() {
-        return receivedHopsList;
-    }
+    public IntSummaryStatistics getHopStats() { return hopStats; }
     
     public SimulationBroker getBroker() { 
         if (getParent() instanceof SimulationBroker) {
