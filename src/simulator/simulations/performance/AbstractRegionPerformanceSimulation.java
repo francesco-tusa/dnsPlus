@@ -6,8 +6,8 @@ import java.util.logging.Logger;
 
 import simulator.config.SimConfiguration;
 import simulator.config.WorkloadConfig;
+import simulator.core.WorkloadRepository;
 import simulator.events.PublicationWithLocation;
-import simulator.events.SimulationSubscription;
 import simulator.regions.BoundedBroker;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.simulations.performance.metrics.GroundTruthCalculator;
@@ -59,20 +59,12 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
         logger.info("");
         logger.info(">>> Phase 1: Subscriptions (Orchestrated) ... <<<");
 
-        // Use Orchestrator to Generate, Skew, Shuffle, and Dispatch
-        List<SimulationSubscription> allGeneratedSubs = orchestrator.generateAndDispatchWorkload(
+        // 1. Generate directly into WorkloadRepository
+        orchestrator.generateAndDispatchWorkload(
             allSubscribers, 
             leafBrokers, 
             workloadGenerator
         );
-
-        // Filter for Ground Truth
-        List<SubscriptionWithRegion> tempSubs = new ArrayList<>();
-        for (SimulationSubscription s : allGeneratedSubs) {
-            if (s instanceof SubscriptionWithRegion swr) {
-                tempSubs.add(swr);
-            }
-        }
 
         logger.info("");
         logger.info(">>> Phase 2: Publications... <<<");
@@ -84,7 +76,14 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
             p.send(pub);
         }
         
-        this.metricsData.groundTruthMatches = GroundTruthCalculator.calculateRegionMatches(tempSubs, tempPubs);
+        // 2. Retrieve Zero-Copy View for Ground Truth
+        // The Repository holds SimulationSubscription, but we view it as SubscriptionWithRegion
+        List<SubscriptionWithRegion> regionSubs = WorkloadRepository.getInstance().getSubscriptions();
+
+        this.metricsData.groundTruthMatches = GroundTruthCalculator.calculateRegionMatches(regionSubs, tempPubs);
         collectAndPrintMetrics();
+        
+        // 3. Cleanup to free subscription objects from Heap
+        WorkloadRepository.reset();
     }
 }
