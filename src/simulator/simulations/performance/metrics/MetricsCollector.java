@@ -47,8 +47,15 @@ public class MetricsCollector {
         for (SubscriberWithLocation s : subs) {
             data.totalNotifications += s.getnPublications();
             data.totalFalsePositiveDeliveries += s.getFalsePositiveDeliveries();
-            data.hopStats.combine(s.getHopStats());
+            
+            if (s.getHopCount() > 0) {
+                data.totalHopSum += s.getHopSum();
+                data.totalHopCount += s.getHopCount();
+                if (s.getHopMin() < data.globalMinHops) data.globalMinHops = s.getHopMin();
+                if (s.getHopMax() > data.globalMaxHops) data.globalMaxHops = s.getHopMax();
+            }
         }
+        
         for (PublisherWithLocation p : pubs) {
             data.totalPubsSent += p.getnPublications();
         }

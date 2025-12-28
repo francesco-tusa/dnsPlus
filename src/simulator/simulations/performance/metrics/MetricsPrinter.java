@@ -89,12 +89,14 @@ public class MetricsPrinter {
         logger.info("4. DELIVERY PERFORMANCE (Quality):");
         logItem("Total Notifications Received", format(data.totalNotifications));
         
-        if (data.hopStats.getCount() > 0) {
+        // CHANGED: Read from primitives
+        if (data.totalHopCount > 0) {
+            double avgHops = (double) data.totalHopSum / data.totalHopCount;
             logItem("Hop Count (Min / Avg / Max)", 
                 String.format("%d / %.2f / %d", 
-                data.hopStats.getMin(), 
-                data.hopStats.getAverage(), 
-                data.hopStats.getMax()));
+                data.globalMinHops, 
+                avgHops, 
+                data.globalMaxHops));
         } else {
             logItem("Hop Count", "N/A");
         }

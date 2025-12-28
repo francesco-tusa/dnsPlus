@@ -14,12 +14,7 @@ public abstract class BoundedBroker extends SimulationBroker {
     private final Region region;
     private long internetPopulation;
 
-    /**
-     * Optimization Flag:
-     * TRUE if the Parent Broker has already sent a subscription that completely 
-     * covers this broker's region (100% saturation).
-     * This allows the parent to skip future containment checks.
-     */
+    // Optimization Flag: 100% saturation by parent subscription
     private boolean saturatedByParent = false;
     
     // Detailed Subscription Counters (INPUT Store)
@@ -50,30 +45,54 @@ public abstract class BoundedBroker extends SimulationBroker {
 
     @Override
     public void addChild(TreeNode child) {
-        super.addChild(child);
-        updateRegion(child);
+        super.addChild(child); // Sets parent pointer via TreeNode
+        updateRegion(child);   // Triggers expansion
     }
 
     public Region getRegion() { return region; }
     public long getInternetPopulation() { return internetPopulation; }
     public void setInternetPopulation(long internetPopulation) { this.internetPopulation = internetPopulation; }
 
+    /**
+     * Updates the region of this broker to include the child's region/location.
+     * OPTIMIZATION:
+     * 1. Check strict containment first (avoids math if point is already inside).
+     * 2. Use scalar expand(Location) for subscribers (avoids object allocation).
+     */
     public void updateRegion(TreeNode child) {
         boolean regionChanged = false;
-        Region childRegion = null;
-        if (child instanceof BoundedBroker broker) {
-            childRegion = broker.getRegion();
-        } else if (child instanceof SubscriberWithLocation subscriber) {
-            childRegion = new Region(subscriber.getLocation(), subscriber.getLocation());
-        }
 
-        if (childRegion != null && childRegion.getBottomLeft() != null) {
-            if (this.region.getBottomLeft() == null) {
-                this.region.set(childRegion);
+        if (child instanceof SubscriberWithLocation subscriber) {
+            Location subLoc = subscriber.getLocation();
+            
+            // 1. FASTEST PATH: If the subscriber is already inside, stop immediately.
+            // This is crucial for ProportionalSubscribersPlacement where subs are usually inside.
+            if (this.region.contains(subLoc)) {
+                return; 
+            }
+
+            // 2. FAST PATH: Direct scalar expansion.
+            // Avoids allocating Region objects or ArrayLists.
+            if (this.region.expand(subLoc)) {
                 regionChanged = true;
-            } else {
-                if (this.region.expand(childRegion)) {
+            }
+        } 
+        else if (child instanceof BoundedBroker broker) {
+            // STANDARD PATH: Region merging for brokers
+            Region childRegion = broker.getRegion();
+            
+            // Optimization: If child region is fully contained, do nothing.
+            if (childRegion != null && childRegion.getBottomLeft() != null) {
+                // If we don't have a region yet, we must set it.
+                if (this.region.getBottomLeft() == null) {
+                    this.region.set(childRegion);
                     regionChanged = true;
+                } 
+                // If we do have a region, check containment before expanding.
+                else if (!this.region.contains(childRegion)) {
+                    if (this.region.expand(childRegion)) {
+                        regionChanged = true;
+                    }
                 }
             }
         }

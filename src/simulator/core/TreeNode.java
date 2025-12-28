@@ -1,25 +1,24 @@
 package simulator.core;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class TreeNode implements LoggableEntity {
 
     private String name;
     private TreeNode parent;
-    private List<TreeNode> children;
+    private List<TreeNode> children = null;
     private int nodeLevel; 
 
     public TreeNode(String name) {
         this.name = name;
-        this.children = new ArrayList<>();
         this.parent = null;
         this.nodeLevel = 0;
     }
 
     public TreeNode(TreeNode node) {
         this.name = node.name;
-        this.children = new ArrayList<>();
         this.parent = node.parent;
         this.nodeLevel = node.nodeLevel;
     }
@@ -37,6 +36,9 @@ public class TreeNode implements LoggableEntity {
     }
 
     public List<TreeNode> getChildren() {
+        if (children == null) {
+            return Collections.emptyList();
+        }
         return children;
     }
     
@@ -45,14 +47,19 @@ public class TreeNode implements LoggableEntity {
     }
 
     public void addChild(TreeNode child) {
+        if (this.children == null) {
+            this.children = new ArrayList<>();
+        }
         child.parent = this;
-        child.nodeLevel = this.nodeLevel + 1; // Set level of child
+        child.nodeLevel = this.nodeLevel + 1;
         this.children.add(child);
     }
 
     public void removeChild(TreeNode child) {
-        child.parent = null;
-        this.children.remove(child);
+        if (this.children != null) {
+            child.parent = null;
+            this.children.remove(child);
+        }
     }
 
     @Override

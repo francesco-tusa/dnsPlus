@@ -6,14 +6,13 @@ public class PerformanceMetricsData {
     public final IntSummaryStatistics inputTableStats = new IntSummaryStatistics();  
     public final IntSummaryStatistics outputTableStats = new IntSummaryStatistics(); 
 
-    // 2. Processing Logic (INPUT)
+    // 2. Processing Logic
     public long totalSubCovered = 0;
     public long totalSubExpanded = 0;
     public long totalSubAdded = 0;
     public long totalSubAbsorbed = 0;
     public long totalSubMerged = 0;
 
-    // 2b. Processing Logic (OUTPUT)
     public long totalOutSubCovered = 0;
     public long totalOutSubExpanded = 0;
     public long totalOutSubAdded = 0;
@@ -29,10 +28,15 @@ public class PerformanceMetricsData {
 
     // 4. Delivery
     public long totalNotifications = 0;
-    public final IntSummaryStatistics hopStats = new IntSummaryStatistics();
+    
+    // Primitives for manual aggregation
+    public long totalHopSum = 0;
+    public long totalHopCount = 0;
+    public int globalMinHops = Integer.MAX_VALUE;
+    public int globalMaxHops = Integer.MIN_VALUE;
     
     // 5. Accuracy / Routing Efficiency
     public long groundTruthMatches = 0;
-    public long totalFalsePositiveEvents = 0;      // Dead Ends (Broker Routing Errors)
-    public long totalFalsePositiveDeliveries = 0;  // Delivered but unwanted (Geometric Errors)
+    public long totalFalsePositiveEvents = 0;
+    public long totalFalsePositiveDeliveries = 0;
 }
