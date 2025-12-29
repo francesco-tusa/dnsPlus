@@ -29,8 +29,8 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
         int merged = 0;
 
         if (existing == null) {
-            // New Entry
-            SubscriptionWithRegion newEntry = new SubscriptionWithRegion(new Region(sub.getRegion()));
+            // New Entry - Create a deep copy using the primitives
+            SubscriptionWithRegion newEntry = new SubscriptionWithRegion(sub.getRegion());
             map.put(source, newEntry);
             
             resultingEntry = newEntry;
@@ -38,18 +38,16 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
             logInfo = "NeighborMBR(Pre): None"; 
         } else {
             // Update Existing
+            // CRITICAL: currentRegion is now an EPHEMERAL OBJECT (Copy), not a reference!
             Region currentRegion = existing.getRegion();
             Region newRegion = sub.getRegion();
             
-            // Capture state BEFORE expansion
             logInfo = "NeighborMBR(Pre): " + currentRegion.toLogString();
 
             if (currentRegion.contains(newRegion)) {
                 resultingEntry = existing;
                 opResult = StoreOpResult.NO_CHANGE;
             } else {
-                // If the new region completely engulfs the existing one, we count it as "Absorbing" the old one.
-                // Otherwise, it's a "Merge" (Expansion).
                 boolean isAbsorption = newRegion.contains(currentRegion);
                 if (isAbsorption) {
                     absorbed = 1;
@@ -57,7 +55,12 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
                     merged = 1;
                 }
                 
+                // 1. Modify the ephemeral region
                 currentRegion.expand(newRegion);
+                
+                // 2. CRITICAL FIX: Save the modified coordinates back to the subscription
+                existing.setRegion(currentRegion);
+                
                 resultingEntry = existing;
                 opResult = StoreOpResult.EXPANDED;
             }
@@ -70,6 +73,7 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     public List<TreeNode> findMatches(Location loc) {
         java.util.ArrayList<TreeNode> matches = new java.util.ArrayList<>();
         for (Map.Entry<TreeNode, SubscriptionWithRegion> entry : map.entrySet()) {
+            // This creates a temporary Region object for the check, which is fine
             if (entry.getValue().getRegion().contains(loc)) {
                 matches.add(entry.getKey());
             }

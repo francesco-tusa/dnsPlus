@@ -11,18 +11,25 @@ import java.util.logging.Logger;
 public class RegionFpFunctionalTests {
 
     private static final Logger logger = CustomLogger.getLogger(RegionFpFunctionalTests.class.getName());
-    private static final double TINY_DELTA = 1e-8; 
+    
+    // CHANGED: Increased Delta to 1e-4 to be safely larger than the float epsilon (1e-5)
+    // This ensures "Just Left" tests are actually outside the fuzzy boundary.
+    private static final double TINY_DELTA = 1e-4;
+    
+    // CHANGED: Global tolerance for all float/double assertions
+    private static final double TOLERANCE = 1e-5;
 
     public static final Predicate<SpatialRegion> ALL_REGION_TESTS = root -> {
-        logger.info("\n>>> SCENARIO: Running Self-Contained Region Class Floating-Point Tests. <<<");
+        logger.info("\n>>> SCENARIO: Running Region Class Tests (Instance + Static Equivalence). <<<");
         
         boolean containsTests = testContainsLogic();
         boolean intersectsTests = testIntersectsLogic();
         boolean expandTests = testExpandLogic();
         boolean intersectionMethodTests = testIntersectionMethodLogic();
         boolean aggregationTests = testRegionAggregationLogic();
+        boolean equivalenceTests = testStaticVsInstanceEquivalence();
 
-        boolean allPassed = containsTests && intersectsTests && expandTests && intersectionMethodTests && aggregationTests;
+        boolean allPassed = containsTests && intersectsTests && expandTests && intersectionMethodTests && aggregationTests && equivalenceTests;
 
         logger.info("\n--- Validation Result ---");
         if (allPassed) {
@@ -32,6 +39,60 @@ public class RegionFpFunctionalTests {
         }
         return allPassed;
     };
+
+    /**
+     * VERIFIES that the new Zero-Allocation static methods match the original Object-based instance methods.
+     */
+    private static boolean testStaticVsInstanceEquivalence() {
+        logger.info("\n--- Testing Static vs Instance Equivalence ---");
+        boolean allPassed = true;
+
+        // 1. Setup Regions
+        Region rStd = new Region(new Location(10, 10, 0), new Location(20, 20, 0));
+        Region rWrap = new Region(new Location(170, 0, 0), new Location(-170, 10, 0));
+        Region rInterStd = new Region(new Location(15, 15, 0), new Location(25, 25, 0));
+        Region rInterWrap = new Region(new Location(175, 5, 0), new Location(-175, 15, 0));
+
+        // 2. Setup Points
+        Location p1 = new Location(15, 15, 0); // Inside Std
+        Location p2 = new Location(180, 5, 0); // Inside Wrap
+
+        // TEST 1: fastContains (Point)
+        allPassed &= assertEquiv("Contains(Std, P1)", rStd.contains(p1), Region.fastContains(10f, 20f, 10f, 20f, 15f, 15f));
+        allPassed &= assertEquiv("Contains(Wrap, P2)", rWrap.contains(p2), Region.fastContains(170f, -170f, 0f, 10f, 180f, 5f));
+
+        // TEST 2: fastContains (Region)
+        allPassed &= assertEquiv("Contains(Std, InterStd)", rStd.contains(rInterStd), 
+            Region.fastContains(10f, 20f, 10f, 20f, 15f, 25f, 15f, 25f)); // Should be False
+
+        // TEST 3: fastIntersectionArea
+        float area1 = Region.fastIntersectionArea(10f, 20f, 10f, 20f, 15f, 25f, 15f, 25f);
+        allPassed &= assertEquivVal("Area(Std, Std)", rStd.getIntersectionArea(rInterStd), area1);
+
+        float area2 = Region.fastIntersectionArea(170f, -170f, 0f, 10f, 175f, -175f, 5f, 15f);
+        allPassed &= assertEquivVal("Area(Wrap, Wrap)", rWrap.getIntersectionArea(rInterWrap), area2);
+
+        float area3 = Region.fastIntersectionArea(10f, 20f, 10f, 20f, 175f, -175f, 5f, 15f);
+        allPassed &= assertEquivVal("Area(Std, Wrap)", rStd.getIntersectionArea(rInterWrap), area3);
+
+        return allPassed;
+    }
+
+    private static boolean assertEquiv(String testName, boolean instanceResult, boolean staticResult) {
+        boolean passed = (instanceResult == staticResult);
+        if (passed) logger.info(String.format("  [PASS] %s: Both returned %b", testName, instanceResult));
+        else logger.severe(String.format("  [FAIL] %s: Instance=%b, Static=%b", testName, instanceResult, staticResult));
+        return passed;
+    }
+
+    private static boolean assertEquivVal(String testName, double instanceVal, float staticVal) {
+        boolean passed = Math.abs(instanceVal - staticVal) < TOLERANCE; 
+        if (passed) logger.info(String.format("  [PASS] %s: Matches (%.4f vs %.4f)", testName, instanceVal, staticVal));
+        else logger.severe(String.format("  [FAIL] %s: Instance=%.4f, Static=%.4f", testName, instanceVal, staticVal));
+        return passed;
+    }
+
+    // --- Standard Instance Tests (Preserved) ---
 
     private static boolean testContainsLogic() {
         logger.info("\n--- Testing contains() [INCLUSIVE] ---");
@@ -86,58 +147,35 @@ public class RegionFpFunctionalTests {
         logger.info("\n--- Testing Region Aggregation (expand Region) ---");
         boolean allPassed = true;
 
-        // 1. Non-wrapping Disjoint: [-100, -50] + [50, 100]
-        // Shortest bounding box is standard: [-100, 100] (Width 200).
-        // Wrapping would be [100, -100] (Width 160) BUT it excludes the content [-50, 50].
-        // WAIT. Bounding Box must COVER inputs. 
-        // [100, -100] covers 100..180..-100. It does NOT cover [-100, -50] or [50, 100].
-        // So wrapping is invalid. Standard is the ONLY validity.
         Region r1 = new Region(new Location(-100, 0, 0), new Location(-50, 10, 0));
         Region r2 = new Region(new Location(50, 0, 0), new Location(100, 10, 0));
         r1.expand(r2);
         allPassed &= assertTest(r1.getBottomLeft().getX(), -100.0, "Agg: Disjoint [-100,100] Min");
         allPassed &= assertTest(r1.getTopRight().getX(), 100.0, "Agg: Disjoint [-100,100] Max");
 
-        // 2. Non-wrapping Overlapping: [-100, 50] + [-50, 100]
-        // Covers -100 to 100. Width 200.
         Region r3 = new Region(new Location(-100, 0, 0), new Location(50, 10, 0));
         Region r4 = new Region(new Location(-50, 0, 0), new Location(100, 10, 0));
         r3.expand(r4);
         allPassed &= assertTest(r3.getBottomLeft().getX(), -100.0, "Agg: Overlap [-100,100] Min");
         allPassed &= assertTest(r3.getTopRight().getX(), 100.0, "Agg: Overlap [-100,100] Max");
 
-        // 3. Wrapping Anti-Meridian Disjoint: [-100, -50] + [150, -150]
-        // R6 is [150, -150]. Covers 150..180..-150.
-        // R5 is [-100, -50].
-        // Gap 1: -150 to -100 (Size 50).
-        // Gap 2: -50 to 150 (Size 200).
-        // Largest Gap is 200.
-        // Region is complement of [GapStart=-50, GapEnd=150].
-        // Region = [150, -50].
         Region r5 = new Region(new Location(-100, 0, 0), new Location(-50, 10, 0));
         Region r6 = new Region(new Location(150, 0, 0), new Location(-150, 10, 0));
         r5.expand(r6);
         allPassed &= assertTest(r5.getBottomLeft().getX(), 150.0, "Agg: Wrap Disjoint Min");
         allPassed &= assertTest(r5.getTopRight().getX(), -50.0, "Agg: Wrap Disjoint Max");
 
-        // 4. Wrapping Overlapping: [-150, -50] + [150, -100]
-        // R7: [-150, -50].
-        // R8: [150, -100]. (150..180..-100).
-        // Union: 150..180..-100..-50.
-        // Contiguous from 150 to -50.
         Region r7 = new Region(new Location(-150, 0, 0), new Location(-50, 10, 0));
         Region r8 = new Region(new Location(150, 0, 0), new Location(-100, 10, 0));
         r7.expand(r8);
         allPassed &= assertTest(r7.getBottomLeft().getX(), 150.0, "Agg: Wrap Overlap Min");
         allPassed &= assertTest(r7.getTopRight().getX(), -50.0, "Agg: Wrap Overlap Max");
 
-        // 5. Full Globe
         Region r9 = new Region(new Location(-150, 0, 0), new Location(0, 10, 0));
         Region r10 = new Region(new Location(-50, 0, 0), new Location(-100, 10, 0));
         r9.expand(r10);
         allPassed &= assertTest(r9.getWidth(), 360.0, "Agg: Full Globe Width check");
 
-        // 6. Point
         Region r11 = new Region(new Location(0, 0, 0), new Location(0, 10, 0));
         Region r12 = new Region(new Location(50, 0, 0), new Location(100, 10, 0));
         r11.expand(r12);
@@ -171,7 +209,8 @@ public class RegionFpFunctionalTests {
     }
 
     private static boolean assertTest(double actual, double expected, String testName) {
-        boolean passed = (Math.abs(actual - expected) < 1e-9);
+        // CHANGED: Use constant TOLERANCE (1e-5) for float safety
+        boolean passed = (Math.abs(actual - expected) < TOLERANCE);
         if (passed) logger.info(String.format("  [PASS] %s", testName));
         else logger.severe(String.format("  [FAIL] %s (Expected: %f, Got: %f)", testName, expected, actual));
         return passed;

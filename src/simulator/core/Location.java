@@ -4,30 +4,24 @@ import java.text.DecimalFormat;
 import java.util.Objects;
 
 /**
- * Represents a location in 3D space using double-precision coordinates.
- * This class is immutable.
+ * Memory-Optimized Location class using single-precision (float).
  */
 public final class Location implements Comparable<Location> {
-    // Use double for coordinates
-    private final double x;
-    private final double y;
-    private final double z;
+    private final float x;
+    private final float y;
+    private final float z;
 
     /**
-     * Constructor accepting double coordinates.
-     * @param x The x-coordinate.
-     * @param y The y-coordinate.
-     * @param z The z-coordinate.
+     * Constructor accepting double for compatibility, but casts to float.
      */
     public Location(double x, double y, double z) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
+        this.x = (float) x;
+        this.y = (float) y;
+        this.z = (float) z;
     }
 
     /**
      * Copy constructor.
-     * @param l The Location object to copy. Must not be null.
      */
     public Location(Location l) {
         Objects.requireNonNull(l, "Location to copy cannot be null.");
@@ -36,107 +30,51 @@ public final class Location implements Comparable<Location> {
         this.z = l.z;
     }
 
-    /**
-     * Gets the x-coordinate.
-     * @return The x-coordinate as a double.
-     */
-    public double getX() {
-        return x;
-    }
-
-    /**
-     * Gets the y-coordinate.
-     * @return The y-coordinate as a double.
-     */
-    public double getY() {
-        return y;
-    }
-
-    /**
-     * Gets the z-coordinate.
-     * @return The z-coordinate as a double.
-     */
-    public double getZ() {
-        return z;
-    }
+    public double getX() { return x; }
+    public double getY() { return y; }
+    public double getZ() { return z; }
 
     public double distanceSquared(Location other) {
-        double dx = this.getX() - other.getX();
-        double dy = this.getY() - other.getY();
-        double dz = this.getZ() - other.getZ();
+        // Cast to double for calculation to preserve precision during squaring
+        double dx = (double)this.x - other.x;
+        double dy = (double)this.y - other.y;
+        double dz = (double)this.z - other.z;
         return dx * dx + dy * dy + dz * dz;
     }
 
     @Override
     public String toString() {
-        // Format doubles for clarity if desired, otherwise default toString is fine
-        return String.format("(%.4f, %.4f, %.4f)", x, y, z); // Example formatting
-        // return "(" + x + ", " + y + ", " + z + ")"; // Default double toString
+        return String.format("(%.4f, %.4f, %.4f)", x, y, z);
     }
 
-    /**
-     * Provides a compact string representation of the location for display purposes.
-     * @return A formatted string like "[x.xxxx, y.yyyy]".
-     */
     public String toShortString() {
         DecimalFormat df = new DecimalFormat("#.####"); 
         return String.format("[%s,%s]", df.format(this.x), df.format(this.y));
     }
 
-    /**
-     * Compares this location to another location lexicographically using double comparison.
-     * @param o The Location to compare against.
-     * @return a negative integer, zero, or a positive integer as this object
-     * is less than, equal to, or greater than the specified object.
-     */
     @Override
     public int compareTo(Location o) {
         Objects.requireNonNull(o, "Cannot compare to a null Location.");
-        int cmp = Double.compare(this.x, o.x);
-        if (cmp != 0) {
-            return cmp;
-        }
-        cmp = Double.compare(this.y, o.y);
-        if (cmp != 0) {
-            return cmp;
-        }
-        return Double.compare(this.z, o.z);
+        int cmp = Float.compare(this.x, o.x);
+        if (cmp != 0) return cmp;
+        cmp = Float.compare(this.y, o.y);
+        if (cmp != 0) return cmp;
+        return Float.compare(this.z, o.z);
     }
 
-    /**
-     * Checks for equality with another object.
-     * Note: Uses direct double comparison (==). This might be sensitive to
-     * floating-point inaccuracies if coordinates result from calculations.
-     * It's generally suitable if coordinates are read directly (e.g., from JSON).
-     * Consider using an epsilon comparison if high precision or calculations are involved.
-     *
-     * @param obj The object to compare with.
-     * @return true if the objects are equal, false otherwise.
-     */
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
         Location location = (Location) obj;
-        // Direct comparison for doubles. Use epsilon comparison if needed:
-        // Math.abs(x - location.x) < EPSILON && ...
-        return Double.compare(location.x, x) == 0 &&
-               Double.compare(location.y, y) == 0 &&
-               Double.compare(location.z, z) == 0;
+        return Float.compare(location.x, x) == 0 &&
+               Float.compare(location.y, y) == 0 &&
+               Float.compare(location.z, z) == 0;
     }
 
-    /**
-     * Computes the hash code based on the double coordinates.
-     * Uses Double.doubleToLongBits for consistent hashing.
-     * @return The hash code.
-     */
     @Override
     public int hashCode() {
-        // Use Objects.hash with Double.doubleToLongBits for proper double hashing
+        // Updated to hash floats directly
         return Objects.hash(x, y, z);
     }
 }

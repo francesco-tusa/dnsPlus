@@ -13,13 +13,91 @@ import utils.CustomLogger;
 public class Region extends AbstractRegion {
 
     private static final Logger logger = CustomLogger.getLogger(Region.class.getName());
-    private static final double EPSILON = 1e-9;
+    
+    // CHANGED: Relaxed EPSILON to match float precision of Location class
+    private static final double EPSILON = 1e-5; 
+    private static final float FLOAT_EPSILON = 1e-5f;
     private static final DecimalFormat df = new DecimalFormat("#.####");
+
+    // =========================================================================
+    // CONSTRUCTORS
+    // =========================================================================
 
     public Region() { super(); }
     public Region(Location location) { super(location); }
     public Region(Location bottomLeft, Location topRight) { super(bottomLeft, topRight); }
     public Region(SpatialRegion r) { super(r); }
+    
+    public Region(double minLon, double minLat, double maxLon, double maxLat) {
+        super(new Location(minLon, minLat, 0), new Location(maxLon, maxLat, 0));
+    }
+
+    // =========================================================================
+    // STATIC ZERO-ALLOCATION METHODS (Optimized for Primitives)
+    // =========================================================================
+
+    public static boolean fastContains(float minLon, float maxLon, float minLat, float maxLat, float pLon, float pLat) {
+        if (pLat < minLat - FLOAT_EPSILON || pLat > maxLat + FLOAT_EPSILON) return false;
+        return fastContainsLon(minLon, maxLon, pLon);
+    }
+
+    public static boolean fastContains(float r1MinLon, float r1MaxLon, float r1MinLat, float r1MaxLat,
+                                       float r2MinLon, float r2MaxLon, float r2MinLat, float r2MaxLat) {
+        if (r2MinLat < r1MinLat - FLOAT_EPSILON || r2MaxLat > r1MaxLat + FLOAT_EPSILON) return false;
+        return fastContainsLon(r1MinLon, r1MaxLon, r2MinLon) && 
+               fastContainsLon(r1MinLon, r1MaxLon, r2MaxLon);
+    }
+
+    public static boolean fastContainsLon(float minLon, float maxLon, float pLon) {
+        boolean gteMin = (pLon - minLon) > -FLOAT_EPSILON;
+        boolean lteMax = (pLon - maxLon) < FLOAT_EPSILON;
+        return (minLon <= maxLon) ? (gteMin && lteMax) : (gteMin || lteMax);
+    }
+
+    public static float fastArea(float minLon, float maxLon, float minLat, float maxLat) {
+        float width;
+        if (minLon <= maxLon) { width = maxLon - minLon; }
+        else { width = (180.0f - minLon) + (maxLon + 180.0f); }
+        return width * (maxLat - minLat);
+    }
+
+    public static float fastIntersectionArea(float r1MinLon, float r1MaxLon, float r1MinLat, float r1MaxLat,
+                                             float r2MinLon, float r2MaxLon, float r2MinLat, float r2MaxLat) {
+        float interMinLat = Math.max(r1MinLat, r2MinLat);
+        float interMaxLat = Math.min(r1MaxLat, r2MaxLat);
+        if (interMinLat >= interMaxLat) return 0.0f;
+        float height = interMaxLat - interMinLat;
+
+        boolean r1Wraps = (r1MinLon > r1MaxLon);
+        float r1_a_start = r1MinLon, r1_a_end = r1Wraps ? 180.0f : r1MaxLon;
+        float r1_b_start = -180.0f,  r1_b_end = r1Wraps ? r1MaxLon : -180.0f; 
+        boolean r1HasB = r1Wraps;
+
+        boolean r2Wraps = (r2MinLon > r2MaxLon);
+        float r2_a_start = r2MinLon, r2_a_end = r2Wraps ? 180.0f : r2MaxLon;
+        float r2_b_start = -180.0f,  r2_b_end = r2Wraps ? r2MaxLon : -180.0f;
+        boolean r2HasB = r2Wraps;
+
+        float totalWidth = 0.0f;
+        totalWidth += fastLinearOverlap(r1_a_start, r1_a_end, r2_a_start, r2_a_end);
+        if (r2HasB) totalWidth += fastLinearOverlap(r1_a_start, r1_a_end, r2_b_start, r2_b_end);
+        if (r1HasB) {
+            totalWidth += fastLinearOverlap(r1_b_start, r1_b_end, r2_a_start, r2_a_end);
+            if (r2HasB) totalWidth += fastLinearOverlap(r1_b_start, r1_b_end, r2_b_start, r2_b_end);
+        }
+
+        return totalWidth * height;
+    }
+
+    private static float fastLinearOverlap(float s1, float e1, float s2, float e2) {
+        float start = Math.max(s1, s2);
+        float end = Math.min(e1, e2);
+        return (end > start) ? (end - start) : 0.0f;
+    }
+    
+    // =========================================================================
+    // INSTANCE METHODS (Original OOP Implementation)
+    // =========================================================================
 
     @Override
     @JsonIgnore
@@ -165,18 +243,14 @@ public class Region extends AbstractRegion {
             }
         }
         
-        // Normalize 180/-180 if needed, but preserve full globe
-        // Relax check with EPSILON to avoid jitter
         if (newMinLon < -180.0 - EPSILON) newMinLon += 360.0;
         if (newMinLon > 180.0 + EPSILON) newMinLon -= 360.0;
         if (newMaxLon < -180.0 - EPSILON) newMaxLon += 360.0;
         if (newMaxLon > 180.0 + EPSILON) newMaxLon -= 360.0;
 
-        // CRITICAL FIX: If we have a full globe [-180, 180], do NOT normalize it to [180, 180]
         if (Math.abs(newMinLon - (-180.0)) < EPSILON && Math.abs(newMaxLon - 180.0) < EPSILON) {
             // Keep as is
         } else {
-            // Standard clamp
             if (newMinLon > 180.0) newMinLon = 180.0;
             if (newMaxLon > 180.0) newMaxLon = 180.0;
             if (newMinLon < -180.0) newMinLon = -180.0;
@@ -202,7 +276,7 @@ public class Region extends AbstractRegion {
         if (r == null || r.getBottomLeft() == null) return false;
 
         if (this.bottomLeft == null) {
-            this.set(new Region(r)); // Adopt the incoming region's bounds
+            this.set(new Region(r)); 
             return true;
         }
         
@@ -263,19 +337,15 @@ public class Region extends AbstractRegion {
             newMaxLon = maxGap[0];
         }
         
-        // Normalize
         if (newMinLon < -180.0 - EPSILON) newMinLon += 360.0;
         if (newMinLon > 180.0 + EPSILON) newMinLon -= 360.0;
         if (newMaxLon < -180.0 - EPSILON) newMaxLon += 360.0;
         if (newMaxLon > 180.0 + EPSILON) newMaxLon -= 360.0;
 
-        // Protect Full Globe State
         boolean isFullGlobe = (Math.abs(newMinLon - (-180.0)) < EPSILON && Math.abs(newMaxLon - 180.0) < EPSILON);
         if (!isFullGlobe) {
-             // Basic clamping to ensure we stay within valid range if not wrapping
              if (newMinLon < -180.0) newMinLon = -180.0;
              if (newMinLon > 180.0) newMinLon = 180.0; 
-             // Note: do not forcefully clamp Max < Min here or we break wrapping.
         }
 
         if (Math.abs(newMinLon - this.bottomLeft.getX()) > EPSILON ||
@@ -308,9 +378,6 @@ public class Region extends AbstractRegion {
                 merged.add(current);
             }
         }
-        // Check for wrapping merge: If the last interval ends at 180 and first starts at -180,
-        // and they are effectively the same boundary, we merge them?
-        // No, standard intervals are bounded by -180/180. The gap logic handles the connection.
         return merged;
     }
 
