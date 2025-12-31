@@ -1,51 +1,134 @@
 package simulator.workload;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.logging.Logger;
 
 import simulator.config.SimConfiguration;
 import simulator.config.WorkloadConfig;
 import simulator.core.WorkloadRepository;
 import simulator.entities.SubscriberWithLocation;
+import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
 import simulator.regions.BoundedBroker;
+import simulator.regions.SubscriptionWithRegion;
+import simulator.simulations.performance.metrics.GroundTruthCalculator;
+import simulator.simulations.performance.metrics.PerformanceMetricsData;
 import utils.CustomLogger;
 
 public class SubscriptionWorkloadOrchestrator {
 
     private static final Logger logger = CustomLogger.getLogger(SubscriptionWorkloadOrchestrator.class.getName());
     private final Random random = new Random();
+    
+    // Batch size for streaming
+    private static final int BATCH_SIZE_SUBSCRIBERS = 5000;
+    // Log progress every 20 batches (approx every 100k subscribers)
+    private static final int LOG_INTERVAL_BATCHES = 20;
 
-    /**
-     * Generates workload, populates the WorkloadRepository, and dispatches events.
-     * Returns void because the data is stored centrally in the Repository.
-     */
     public void generateAndDispatchWorkload(
             List<SubscriberWithLocation> subscribers, 
             List<BoundedBroker> leafBrokers, 
             SubscriptionWorkloadGenerator generator) {
+        generateDispatchAndCalculate(subscribers, leafBrokers, generator, null, null);
+    }
+
+    public void generateDispatchAndCalculate(
+            List<SubscriberWithLocation> subscribers, 
+            List<BoundedBroker> leafBrokers, 
+            SubscriptionWorkloadGenerator generator,
+            PerformanceMetricsData metricsData,
+            List<PublicationWithLocation> allPublications) {
         
         WorkloadConfig config = SimConfiguration.get().workload;
-        logger.info("Starting Workload Gen: Strategy=" + config.arrivalDistribution + 
+        logger.info("Starting Streaming Workload Gen: Strategy=" + config.arrivalDistribution + 
                     ", Mean=" + config.meanSubscriptionsPerSubscriber + 
                     ", DensitySkew=" + config.enableDensitySkew);
         
-        // 1. Dynamic Size Calculation & Pre-allocation
-        int estimatedSize = calculateEstimatedVolume(config, subscribers.size());
-        logger.info("Pre-allocating Repository for approx. " + estimatedSize + " subscriptions.");
-        
+        List<SubscriberWithLocation> shuffledSubscribers = new ArrayList<>(subscribers);
+        Collections.shuffle(shuffledSubscribers);
+
+        int totalSubscribers = shuffledSubscribers.size();
+        int batchSize = BATCH_SIZE_SUBSCRIBERS;
         WorkloadRepository repository = WorkloadRepository.getInstance();
-        repository.prepare(estimatedSize);
+        ExecutorService gtExecutor = Executors.newSingleThreadExecutor();
 
-        int totalGenerated = 0;
+        logger.info("Processing workload in batches of approx " + batchSize + " subscribers.");
 
-        // 2. Generation Phase
-        for (SubscriberWithLocation sub : subscribers) {
-            
+        int batchCounter = 0;
+
+        try {
+            for (int i = 0; i < totalSubscribers; i += batchSize) {
+                int end = Math.min(i + batchSize, totalSubscribers);
+                List<SubscriberWithLocation> batchSubscribers = shuffledSubscribers.subList(i, end);
+                
+                boolean shouldLog = (batchCounter % LOG_INTERVAL_BATCHES == 0) || (end == totalSubscribers);
+
+                if (shouldLog) {
+                    logger.info(String.format("--- Processing Batch %d (Subs %d-%d / %d) ---", batchCounter, i, end, totalSubscribers));
+                }
+
+                // A. Prepare Repository
+                int estimatedBatchVolume = calculateEstimatedVolume(config, batchSubscribers.size());
+                repository.prepare(estimatedBatchVolume);
+
+                // B. Generate
+                generateBatchIntoRepository(batchSubscribers, leafBrokers, generator, config, repository);
+                
+                // C. Shuffle
+                repository.shuffle();
+                
+                // D. Async Ground Truth
+                Future<Long> gtFuture = null;
+                if (metricsData != null && allPublications != null && !allPublications.isEmpty()) {
+                    List<SubscriptionWithRegion> batchSubsForGt = repository.getSubscriptions();
+                    gtFuture = gtExecutor.submit(() -> 
+                        GroundTruthCalculator.calculateRegionMatches(batchSubsForGt, allPublications)
+                    );
+                }
+
+                // E. Dispatch
+                dispatch(repository, shouldLog);
+
+                // F. Aggregate Results
+                if (gtFuture != null) {
+                    try {
+                        long batchMatches = gtFuture.get();
+                        metricsData.groundTruthMatches += batchMatches;
+                        if (shouldLog) {
+                            logger.info("Cumulative GT Matches: " + metricsData.groundTruthMatches);
+                        }
+                    } catch (InterruptedException | ExecutionException e) {
+                        logger.severe("Error calculating Ground Truth for batch: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
+
+                WorkloadRepository.reset();
+                batchCounter++;
+            }
+        } finally {
+            gtExecutor.shutdown();
+        }
+        
+        logger.info("Workload generation and dispatching complete.");
+    }
+
+    private void generateBatchIntoRepository(
+            List<SubscriberWithLocation> batchSubscribers,
+            List<BoundedBroker> leafBrokers,
+            SubscriptionWorkloadGenerator generator,
+            WorkloadConfig config,
+            WorkloadRepository repository) {
+
+        for (SubscriberWithLocation sub : batchSubscribers) {
             double lambda = config.meanSubscriptionsPerSubscriber;
-            
-            // Density Skew Logic
             if (config.enableDensitySkew && sub.getBroker() instanceof BoundedBroker bb) {
                 lambda = applyDensitySkew(lambda, bb);
             }
@@ -65,30 +148,16 @@ public class SubscriptionWorkloadOrchestrator {
             if (count > 0) {
                 List<SimulationSubscription> subs = generator.generateSubscriptionBatch(sub, leafBrokers, count);
                 for (SimulationSubscription s : subs) {
-                    // Link source and store immediately
                     s.setSource(sub); 
                     repository.add(s);
                 }
-                totalGenerated += subs.size();
             }
         }
-
-        logger.info(String.format("Generated %d subscriptions for %d subscribers.", totalGenerated, subscribers.size()));
-
-        // 3. Shuffle (In-Place)
-        repository.shuffle();
-
-        // 4. Dispatch Phase
-        dispatch(repository);
     }
     
     private int calculateEstimatedVolume(WorkloadConfig config, int subscriberCount) {
         double multiplier = config.meanSubscriptionsPerSubscriber;
-        // If skew is enabled, add a buffer (e.g., 50% overhead safety margin)
-        if (config.enableDensitySkew) {
-            multiplier *= 1.5; 
-        }
-        // Add 10% general buffer for Poisson variance
+        if (config.enableDensitySkew) multiplier *= 1.5; 
         return (int) (subscriberCount * Math.max(1.0, multiplier) * 1.1);
     }
 
@@ -99,23 +168,18 @@ public class SubscriptionWorkloadOrchestrator {
         return baseLambda;
     }
 
-    private void dispatch(WorkloadRepository repository) {
+    private void dispatch(WorkloadRepository repository, boolean verbose) {
         List<SimulationSubscription> allSubs = repository.getSubscriptions();
         int size = allSubs.size();
-        logger.info("Dispatching " + size + " subscriptions...");
         
-        int interval = Math.max(1000, size / 10);
+        if (verbose) {
+            logger.info("Dispatching batch of " + size + " subscriptions...");
+        }
         
         for (int i = 0; i < size; i++) {
             SimulationSubscription s = allSubs.get(i);
-            
-            // The source is already embedded in the event
             if (s.getSource() instanceof SubscriberWithLocation sub) {
                 sub.send(s);
-            }
-            
-            if ((i + 1) % interval == 0) {
-                logger.info(String.format("  ... dispatched %d / %d", (i+1), size));
             }
         }
     }

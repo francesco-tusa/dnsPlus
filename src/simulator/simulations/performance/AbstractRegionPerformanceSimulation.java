@@ -9,8 +9,6 @@ import simulator.config.WorkloadConfig;
 import simulator.core.WorkloadRepository;
 import simulator.events.PublicationWithLocation;
 import simulator.regions.BoundedBroker;
-import simulator.regions.SubscriptionWithRegion;
-import simulator.simulations.performance.metrics.GroundTruthCalculator;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.analysis.TopologyAnalyser;
@@ -56,34 +54,56 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
             logger.info("Configured Workload Generator with NO Hotspots (Pure Random Remote).");
         }
         
-        logger.info("");
-        logger.info(">>> Phase 1: Subscriptions (Orchestrated) ... <<<");
+        // 0. Pre-generate Publication Objects (for Ground Truth calculation)
+        // We generate the data now, but we do NOT send them yet.
+        logger.info("Pre-generating " + allPublishers.size() + " publications for Ground Truth context...");
+        List<PublicationWithLocation> preGeneratedPubs = new ArrayList<>();
+        for(var p : allPublishers) {
+            // We assume 1 pub per publisher for this scenario as per original code
+            PublicationWithLocation pub = new PublicationWithLocation(p.getLocation());
+            preGeneratedPubs.add(pub);
+        }
 
-        // 1. Generate directly into WorkloadRepository
-        orchestrator.generateAndDispatchWorkload(
+        logger.info("");
+        logger.info(">>> Phase 1: Subscriptions (Streaming Batch Mode) ... <<<");
+
+        // 1. Streaming Generation & Dispatching
+        // This method handles:
+        //    - Batching subscribers (Randomized)
+        //    - Generating subs into WorkloadRepository
+        //    - Calculating Ground Truth (Parallel Thread)
+        //    - Dispatching (Main Thread)
+        //    - Clearing Repository
+        orchestrator.generateDispatchAndCalculate(
             allSubscribers, 
             leafBrokers, 
-            workloadGenerator
+            workloadGenerator,
+            this.metricsData,
+            preGeneratedPubs
         );
 
         logger.info("");
         logger.info(">>> Phase 2: Publications... <<<");
-
-        List<PublicationWithLocation> tempPubs = new ArrayList<>();
+        
+        // 2. Actually send the publications through the network
+        // Note: We reuse the preGeneratedPubs to ensure consistency if IDs were involved, 
+        // though here we just need to ensure the logic matches.
+        int pubIndex = 0;
         for(var p : allPublishers) {
-            PublicationWithLocation pub = new PublicationWithLocation(p.getLocation());
-            tempPubs.add(pub);
-            p.send(pub);
+            if (pubIndex < preGeneratedPubs.size()) {
+                p.send(preGeneratedPubs.get(pubIndex));
+            } else {
+                // Fallback if mismatch (shouldn't happen)
+                p.send(new PublicationWithLocation(p.getLocation()));
+            }
+            pubIndex++;
         }
         
-        // 2. Retrieve Zero-Copy View for Ground Truth
-        // The Repository holds SimulationSubscription, but we view it as SubscriptionWithRegion
-        List<SubscriptionWithRegion> regionSubs = WorkloadRepository.getInstance().getSubscriptions();
-
-        this.metricsData.groundTruthMatches = GroundTruthCalculator.calculateRegionMatches(regionSubs, tempPubs);
+        // 3. Metrics Collection
+        // Note: Ground Truth matches were already calculated incrementally in Phase 1.
         collectAndPrintMetrics();
         
-        // 3. Cleanup to free subscription objects from Heap
+        // 4. Final Cleanup
         WorkloadRepository.reset();
     }
 }

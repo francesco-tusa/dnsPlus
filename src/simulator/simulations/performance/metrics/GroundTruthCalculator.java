@@ -21,7 +21,6 @@ public class GroundTruthCalculator {
     private static final Logger logger = CustomLogger.getLogger(GroundTruthCalculator.class.getName());
 
     // THRESHOLD: If (Pubs * Subs) < 100,000, it is faster to run sequentially
-    // than to pay the "tax" of spinning up threads.
     private static final long MIN_WORKLOAD_THRESHOLD = 100_000; 
 
     public static long calculateRegionMatches(List<SubscriptionWithRegion> subs, List<PublicationWithLocation> pubs) {
@@ -30,20 +29,14 @@ public class GroundTruthCalculator {
         int numThreads = Runtime.getRuntime().availableProcessors();
         long workload = (long) pubs.size() * subs.size();
 
-        // 1. SEQUENTIAL: Use main thread if data is small or we only have 1 core.
         if (workload < MIN_WORKLOAD_THRESHOLD || numThreads <= 1) {
             return calculateSequential(subs, pubs);
         }
 
-        // 2. PARALLEL: Choose the best strategy based on data shape
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
         long totalMatches = 0;
 
         try {
-            // DECISION:
-            // If we have enough publications to give every core at least 1 item,
-            // we use Publisher Parallelization (Strategy A) because it's faster (no merging).
-            // Otherwise, we must parallelize the Subscribers (Strategy B).
             if (pubs.size() >= numThreads) {
                 totalMatches = executePublisherParallel(executor, subs, pubs, numThreads);
             } else {
@@ -59,15 +52,12 @@ public class GroundTruthCalculator {
         return totalMatches;
     }
 
-    /**
-     * STRATEGY A: Publisher Parallelization (Preferred)
-     * Fastest. Zero synchronization needed during calculation.
-     */
     private static long executePublisherParallel(ExecutorService executor, 
                                                  List<SubscriptionWithRegion> subs, 
                                                  List<PublicationWithLocation> pubs, 
                                                  int numThreads) throws InterruptedException, ExecutionException {
-        logger.info(String.format("--- Parallel Strategy A: Partitioning %d Publications across %d Threads ---", pubs.size(), numThreads));
+        // Reduced log level from INFO to FINE
+        logger.fine(String.format("--- Parallel Strategy A: Partitioning %d Publications across %d Threads ---", pubs.size(), numThreads));
         
         List<Callable<Long>> tasks = new ArrayList<>();
         int batchSize = (int) Math.ceil((double) pubs.size() / numThreads);
@@ -82,19 +72,17 @@ public class GroundTruthCalculator {
         for (Future<Long> result : executor.invokeAll(tasks)) {
             total += result.get();
         }
-        logger.info("--- Ground Truth Calculation Complete: " + total + " unique subscriber matches. ---");
+        // Reduced log level from INFO to FINE
+        logger.fine("--- Ground Truth Calculation Complete: " + total + " unique subscriber matches. ---");
         return total;
     }
 
-    /**
-     * STRATEGY B: Subscriber Parallelization (Fallback)
-     * Used when we have very few publications (e.g. < 8) but millions of subscribers.
-     */
     private static long executeSubscriberParallel(ExecutorService executor, 
                                                   List<SubscriptionWithRegion> subs, 
                                                   List<PublicationWithLocation> pubs, 
                                                   int numThreads) throws InterruptedException, ExecutionException {
-        logger.info(String.format("--- Parallel Strategy B: Partitioning %d Subscribers across %d Threads ---", subs.size(), numThreads));
+        // Reduced log level from INFO to FINE
+        logger.fine(String.format("--- Parallel Strategy B: Partitioning %d Subscribers across %d Threads ---", subs.size(), numThreads));
         
         long totalMatches = 0;
         int batchSize = (int) Math.ceil((double) subs.size() / numThreads);
@@ -103,7 +91,6 @@ public class GroundTruthCalculator {
             List<Callable<Set<TreeNode>>> tasks = new ArrayList<>();
             Location pubLoc = pub.getLocation();
 
-            // Split subscribers into chunks
             for (int i = 0; i < subs.size(); i += batchSize) {
                 int end = Math.min(i + batchSize, subs.size());
                 List<SubscriptionWithRegion> subBatch = subs.subList(i, end);
@@ -111,7 +98,6 @@ public class GroundTruthCalculator {
                 tasks.add(() -> {
                     Set<TreeNode> localFound = new HashSet<>();
                     for (SubscriptionWithRegion s : subBatch) {
-                        // Check if subscription covers the publication location
                         if (s.getRegion().contains(pubLoc) && s.getSource() != null) {
                             localFound.add(s.getSource());
                         }
@@ -120,25 +106,25 @@ public class GroundTruthCalculator {
                 });
             }
 
-            // Reduce: Merge all partial sets for this publication
             Set<TreeNode> uniqueForThisPub = new HashSet<>();
             List<Future<Set<TreeNode>>> results = executor.invokeAll(tasks);
             
             for (Future<Set<TreeNode>> fut : results) {
                 uniqueForThisPub.addAll(fut.get());
             }
-            
             totalMatches += uniqueForThisPub.size();
         }
         
-        logger.info("--- Ground Truth Calculation Complete: " + totalMatches + " unique subscriber matches. ---");
+        // Reduced log level from INFO to FINE
+        logger.fine("--- Ground Truth Calculation Complete: " + totalMatches + " unique subscriber matches. ---");
         return totalMatches;
     }
 
     private static long calculateSequential(List<SubscriptionWithRegion> subs, List<PublicationWithLocation> pubs) {
-        logger.info("--- Calculating Ground Truth Matches (Sequential) ---");
+        // Reduced log level from INFO to FINE
+        logger.fine("--- Calculating Ground Truth Matches (Sequential) ---");
         long matches = countMatchesInBatch(pubs, subs);
-        logger.info("--- Ground Truth Calculation Complete: " + matches + " unique subscriber matches. ---");
+        logger.fine("--- Ground Truth Calculation Complete: " + matches + " unique subscriber matches. ---");
         return matches;
     }
 
