@@ -98,7 +98,16 @@ public abstract class AbstractPerformanceSimulation<
 
     @Override
     protected void setupSimulation() {
-        CsvMetricWriter.getInstance().initialize(this.simulationTimestamp);
+        boolean enableTracing = SimConfiguration.get().paths.enableSubscriptionTracing;
+        
+        CsvMetricWriter.getInstance().initialize(this.simulationTimestamp, enableTracing);
+        
+        if (enableTracing) {
+            logger.info("Subscription Tracing: ENABLED (CSV files will be generated)");
+        } else {
+            logger.info("Subscription Tracing: DISABLED (Stats only mode)");
+        }
+
         logSectionHeader("Populating Topology for Performance Simulation");
 
         if (this.rootNode == null) {

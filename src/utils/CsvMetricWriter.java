@@ -21,6 +21,7 @@ public class CsvMetricWriter {
     private BufferedWriter pubSummaryWriter;
 
     private boolean initialized = false;
+    private boolean subscriptionTracingEnabled = true;
 
     private final Map<Long, Integer> subTraceCounts = new HashMap<>();
     private final Map<Long, Integer> pubTraceCounts = new HashMap<>();
@@ -44,8 +45,14 @@ public class CsvMetricWriter {
     }
 
     public synchronized void initialize(String runId) {
+        initialize(runId, true);
+    }
+
+    public synchronized void initialize(String runId, boolean enableSubTracing) {
         if (initialized) return;
         try {
+            this.subscriptionTracingEnabled = enableSubTracing;
+
             subTraceCounts.clear();
             pubTraceCounts.clear();
             
@@ -58,15 +65,18 @@ public class CsvMetricWriter {
             String subDir = baseDir + "/subscriptions";
             String pubDir = baseDir + "/publications";
             
-            new File(subDir).mkdirs();
-            new File(pubDir).mkdirs();
-            
-            subscriptionWriter = new RotatingFileWriter(
-                subDir, "subscriptions", 
-                "TraceID,MsgCount,Source,Receiver,Hops,Region,Result\n"
-            );
-            subSummaryWriter = initializeSummaryWriter(subDir, "subscription_summary.csv");
+            // Only create subscription directories/writers if enabled
+            if (this.subscriptionTracingEnabled) {
+                new File(subDir).mkdirs();
+                subscriptionWriter = new RotatingFileWriter(
+                    subDir, "subscriptions", 
+                    "TraceID,MsgCount,Source,Receiver,Hops,Region,Result\n"
+                );
+                subSummaryWriter = initializeSummaryWriter(subDir, "subscription_summary.csv");
+            }
 
+            // Publications are typically much lower volume, so we keep them enabled by default.
+            new File(pubDir).mkdirs();
             publicationWriter = new RotatingFileWriter(
                 pubDir, "publications", 
                 "TraceID,MsgCount,Source,Receiver,Hops,Location,Result\n"
@@ -89,6 +99,9 @@ public class CsvMetricWriter {
     // --- Subscription Logging ---
     public synchronized void logSubscription(long traceId, String receiver, TreeNode sourceNode, int hops, String region, String result) {
         if (!initialized) return;
+        
+        // Critical Optimization: Skip all string formatting and logic if disabled
+        if (!subscriptionTracingEnabled) return;
 
         if (currentSubTraceId != null && traceId != currentSubTraceId) {
             flushSummary(subSummaryWriter, currentSubSummary, subTraceCounts.get(currentSubTraceId));
@@ -182,15 +195,20 @@ public class CsvMetricWriter {
     
     public void close() {
         try {
-            if (currentSubTraceId != null) {
-                flushSummary(subSummaryWriter, currentSubSummary, subTraceCounts.get(currentSubTraceId));
+            // Only flush subscription buffers if they were actually used
+            if (subscriptionTracingEnabled) {
+                if (currentSubTraceId != null) {
+                    flushSummary(subSummaryWriter, currentSubSummary, subTraceCounts.get(currentSubTraceId));
+                }
+                if (subscriptionWriter != null) subscriptionWriter.close();
+                if (subSummaryWriter != null) subSummaryWriter.close();
             }
+            
             if (currentPubTraceId != null) {
                 flushSummary(pubSummaryWriter, currentPubSummary, pubTraceCounts.get(currentPubTraceId));
             }
-            if (subscriptionWriter != null) subscriptionWriter.close();
+            
             if (publicationWriter != null) publicationWriter.close();
-            if (subSummaryWriter != null) subSummaryWriter.close();
             if (pubSummaryWriter != null) pubSummaryWriter.close();
 
             subTraceCounts.clear();

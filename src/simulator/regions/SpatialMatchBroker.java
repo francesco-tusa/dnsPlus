@@ -3,6 +3,7 @@ package simulator.regions;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import simulator.config.SimConfiguration; // Import added
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.SubscriberWithLocation;
@@ -71,15 +72,23 @@ public class SpatialMatchBroker extends BoundedBroker {
         if (s.getSource() == null) throw new IllegalArgumentException("Source null");
 
         StoreOpResult resultForLog = StoreOpResult.NO_CHANGE;
-        String logDetail = "";
+        String logDetail = null;
+        
+        boolean tracingEnabled = SimConfiguration.get().paths.enableSubscriptionTracing;
 
         if (s instanceof SubscriptionWithRegion sub) {
             StoreUpdate update = inputStore.addOrUpdate(s.getSource(), sub);
             resultForLog = update.getResult();
-            logDetail = buildLogDetail(sub, update);
+            
+            if (tracingEnabled) {
+                logDetail = buildLogDetail(sub, update);
+            }
             updateInputCounters(update);
         }
-        logToCsv(s, logDetail, resultForLog);
+        
+        if (tracingEnabled) {
+            logToCsv(s, logDetail, resultForLog);
+        }
     }
 
     @Override
@@ -87,9 +96,18 @@ public class SpatialMatchBroker extends BoundedBroker {
         if (!(s instanceof SubscriptionWithRegion newSub)) return;
 
         StoreUpdate inputUpdate = inputStore.addOrUpdate(s.getSource(), newSub);
-        String logDetail = buildLogDetail(newSub, inputUpdate);
+        boolean tracingEnabled = SimConfiguration.get().paths.enableSubscriptionTracing;
+        String logDetail = null;
+
+        if (tracingEnabled) {
+            logDetail = buildLogDetail(newSub, inputUpdate);
+        }
+        
         updateInputCounters(inputUpdate);
-        logToCsv(s, logDetail, inputUpdate.getResult());
+        
+        if (tracingEnabled) {
+            logToCsv(s, logDetail, inputUpdate.getResult());
+        }
 
         if (inputUpdate.getResult() != StoreOpResult.NO_CHANGE) {
             SubscriptionWithRegion aggregatedState = inputUpdate.getRegion();
@@ -195,7 +213,8 @@ public class SpatialMatchBroker extends BoundedBroker {
     }
 
     private void logToCsv(SimulationSubscription s, String logDetail, StoreOpResult result) {
-        if (s.getMetrics() != null) {
+        // Ensure we don't log if detail is missing (which happens when tracing is disabled)
+        if (s.getMetrics() != null && logDetail != null) {
             CsvMetricWriter.getInstance().logSubscription(
                 s.getMetrics().getTraceId(), 
                 getName(), 
@@ -210,7 +229,8 @@ public class SpatialMatchBroker extends BoundedBroker {
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         if (p instanceof PublicationWithLocation pub) {
-            if (p.getMetrics() != null) {
+            // Check config for publications too
+            if (SimConfiguration.get().paths.enableSubscriptionTracing && p.getMetrics() != null) {
                 CsvMetricWriter.getInstance().logPublication(
                     p.getMetrics().getTraceId(), 
                     getName(), 

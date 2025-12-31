@@ -25,6 +25,7 @@ public class PathsConfig {
     // Flags
     private final boolean useFullTopology;
     public final boolean enableVerboseLogs;
+    public final boolean enableSubscriptionTracing;
 
     public PathsConfig(Properties props) {
         this.resourcesDir = props.getProperty("paths.resourcesDir", "resources/world/");
@@ -32,6 +33,8 @@ public class PathsConfig {
         this.topologiesDir = this.outputDir + "topologies/";
 
         this.enableVerboseLogs = Boolean.parseBoolean(props.getProperty("paths.enableVerboseLogs", "false"));
+        
+        this.enableSubscriptionTracing = Boolean.parseBoolean(props.getProperty("paths.enableSubscriptionTracing", "true"));
 
         this.allCountriesFile = resourcesDir + "allCountries.txt";
         this.countryInfoFile = resourcesDir + "countryInfo.txt";

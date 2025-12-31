@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
+import simulator.config.SimConfiguration;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.SimulationSubscription;
@@ -24,9 +25,11 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
         
         SubscriptionWithRegion resultingEntry;
         StoreOpResult opResult;
-        String logInfo;
+        String logInfo="";
         int absorbed = 0;
         int merged = 0;
+
+        boolean tracingEnabled = SimConfiguration.get().paths.enableSubscriptionTracing;
 
         if (existing == null) {
             // New Entry - Create a deep copy using the primitives
@@ -35,14 +38,20 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
             
             resultingEntry = newEntry;
             opResult = StoreOpResult.ADDED;
-            logInfo = "NeighborMBR(Pre): None"; 
+            
+            // Only build string if tracing is enabled
+            if (tracingEnabled) {
+                logInfo = "NeighborMBR(Pre): None"; 
+            }
         } else {
             // Update Existing
-            // CRITICAL: currentRegion is now an EPHEMERAL OBJECT (Copy), not a reference!
             Region currentRegion = existing.getRegion();
             Region newRegion = sub.getRegion();
             
-            logInfo = "NeighborMBR(Pre): " + currentRegion.toLogString();
+            // Only build string if tracing is enabled
+            if (tracingEnabled) {
+                logInfo = "NeighborMBR(Pre): " + currentRegion.toLogString();
+            }
 
             if (currentRegion.contains(newRegion)) {
                 resultingEntry = existing;
@@ -58,7 +67,7 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
                 // 1. Modify the ephemeral region
                 currentRegion.expand(newRegion);
                 
-                // 2. CRITICAL FIX: Save the modified coordinates back to the subscription
+                // 2. Save the modified coordinates back to the subscription
                 existing.setRegion(currentRegion);
                 
                 resultingEntry = existing;
@@ -71,9 +80,10 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
 
     @Override
     public List<TreeNode> findMatches(Location loc) {
+        if (map.isEmpty()) return Collections.emptyList();
+
         java.util.ArrayList<TreeNode> matches = new java.util.ArrayList<>();
         for (Map.Entry<TreeNode, SubscriptionWithRegion> entry : map.entrySet()) {
-            // This creates a temporary Region object for the check, which is fine
             if (entry.getValue().getRegion().contains(loc)) {
                 matches.add(entry.getKey());
             }

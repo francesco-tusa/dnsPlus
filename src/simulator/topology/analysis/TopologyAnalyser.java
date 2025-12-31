@@ -19,13 +19,30 @@ public class TopologyAnalyser {
         if (root == null) return null;
         Queue<TreeNode> queue = new LinkedList<>();
         queue.add(root);
+
+        // Optimization: Detect if we are searching for BoundedBroker (or a subclass)
+        boolean searchingForBroker = BoundedBroker.class.isAssignableFrom(type);
+
         while (!queue.isEmpty()) {
             TreeNode current = queue.poll();
             if (type.isInstance(current)) {
                 T casted = type.cast(current);
                 if (condition.test(casted)) return casted;
             }
-            if (current.getChildren() != null) queue.addAll(current.getChildren());
+            
+            if (current.getChildren() != null) {
+                if (searchingForBroker) {
+                    // SAFE PATH: Only queue Brokers, skip 50M subscribers
+                    for (TreeNode child : current.getChildren()) {
+                        if (child instanceof BoundedBroker) {
+                            queue.add(child);
+                        }
+                    }
+                } else {
+                    // GENERIC PATH: Must queue everything (High Memory Risk with Subscribers)
+                    queue.addAll(current.getChildren());
+                }
+            }
         }
         return null;
     }
@@ -39,6 +56,7 @@ public class TopologyAnalyser {
     }
 
     public static BoundedBroker findLeafBrokerAtLocation(BoundedBroker root, Location location) {
+        // This now uses the optimized findFirstNode, so it is safe.
         return findFirstNode(root, BoundedBroker.class, broker -> 
             isLeafBroker(broker) && 
             broker.getRegion() != null && 
@@ -82,14 +100,27 @@ public class TopologyAnalyser {
 
     public static List<BoundedBroker> findLeafBrokers(BoundedBroker root) {
         List<BoundedBroker> leaves = new ArrayList<>();
-        Queue<TreeNode> queue = new LinkedList<>();
-        if (root != null) queue.add(root);
+        if (root == null) return leaves;
+
+        Queue<BoundedBroker> queue = new LinkedList<>();
+        queue.add(root);
+
         while (!queue.isEmpty()) {
-            TreeNode current = queue.poll();
-            if (current instanceof BoundedBroker broker) {
-                if (isLeafBroker(broker)) leaves.add(broker);
+            BoundedBroker current = queue.poll();
+            boolean isLeaf = true;
+            
+            if (current.getChildren() != null) {
+                for (TreeNode child : current.getChildren()) {
+                    if (child instanceof BoundedBroker broker) {
+                        isLeaf = false;
+                        queue.add(broker); // Only queue Brokers
+                    }
+                }
             }
-            if (current.getChildren() != null) queue.addAll(current.getChildren());
+            
+            if (isLeaf) {
+                leaves.add(current);
+            }
         }
         return leaves;
     }
@@ -102,9 +133,6 @@ public class TopologyAnalyser {
         return true;
     }
 
-    /**
-     * Logs lightweight structure summary (Runtime).
-     */
     public static void logStructure(BoundedBroker root, Logger logger) {
         if (root == null) return;
         logger.info("");
