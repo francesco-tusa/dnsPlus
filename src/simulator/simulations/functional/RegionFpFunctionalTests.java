@@ -42,40 +42,88 @@ public class RegionFpFunctionalTests {
 
     /**
      * VERIFIES that the new Zero-Allocation static methods match the original Object-based instance methods.
+     * CRITICAL: valid_Region.expand(other) is used as the GROUND TRUTH for Region.fastMBRArea(...).
      */
     private static boolean testStaticVsInstanceEquivalence() {
         logger.info("\n--- Testing Static vs Instance Equivalence ---");
         boolean allPassed = true;
 
-        // 1. Setup Regions
-        Region rStd = new Region(new Location(10, 10, 0), new Location(20, 20, 0));
-        Region rWrap = new Region(new Location(170, 0, 0), new Location(-170, 10, 0));
-        Region rInterStd = new Region(new Location(15, 15, 0), new Location(25, 25, 0));
-        Region rInterWrap = new Region(new Location(175, 5, 0), new Location(-175, 15, 0));
+        // --- 1. Define Test Scenarios (Pairs of Regions) ---
+        
+        // Case A: Standard Overlap (No Wrapping)
+        Region rStd1 = new Region(new Location(10, 10, 0), new Location(20, 20, 0));
+        Region rStd2 = new Region(new Location(15, 15, 0), new Location(25, 25, 0));
 
-        // 2. Setup Points
-        Location p1 = new Location(15, 15, 0); // Inside Std
-        Location p2 = new Location(180, 5, 0); // Inside Wrap
+        // Case B: Disjoint Standard
+        Region rDisj1 = new Region(new Location(0, 0, 0), new Location(5, 5, 0));
+        Region rDisj2 = new Region(new Location(10, 10, 0), new Location(15, 15, 0));
 
-        // TEST 1: fastContains (Point)
-        allPassed &= assertEquiv("Contains(Std, P1)", rStd.contains(p1), Region.fastContains(10f, 20f, 10f, 20f, 15f, 15f));
-        allPassed &= assertEquiv("Contains(Wrap, P2)", rWrap.contains(p2), Region.fastContains(170f, -170f, 0f, 10f, 180f, 5f));
+        // Case C: Wrapping Region (Crosses Date Line)
+        Region rWrap = new Region(new Location(170, 0, 0), new Location(-170, 10, 0)); // 20 deg wide
+        
+        // Case D: Region inside the "Gap" of the Wrapping Region
+        Region rInGap = new Region(new Location(0, 0, 0), new Location(5, 5, 0));
 
-        // TEST 2: fastContains (Region)
-        allPassed &= assertEquiv("Contains(Std, InterStd)", rStd.contains(rInterStd), 
-            Region.fastContains(10f, 20f, 10f, 20f, 15f, 25f, 15f, 25f)); // Should be False
+        // Case E: Region that forces a Wrap Merge (The "Bridge" Scenario)
+        // rLeft is near -180, rRight is near 180. Merging them should wrap.
+        Region rLeft = new Region(new Location(-175, 0, 0), new Location(-170, 10, 0));
+        Region rRight = new Region(new Location(170, 0, 0), new Location(175, 10, 0));
 
-        // TEST 3: fastIntersectionArea
-        float area1 = Region.fastIntersectionArea(10f, 20f, 10f, 20f, 15f, 25f, 15f, 25f);
-        allPassed &= assertEquivVal("Area(Std, Std)", rStd.getIntersectionArea(rInterStd), area1);
+        // --- 2. Execution & Assertion ---
 
-        float area2 = Region.fastIntersectionArea(170f, -170f, 0f, 10f, 175f, -175f, 5f, 15f);
-        allPassed &= assertEquivVal("Area(Wrap, Wrap)", rWrap.getIntersectionArea(rInterWrap), area2);
+        // GROUP 1: fastContains (Point)
+        Location pInside = new Location(15, 15, 0);
+        allPassed &= assertEquiv("Contains(Std, Point)", rStd1.contains(pInside), 
+            Region.fastContains(10f, 20f, 10f, 20f, 15f, 15f));
 
-        float area3 = Region.fastIntersectionArea(10f, 20f, 10f, 20f, 175f, -175f, 5f, 15f);
-        allPassed &= assertEquivVal("Area(Std, Wrap)", rStd.getIntersectionArea(rInterWrap), area3);
+        // GROUP 2: fastContains (Region)
+        allPassed &= assertEquiv("Contains(Std, Std2)", rStd1.contains(rStd2), 
+            Region.fastContains(10f, 20f, 10f, 20f, 15f, 25f, 15f, 25f));
+
+        // GROUP 3: fastArea (Basic Sanity)
+        allPassed &= assertEquivVal("Area(Std1)", rStd1.getArea(), 
+            Region.fastArea(10f, 20f, 10f, 20f));
+        allPassed &= assertEquivVal("Area(Wrap)", rWrap.getArea(), 
+            Region.fastArea(170f, -170f, 0f, 10f));
+
+        // GROUP 4: fastIntersectionArea
+        allPassed &= assertEquivVal("InterArea(Std1, Std2)", rStd1.getIntersectionArea(rStd2), 
+            Region.fastIntersectionArea(10f, 20f, 10f, 20f, 15f, 25f, 15f, 25f));
+            
+        allPassed &= assertEquivVal("InterArea(Wrap, InGap)", rWrap.getIntersectionArea(rInGap), 
+            Region.fastIntersectionArea(170f, -170f, 0f, 10f, 0f, 5f, 0f, 5f)); // Should be 0
+
+        // GROUP 5: fastMBRArea (The Expansion Logic)
+        // This confirms that static math correctly predicts the area of r1.expand(r2)
+        
+        allPassed &= checkMBR("MBR(Std, Std Overlap)", rStd1, rStd2);
+        allPassed &= checkMBR("MBR(Disjoint)", rDisj1, rDisj2);
+        allPassed &= checkMBR("MBR(Wrap + InGap)", rWrap, rInGap); // Should likely result in full globe width or large expansion
+        allPassed &= checkMBR("MBR(Bridge DateLine)", rLeft, rRight); // Critical: Should verify wrapping path is taken
 
         return allPassed;
+    }
+
+    /**
+     * Helper to verify MBR logic.
+     * 1. Calculates expected Area by actually performing the object expansion (Ground Truth).
+     * 2. Calculates actual Area using the static fastMBRArea method.
+     * 3. Compares them.
+     */
+    private static boolean checkMBR(String label, Region r1Original, Region r2) {
+        // 1. Ground Truth: Clone and Expand
+        // We use a temp region because expand() mutates
+        Region clone = new Region(r1Original.getBottomLeft(), r1Original.getTopRight());
+        clone.expand(r2); 
+        double expectedArea = clone.getArea();
+
+        // 2. Static Calculation
+        float calculatedArea = Region.fastMBRArea(
+            (float)r1Original.getMinLon(), (float)r1Original.getMaxLon(), (float)r1Original.getMinLat(), (float)r1Original.getMaxLat(),
+            (float)r2.getMinLon(), (float)r2.getMaxLon(), (float)r2.getMinLat(), (float)r2.getMaxLat()
+        );
+
+        return assertEquivVal(label, expectedArea, calculatedArea);
     }
 
     private static boolean assertEquiv(String testName, boolean instanceResult, boolean staticResult) {

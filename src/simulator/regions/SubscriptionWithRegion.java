@@ -1,19 +1,11 @@
 package simulator.regions;
 
-import simulator.core.Location;
 import simulator.events.SimulationSubscription;
 
 /**
  * Memory-Optimized Subscription implementation.
- * <p>
- * FLATTENING OPTIMIZATION:
  * Instead of storing a reference to a 'Region' object (which holds references to two 'Location' objects),
  * we store the 4 coordinates as primitive floats.
- * * Savings:
- * - Removes 'Region' object overhead (~32 bytes)
- * - Removes 2x 'Location' object overhead (~80 bytes)
- * - Total savings per instance: ~100 bytes.
- * - For 50M subscriptions, this saves ~5GB of Heap.
  */
 public class SubscriptionWithRegion extends SimulationSubscription {
 

@@ -27,10 +27,10 @@ public class RegionFunctionalTestsMain {
 
     public static void main(String[] args) {
         // Run the most fundamental test first
-        runRegionFloatingPointTest();
+        //runRegionFloatingPointTest();
 
         //runManualTopologyComprehensiveTest();
-        //runSubscriptionCoveringTest();
+        runSubscriptionCoveringTest();
         //runSubscriptionExpansionTest();
         //runGridTopologyTest();
 

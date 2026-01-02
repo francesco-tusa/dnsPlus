@@ -32,6 +32,12 @@ public class Region extends AbstractRegion {
         super(new Location(minLon, minLat, 0), new Location(maxLon, maxLat, 0));
     }
 
+    // Convenience getters for primitive access
+    public double getMinLon() { return bottomLeft.getX(); }
+    public double getMaxLon() { return topRight.getX(); }
+    public double getMinLat() { return bottomLeft.getY(); }
+    public double getMaxLat() { return topRight.getY(); }
+
     // =========================================================================
     // STATIC ZERO-ALLOCATION METHODS (Optimized for Primitives)
     // =========================================================================
@@ -93,6 +99,77 @@ public class Region extends AbstractRegion {
         float start = Math.max(s1, s2);
         float end = Math.min(e1, e2);
         return (end > start) ? (end - start) : 0.0f;
+    }
+
+    /**
+     * Calculates the area of the Minimum Bounding Rectangle (MBR) that would result 
+     * from merging two regions, handling longitude wrapping correctly.
+     * Zero-allocation.
+     */
+    public static float fastMBRArea(float r1MinLon, float r1MaxLon, float r1MinLat, float r1MaxLat,
+                                    float r2MinLon, float r2MaxLon, float r2MinLat, float r2MaxLat) {
+        // 1. Latitude (Simple Min/Max)
+        float newMinLat = Math.min(r1MinLat, r2MinLat);
+        float newMaxLat = Math.max(r1MaxLat, r2MaxLat);
+        float height = newMaxLat - newMinLat;
+        
+        // 2. Longitude (Shortest Path / Circular Logic)
+        float width = fastCombinedWidth(r1MinLon, r1MaxLon, r2MinLon, r2MaxLon);
+        
+        return width * height;
+    }
+
+    /**
+     * Internal helper to calculate the width of the union of two longitude intervals.
+     * Uses Endpoint Containment to correctly handle Overlaps.
+     */
+    private static float fastCombinedWidth(float min1, float max1, float min2, float max2) {
+        // 1. Calculate individual widths
+        float w1 = (min1 <= max1) ? (max1 - min1) : (360.0f - min1 + max1);
+        float w2 = (min2 <= max2) ? (max2 - min2) : (360.0f - min2 + max2);
+
+        // Optimization: If one covers the globe, result is 360
+        if (w1 >= 360.0f - FLOAT_EPSILON || w2 >= 360.0f - FLOAT_EPSILON) return 360.0f;
+
+        // 2. Explicit Containment Checks 
+        // If R1 fully contains R2, the union is R1.
+        if (fastContainsLon(min1, max1, min2) && fastContainsLon(min1, max1, max2)) {
+             if (w1 >= w2 - FLOAT_EPSILON) return w1;
+        }
+        // If R2 fully contains R1, the union is R2.
+        if (fastContainsLon(min2, max2, min1) && fastContainsLon(min2, max2, max1)) {
+             if (w2 >= w1 - FLOAT_EPSILON) return w2;
+        }
+
+        // 3. Gap Analysis
+        // We evaluate the two potential "empty spaces" on the circle.
+        
+        // Gap A: From Max1 to Min2
+        // Valid only if R2 does NOT contain Max1.
+        // (If R2 contains Max1, the regions touch/overlap at this boundary, so no gap exists).
+        boolean gapA_isValid = !fastContainsLon(min2, max2, max1);
+        
+        // Gap B: From Max2 to Min1
+        // Valid only if R1 does NOT contain Max2.
+        boolean gapB_isValid = !fastContainsLon(min1, max1, max2);
+
+        float gapA = (min2 - max1 + 360.0f) % 360.0f;
+        float gapB = (min1 - max2 + 360.0f) % 360.0f;
+
+        // Logic:
+        // - If BOTH are valid, regions are Disjoint (Two Islands). Result = 360 - Max(GapA, GapB) (Smallest Hull).
+        // - If ONE is valid, regions Overlap (One Island). Result = 360 - ValidGap.
+        // - If NEITHER is valid, regions cover the full globe (or touch at both ends). Result = 360.
+        
+        if (gapA_isValid && gapB_isValid) {
+            return 360.0f - Math.max(gapA, gapB);
+        } else if (gapA_isValid) {
+            return 360.0f - gapA;
+        } else if (gapB_isValid) {
+            return 360.0f - gapB;
+        } else {
+            return 360.0f;
+        }
     }
     
     // =========================================================================
