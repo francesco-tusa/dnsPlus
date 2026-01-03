@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import simulator.config.SimConfiguration;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.SimulationSubscription;
@@ -16,71 +15,34 @@ import utils.CustomLogger;
 
 public class SimpleRegionStore implements RegionSubscriptionStore {
     private static final Logger logger = CustomLogger.getLogger(SimpleRegionStore.class.getName());
-    
+
     private final Map<TreeNode, SubscriptionWithRegion> map = new HashMap<>();
 
     @Override
     public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         SubscriptionWithRegion existing = map.get(source);
-        
-        SubscriptionWithRegion resultingEntry;
-        StoreOpResult opResult;
-        String logInfo="";
-        int absorbed = 0;
-        int merged = 0;
-
-        boolean tracingEnabled = SimConfiguration.get().paths.enableSubscriptionTracing;
 
         if (existing == null) {
-            // New Entry - Create a deep copy using the primitives
-            SubscriptionWithRegion newEntry = new SubscriptionWithRegion(sub.getRegion());
+            SubscriptionWithRegion newEntry = new SubscriptionWithRegion(sub);
             map.put(source, newEntry);
-            
-            resultingEntry = newEntry;
-            opResult = StoreOpResult.ADDED;
-            
-            // Only build string if tracing is enabled
-            if (tracingEnabled) {
-                logInfo = "NeighborMBR(Pre): None"; 
-            }
-        } else {
-            // Update Existing
-            Region currentRegion = existing.getRegion();
-            Region newRegion = sub.getRegion();
-            
-            // Only build string if tracing is enabled
-            if (tracingEnabled) {
-                logInfo = "NeighborMBR(Pre): " + currentRegion.toLogString();
-            }
-
-            if (currentRegion.contains(newRegion)) {
-                resultingEntry = existing;
-                opResult = StoreOpResult.NO_CHANGE;
-            } else {
-                boolean isAbsorption = newRegion.contains(currentRegion);
-                if (isAbsorption) {
-                    absorbed = 1;
-                } else {
-                    merged = 1;
-                }
-                
-                // 1. Modify the ephemeral region
-                currentRegion.expand(newRegion);
-                
-                // 2. Save the modified coordinates back to the subscription
-                existing.setRegion(currentRegion);
-                
-                resultingEntry = existing;
-                opResult = StoreOpResult.EXPANDED;
-            }
+            return new StoreUpdate(StoreOpResult.ADDED, newEntry, "New Entry");
         }
-        
-        return new StoreUpdate(opResult, resultingEntry, logInfo, absorbed, merged);
+
+        if (existing.contains(sub)) {
+            return new StoreUpdate(StoreOpResult.NO_CHANGE, existing, "Covered");
+        }
+
+        Region currentRegion = existing.getRegion();
+        currentRegion.expand(sub.getRegion());
+        existing.setRegion(currentRegion);
+
+        return new StoreUpdate(StoreOpResult.EXPANDED, existing, "Expanded MBR");
     }
 
     @Override
     public List<TreeNode> findMatches(Location loc) {
-        if (map.isEmpty()) return Collections.emptyList();
+        if (map.isEmpty())
+            return Collections.emptyList();
 
         java.util.ArrayList<TreeNode> matches = new java.util.ArrayList<>();
         for (Map.Entry<TreeNode, SubscriptionWithRegion> entry : map.entrySet()) {
@@ -107,8 +69,12 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     }
 
     @Override
-    public int size() { return map.size(); }
+    public int size() {
+        return map.size();
+    }
 
     @Override
-    public boolean isEmpty() { return map.isEmpty(); }
+    public boolean isEmpty() {
+        return map.isEmpty();
+    }
 }

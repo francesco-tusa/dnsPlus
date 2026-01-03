@@ -2,56 +2,82 @@ package simulator.regions;
 
 import simulator.events.SimulationSubscription;
 
-/**
- * Memory-Optimized Subscription implementation.
- * Instead of storing a reference to a 'Region' object (which holds references to two 'Location' objects),
- * we store the 4 coordinates as primitive floats.
- */
 public class SubscriptionWithRegion extends SimulationSubscription {
 
-    // Store coordinates directly as primitives
-    private float minLon;
-    private float maxLon;
-    private float minLat;
-    private float maxLat;
+    private float minLon, maxLon, minLat, maxLat;
 
     public SubscriptionWithRegion(Region region) {
         super();
         setRegion(region);
     }
 
-    /**
-     * Copy constructor.
-     */
     public SubscriptionWithRegion(SubscriptionWithRegion other) {
         super();
         this.minLon = other.minLon;
         this.maxLon = other.maxLon;
         this.minLat = other.minLat;
         this.maxLat = other.maxLat;
-        // Share metrics (reference copy)
         super.metrics = other.metrics;
     }
 
+    // --- Primitive Getters ---
+    public float getMinLon() {
+        return minLon;
+    }
+
+    public float getMaxLon() {
+        return maxLon;
+    }
+
+    public float getMinLat() {
+        return minLat;
+    }
+
+    public float getMaxLat() {
+        return maxLat;
+    }
+
+    // --- Delegate Methods (Spatial Predicates) ---
+
+    public boolean contains(SubscriptionWithRegion other) {
+        return Region.fastContains(minLon, maxLon, minLat, maxLat,
+                other.minLon, other.maxLon, other.minLat, other.maxLat);
+    }
+
+    public boolean contains(float oMinLon, float oMaxLon, float oMinLat, float oMaxLat) {
+        return Region.fastContains(minLon, maxLon, minLat, maxLat,
+                oMinLon, oMaxLon, oMinLat, oMaxLat);
+    }
+
+    public boolean isContainedIn(float oMinLon, float oMaxLon, float oMinLat, float oMaxLat) {
+        return Region.fastContains(oMinLon, oMaxLon, oMinLat, oMaxLat,
+                this.minLon, this.maxLon, this.minLat, this.maxLat);
+    }
+
+    public boolean intersects(float oMinLon, float oMaxLon, float oMinLat, float oMaxLat) {
+        return Region.fastIntersects(minLon, maxLon, minLat, maxLat,
+                oMinLon, oMaxLon, oMinLat, oMaxLat);
+    }
+
+    public float getIntersectionArea(float oMinLon, float oMaxLon, float oMinLat, float oMaxLat) {
+        return Region.fastIntersectionArea(minLon, maxLon, minLat, maxLat,
+                oMinLon, oMaxLon, oMinLat, oMaxLat);
+    }
+
+    public float getArea() {
+        return Region.fastArea(minLon, maxLon, minLat, maxLat);
+    }
+
+    // --- Existing Lifecycle Methods ---
     @Override
     public SimulationSubscription getSubscription() {
         return new SubscriptionWithRegion(this);
     }
 
-    /**
-     * Reconstructs the Region object on-the-fly (Ephemeral).
-     * The GC collects this extremely quickly (Young Generation), 
-     * causing minimal performance impact compared to the memory savings.
-     */
     public Region getRegion() {
-        // Uses the new constructor added to Region.java
         return new Region(minLon, minLat, maxLon, maxLat);
     }
 
-    /**
-     * Updates the internal primitive coordinates from a Region object.
-     * This acts as the "Commit" phase for any changes.
-     */
     public void setRegion(Region region) {
         if (region != null && region.getBottomLeft() != null && region.getTopRight() != null) {
             this.minLon = (float) region.getBottomLeft().getX();
@@ -63,7 +89,6 @@ public class SubscriptionWithRegion extends SimulationSubscription {
 
     @Override
     public String toDisplayString() {
-        // Formats directly from primitives to avoid object creation during logging
         return String.format("[%.4f,%.4f:%.4f,%.4f]", minLon, minLat, maxLon, maxLat);
     }
 }
