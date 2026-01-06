@@ -5,15 +5,14 @@ import simulator.core.Location;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
+import simulator.events.SubscriptionWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import simulator.core.TreeNode;
-import simulator.events.SubscriptionWithLocation;
 import utils.CustomLogger;
 
 public class ProximityRoutingLeafBroker extends ProximityRoutingBroker implements LeafBroker {
 
     private static final Logger logger = CustomLogger.getLogger(ProximityRoutingLeafBroker.class.getName());
-    private Location proxyLocationCache = null;
 
     public ProximityRoutingLeafBroker(String name) {
         super(name);
@@ -23,37 +22,11 @@ public class ProximityRoutingLeafBroker extends ProximityRoutingBroker implement
         super(name, p1, p2);
     }
 
-    /**
-     * Implements the propagation logic for the leaf broker. It has the unique
-     * responsibility of creating the proxy location.
-     */
-    protected void propagateSubscription(SimulationSubscription s) {
-        logger.fine(getName() + ": processing a subscription received from " + s.getSource().getName());
-        addSubscription(s);
-
-        if (s instanceof SubscriptionWithLocation sub) {
-            logger.fine(String.format("%s: Received subscription for true location %s.",
-                    getName(), sub.getLocation().toShortString()));
-            
-            // Check if the proxy location has been calculated yet.
-            if (this.proxyLocationCache == null) {
-                // If not, calculate it once and store it in the cache.
-                this.proxyLocationCache = getRegion().getKeyPoints().get(8); // Index 8 is the center.
-                logger.fine(getName() + ": First subscription received. Caching my proxy location: " + this.proxyLocationCache.toShortString());
-            }
-
-            logger.fine(String.format("%s: Creating and propagating proxy subscription with location %s.",
-                    getName(), this.proxyLocationCache.toShortString()));
-
-            SubscriptionWithLocation proxySubscription = new SubscriptionWithLocation(this.proxyLocationCache);
-            proxySubscription.setSource(this);
-
-            if (getParentBroker() != null) {
-                getParentBroker().processSubscription(proxySubscription);
-            }
-        }
-    }
-
+    // REFACTOR: Removed propagateSubscription(). 
+    // The Base class 'ProximityRoutingBroker' now correctly handles:
+    // 1. Adding to input store
+    // 2. Creating a proxy subscription with THIS broker's location
+    // 3. Sending it to parent (if not already sent)
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {

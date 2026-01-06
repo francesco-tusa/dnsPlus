@@ -18,23 +18,38 @@ import utils.CustomLogger;
 public class ProximityRoutingBroker extends BoundedBroker {
 
     private static final Logger logger = CustomLogger.getLogger(ProximityRoutingBroker.class.getName());
+    
     protected final BasicSubscriptionStore inputStore = new BasicSubscriptionStore();
     private final Map<Location, SimulationPublication> bestPublicationCache = new HashMap<>();
-    private final Map<Location, Boolean> propagatedSubscriptions = new HashMap<>();
+    
+    // REFACTOR: Replaced map with single boolean state
+    private boolean isSubscribedToParent = false;
+    
+    // REFACTOR: Cache for this broker's own center location 
+    private Location myProxyLocation = null;
+    
     private List<Location> keyPointsCache = null;
 
     public ProximityRoutingBroker(String name) { super(name); }
     public ProximityRoutingBroker(String name, Location p1, Location p2) { super(name, p1, p2); }
     
     @Override public int getInputSubscriptionCount() { return inputStore.size(); }
-    @Override public int getOutputSubscriptionCount() { return propagatedSubscriptions.size(); }
+    
+    // REFACTOR: Output count is now simply 1 (if subscribed) or 0
+    @Override public int getOutputSubscriptionCount() { return isSubscribedToParent ? 1 : 0; }
+    
     @Override public Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions() { return inputStore.getAllSubscriptions(); }
 
     @Override
     public Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions() {
-        if (getParentBroker() == null || propagatedSubscriptions.isEmpty()) return Collections.emptyMap();
+        if (getParentBroker() == null || !isSubscribedToParent) return Collections.emptyMap();
+        
+        // REFACTOR: Return only the single proxy subscription
         List<SimulationSubscription> sentSubs = new ArrayList<>();
-        for (Location loc : propagatedSubscriptions.keySet()) sentSubs.add(new SubscriptionWithLocation(loc));
+        SubscriptionWithLocation proxySub = new SubscriptionWithLocation(getOrCalculateProxyLocation());
+        proxySub.setSource(this);
+        sentSubs.add(proxySub);
+        
         Map<TreeNode, List<SimulationSubscription>> result = new HashMap<>();
         result.put(getParentBroker(), sentSubs);
         return result;
@@ -44,21 +59,35 @@ public class ProximityRoutingBroker extends BoundedBroker {
         if (this.keyPointsCache == null) this.keyPointsCache = getRegion().getKeyPoints();
         return this.keyPointsCache;
     }
+    
+    // REFACTOR: Helper to get this broker's center location
+    protected Location getOrCalculateProxyLocation() {
+        if (this.myProxyLocation == null) {
+            // Using index 8 (Center) as per previous Leaf implementation convention
+            // Ensure region is initialized before calling this
+            this.myProxyLocation = getRegion().getKeyPoints().get(8);
+        }
+        return this.myProxyLocation;
+    }
 
     @Override
     protected void propagateSubscription(SimulationSubscription s) {
         addSubscription(s);
-        if (s instanceof SubscriptionWithLocation sub) {
-            Location proxyLocation = sub.getLocation();
-            if (propagatedSubscriptions.containsKey(proxyLocation)) return;
-            propagatedSubscriptions.put(proxyLocation, true);
+        
+        // REFACTOR: Aggregation Logic 
+        // If we are already subscribed to the parent, we stop.
+        // If not, we send ONE subscription containing OUR location.
+        if (getParentBroker() != null && !isSubscribedToParent) {
             
-            if (getParentBroker() != null) {
-                s.setSource(this);
-                getParentBroker().processSubscription(s);
-            }
-        } else if (getParentBroker() != null) {
-            getParentBroker().processSubscription(s);
+            Location myLocation = getOrCalculateProxyLocation();
+            logger.fine(String.format("%s: Aggregating subscription. Sending my proxy location %s to parent.", 
+                    getName(), myLocation.toShortString()));
+            
+            SubscriptionWithLocation proxySubscription = new SubscriptionWithLocation(myLocation);
+            proxySubscription.setSource(this);
+            
+            getParentBroker().processSubscription(proxySubscription);
+            isSubscribedToParent = true;
         }
     }
 
@@ -81,7 +110,6 @@ public class ProximityRoutingBroker extends BoundedBroker {
             SimulationPublication forwardedCopy = p.getPublication();
             forwardedCopy.setSource(this);
             
-            // FIX: Copy State & Increment Hops (int)
             forwardedCopy.copyStateFrom(p);
             forwardedCopy.incrementHops();
             
@@ -93,6 +121,8 @@ public class ProximityRoutingBroker extends BoundedBroker {
         if (getRegion() == null) return;
 
         boolean isImprovement = false;
+
+        // FIXME
         for (Location keyPoint : getOrCalculateKeyPoints()) {
             PublicationWithLocation cachedPub = (PublicationWithLocation) bestPublicationCache.get(keyPoint);
             if (cachedPub == null || pub.getLocation().distanceSquared(keyPoint) < cachedPub.getLocation().distanceSquared(keyPoint)) {
@@ -107,7 +137,6 @@ public class ProximityRoutingBroker extends BoundedBroker {
                     SimulationPublication forwardedCopy = pub.getPublication();
                     forwardedCopy.setSource(this);
                     
-                    // FIX: Copy State & Increment Hops (int)
                     forwardedCopy.copyStateFrom(pub);
                     forwardedCopy.incrementHops();
                     

@@ -3,7 +3,7 @@ package simulator.tests.scenarios;
 import simulator.core.Location;
 import simulator.regions.Region;
 import simulator.regions.SpatialRegion;
-import simulator.tests.framework.RegionTestScenario;
+import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
 /**
@@ -11,7 +11,7 @@ import simulator.tests.framework.TopologyFixture;
  * Covers: Contains (Strict), Intersects, Expand, Intersection, Union, and
  * Static Optimization Parity.
  */
-public class RegionFloatingPointTest extends RegionTestScenario {
+public class RegionFloatingPointTest extends TestScenario {
 
     private static final double TOLERANCE = 1e-5;
     // Restored: Used to verify strict boundary exclusions

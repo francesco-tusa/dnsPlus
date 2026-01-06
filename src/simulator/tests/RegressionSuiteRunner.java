@@ -3,10 +3,12 @@ package simulator.tests;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
-import simulator.config.BrokerConfig.StrategyType;
+
 import simulator.tests.fixtures.*;
 import simulator.tests.framework.*;
 import simulator.tests.scenarios.*;
+import simulator.topology.factories.BrokerFactory;
+import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.factories.SpatialMatchBrokerFactory;
 import utils.CustomLogger;
 
@@ -14,68 +16,74 @@ public class RegressionSuiteRunner {
     private static final Logger logger = CustomLogger.getLogger(RegressionSuiteRunner.class.getName());
 
     public static void main(String[] args) {
-        logger.info(">>> STARTING REGRESSION SUITE <<<");
+        logger.info(">>> STARTING GLOBAL REGRESSION SUITE <<<");
 
-        // 0. Unit Tests (Run Once)
-        logger.info("\n=== Unit Tests (Topology/Strategy Independent) ===");
+        // 0. Unit Tests
+        logger.info("\n=== Unit Tests ===");
         new RegionFloatingPointTest().run(null);
 
-        // -----------------------------------------------------------
-        // 1. Define Strategies to Test
-        // -----------------------------------------------------------
-        List<FactorySetup> setups = new ArrayList<>();
-        
-        // Setup A: SIMPLE Strategy (Single Region, Clipping Enabled)
-        // We enable clipping (true) to test the IntersectionPolicy logic even with a Simple Store.
-        setups.add(new FactorySetup(
-            StrategyType.SIMPLE, 
-            new SpatialMatchBrokerFactory(true, 0.0, true)
-        ));
+        // 1. Run Region-Based Suite
+        runRegionSuite();
 
-        // Setup B: SMART Strategy (Multi-Region, Threshold 0.5, Clipping Enabled)
-        setups.add(new FactorySetup(
-            StrategyType.SMART, 
-            new SpatialMatchBrokerFactory(false, 0.5, true) 
-        ));
-
-        // -----------------------------------------------------------
-        // 2. Fixed Topology Tests
-        // -----------------------------------------------------------
-        List<RegionTestScenario> fixedTests = new ArrayList<>();
-        fixedTests.add(new SubscriptionCoveringTest());
-        fixedTests.add(new SubscriptionExpansionTest());
-        fixedTests.add(new ComprehensiveFixedScenario());
-        
-        runBatch(new FixedTopologyFixture(), fixedTests, setups);
-
-        // -----------------------------------------------------------
-        // 3. Grid Topology Tests
-        // -----------------------------------------------------------
-        List<RegionTestScenario> gridTests = new ArrayList<>();
-        gridTests.add(new GridCrossCornerTest());
-        
-        runBatch(new GridTopologyFixture(), gridTests, setups);
-
-        // -----------------------------------------------------------
-        // 4. GeoNames Topology Tests
-        // -----------------------------------------------------------
-        // Checks complex routing on the real-world dataset
-        List<RegionTestScenario> geoTests = new ArrayList<>();
-        geoTests.add(new GeoNamesRegressionTest());
-        
-        runBatch(new GeoNamesTopologyFixture(), geoTests, setups);
+        // 2. Run Location-Based Suite
+        runLocationSuite();
     }
 
-    // Helper Record
-    record FactorySetup(StrategyType name, SpatialMatchBrokerFactory factory) {}
+    // --- Suite 1: Region Logic (SpatialMatchBroker) ---
+    private static void runRegionSuite() {
+        logger.info("\n\n################################################");
+        logger.info("### RUNNING REGION-BASED REGRESSION TESTS    ###");
+        logger.info("################################################");
 
-    private static void runBatch(TopologyFixture fixture, List<RegionTestScenario> scenarios, List<FactorySetup> setups) {
+        List<FactorySetup> setups = new ArrayList<>();
+        setups.add(new FactorySetup("SIMPLE (Clip)", new SpatialMatchBrokerFactory(true, 0.0, true)));
+        setups.add(new FactorySetup("SMART (0.5)", new SpatialMatchBrokerFactory(false, 0.5, true)));
+
+        // 1. Fixed Topology Tests
+        List<TestScenario> fixedScenarios = new ArrayList<>();
+        fixedScenarios.add(new SubscriptionCoveringTest());
+        fixedScenarios.add(new SubscriptionExpansionTest());
+        fixedScenarios.add(new ComprehensiveFixedScenario());
+        runBatch(new FixedTopologyFixture(), fixedScenarios, setups);
+
+        // 2. Grid Topology Tests
+        List<TestScenario> gridScenarios = new ArrayList<>();
+        gridScenarios.add(new GridCrossCornerTest());
+        runBatch(new GridTopologyFixture(), gridScenarios, setups);
+
+        // 3. GeoNames Topology Tests
+        List<TestScenario> geoScenarios = new ArrayList<>();
+        geoScenarios.add(new GeoNamesRegressionTest());
+        runBatch(new GeoNamesTopologyFixture(), geoScenarios, setups);
+    }
+
+    // --- Suite 2: Location Logic (ProximityRoutingBroker) ---
+    private static void runLocationSuite() {
+        logger.info("\n\n################################################");
+        logger.info("### RUNNING LOCATION-BASED REGRESSION TESTS  ###");
+        logger.info("################################################");
+
+        List<FactorySetup> setups = new ArrayList<>();
+        setups.add(new FactorySetup("PROXIMITY", new LocationBrokerFactory()));
+
+        List<TestScenario> scenarios = new ArrayList<>();
+        scenarios.add(new SubscriptionAggregationTest());
+
+        runBatch(new FixedTopologyFixture(), scenarios, setups);
+        runBatch(new GridTopologyFixture(), scenarios, setups);
+        runBatch(new GeoNamesTopologyFixture(), scenarios, setups);
+    }
+
+    // --- Execution Engine ---
+
+    record FactorySetup(String name, BrokerFactory factory) {}
+
+    private static void runBatch(TopologyFixture fixture, List<TestScenario> scenarios, List<FactorySetup> setups) {
         for (FactorySetup setup : setups) {
             logger.info(String.format("\n=== Environment: %s | Strategy: %s ===", fixture.getName(), setup.name()));
             
-            for (RegionTestScenario test : scenarios) {
+            for (TestScenario test : scenarios) {
                 try {
-                    // Re-initialize topology for every test to ensure isolation
                     fixture.setup(setup.factory());
                     
                     long start = System.currentTimeMillis();

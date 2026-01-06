@@ -5,10 +5,10 @@ import simulator.events.PublicationWithLocation;
 import simulator.regions.Region;
 import simulator.regions.SpatialMatchBroker;
 import simulator.regions.SubscriptionWithRegion;
-import simulator.tests.framework.RegionTestScenario;
+import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
-public class SubscriptionCoveringTest extends RegionTestScenario {
+public class SubscriptionCoveringTest extends TestScenario {
     @Override
     public String getTestName() { return "Subscription Covering (Large contains Small)"; }
 

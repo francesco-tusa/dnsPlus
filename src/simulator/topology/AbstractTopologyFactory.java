@@ -1,14 +1,14 @@
 package simulator.topology;
 
-import simulator.regions.BoundedBroker;
+import simulator.entities.SimulationBroker;
 
 /**
  * Abstract base class for topology factories, defining the steps for generation.
  *
  * @param <C> The specific type of TopologyConfiguration required by the subclass.
- * @param <R> The specific type of the root TreeNode, constrained to be a BrokerWithRegion.
+ * @param <R> A generic SimulationBroker.
  */
-public abstract class AbstractTopologyFactory<C extends TopologyConfiguration, R extends BoundedBroker>
+public abstract class AbstractTopologyFactory<C extends TopologyConfiguration, R extends SimulationBroker>
         implements TopologyFactory<C, R> {
 
     protected C config;

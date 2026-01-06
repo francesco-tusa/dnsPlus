@@ -1,4 +1,3 @@
-// src/simulator/tests/fixtures/GeoNamesTopologyFixture.java
 package simulator.tests.fixtures;
 
 import java.util.logging.Logger;
@@ -6,10 +5,12 @@ import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
+import simulator.entities.SimulationBroker;
 import simulator.regions.BoundedBroker;
 import simulator.tests.framework.TopologyFixture;
 import simulator.topology.analysis.TopologyAnalyser;
-import simulator.topology.factories.SpatialMatchBrokerFactory;
+import simulator.topology.factories.BoundedBrokerFactory;
+import simulator.topology.factories.BrokerFactory;
 import simulator.topology.geonames.GeoNamesTopologyConfiguration;
 import simulator.topology.geonames.GeoNamesTopologyLoader;
 import utils.CustomLogger;
@@ -19,10 +20,15 @@ public class GeoNamesTopologyFixture implements TopologyFixture {
     private BoundedBroker root;
 
     @Override
-    public void setup(SpatialMatchBrokerFactory factory) {
+    public void setup(BrokerFactory factory) {
+        // Validation: GeoNames specifically requires a region-aware factory
+        if (!(factory instanceof BoundedBrokerFactory boundedFactory)) {
+            throw new IllegalArgumentException("GeoNamesTopologyFixture requires a BoundedBrokerFactory (Region-based), but received: " + factory.getClass().getSimpleName());
+        }
+
         // 1. Load the Topology Structure
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
-        GeoNamesTopologyLoader loader = new GeoNamesTopologyLoader(factory);
+        GeoNamesTopologyLoader loader = new GeoNamesTopologyLoader(boundedFactory);
         this.root = loader.generateTopology(config);
 
         // 2. Attach Regression Test Clients
@@ -31,6 +37,7 @@ public class GeoNamesTopologyFixture implements TopologyFixture {
 
     private void attachRegressionClients() {
         // Find required brokers using partial name matching (e.g. "Dhaka" -> "Dhaka (Division)")
+        // Note: These must be BoundedBrokers because we access their regions below
         BoundedBroker dhaka = findNodeContains("Dhaka", BoundedBroker.class);
         BoundedBroker sylhet = findNodeContains("Sylhet", BoundedBroker.class);
         BoundedBroker rajshahi = findNodeContains("Rajshahi", BoundedBroker.class);
@@ -83,7 +90,7 @@ public class GeoNamesTopologyFixture implements TopologyFixture {
     }
 
     @Override
-    public BoundedBroker getRoot() { return this.root; }
+    public SimulationBroker getRoot() { return this.root; }
 
     @Override
     public <T extends TreeNode> T findNode(String name, Class<T> clazz) {

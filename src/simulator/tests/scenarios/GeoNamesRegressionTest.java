@@ -7,10 +7,10 @@ import simulator.events.SimulationSubscription;
 import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
-import simulator.tests.framework.RegionTestScenario;
+import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
-public class GeoNamesRegressionTest extends RegionTestScenario {
+public class GeoNamesRegressionTest extends TestScenario {
 
     @Override
     public String getTestName() { return "GeoNames Complex Propagation"; }

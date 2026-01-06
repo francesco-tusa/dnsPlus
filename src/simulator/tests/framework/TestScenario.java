@@ -5,7 +5,11 @@ import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
 import utils.CustomLogger;
 
-public abstract class RegionTestScenario {
+/**
+ * Abstract base class for all functional test scenarios.
+ * Compatible with both Region-based and Location-based topologies.
+ */
+public abstract class TestScenario {
     protected final Logger logger = CustomLogger.getLogger(this.getClass().getName());
 
     public abstract String getTestName();
@@ -18,7 +22,6 @@ public abstract class RegionTestScenario {
     // --- Common Assertions & Helpers ---
     
     protected void assertReceived(SubscriberWithLocation sub, int expected) {
-        // ADDED: Log the assertion check
         logger.info(String.format("   [Check] Subscriber '%s': Checking inbox. Expected=%d, Actual=%d", 
             sub.getName(), expected, sub.getnPublications()));
 
@@ -29,18 +32,13 @@ public abstract class RegionTestScenario {
     }
     
     protected SubscriberWithLocation requireSubscriber(TopologyFixture fixture, String name) {
-        // ADDED: Log the setup action
-        logger.info(String.format("   [Setup] Looking for Subscriber: '%s'", name));
-        
+        // Find generic SubscriberWithLocation (works for both Bounded and Coordinate brokers)
         SubscriberWithLocation sub = fixture.findNode(name, SubscriberWithLocation.class);
         if (sub == null) throw new IllegalStateException("Test Setup Failed: Missing subscriber " + name);
         return sub;
     }
     
     protected PublisherWithLocation requirePublisher(TopologyFixture fixture, String name) {
-        // ADDED: Log the setup action
-        logger.info(String.format("   [Setup] Looking for Publisher: '%s'", name));
-
         PublisherWithLocation pub = fixture.findNode(name, PublisherWithLocation.class);
         if (pub == null) throw new IllegalStateException("Test Setup Failed: Missing publisher " + name);
         return pub;

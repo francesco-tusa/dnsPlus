@@ -7,10 +7,10 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.tests.framework.FunctionalTestUtils;
-import simulator.tests.framework.RegionTestScenario;
+import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
-public class ComprehensiveFixedScenario extends RegionTestScenario {
+public class ComprehensiveFixedScenario extends TestScenario {
 
     @Override
     public String getTestName() { return "Comprehensive Fixed Topology Check"; }

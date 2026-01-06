@@ -8,10 +8,10 @@ import simulator.events.SimulationSubscription;
 import simulator.regions.Region;
 import simulator.regions.SpatialMatchBroker;
 import simulator.regions.SubscriptionWithRegion;
-import simulator.tests.framework.RegionTestScenario;
+import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
-public class SubscriptionExpansionTest extends RegionTestScenario {
+public class SubscriptionExpansionTest extends TestScenario {
     @Override
     public String getTestName() { return "Subscription Expansion & Merging"; }
 
