@@ -2,32 +2,69 @@ package simulator.entities;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
+import simulator.config.SimConfiguration;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.PublicationWithLocation;
 import simulator.events.metrics.EventMetrics;
 import utils.CustomLogger;
-import utils.TraceIdGenerator;
 import simulator.visualisation.TopologyVisualiser;
 
 public class PublisherWithLocation extends TreeNode {
     private static final Logger logger = CustomLogger.getLogger(PublisherWithLocation.class.getName());
     
+    private static final AtomicInteger PUBLISHER_ID_GENERATOR = new AtomicInteger(1);
+    
     private final Location location;
+    private final int myPublisherId; 
     private int nPublications;
     private final List<PublicationWithLocation> sentPublications = new ArrayList<>();
 
+    /**
+     * Legacy/Test Constructor: Allows manual naming (e.g., "pub1").
+     */
     public PublisherWithLocation(String name, Location location) {
-        super(name);
+        this(PUBLISHER_ID_GENERATOR.getAndIncrement(), name, location);
+    }
+
+    /**
+     * Simulation Constructor: Auto-generates Name.
+     */
+    public PublisherWithLocation(Location location) {
+        this(PUBLISHER_ID_GENERATOR.getAndIncrement(), null, location);
+    }
+
+    private PublisherWithLocation(int id, String explicitName, Location location) {
+        // Uses explicit name OR auto-generates if Tracing is ON OR returns null
+        super(resolveName(id, explicitName));
+        
+        this.myPublisherId = id;
         this.location = location;
         this.nPublications = 0;
+    }
+    
+    private static String resolveName(int id, String explicitName) {
+        if (explicitName != null) return explicitName;
+        if (SimConfiguration.get().paths.enableSubscriptionTracing) return "Pub-" + id;
+        return null; 
+    }
+    
+    @Override
+    public String getName() {
+        String storedName = super.getName();
+        if (storedName != null) {
+            return storedName;
+        }
+        return "Pub-" + myPublisherId;
     }
     
     public void send(PublicationWithLocation pub) {
         pub.setSource(this);
 
-        long traceId = TraceIdGenerator.nextId();
+        long seqId = this.nPublications + 1;
+        long traceId = ((long) this.myPublisherId << 32) | (seqId & 0xFFFFFFFFL);
         pub.setMetrics(new EventMetrics(traceId));
 
         TreeNode parent = getParent();
@@ -35,10 +72,10 @@ public class PublisherWithLocation extends TreeNode {
         if (parent instanceof SimulationBroker) {
             SimulationBroker broker = (SimulationBroker) parent;
             
-            String pubInfo = " for location " + pub.getLocation();
             sentPublications.add(pub); 
-            
-            logger.fine("\n" + getName() + ": sending publication" + pubInfo);
+            if (logger.isLoggable(java.util.logging.Level.FINE)) {
+                logger.fine("\n" + getName() + ": sending publication for location " + pub.getLocation());
+            }
             
             TopologyVisualiser visualizer = TopologyVisualiser.getInstance();
             if (visualizer != null) {
@@ -47,28 +84,17 @@ public class PublisherWithLocation extends TreeNode {
             }
 
             broker.processPublication(pub);
+            
             nPublications++;
         } else {
-            logger.severe(getName() + ": parent is not a SimulationBroker, cannot send publication.");
+            logger.severe(getName() + ": parent is not a SimulationBroker");
         }
     }
     
-    public List<PublicationWithLocation> getSentPublications() {
-        return sentPublications;
-    }
-    
+    public List<PublicationWithLocation> getSentPublications() { return sentPublications; }
     public Location getLocation() { return location; }
     public int getnPublications() { return nPublications; }
     public SimulationBroker getBroker() { return (SimulationBroker) getParent(); }
-
-
-    @Override
-    public String resolveLogLocation(String receiverLocationInfo) {
-        return this.location.toString();
-    }
-
-    @Override
-    public Location getMetricLocation() {
-        return this.location;
-    }
+    @Override public String resolveLogLocation(String receiverLocationInfo) { return this.location.toString(); }
+    @Override public Location getMetricLocation() { return this.location; }
 }

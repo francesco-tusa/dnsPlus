@@ -3,7 +3,6 @@ package simulator.population;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
-
 import simulator.core.Location;
 import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
@@ -15,22 +14,16 @@ import simulator.regions.Region;
 public abstract class AbstractPublisherGenerator {
 
     protected final Random random = new Random();
-    protected int publisherIdCounter = 0;
+    
+    // Removed: publisherIdCounter (Now handled inside PublisherWithLocation)
 
     /**
      * Abstract method that must be implemented by concrete generator classes.
-     * This method contains the specific logic for distributing publishers across a topology.
-     *
-     * @param rootNode The root of the broker topology.
-     * @param leafBrokers A generic list of all leaf brokers in the topology.
-     * @param totalPublishersToCreate The total number of publishers to create and attach.
      */
     public abstract void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalPublishersToCreate);
 
     /**
      * Generates a random location within the given region's bounding box.
-     * @param region The region to generate a location in.
-     * @return A new Location object with random coordinates.
      */
     protected Location generateLocationInRegion(Region region) {
         Objects.requireNonNull(region, "Region cannot be null");
@@ -50,13 +43,5 @@ public abstract class AbstractPublisherGenerator {
         double randomZ = bl.getZ();
 
         return new Location(randomX, randomY, randomZ);
-    }
-
-    /**
-     * Generates a unique name for a new publisher.
-     * @return A unique publisher name string.
-     */
-    protected String generatePublisherName() {
-        return "Pub-" + publisherIdCounter++;
     }
 }

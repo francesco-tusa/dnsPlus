@@ -78,7 +78,7 @@ public abstract class AbstractBilevelPublishersPlacement extends AbstractPublish
 
             // 4. Place the publisher
             Location pubLocation = generateLocationInRegion(leafRegion);
-            PublisherWithLocation publisher = new PublisherWithLocation(generatePublisherName(), pubLocation);
+            PublisherWithLocation publisher = new PublisherWithLocation(pubLocation);
             chosenLeaf.addChild(publisher);
             publishersCreated++;
             

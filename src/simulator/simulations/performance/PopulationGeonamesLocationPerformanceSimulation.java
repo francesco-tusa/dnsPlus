@@ -17,14 +17,12 @@ public class PopulationGeonamesLocationPerformanceSimulation extends GeoNamesBas
 
     private static final Logger logger = CustomLogger.getLogger(PopulationGeonamesLocationPerformanceSimulation.class.getName());
 
-    private final int poolSize = 100;
-
     /**
      * Implements the abstract method to provide the Population-based strategy.
      */
     @Override
     protected PublishersPlacementStrategy getPublisherPlacementStrategy() {
-        return new PopulationBasedPublishersPlacement(this.poolSize);
+        return new PopulationBasedPublishersPlacement();
     }
 
     /**

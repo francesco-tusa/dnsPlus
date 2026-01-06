@@ -3,7 +3,7 @@ package simulator.regions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List; // Add import
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import simulator.core.Location;
@@ -18,165 +18,102 @@ import utils.CustomLogger;
 public class ProximityRoutingBroker extends BoundedBroker {
 
     private static final Logger logger = CustomLogger.getLogger(ProximityRoutingBroker.class.getName());
-
     protected final BasicSubscriptionStore inputStore = new BasicSubscriptionStore();
-
     private final Map<Location, SimulationPublication> bestPublicationCache = new HashMap<>();
-
-    // TODO: cross check whether this should be migrated to a SubscriptionStore
     private final Map<Location, Boolean> propagatedSubscriptions = new HashMap<>();
     private List<Location> keyPointsCache = null;
 
-    public ProximityRoutingBroker(String name) {
-        super(name);
-    }
-
-    public ProximityRoutingBroker(String name, Location p1, Location p2) {
-        super(name, p1, p2);
-    }
+    public ProximityRoutingBroker(String name) { super(name); }
+    public ProximityRoutingBroker(String name, Location p1, Location p2) { super(name, p1, p2); }
     
-    @Override
-    public int getInputSubscriptionCount() {
-        return inputStore.size();
-    }
-
-    @Override
-    public int getOutputSubscriptionCount() { 
-        return propagatedSubscriptions.size(); 
-    }
-
-    @Override
-    public Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions() {
-        return inputStore.getAllSubscriptions();
-    }
+    @Override public int getInputSubscriptionCount() { return inputStore.size(); }
+    @Override public int getOutputSubscriptionCount() { return propagatedSubscriptions.size(); }
+    @Override public Map<TreeNode, List<SimulationSubscription>> getInputSubscriptions() { return inputStore.getAllSubscriptions(); }
 
     @Override
     public Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions() {
-        if (getParentBroker() == null || propagatedSubscriptions.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        
-        // Synthesize the list of subscriptions sent to the parent
-        // based on the cached locations.
+        if (getParentBroker() == null || propagatedSubscriptions.isEmpty()) return Collections.emptyMap();
         List<SimulationSubscription> sentSubs = new ArrayList<>();
-        for (Location loc : propagatedSubscriptions.keySet()) {
-            sentSubs.add(new SubscriptionWithLocation(loc));
-        }
-        
+        for (Location loc : propagatedSubscriptions.keySet()) sentSubs.add(new SubscriptionWithLocation(loc));
         Map<TreeNode, List<SimulationSubscription>> result = new HashMap<>();
         result.put(getParentBroker(), sentSubs);
         return result;
     }
 
     private List<Location> getOrCalculateKeyPoints() {
-        if (this.keyPointsCache == null) {
-            this.keyPointsCache = getRegion().getKeyPoints();
-        }
+        if (this.keyPointsCache == null) this.keyPointsCache = getRegion().getKeyPoints();
         return this.keyPointsCache;
     }
 
-    /**
-     * This is the propagation logic for an intermediate broker.
-     * It does not create a new proxy location, but forwards the one it receives.
-     */
     @Override
     protected void propagateSubscription(SimulationSubscription s) {
-        logger.fine(getName() + ": processing a subscription received from " + s.getSource().getName());
         addSubscription(s);
-
         if (s instanceof SubscriptionWithLocation sub) {
-            // It uses the location from the INCOMING subscription for filtering.
             Location proxyLocation = sub.getLocation();
-            logger.fine(String.format("%s: Received and processing proxy subscription for location %s.",
-                    getName(), proxyLocation.toShortString()));
-
-            if (propagatedSubscriptions.containsKey(proxyLocation)) {
-                logger.fine(getName() + ": Proxy subscription for location " + proxyLocation.toShortString()
-                        + " already propagated. Stopping upward propagation.");
-                return;
-            }
-
+            if (propagatedSubscriptions.containsKey(proxyLocation)) return;
             propagatedSubscriptions.put(proxyLocation, true);
             
             if (getParentBroker() != null) {
-                logger.fine(getName() + ": Forwarding proxy subscription upwards to parent " + getParentBroker().getName());
-                // It forwards the original subscription object 's', preserving the proxy location.
                 s.setSource(this);
                 getParentBroker().processSubscription(s);
             }
         } else if (getParentBroker() != null) {
-             // Fallback for other subscription types
             getParentBroker().processSubscription(s);
         }
     }
 
     @Override
     public void addSubscription(SimulationSubscription s) {
-        if (s.getSource() == null) {
-            throw new IllegalArgumentException("Subscription source cannot be null");
-        }
-        // Use Store
+        if (s.getSource() == null) throw new IllegalArgumentException("Subscription source cannot be null");
         inputStore.add(s);
     }
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-        logger.fine(getName() + ": processing publication from " + p.getSource().getName());
-
-        if (p.getSource() != getParentBroker()) {
-            propagatePublicationUpward(p);
-        }
-
-        if (p instanceof PublicationWithLocation pub) {
-            processPublicationDownward(pub);
-        }
-
+        if (p.getSource() != getParentBroker()) propagatePublicationUpward(p);
+        if (p instanceof PublicationWithLocation pub) processPublicationDownward(pub);
         return null;
     }
 
     private void propagatePublicationUpward(SimulationPublication p) {
         BoundedBroker parentBroker = getParentBroker();
         if (parentBroker != null) {
-            logger.fine(getName() + ": Propagating publication upwards to " + parentBroker.getName());
             SimulationPublication forwardedCopy = p.getPublication();
             forwardedCopy.setSource(this);
+            
+            // FIX: Copy State & Increment Hops (int)
+            forwardedCopy.copyStateFrom(p);
+            forwardedCopy.incrementHops();
+            
             parentBroker.processPublication(forwardedCopy);
         }
     }
 
     protected void processPublicationDownward(PublicationWithLocation pub) {
-        if (getRegion() == null) {
-            logger.severe(getName() + ": Cannot process downward propagation, region is not set.");
-            return;
-        }
+        if (getRegion() == null) return;
 
         boolean isImprovement = false;
-        // The key points are used for publication filtering.
         for (Location keyPoint : getOrCalculateKeyPoints()) {
             PublicationWithLocation cachedPub = (PublicationWithLocation) bestPublicationCache.get(keyPoint);
-
-            String cachedLocationStr = (cachedPub == null) ? "none" : cachedPub.getLocation().toShortString();
-            if (cachedPub == null ||
-                    pub.getLocation().distanceSquared(keyPoint) < cachedPub.getLocation().distanceSquared(keyPoint)) {
-                logger.fine(String.format("%s: New pub %s is an improvement over cached pub %s for key point %s.",
-                        getName(), pub.getLocation().toShortString(), cachedLocationStr, keyPoint.toShortString()));
+            if (cachedPub == null || pub.getLocation().distanceSquared(keyPoint) < cachedPub.getLocation().distanceSquared(keyPoint)) {
                 bestPublicationCache.put(keyPoint, pub);
                 isImprovement = true;
             }
         }
         
         if (isImprovement) {
-            logger.fine(getName() + ": Publication is an improvement, forwarding to children.");
             for (TreeNode child : getChildren()) {
                 if (child instanceof BoundedBroker childBroker && child != pub.getSource()) {
                     SimulationPublication forwardedCopy = pub.getPublication();
                     forwardedCopy.setSource(this);
+                    
+                    // FIX: Copy State & Increment Hops (int)
+                    forwardedCopy.copyStateFrom(pub);
+                    forwardedCopy.incrementHops();
+                    
                     childBroker.processPublication(forwardedCopy);
                 }
             }
-        } else {
-            logger.fine(getName()
-                    + ": Publication is not an improvement for any key point. Stopping downward propagation.");
         }
     }
 }

@@ -12,15 +12,10 @@ import utils.CustomLogger;
 
 public class ProportionalSubscribersPlacement implements SubscribersPlacementStrategy {
 
-    // Get the logger instance
     private static final Logger logger = CustomLogger.getLogger(ProportionalSubscribersPlacement.class.getName());
-
     private final Random random = new Random();
-    private int subscriberIdCounter = 0;
-
-    public ProportionalSubscribersPlacement() {
-        // Removed debug flag
-    }
+        
+    public ProportionalSubscribersPlacement() { }
 
     @Override
     public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {
@@ -47,19 +42,16 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
 
             if (chosenBroker != null) {
                 Region brokerRegion = chosenBroker.getRegion();
-
-                // Ensure the region is valid before attempting placement
-                if (brokerRegion == null || brokerRegion.getBottomLeft() == null) {
-                    continue; 
-                }
+                if (brokerRegion == null || brokerRegion.getBottomLeft() == null) continue; 
 
                 Location subLocation = generateLocationInRegion(brokerRegion);
-                SubscriberWithLocation subscriber = new SubscriberWithLocation(generateSubscriberName(), subLocation);
+                
+                SubscriberWithLocation subscriber = new SubscriberWithLocation(subLocation);
+                
                 chosenBroker.addChild(subscriber);
                 subscribersCreated++;
             }
         }
-        
         logger.info("--- Placement Complete. Total created: " + subscribersCreated + " ---");
     }
 
@@ -67,7 +59,6 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
         int low = 0;
         int high = cumulativeWeights.length - 1;
         int ans = -1;
-
         while (low <= high) {
             int mid = low + (high - low) / 2;
             if (cumulativeWeights[mid] > weight) {
@@ -80,24 +71,7 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
         return (ans != -1) ? brokers.get(ans) : null;
     }
 
-    private void generateAndAttachUniformly(List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {
-        long subscribersCreated = 0;
-        for (long i = 0; i < totalSubscribersToCreate; i++) {
-            BoundedBroker chosenBroker = leafBrokers.get(random.nextInt(leafBrokers.size()));
-
-            Region brokerRegion = chosenBroker.getRegion();
-            if (brokerRegion == null || brokerRegion.getBottomLeft() == null) continue;
-
-            Location subLocation = generateLocationInRegion(brokerRegion);
-            SubscriberWithLocation subscriber = new SubscriberWithLocation(generateSubscriberName(), subLocation);
-            chosenBroker.addChild(subscriber);
-            subscribersCreated++;
-        }
-         logger.info("--- Uniform Subscriber Placement Complete. Total subscribers created: " + subscribersCreated + " ---");
-    }
-
     private Location generateLocationInRegion(Region region) {
-        // Ensure region is valid before attempting to get location
         Objects.requireNonNull(region, "Region cannot be null");
         Location bl = region.getBottomLeft();
         Location tr = region.getTopRight();
@@ -108,15 +82,10 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
         double rangeY = tr.getY() - bl.getY();
         double rangeZ = tr.getZ() - bl.getZ();
         
-        // Handle cases where region is just a point or a line
         double randomX = bl.getX() + (rangeX > 0 ? random.nextDouble() * rangeX : 0);
         double randomY = bl.getY() + (rangeY > 0 ? random.nextDouble() * rangeY : 0);
         double randomZ = bl.getZ() + (rangeZ > 0 ? random.nextDouble() * rangeZ : 0);
         
         return new Location(randomX, randomY, randomZ);
-    }
-
-    private String generateSubscriberName() {
-        return "Sub-" + subscriberIdCounter++;
     }
 }

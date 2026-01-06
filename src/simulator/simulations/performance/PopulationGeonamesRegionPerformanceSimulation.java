@@ -21,7 +21,7 @@ public class PopulationGeonamesRegionPerformanceSimulation extends GeoNamesBased
 
     @Override
     protected PublishersPlacementStrategy getPublisherPlacementStrategy() {
-        return new PopulationBasedPublishersPlacement(this.poolSize);
+        return new PopulationBasedPublishersPlacement();
     }
     
     @Override
