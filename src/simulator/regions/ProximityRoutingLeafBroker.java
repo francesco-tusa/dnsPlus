@@ -1,89 +1,50 @@
 package simulator.regions;
 
 import java.util.logging.Logger;
+
 import simulator.core.Location;
-import simulator.events.PublicationWithLocation;
-import simulator.events.SimulationPublication;
-import simulator.events.SimulationSubscription;
-import simulator.events.SubscriptionWithLocation;
-import simulator.entities.SubscriberWithLocation;
 import simulator.core.TreeNode;
+import simulator.entities.SubscriberWithLocation;
 import utils.CustomLogger;
 
-public class ProximityRoutingLeafBroker extends ProximityRoutingBroker implements LeafBroker {
+/**
+ * Leaf node implementation for the "Heavy version, closest" algorithm.
+ * * Logic Alignment:
+ * 1. Inherits the Stateful Routing logic from ProximityRoutingBroker.
+ * 2. Subscribers are treated as "Point Targets" (Target Array Size = 1).
+ * 3. Maintains 'Best Distance' state per subscriber to filter redundant updates.
+ * 4. Aggregates all subscribers into the Broker's Center for upstream propagation.
+ */
+public class ProximityRoutingLeafBroker extends ProximityRoutingBroker {
 
     private static final Logger logger = CustomLogger.getLogger(ProximityRoutingLeafBroker.class.getName());
-
-    public ProximityRoutingLeafBroker(String name) {
-        super(name);
-    }
 
     public ProximityRoutingLeafBroker(String name, Location p1, Location p2) {
         super(name, p1, p2);
     }
 
-    // REFACTOR: Removed propagateSubscription(). 
-    // The Base class 'ProximityRoutingBroker' now correctly handles:
-    // 1. Adding to input store
-    // 2. Creating a proxy subscription with THIS broker's location
-    // 3. Sending it to parent (if not already sent)
-
-    @Override
-    public SimulationSubscription matchPublication(SimulationPublication p) {
-        logger.fine(getName() + ": processing a publication received from " + p.getSource().getName());
-
-        if (p.getSource() != getParentBroker()) {
-            propagatePublicationUpward(p);
-        }
-
-        processPublicationForLocalDelivery(p);
-        
-        return null;
+    public ProximityRoutingLeafBroker(String name) {
+        super(name);
     }
 
-    private void propagatePublicationUpward(SimulationPublication p) {
-        BoundedBroker parentBroker = getParentBroker();
-        if (parentBroker != null) {
-            logger.fine(getName() + ": forwarding publication to parent " + parentBroker.getName());
-            SimulationPublication forwardedCopy = p.getPublication();
-            forwardedCopy.setSource(this);
-            parentBroker.processPublication(forwardedCopy);
+    /**
+     * strict enforcement of Leaf semantics (optional but recommended):
+     * Leaf brokers should generally only have Subscribers as children, not other Brokers.
+     */
+    @Override
+    public void addChild(TreeNode child) {
+        // Validation: Warn if a Broker is added as a child to a Leaf
+        if (child instanceof BoundedBroker) {
+             logger.warning("Topology Warning: Adding a Broker (" + child.toString() + 
+                            ") as a child to a LeafBroker (" + this.getName() + "). " +
+                            "Leafs usually only host Subscribers.");
         }
+        
+        // Use the parent's logic to register the topology targets (Points/Quadrants)
+        super.addChild(child);
     }
     
-    @Override
-    public void processPublicationForLocalDelivery(SimulationPublication p) {
-        logger.fine(getName() + ": Processing publication for delivery to subscribers.");
-        if (p instanceof PublicationWithLocation pub) {
-            for (TreeNode child : getChildren()) {
-                if (child instanceof SubscriberWithLocation subscriber) {
-                    PublicationWithLocation finalCopy = (PublicationWithLocation) pub.getPublication();
-                    finalCopy.setSource(this);
-                    deliverToSubscriber(subscriber, finalCopy);
-                }
-            }
-        }
-    }
-
-    private void deliverToSubscriber(SubscriberWithLocation subscriber, PublicationWithLocation pub) {
-        SimulationSubscription sub = inputStore.get(subscriber);
-        if (sub instanceof SubscriptionWithLocation) {
-            
-            Location lastPubLoc = subscriber.getLastReceivedPubLocation();
-            
-            String lastPubLocationStr = (lastPubLoc == null) ? "none" : lastPubLoc.toShortString();
-            double newDistance = pub.getLocation().distanceSquared(subscriber.getLocation());
-            
-            double lastDistance = (lastPubLoc == null) ? Double.POSITIVE_INFINITY : lastPubLoc.distanceSquared(subscriber.getLocation());
-
-            if (lastPubLoc == null || newDistance < lastDistance) {
-                logger.fine(String.format("%s: Delivering pub %s to %s. It is an improvement over last pub %s (NewDist^2: %.2f < OldDist^2: %.2f).",
-                        getName(), pub.getLocation().toShortString(), subscriber.getName(), lastPubLocationStr, newDistance, lastDistance));
-                subscriber.receive(pub);
-            } else {
-                logger.fine(String.format("%s: Filtering pub %s for %s. It is not an improvement over last pub %s (NewDist^2: %.2f >= OldDist^2: %.2f).",
-                        getName(), pub.getLocation().toShortString(), subscriber.getName(), lastPubLocationStr, newDistance, lastDistance));
-            }
-        }
-    }
+    // Note: matchPublication, addSubscription, and propagateSubscription 
+    // are strictly inherited from ProximityRoutingBroker to ensure 
+    // the "Closest/Stateful" algorithm is applied consistently.
 }
