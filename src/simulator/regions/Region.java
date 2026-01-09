@@ -660,21 +660,40 @@ public class Region extends AbstractRegion {
     @Override
     @JsonIgnore
     public Location getRandomLocation() {
-        Random random = new Random();
-        if (bottomLeft == null)
+        return getRandomLocation(new Random());
+    }
+
+    /**
+     * Core logic for generating a random location.
+     * Uses the provided Random instance for deterministic behavior and performance.
+     * * @param rng The seeded Random instance (Dependency Injection).
+     * @return A random Location within the region boundaries.
+     */
+    @JsonIgnore
+    public Location getRandomLocation(Random rng) {
+        // 1. Safety Check
+        if (bottomLeft == null) {
             return new Location(0, 0, 0);
-        double minX = bottomLeft.getX();
-        double maxX = topRight.getX();
-        double minY = bottomLeft.getY();
-        double maxY = topRight.getY();
+        }
 
-        double width = getWidth();
-        double xOffset = width * random.nextDouble();
-        double x = minX + xOffset;
-        if (x > 180.0)
+        // 2. Longitude Logic (X Axis)
+        // We use getWidth() because it encapsulates the complex "Wrapping" math
+        double width = getWidth(); 
+        double xOffset = width * rng.nextDouble();
+        double x = bottomLeft.getX() + xOffset;
+
+        // Normalization: If the region wraps or the offset pushes us past 180
+        if (x > 180.0) {
             x -= 360.0;
+        }
 
-        double y = minY + (maxY - minY) * random.nextDouble();
+        // 3. Latitude Logic (Y Axis)
+        // Standard linear calculation
+        double height = getHeight();
+        double y = bottomLeft.getY() + (height * rng.nextDouble());
+
+        // 4. Return Result
+        // We ignore Z (Altitude) generally, or keep it 0 as per your original code
         return new Location(x, y, 0);
     }
 

@@ -72,20 +72,6 @@ public class ProportionalSubscribersPlacement implements SubscribersPlacementStr
     }
 
     private Location generateLocationInRegion(Region region) {
-        Objects.requireNonNull(region, "Region cannot be null");
-        Location bl = region.getBottomLeft();
-        Location tr = region.getTopRight();
-        Objects.requireNonNull(bl, "Region's bottom-left corner cannot be null");
-        Objects.requireNonNull(tr, "Region's top-right corner cannot be null");
-
-        double rangeX = tr.getX() - bl.getX();
-        double rangeY = tr.getY() - bl.getY();
-        double rangeZ = tr.getZ() - bl.getZ();
-        
-        double randomX = bl.getX() + (rangeX > 0 ? random.nextDouble() * rangeX : 0);
-        double randomY = bl.getY() + (rangeY > 0 ? random.nextDouble() * rangeY : 0);
-        double randomZ = bl.getZ() + (rangeZ > 0 ? random.nextDouble() * rangeZ : 0);
-        
-        return new Location(randomX, randomY, randomZ);
+        return region.getRandomLocation(this.random);
     }
 }
