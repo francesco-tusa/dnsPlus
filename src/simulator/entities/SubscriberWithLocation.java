@@ -105,13 +105,13 @@ public class SubscriberWithLocation extends TreeNode {
             if (p.getMetrics() != null) {
                 String pubLocStr = String.format("(%.4f, %.4f)", pub.getLocation().getX(), pub.getLocation().getY());
                 String payload = "Pub:" + pubLocStr + " -> Sub:" + getFormattedLocation();
-                
+
+                String status = matchesInterest ? "Delivered" : "Delivered (Unwanted)";
                 CsvMetricWriter.getInstance().logPublication(
-                    p, 
-                    getName(), 
-                    payload, 
-                    "Delivered"
-                );
+                        p,
+                        getName(),
+                        payload,
+                        status);
             }
 
             int hops = p.getHops();

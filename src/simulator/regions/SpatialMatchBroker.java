@@ -189,19 +189,41 @@ public class SpatialMatchBroker extends BoundedBroker {
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         if (p instanceof PublicationWithLocation pub) {
-            if (SimConfiguration.get().paths.enableSubscriptionTracing) {
-                CsvMetricWriter.getInstance().logPublication(p, getName(), this.getRegion().toLogString(), "Received");
-            }
-
+            
+            // 1. Perform Matching
             this.totalMatchingComputations += inputStore.size();
             List<TreeNode> matches = inputStore.findMatches(pub.getLocation());
-            int usefulForwards = 0;
+            
+            // 2. Pre-calculate useful forwards to determine status
+            int usefulForwardsCount = 0;
+            for (TreeNode target : matches) {
+                if (target != p.getSource()) {
+                    usefulForwardsCount++;
+                }
+            }
+
+            // 3. Update Metrics and Define Status String
+            String status = "Received";
+            if (usefulForwardsCount == 0) {
+                this.totalFalsePositiveEvents++;
+                status = "Received (Dead End)";
+            }
+
+            // 4. Log once (Single entry with correct status)
+            if (SimConfiguration.get().paths.enableSubscriptionTracing) {
+                CsvMetricWriter.getInstance().logPublication(
+                    p, 
+                    getName(), 
+                    this.getRegion().toLogString(), 
+                    status
+                );
+            }
+
+            // 5. Execute Forwarding
             for (TreeNode target : matches) {
                 if (target == p.getSource()) continue;
                 forwardPublicationToNode(p, target);
-                usefulForwards++;
             }
-            if (usefulForwards == 0) this.totalFalsePositiveEvents++;
         }
         return null;
     }
