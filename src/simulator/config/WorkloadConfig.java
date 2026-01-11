@@ -12,13 +12,10 @@ public class WorkloadConfig {
     public final ArrivalDistribution arrivalDistribution;
     public final double meanSubscriptionsPerSubscriber;
     
-    // External Factor Skew (Activity Multiplier for high-density areas)
-    // If true, users in denser regions will send MORE subscriptions than users in sparse regions.
+    // External Factor Skew
     public final boolean enableDensitySkew;
 
-    // Spatial Jitter (Standard Deviation in degrees)
-    // Adds random noise to subscription coordinates to simulate user movement.
-    // Recommended: 0.01 - 0.05
+    // Spatial Jitter
     public final double locationJitter;
 
     // for Random or Grid Simulations
@@ -26,35 +23,23 @@ public class WorkloadConfig {
     public final int publishersPerLeafNode;
 
     public WorkloadConfig(Properties props) {
-        this.numberOfReplicas = parseInt(props, "workload.replicas", "20");
-        this.subscribersPerReplica = parseInt(props, "workload.subscribersPerReplica", "2500");
-        this.subscriptionRegionSize = parseDouble(props, "workload.subscriptionRegionSize", "10.0");
-        this.remoteInterestProbability = parseDouble(props, "workload.remoteInterestProb", "0.1");
+        this.numberOfReplicas = ConfigParser.parseInt(props, "workload.replicas", 20);
+        this.subscribersPerReplica = ConfigParser.parseInt(props, "workload.subscribersPerReplica", 2500);
+        this.subscriptionRegionSize = ConfigParser.parseDouble(props, "workload.subscriptionRegionSize", 10.0);
+        this.remoteInterestProbability = ConfigParser.parseDouble(props, "workload.remoteInterestProb", 0.1);
 
-        String distStr = props.getProperty("workload.arrivalDistribution", "POISSON").toUpperCase();
-        this.arrivalDistribution = ArrivalDistribution.valueOf(distStr);
+        this.arrivalDistribution = ConfigParser.parseEnum(props, "workload.arrivalDistribution", ArrivalDistribution.class, ArrivalDistribution.POISSON);
         
-        this.meanSubscriptionsPerSubscriber = parseDouble(props, "workload.meanSubscriptionsPerSubscriber", "1.0");
-        this.enableDensitySkew = Boolean.parseBoolean(props.getProperty("workload.enableDensitySkew", "false"));
-        this.locationJitter = parseDouble(props, "workload.locationJitter", "0.0"); // Default: No jitter
+        this.meanSubscriptionsPerSubscriber = ConfigParser.parseDouble(props, "workload.meanSubscriptionsPerSubscriber", 1.0);
+        this.enableDensitySkew = ConfigParser.parseBoolean(props, "workload.enableDensitySkew", false);
+        this.locationJitter = ConfigParser.parseDouble(props, "workload.locationJitter", 0.0); 
 
         // Load Random or Simulation Specifics
-        this.subscribersPerLeafNode = parseInt(props, "workload.subscribersPerLeaf", "5");
-        this.publishersPerLeafNode = parseInt(props, "workload.publishersPerLeaf", "1");
+        this.subscribersPerLeafNode = ConfigParser.parseInt(props, "workload.subscribersPerLeaf", 5);
+        this.publishersPerLeafNode = ConfigParser.parseInt(props, "workload.publishersPerLeaf", 1);
     }
-    
     
     public long getTotalSubscribers() {
         return (long) numberOfReplicas * subscribersPerReplica;
-    }
-    
-    private int parseInt(Properties props, String key, String defaultVal) {
-        try { return Integer.parseInt(props.getProperty(key, defaultVal)); }
-        catch (NumberFormatException e) { throw new IllegalArgumentException("Config Error: Invalid integer for " + key); }
-    }
-    
-    private double parseDouble(Properties props, String key, String defaultVal) {
-        try { return Double.parseDouble(props.getProperty(key, defaultVal)); }
-        catch (NumberFormatException e) { throw new IllegalArgumentException("Config Error: Invalid double for " + key); }
     }
 }

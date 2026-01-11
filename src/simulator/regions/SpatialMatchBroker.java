@@ -61,6 +61,13 @@ public class SpatialMatchBroker extends BoundedBroker {
     @Override
     public Map<TreeNode, List<SimulationSubscription>> getPropagatedSubscriptions() { return outputStore.getAllSubscriptions(); }
 
+    /* 
+       FIXME: I believe this method is never called. It was meant to contain the logic for adding 
+       a subscription to te store but this seems to have been implemented inside propagateSubscription directly.
+       The SimulationBroker and its subsclassess may need a refactor to create a clearer and more uniform
+       interface
+    */
+
     @Override
     public void addSubscription(SimulationSubscription s) {
         if (s.getSource() == null) throw new IllegalArgumentException("Source null");

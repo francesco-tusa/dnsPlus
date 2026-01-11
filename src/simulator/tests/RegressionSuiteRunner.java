@@ -70,6 +70,7 @@ public class RegressionSuiteRunner {
         scenarios.add(new SubscriptionAggregationTest());
         scenarios.add(new ProximityPropagationTest());
         scenarios.add(new ProximityNetworkLogicTest());
+        scenarios.add(new ProximityBrakeTest());
 
         // Run against all topologies
         runBatch(new FixedTopologyFixture(), scenarios, setups);
