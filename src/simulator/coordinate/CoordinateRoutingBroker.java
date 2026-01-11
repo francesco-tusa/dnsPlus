@@ -23,11 +23,6 @@ public class CoordinateRoutingBroker extends SimulationBroker {
     public CoordinateRoutingBroker(String name) {
         super(name);
     }
-
-    @Override
-    public void addSubscription(SimulationSubscription s) {
-        inputStore.add(s);
-    }
     
     @Override
     public int getInputSubscriptionCount() {
@@ -56,8 +51,10 @@ public class CoordinateRoutingBroker extends SimulationBroker {
     }
 
     @Override
-    protected void propagateSubscription(SimulationSubscription s) {
-        addSubscription(s);
-        // Future: logic for coordinate routing
+    protected void handleSubscriptionProcessing(SimulationSubscription s) {
+        // Store the subscription locally
+        inputStore.add(s);
+        
+        // TODO: Future logic for coordinate routing propagation
     }
 }

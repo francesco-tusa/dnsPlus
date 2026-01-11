@@ -100,12 +100,6 @@ public class ProximityRoutingBroker extends BoundedBroker {
     // --- Subscription Handling ---
 
     @Override
-    public void addSubscription(SimulationSubscription s) {
-        if (s == null || s.getSource() == null) throw new IllegalArgumentException("Source cannot be null");
-        this.processSubscription(s);
-    }
-
-    @Override
     public int getInputSubscriptionCount() { return inputStore.size(); }
     @Override
     public int getOutputSubscriptionCount() { return isSubscribedToParent ? 1 : 0; }
@@ -130,7 +124,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
     }
 
     @Override
-    protected void propagateSubscription(SimulationSubscription s) {        
+    protected void handleSubscriptionProcessing(SimulationSubscription s) {        
         // 1. Store the subscription (Crucial for Downward Routing)
         inputStore.add(s);
         

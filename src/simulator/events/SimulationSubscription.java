@@ -2,8 +2,9 @@ package simulator.events;
 
 import simulator.core.TreeNode;
 import simulator.events.metrics.EventMetrics;
+import subscribing.AbstractSubscription;
 
-public abstract class SimulationSubscription {
+public abstract class SimulationSubscription extends AbstractSubscription {
 
     private static long ID_COUNTER = 0;
     private final long id;

@@ -1,9 +1,10 @@
 package simulator.events;
 
+import publishing.AbstractPublication;
 import simulator.core.TreeNode;
 import simulator.events.metrics.EventMetrics;
 
-public class SimulationPublication {
+public class SimulationPublication extends AbstractPublication {
 
     private static long ID_COUNTER = 0;
     private final long id;
