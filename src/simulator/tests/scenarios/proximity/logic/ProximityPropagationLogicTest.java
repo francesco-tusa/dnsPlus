@@ -1,4 +1,4 @@
-package simulator.tests.scenarios;
+package simulator.tests.scenarios.proximity.logic;
 
 import simulator.core.Location;
 import simulator.core.TreeNode;
@@ -6,6 +6,7 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.entities.SimulationBroker;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SubscriptionWithLocation;
+import simulator.tests.framework.FunctionalTestUtils;
 import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
@@ -18,7 +19,7 @@ import simulator.tests.framework.TopologyFixture;
  * 4. Publisher sends Pub C (Farther than B) -> Dropped (Pruning).
  * 5. Publisher sends Pub D (Closest) -> Received (Improvement).
  */
-public class ProximityPropagationTest extends TestScenario {
+public class ProximityPropagationLogicTest extends TestScenario {
 
     @Override
     public String getTestName() {
@@ -64,19 +65,19 @@ public class ProximityPropagationTest extends TestScenario {
         try {
             // A. Send P1 (First is always accepted)
             leaf.processPublication(p1);
-            assertReceived(sub, 1); // Helper from TestScenario
+            FunctionalTestUtils.assertReceived(sub, 1); // Helper from TestScenario
 
             // B. Send P2 (Closer -> Accepted)
             leaf.processPublication(p2);
-            assertReceived(sub, 2);
+            FunctionalTestUtils.assertReceived(sub, 2);
 
             // C. Send P3 (Farther than P2 -> Dropped)
             leaf.processPublication(p3);
-            assertReceived(sub, 2); // Count should NOT increase
+            FunctionalTestUtils.assertReceived(sub, 2); // Count should NOT increase
 
             // D. Send P4 (Closest -> Accepted)
             leaf.processPublication(p4);
-            assertReceived(sub, 3);
+            FunctionalTestUtils.assertReceived(sub, 3);
 
         } catch (AssertionError e) {
             logger.severe("FAILURE: " + e.getMessage());

@@ -1,4 +1,4 @@
-package simulator.tests.scenarios;
+package simulator.tests.scenarios.region.e2e;
 
 import java.util.List;
 import simulator.core.Location;
@@ -7,10 +7,11 @@ import simulator.events.SimulationSubscription;
 import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
+import simulator.tests.framework.FunctionalTestUtils;
 import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
-public class GeoNamesRegressionTest extends TestScenario {
+public class RegionGeoNamesTopologyE2ETest extends TestScenario {
 
     @Override
     public String getTestName() { return "GeoNames Complex Propagation"; }
@@ -31,17 +32,17 @@ public class GeoNamesRegressionTest extends TestScenario {
         }
 
         // Subscribers & Publishers
-        var subLocal = requireSubscriber(fixture, "Sub-Dhaka-Local");
-        var subRemote = requireSubscriber(fixture, "Sub-Dhaka-Remote");
-        var subRajshahi = requireSubscriber(fixture, "Sub-Rajshahi");
-        var subChitA = requireSubscriber(fixture, "Sub-Chit-A");
-        var subChitB = requireSubscriber(fixture, "Sub-Chit-B");
-        var subDhakaSmall = requireSubscriber(fixture, "Sub-Dhaka-Small");
+        var subLocal = FunctionalTestUtils.requireSubscriber(fixture, "Sub-Dhaka-Local");
+        var subRemote = FunctionalTestUtils.requireSubscriber(fixture, "Sub-Dhaka-Remote");
+        var subRajshahi = FunctionalTestUtils.requireSubscriber(fixture, "Sub-Rajshahi");
+        var subChitA = FunctionalTestUtils.requireSubscriber(fixture, "Sub-Chit-A");
+        var subChitB = FunctionalTestUtils.requireSubscriber(fixture, "Sub-Chit-B");
+        var subDhakaSmall = FunctionalTestUtils.requireSubscriber(fixture, "Sub-Dhaka-Small");
 
-        var pubSylhet = requirePublisher(fixture, "Pub-Sylhet");
-        var pubTibet = requirePublisher(fixture, "Pub-Tibet");
-        var pubBeijing = requirePublisher(fixture, "Pub-Beijing");
-        var pubRajshahi = requirePublisher(fixture, "Pub-Rajshahi");
+        var pubSylhet = FunctionalTestUtils.requirePublisher(fixture, "Pub-Sylhet");
+        var pubTibet = FunctionalTestUtils.requirePublisher(fixture, "Pub-Tibet");
+        var pubBeijing = FunctionalTestUtils.requirePublisher(fixture, "Pub-Beijing");
+        var pubRajshahi = FunctionalTestUtils.requirePublisher(fixture, "Pub-Rajshahi");
 
         boolean allPassed = true;
 

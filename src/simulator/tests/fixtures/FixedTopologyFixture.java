@@ -32,7 +32,7 @@ public class FixedTopologyFixture implements TopologyFixture {
 
     @Override
     public String getName() {
-        return "Simple Fixed Topology (Polymorphic)";
+        return "Fixed Topology (Simple Tree)";
     }
     
     @Override

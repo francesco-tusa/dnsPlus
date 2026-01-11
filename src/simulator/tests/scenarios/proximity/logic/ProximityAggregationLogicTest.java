@@ -1,4 +1,4 @@
-package simulator.tests.scenarios;
+package simulator.tests.scenarios.proximity.logic;
 
 import java.util.List;
 import simulator.core.TreeNode;
@@ -13,7 +13,7 @@ import simulator.tests.framework.TopologyFixture;
  * Verifies that ProximityRoutingBroker aggregates multiple downstream subscriptions
  * into a single upstream subscription.
  */
-public class SubscriptionAggregationTest extends TestScenario {
+public class ProximityAggregationLogicTest extends TestScenario {
 
     @Override
     public String getTestName() {

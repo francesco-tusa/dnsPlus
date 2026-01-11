@@ -1,6 +1,8 @@
 package simulator.simulations.performance;
 
-import java.util.logging.Logger; 
+import java.util.logging.Logger;
+
+import simulator.config.BrokerConfig;
 import simulator.config.SimConfiguration;
 import simulator.entities.SubscriberWithLocation;
 import simulator.events.SimulationSubscription;
@@ -21,6 +23,19 @@ public abstract class AbstractLocationPerformanceSimulation<C extends TopologyCo
         // No-arg constructor
     }
 
+    @Override
+    protected void logSpecificConfiguration() {
+        BrokerConfig brokerConfig = SimConfiguration.get().broker;
+        
+        logConfigItem("Routing Algorithm", "PROXIMITY (Closest Node)");
+        logConfigItem("Brake Mechanism", brokerConfig.proximityBrakeEnabled ? "ENABLED" : "DISABLED");
+        
+        if (brokerConfig.proximityBrakeEnabled) {
+            logConfigItem("Brake Limit (Burst Cap)", brokerConfig.proximityBrakeLimit);
+            logConfigItem("Brake Interval", brokerConfig.proximityBrakeIntervalMs + " ms");
+        }
+    }
+    
     @Override
     protected void logSpecificMetrics() {
         long total = SimConfiguration.get().workload.getTotalSubscribers();

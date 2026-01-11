@@ -203,7 +203,6 @@ public class ProximityRoutingBroker extends BoundedBroker {
             if (neighbor == getParentBroker()) continue;
             
             // 3. Only route if they have an active subscription
-            // (This now works because propagateSubscription correctly populated inputStore)
             if (inputStore.get(neighbor) == null) continue;
 
             Location[] targets = entry.getValue();

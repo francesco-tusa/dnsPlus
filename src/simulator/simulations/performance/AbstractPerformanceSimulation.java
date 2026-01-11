@@ -70,16 +70,6 @@ public abstract class AbstractPerformanceSimulation<
         logConfigItem("Run ID", this.simulationTimestamp);
         logConfigItem("Topology Factory", factory.getClass().getSimpleName());
         config.logDetails(logger);
-
-        logConfigItem("Broker Strategy", brokerConfig.strategy);
-
-        if (brokerConfig.isSmartStrategy()) {
-            logConfigItem("Smart Threshold", brokerConfig.getSmartThreshold());
-        } else {
-            logConfigItem("Smart Threshold", "N/A (Simple Mode)");
-        }
-
-        logConfigItem("Intersection Optimization", brokerConfig.isIntersectionOptimizationEnabled());
         
         logConfigItem("Number of Replicas", workload.numberOfReplicas);
         logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);

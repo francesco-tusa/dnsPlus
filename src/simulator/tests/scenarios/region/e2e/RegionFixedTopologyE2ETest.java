@@ -1,27 +1,25 @@
 // src/simulator/tests/scenarios/ComprehensiveFixedScenario.java
-package simulator.tests.scenarios;
+package simulator.tests.scenarios.region.e2e;
 
 import simulator.core.Location;
-import simulator.entities.PublisherWithLocation;
-import simulator.entities.SubscriberWithLocation;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.tests.framework.FunctionalTestUtils;
 import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
-public class ComprehensiveFixedScenario extends TestScenario {
+public class RegionFixedTopologyE2ETest extends TestScenario {
 
     @Override
     public String getTestName() { return "Comprehensive Fixed Topology Check"; }
 
     @Override
     public boolean run(TopologyFixture fixture) {
-        var s2 = requireSubscriber(fixture, "sub2");
-        var s8 = requireSubscriber(fixture, "sub8");
-        var s5 = requireSubscriber(fixture, "sub5");
-        var p1 = requirePublisher(fixture, "pub1");
-        var p2 = requirePublisher(fixture, "pub2");
+        var s2 = FunctionalTestUtils.requireSubscriber(fixture, "sub2");
+        var s8 = FunctionalTestUtils.requireSubscriber(fixture, "sub8");
+        var s5 = FunctionalTestUtils.requireSubscriber(fixture, "sub5");
+        var p1 = FunctionalTestUtils.requirePublisher(fixture, "pub1");
+        var p2 = FunctionalTestUtils.requirePublisher(fixture, "pub2");
 
         // 1. Subscribe
         s2.send(new SubscriptionWithRegion(new Region(new Location(16, 3, 0), new Location(19, 5, 0))));
@@ -37,9 +35,9 @@ public class ComprehensiveFixedScenario extends TestScenario {
 
         // 3. Verify
         try {
-            assertReceived(s2, 1);
-            assertReceived(s8, 1);
-            assertReceived(s5, 1);
+            FunctionalTestUtils.assertReceived(s2, 1);
+            FunctionalTestUtils.assertReceived(s8, 1);
+            FunctionalTestUtils.assertReceived(s5, 1);
         } catch (AssertionError e) {
             logger.severe("Failure: " + e.getMessage());
             return false;

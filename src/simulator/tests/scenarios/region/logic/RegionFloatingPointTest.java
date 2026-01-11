@@ -1,4 +1,4 @@
-package simulator.tests.scenarios;
+package simulator.tests.scenarios.region.logic;
 
 import simulator.core.Location;
 import simulator.regions.Region;

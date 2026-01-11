@@ -1,5 +1,5 @@
 // src/simulator/tests/scenarios/SubscriptionExpansionTest.java
-package simulator.tests.scenarios;
+package simulator.tests.scenarios.region.logic;
 
 import java.util.List;
 import java.util.Map;
@@ -8,17 +8,18 @@ import simulator.events.SimulationSubscription;
 import simulator.regions.Region;
 import simulator.regions.SpatialMatchBroker;
 import simulator.regions.SubscriptionWithRegion;
+import simulator.tests.framework.FunctionalTestUtils;
 import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
-public class SubscriptionExpansionTest extends TestScenario {
+public class RegionExpansionLogicTest extends TestScenario {
     @Override
     public String getTestName() { return "Subscription Expansion & Merging"; }
 
     @Override
     public boolean run(TopologyFixture fixture) {
-        var s2 = requireSubscriber(fixture, "sub2");
-        var s3 = requireSubscriber(fixture, "sub3");
+        var s2 = FunctionalTestUtils.requireSubscriber(fixture, "sub2");
+        var s3 = FunctionalTestUtils.requireSubscriber(fixture, "sub3");
         var child2 = fixture.findNode("child2", SpatialMatchBroker.class);
         var grandchild2 = fixture.findNode("grandchild2", TreeNode.class);
         

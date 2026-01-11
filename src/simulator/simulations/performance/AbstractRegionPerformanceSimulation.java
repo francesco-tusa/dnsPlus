@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+import simulator.config.BrokerConfig;
 import simulator.config.SimConfiguration;
 import simulator.config.WorkloadConfig;
 import simulator.core.WorkloadRepository;
@@ -28,8 +29,20 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
     
     protected abstract List<BoundedBroker> getInterestHotspots(BoundedBroker root);
 
-    @Override
     protected void logSpecificConfiguration() {
+        // 1. Log Routing Configuration
+        BrokerConfig brokerConfig = SimConfiguration.get().broker;
+        logConfigItem("Routing Algorithm", "SPATIAL MATCH (Region Overlap)");
+        logConfigItem("Broker Strategy", brokerConfig.strategy);
+        
+        if (brokerConfig.isSmartStrategy()) {
+            logConfigItem("Smart Threshold", brokerConfig.getSmartThreshold());
+        } else {
+            logConfigItem("Smart Threshold", "N/A (Simple Mode)");
+        }
+        logConfigItem("Intersection Optimization", brokerConfig.isIntersectionOptimizationEnabled());
+
+        // 2. Log Region-Specific Workload Configuration
         WorkloadConfig w = SimConfiguration.get().workload;
         logConfigItem("Subscription Region Size", w.subscriptionRegionSize);
         logConfigItem("Remote Interest Probability", w.remoteInterestProbability);

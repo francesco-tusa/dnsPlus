@@ -4,7 +4,6 @@ import java.util.logging.Logger;
 
 import simulator.simulations.performance.AwsGeonamesRegionPerformanceSimulation;
 import simulator.simulations.performance.PopulationGeonamesRegionPerformanceSimulation;
-import simulator.simulations.performance.RandomTopologyRegionPerformanceSimulation;
 import utils.CustomLogger;
 
 /**
@@ -14,12 +13,7 @@ public class RegionPerformanceSimulationsMain {
     
     private static final Logger logger = CustomLogger.getLogger(RegionPerformanceSimulationsMain.class.getName());
 
-    public static void main(String[] args) {
-        // Run a smaller-scale performance test on a random topology
-        //logger.info("--- Launching Region-Based Random Topology Simulation ---");
-        //RandomTopologyRegionPerformanceSimulation.main(args);
-        
-        
+    public static void main(String[] args) {        
         // --- CHOOSE WHICH SIMULATION TO RUN ---
 
         // Option 1: Run the simulation using the curated AWS region list

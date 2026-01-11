@@ -133,6 +133,10 @@ public class TopologyAnalyser {
         return true;
     }
 
+    public static BoundedBroker findFirstLeafBroker(TreeNode root) {
+        return findFirstNode(root, BoundedBroker.class, TopologyAnalyser::isLeafBroker);
+    }
+
     public static void logStructure(BoundedBroker root, Logger logger) {
         if (root == null) return;
         logger.info("");

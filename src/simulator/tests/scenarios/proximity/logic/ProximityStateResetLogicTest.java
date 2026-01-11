@@ -1,4 +1,4 @@
-package simulator.tests.scenarios;
+package simulator.tests.scenarios.proximity.logic;
 
 import java.util.logging.Logger;
 
@@ -19,9 +19,9 @@ import utils.CustomLogger;
  * 2. State Reset: Verifies that re-subscribing resets the "Best Distance" filter, 
  * allowing "worse" publications to be received again (simulating context switch).
  */
-public class ProximityNetworkLogicTest extends TestScenario {
+public class ProximityStateResetLogicTest extends TestScenario {
 
-    private static final Logger logger = CustomLogger.getLogger(ProximityNetworkLogicTest.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(ProximityStateResetLogicTest.class.getName());
 
     @Override
     public String getTestName() {

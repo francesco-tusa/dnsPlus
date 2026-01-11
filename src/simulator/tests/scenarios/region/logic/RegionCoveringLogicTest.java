@@ -1,22 +1,23 @@
-package simulator.tests.scenarios;
+package simulator.tests.scenarios.region.logic;
 
 import simulator.core.Location;
 import simulator.events.PublicationWithLocation;
 import simulator.regions.Region;
 import simulator.regions.SpatialMatchBroker;
 import simulator.regions.SubscriptionWithRegion;
+import simulator.tests.framework.FunctionalTestUtils;
 import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
-public class SubscriptionCoveringTest extends TestScenario {
+public class RegionCoveringLogicTest extends TestScenario {
     @Override
     public String getTestName() { return "Subscription Covering (Large contains Small)"; }
 
     @Override
     public boolean run(TopologyFixture fixture) {
-        var s2 = requireSubscriber(fixture, "sub2");
-        var s3 = requireSubscriber(fixture, "sub3");
-        var p1 = requirePublisher(fixture, "pub1"); // Located at (1,1), attached to grandchild1 [0,0 : 4,3]
+        var s2 = FunctionalTestUtils.requireSubscriber(fixture, "sub2");
+        var s3 = FunctionalTestUtils.requireSubscriber(fixture, "sub3");
+        var p1 = FunctionalTestUtils.requirePublisher(fixture, "pub1"); // Located at (1,1), attached to grandchild1 [0,0 : 4,3]
         var child2 = fixture.findNode("child2", SpatialMatchBroker.class);
 
         // 1. Setup Subscriptions
@@ -47,8 +48,8 @@ public class SubscriptionCoveringTest extends TestScenario {
         
         // 4. Verify Delivery
         try { 
-            assertReceived(s2, 1); 
-            assertReceived(s3, 1); 
+            FunctionalTestUtils.assertReceived(s2, 1); 
+            FunctionalTestUtils.assertReceived(s3, 1); 
         } 
         catch (AssertionError e) { 
             logger.severe(e.getMessage()); 

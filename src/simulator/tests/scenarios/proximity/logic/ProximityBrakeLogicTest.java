@@ -1,4 +1,4 @@
-package simulator.tests.scenarios;
+package simulator.tests.scenarios.proximity.logic;
 
 import simulator.core.Location;
 import simulator.entities.SimulationBroker;
@@ -17,7 +17,7 @@ import simulator.tests.framework.TopologyFixture;
  * 3. Asserts that the Parent Broker's processing counter increases by exactly 5.
  * 4. Advances time and asserts the counter increases again.
  */
-public class ProximityBrakeTest extends TestScenario {
+public class ProximityBrakeLogicTest extends TestScenario {
 
     private static final int BRAKE_LIMIT = 5;
     private static final long BRAKE_INTERVAL_MS = 1000;

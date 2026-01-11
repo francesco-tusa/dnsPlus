@@ -6,7 +6,15 @@ import java.util.logging.Logger;
 
 import simulator.tests.fixtures.*;
 import simulator.tests.framework.*;
-import simulator.tests.scenarios.*;
+
+// --- REGION IMPORTS ---
+import simulator.tests.scenarios.region.logic.*;
+import simulator.tests.scenarios.region.e2e.*;
+
+// --- PROXIMITY IMPORTS ---
+import simulator.tests.scenarios.proximity.logic.*;
+import simulator.tests.scenarios.proximity.e2e.*;
+
 import simulator.topology.factories.BrokerFactory;
 import simulator.topology.factories.LocationBrokerFactory;
 import simulator.topology.factories.SpatialMatchBrokerFactory;
@@ -18,86 +26,102 @@ public class RegressionSuiteRunner {
     public static void main(String[] args) {
         logger.info(">>> STARTING GLOBAL REGRESSION SUITE <<<");
 
-        // 0. Unit Tests
-        logger.info("\n=== Unit Tests ===");
+        // --- FACTORY SETUP ---
+        List<FactorySetup> regionalSetups = new ArrayList<>();
+        // 1. SIMPLE: Forces Single Region Storage
+        regionalSetups.add(new FactorySetup("REGIONAL-SIMPLE", new SpatialMatchBrokerFactory(true, 0.0, true)));
+        // 2. SMART: Uses Multi-Region Storage with merging
+        regionalSetups.add(new FactorySetup("REGIONAL-SMART", new SpatialMatchBrokerFactory(false, 0.5, true)));
+
+        List<FactorySetup> proximitySetups = new ArrayList<>();
+        // 3. PROXIMITY: Uses Location-based Storage
+        proximitySetups.add(new FactorySetup("PROXIMITY", new LocationBrokerFactory()));
+
+        // =================================================================
+        // PHASE 0: PURE UNIT TESTS (Run Once)
+        // =================================================================
+        logger.info("\n=== PHASE 0: Pure Unit Tests (Math/Geometry) ===");
+        // Run once, independent of broker strategy
         new RegionFloatingPointTest().run(null);
 
-        // 1. Run Region-Based Suite
-        runRegionSuite();
 
-        // 2. Run Location-Based Suite
-        runLocationSuite();
+        // =================================================================
+        // PHASE 1: LOGIC & MECHANISM VERIFICATION (Fixed Topology)
+        // =================================================================
+        logger.info("\n=== PHASE 1: Broker Logic & Mechanism Verification ===");
+
+        // 1.1 Region Logic (Runs on both Simple and Smart to ensure Storage implementations behave correctly)
+        List<TestScenario> regionLogic = new ArrayList<>();
+        regionLogic.add(new RegionCoveringLogicTest());
+        regionLogic.add(new RegionExpansionLogicTest());
+        
+        runBatch(new FixedTopologyFixture(), regionLogic, regionalSetups);
+
+        // 1.2 Proximity Logic (Runs on Proximity)
+        List<TestScenario> proxLogic = new ArrayList<>();
+        proxLogic.add(new ProximityAggregationLogicTest());
+        proxLogic.add(new ProximityPropagationLogicTest());
+        proxLogic.add(new ProximityStateResetLogicTest());
+        proxLogic.add(new ProximityBrakeLogicTest());
+
+        runBatch(new FixedTopologyFixture(), proxLogic, proximitySetups);
+
+
+        // =================================================================
+        // PHASE 2: END-TO-END SYSTEM TESTS (Simple Fixed Topology)
+        // =================================================================
+        logger.info("\n=== PHASE 2: System Sanity Checks (Fixed Topology) ===");
+
+        List<TestScenario> regionFixedE2E = new ArrayList<>();
+        regionFixedE2E.add(new RegionFixedTopologyE2ETest());
+        runBatch(new FixedTopologyFixture(), regionFixedE2E, regionalSetups);
+
+        List<TestScenario> proxFixedE2E = new ArrayList<>();
+        proxFixedE2E.add(new ProximityFixedTopologyE2ETest());
+        runBatch(new FixedTopologyFixture(), proxFixedE2E, proximitySetups);
+
+
+        // =================================================================
+        // PHASE 3: END-TO-END SYSTEM TESTS (Complex Topologies)
+        // =================================================================
+        logger.info("\n=== PHASE 3: Complex Topology Integration ===");
+
+        // 3.1 GRID
+        List<TestScenario> regionGridE2E = new ArrayList<>();
+        regionGridE2E.add(new RegionGridTopologyE2ETest());
+        runBatch(new GridTopologyFixture(), regionGridE2E, regionalSetups);
+
+        List<TestScenario> proxGridE2E = new ArrayList<>();
+        proxGridE2E.add(new ProximityGridTopologyE2ETest());
+        runBatch(new GridTopologyFixture(), proxGridE2E, proximitySetups);
+
+        // 3.2 GEONAMES
+        List<TestScenario> regionGeoE2E = new ArrayList<>();
+        regionGeoE2E.add(new RegionGeoNamesTopologyE2ETest());
+        runBatch(new GeoNamesTopologyFixture(), regionGeoE2E, regionalSetups);
+
+        List<TestScenario> proxGeoE2E = new ArrayList<>();
+        proxGeoE2E.add(new ProximityGeoNamesTopologyE2ETest());
+        runBatch(new GeoNamesTopologyFixture(), proxGeoE2E, proximitySetups);
     }
-
-    // --- Suite 1: Region Logic (SpatialMatchBroker) ---
-    private static void runRegionSuite() {
-        logger.info("\n\n################################################");
-        logger.info("### RUNNING REGION-BASED REGRESSION TESTS    ###");
-        logger.info("################################################");
-
-        List<FactorySetup> setups = new ArrayList<>();
-        setups.add(new FactorySetup("SIMPLE (Clip)", new SpatialMatchBrokerFactory(true, 0.0, true)));
-        setups.add(new FactorySetup("SMART (0.5)", new SpatialMatchBrokerFactory(false, 0.5, true)));
-
-        // 1. Fixed Topology Tests
-        List<TestScenario> fixedScenarios = new ArrayList<>();
-        fixedScenarios.add(new SubscriptionCoveringTest());
-        fixedScenarios.add(new SubscriptionExpansionTest());
-        fixedScenarios.add(new ComprehensiveFixedScenario());
-        runBatch(new FixedTopologyFixture(), fixedScenarios, setups);
-
-        // 2. Grid Topology Tests
-        List<TestScenario> gridScenarios = new ArrayList<>();
-        gridScenarios.add(new GridCrossCornerTest());
-        runBatch(new GridTopologyFixture(), gridScenarios, setups);
-
-        // 3. GeoNames Topology Tests
-        List<TestScenario> geoScenarios = new ArrayList<>();
-        geoScenarios.add(new GeoNamesRegressionTest());
-        runBatch(new GeoNamesTopologyFixture(), geoScenarios, setups);
-    }
-
-    // --- Suite 2: Location Logic (ProximityRoutingBroker) ---
-    private static void runLocationSuite() {
-        logger.info("\n\n################################################");
-        logger.info("### RUNNING LOCATION-BASED REGRESSION TESTS  ###");
-        logger.info("################################################");
-
-        List<FactorySetup> setups = new ArrayList<>();
-        setups.add(new FactorySetup("PROXIMITY", new LocationBrokerFactory()));
-
-        List<TestScenario> scenarios = new ArrayList<>();
-        scenarios.add(new SubscriptionAggregationTest());
-        scenarios.add(new ProximityPropagationTest());
-        scenarios.add(new ProximityNetworkLogicTest());
-        scenarios.add(new ProximityBrakeTest());
-
-        // Run against all topologies
-        runBatch(new FixedTopologyFixture(), scenarios, setups);
-        runBatch(new GridTopologyFixture(), scenarios, setups);
-        runBatch(new GeoNamesTopologyFixture(), scenarios, setups);
-    }
-
-    // --- Execution Engine ---
 
     record FactorySetup(String name, BrokerFactory factory) {}
 
     private static void runBatch(TopologyFixture fixture, List<TestScenario> scenarios, List<FactorySetup> setups) {
         for (FactorySetup setup : setups) {
-            logger.info(String.format("\n=== Environment: %s | Strategy: %s ===", fixture.getName(), setup.name()));
+            logger.info(String.format("\n--- [Fixture: %s] | [Algorithm: %s] ---", fixture.getName(), setup.name()));
             
             for (TestScenario test : scenarios) {
                 try {
                     fixture.setup(setup.factory());
-                    
                     long start = System.currentTimeMillis();
                     boolean result = test.run(fixture);
                     long duration = System.currentTimeMillis() - start;
 
                     if (result) {
-                        logger.info(String.format("  [PASS] %-40s (%d ms)", test.getTestName(), duration));
+                        logger.info(String.format("  [PASS] %-45s (%d ms)", test.getTestName(), duration));
                     } else {
-                        logger.severe(String.format("  [FAIL] %-40s", test.getTestName()));
+                        logger.severe(String.format("  [FAIL] %-45s", test.getTestName()));
                     }
                 } catch (Exception e) {
                     logger.severe("  [ERROR] " + test.getTestName() + ": " + e.getMessage());

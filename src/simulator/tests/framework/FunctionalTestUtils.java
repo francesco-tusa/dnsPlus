@@ -3,14 +3,53 @@ package simulator.tests.framework;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+
 import simulator.core.TreeNode;
+import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
+import simulator.entities.SubscriberWithLocation;
 import simulator.events.SimulationSubscription;
 import utils.CustomLogger;
 
 public final class FunctionalTestUtils {
 
     private static final Logger logger = CustomLogger.getLogger(FunctionalTestUtils.class.getName());
+
+    private FunctionalTestUtils() {
+        // Prevent instantiation
+    }
+
+    // --- ASSERTIONS ---
+
+    public static void assertReceived(SubscriberWithLocation sub, int expected) {
+        logger.info(String.format("   [Check] Subscriber '%s': Checking inbox. Expected=%d, Actual=%d", 
+            sub.getName(), expected, sub.getnPublications()));
+
+        if (sub.getnPublications() != expected) {
+            throw new AssertionError("Subscriber '" + sub.getName() + "' expected " + expected + 
+                                     " pubs but got " + sub.getnPublications());
+        }
+    }
+
+    // --- FIXTURE HELPERS ---
+
+    public static SubscriberWithLocation requireSubscriber(TopologyFixture fixture, String name) {
+        SubscriberWithLocation sub = fixture.findNode(name, SubscriberWithLocation.class);
+        if (sub == null) {
+            throw new IllegalStateException("Test Setup Failed: Missing subscriber '" + name + "'");
+        }
+        return sub;
+    }
+    
+    public static PublisherWithLocation requirePublisher(TopologyFixture fixture, String name) {
+        PublisherWithLocation pub = fixture.findNode(name, PublisherWithLocation.class);
+        if (pub == null) {
+            throw new IllegalStateException("Test Setup Failed: Missing publisher '" + name + "'");
+        }
+        return pub;
+    }
+
+    // --- DEBUGGING HELPERS ---
 
     public static void printAllSubscriptionTables(TreeNode node) {
         if (node instanceof SimulationBroker broker) {
