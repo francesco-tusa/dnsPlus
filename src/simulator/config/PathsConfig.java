@@ -25,7 +25,10 @@ public class PathsConfig {
     // Flags
     private final boolean useFullTopology;
     public final boolean enableVerboseLogs;
-    public final boolean enableSubscriptionTracing;
+    
+    // Controls BOTH Subscription and Publication tracing
+    // Defaults to true. If false, no CSV files are generated for events.
+    public final boolean enableEventTracing;
 
     public PathsConfig(Properties props) {
         this.resourcesDir = props.getProperty("paths.resourcesDir", "resources/world/");
@@ -34,7 +37,8 @@ public class PathsConfig {
 
         this.enableVerboseLogs = Boolean.parseBoolean(props.getProperty("paths.enableVerboseLogs", "false"));
         
-        this.enableSubscriptionTracing = Boolean.parseBoolean(props.getProperty("paths.enableSubscriptionTracing", "true"));
+        // Renamed property key to reflect broader usage
+        this.enableEventTracing = Boolean.parseBoolean(props.getProperty("paths.enableEventTracing", "true"));
 
         this.allCountriesFile = resourcesDir + "allCountries.txt";
         this.countryInfoFile = resourcesDir + "countryInfo.txt";
@@ -72,32 +76,24 @@ public class PathsConfig {
         return latestFile;
     }
 
-    /**
-     * Finds the latest topology file. 
-     */
     private String findLatestTopologyFile(String prefix) {
         File baseDir = new File(topologiesDir);
         if (!baseDir.exists() || !baseDir.isDirectory()) {
             return null;
         }
 
-        // 1. Get all subdirectories (timestamps) and files
         File[] content = baseDir.listFiles();
         if (content == null || content.length == 0) return null;
 
-        // 2. Sort content descending (newest timestamps first)
         Arrays.sort(content, Comparator.comparing(File::getName).reversed());
 
         for (File fileOrDir : content) {
-            // A. Check if it is a directory (The new structure)
             if (fileOrDir.isDirectory()) {
                 File[] matchingFiles = fileOrDir.listFiles((d, name) -> name.startsWith(prefix) && name.endsWith(".json"));
                 if (matchingFiles != null && matchingFiles.length > 0) {
-                    // Return the first match in this directory
                     return matchingFiles[0].getAbsolutePath();
                 }
             } 
-            // B. Backward Compatibility: Check if it is a flat file (The old structure)
             else if (fileOrDir.isFile()) {
                 if (fileOrDir.getName().startsWith(prefix) && fileOrDir.getName().endsWith(".json")) {
                     return fileOrDir.getAbsolutePath();

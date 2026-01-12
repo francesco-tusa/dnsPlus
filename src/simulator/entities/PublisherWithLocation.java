@@ -22,24 +22,19 @@ public class PublisherWithLocation extends TreeNode {
     private int nPublications;
     private final List<PublicationWithLocation> sentPublications = new ArrayList<>();
 
-    /**
-     * Legacy/Test Constructor: Allows manual naming (e.g., "pub1").
-     */
+    // Cached country name to avoid recalculating on every send
+    private String myCountry = null;
+
     public PublisherWithLocation(String name, Location location) {
         this(PUBLISHER_ID_GENERATOR.getAndIncrement(), name, location);
     }
 
-    /**
-     * Simulation Constructor: Auto-generates Name.
-     */
     public PublisherWithLocation(Location location) {
         this(PUBLISHER_ID_GENERATOR.getAndIncrement(), null, location);
     }
 
     private PublisherWithLocation(int id, String explicitName, Location location) {
-        // Uses explicit name OR auto-generates if Tracing is ON OR returns null
         super(resolveName(id, explicitName));
-        
         this.myPublisherId = id;
         this.location = location;
         this.nPublications = 0;
@@ -47,16 +42,14 @@ public class PublisherWithLocation extends TreeNode {
     
     private static String resolveName(int id, String explicitName) {
         if (explicitName != null) return explicitName;
-        if (SimConfiguration.get().paths.enableSubscriptionTracing) return "Pub-" + id;
+        if (SimConfiguration.get().paths.enableEventTracing) return "Pub-" + id;
         return null; 
     }
     
     @Override
     public String getName() {
         String storedName = super.getName();
-        if (storedName != null) {
-            return storedName;
-        }
+        if (storedName != null) return storedName;
         return "Pub-" + myPublisherId;
     }
     
@@ -65,7 +58,19 @@ public class PublisherWithLocation extends TreeNode {
 
         long seqId = this.nPublications + 1;
         long traceId = ((long) this.myPublisherId << 32) | (seqId & 0xFFFFFFFFL);
-        pub.setMetrics(new EventMetrics(traceId));
+        
+        EventMetrics metrics = new EventMetrics(traceId);
+        if (myCountry == null) {
+            myCountry = resolveCountry();
+        }
+        
+        metrics.setOriginalSourceInfo(
+            getName(), 
+            myCountry, 
+            location.getX(), 
+            location.getY()
+        );
+        pub.setMetrics(metrics);
 
         TreeNode parent = getParent();
         
@@ -89,6 +94,25 @@ public class PublisherWithLocation extends TreeNode {
         } else {
             logger.severe(getName() + ": parent is not a SimulationBroker");
         }
+    }
+
+    // Resolves the country based on the topology structure (Standard 3-level depth assumption)
+    private String resolveCountry() {
+        List<TreeNode> path = new ArrayList<>();
+        TreeNode current = this;
+        while (current != null) { 
+            path.add(current); 
+            current = current.getParent(); 
+        }
+        // Assuming Standard Topology: [Pub, Leaf, Region, Country, Root] -> Size 5. 
+        // Index (Size-3) = 2 -> Region. 
+        // Index (Size-4) = 1 -> Leaf. 
+        // Based on your previous output "EU"/"AS", the country is likely higher up.
+        // We preserve the logic you relied on: 3rd node from the top.
+        if (path.size() >= 3) {
+            return path.get(path.size() - 3).getName();
+        }
+        return "Unknown";
     }
     
     public List<PublicationWithLocation> getSentPublications() { return sentPublications; }

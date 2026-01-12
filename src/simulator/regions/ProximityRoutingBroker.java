@@ -4,8 +4,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
-
 import simulator.config.BrokerConfig;
 import simulator.config.SimConfiguration;
 import simulator.core.Location;
@@ -15,25 +13,23 @@ import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.events.SubscriptionWithLocation;
+import simulator.events.metrics.EventMetrics;
 import simulator.regions.policy.BrakeStrategy;
 import simulator.regions.policy.DecayingCounterBrakeStrategy;
 import simulator.regions.policy.NoOpBrakeStrategy;
 import simulator.regions.store.BasicSubscriptionStore;
-import utils.CustomLogger;
+import utils.CsvMetricWriter;
 
 public class ProximityRoutingBroker extends BoundedBroker {
-
-    private static final Logger logger = CustomLogger.getLogger(ProximityRoutingBroker.class.getName());
-
     protected final BasicSubscriptionStore inputStore = new BasicSubscriptionStore();
     
-    // --- Brake Strategy ---
     private BrakeStrategy brakeStrategy;
     private long brakeFilteredCount = 0;
     
-    // --- High-Performance Routing State ---
     protected final Map<TreeNode, Location[]> childTopologicalTargets = new HashMap<>();
     protected final Map<TreeNode, double[]> childBestDistances = new HashMap<>();
+
+    protected long totalMessagesForwarded = 0;
 
     private boolean isSubscribedToParent = false;
 
@@ -63,11 +59,8 @@ public class ProximityRoutingBroker extends BoundedBroker {
         this.brakeStrategy = strategy;
     }
 
-    public long getBrakeFilteredCount() {
-        return brakeFilteredCount;
-    }
-
-    // --- Topology & Quadrant Management ---
+    public long getBrakeFilteredCount() { return brakeFilteredCount; }
+    public long getTotalMessagesForwarded() { return totalMessagesForwarded; }
 
     @Override
     public void addChild(TreeNode child) {
@@ -97,12 +90,9 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
         if (targets != null) {
             childTopologicalTargets.put(child, targets);
-            // Only reset distances if strictly necessary to avoid thrashing
             childBestDistances.putIfAbsent(child, initializeDistances(targets.length));
         }
     }
-
-    // --- Subscription Handling ---
 
     @Override
     public int getInputSubscriptionCount() { return inputStore.size(); }
@@ -117,7 +107,6 @@ public class ProximityRoutingBroker extends BoundedBroker {
         
         Region r = getRegion();
         Location center = (r != null) ? r.getCenter() : null;
-        // If region is not ready, we cannot report a valid subscription yet
         if (center == null) return Collections.emptyMap();
 
         SubscriptionWithLocation proxySub = new SubscriptionWithLocation(center);
@@ -130,39 +119,64 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
     @Override
     protected void handleSubscriptionProcessing(SimulationSubscription s) {        
-        // 1. Store the subscription (Crucial for Downward Routing)
+        boolean isUpdate = (inputStore.get(s.getSource()) != null);
         inputStore.add(s);
         
-        // 2. Update Topological Routing Tables
+        // Use renamed flag
+        if (SimConfiguration.get().paths.enableEventTracing) {
+            String logDetail = buildLogDetail(s, isUpdate);
+            String result = isUpdate ? "UPDATED" : "ADDED";
+            CsvMetricWriter.getInstance().logSubscription(s, getName(), logDetail, result);
+        }
+
         TreeNode child = s.getSource();
         if (!childTopologicalTargets.containsKey(child)) {
             updateTopologicalTargets(child);
         }
 
-        // Reset distances to ensure the new subscription captures the next relevant publication
         Location[] targets = childTopologicalTargets.get(child);
         if (targets != null) {
             childBestDistances.put(child, initializeDistances(targets.length));
         }
 
-        // 3. Propagate Upward (if not already done)
-        if (getParentBroker() != null && !isSubscribedToParent) {
-            Region r = getRegion();
-            Location myLocation = (r != null) ? r.getCenter() : null;
-            
-            // Cannot subscribe upwards without a valid location/region
-            if (myLocation == null) return; 
-
-            SubscriptionWithLocation proxySubscription = new SubscriptionWithLocation(myLocation);
-            proxySubscription.setSource(this);
-            
-            getParentBroker().processSubscription(proxySubscription);
-            isSubscribedToParent = true;
-            recordOutSubAdded();
-        }
+        propagateSubscriptionUpward(s);
+    }
+    
+    private String buildLogDetail(SimulationSubscription s, boolean isUpdate) {
+        String subLoc = (s instanceof SubscriptionWithLocation sl) ? sl.getLocation().toString() : "Unknown";
+        String uplinkStatus = isSubscribedToParent ? "Uplink Active" : "Uplink Inactive";
+        return String.format("Broker: %s; Source: %s; SubLoc: %s; %s", 
+                getName(), s.getSource().getName(), subLoc, uplinkStatus);
     }
 
-    // --- Publication Routing ---
+    private void propagateSubscriptionUpward(SimulationSubscription originalSub) {
+        if (getParentBroker() == null || isSubscribedToParent) return;
+
+        Region r = getRegion();
+        Location myCenter = (r != null) ? r.getCenter() : null;
+        if (myCenter == null) return; 
+
+        SubscriptionWithLocation proxySubscription = new SubscriptionWithLocation(myCenter);
+        proxySubscription.setSource(this);
+        
+        if (originalSub.getMetrics() != null) {
+            proxySubscription.setMetrics(new EventMetrics(originalSub.getMetrics().getTraceId()));
+        }
+
+        // Use renamed flag
+        if (SimConfiguration.get().paths.enableEventTracing) {
+             CsvMetricWriter.getInstance().logSubscription(
+                 originalSub, 
+                 getName(), 
+                 "Propagating Proxy Subscription to Parent", 
+                 "PROPAGATED"
+             );
+        }
+        
+        getParentBroker().processSubscription(proxySubscription);
+        isSubscribedToParent = true;
+        recordOutSubAdded();
+    }
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
@@ -175,17 +189,15 @@ public class ProximityRoutingBroker extends BoundedBroker {
         BoundedBroker parentBroker = getParentBroker();
         if (parentBroker == null) return;
 
-        // --- BRAKE LOGIC ---
         if (p instanceof PublicationWithLocation) {
             PublicationWithLocation pub = (PublicationWithLocation) p;
             Region r = getRegion();
-            
-            // Only apply brake if we have a valid region context
             if (r != null && r.getCenter() != null) {
                 long now = System.currentTimeMillis();
                 boolean allowed = brakeStrategy.shouldPropagate(pub.getLocation(), r.getCenter(), now);
                 if (!allowed) {
-                    return; // Dropped by Brake
+                    brakeFilteredCount++;
+                    return; 
                 }
             }
         }
@@ -197,22 +209,15 @@ public class ProximityRoutingBroker extends BoundedBroker {
         parentBroker.processPublication(forwardedCopy);
     }
 
-   
     private void processPublicationDownward(PublicationWithLocation pub) {
-        // Track if we forwarded to at least one child (Broker OR Subscriber)
         boolean forwardedToAny = false; 
+        double minDistSqToInterestedChild = Double.MAX_VALUE;
 
-        // Iterate over ALL children (Neighboring Brokers AND Attached Subscribers)
         for (Map.Entry<TreeNode, Location[]> entry : childTopologicalTargets.entrySet()) {
             TreeNode neighbor = entry.getKey();
             
-            // 1. Loop Prevention
             if (neighbor == pub.getSource()) continue;
-
-            // 2. Directionality (Don't send back up to Parent)
             if (neighbor == getParentBroker()) continue;
-            
-            // 3. Pruning (Must have an active subscription interest)
             if (inputStore.get(neighbor) == null) continue;
 
             Location[] targets = entry.getValue();
@@ -221,47 +226,80 @@ public class ProximityRoutingBroker extends BoundedBroker {
             if (bestDists == null || targets == null || bestDists.length != targets.length) continue;
 
             boolean shouldSend = false;
+            double distanceForThisNeighbor = -1.0;
 
             for (int i = 0; i < targets.length; i++) {
-                // [METRIC] Computational Cost: Track every distance check
                 this.totalMatchingComputations++;
 
                 double newDistSq = pub.getLocation().distanceSquared(targets[i]);
+                double currentBest = bestDists[i];
                 
-                // HEURISTIC: Only forward if strictly closer than previous best
-                if (newDistSq < bestDists[i]) {
+                if (newDistSq < minDistSqToInterestedChild) {
+                    minDistSqToInterestedChild = newDistSq;
+                }
+                
+                if (targets.length == 1) distanceForThisNeighbor = newDistSq;
+
+                if (newDistSq < currentBest) {
                     bestDists[i] = newDistSq;
                     shouldSend = true;
                 }
             }
 
             if (shouldSend) {
-                forwardPublication(neighbor, pub);
+                forwardPublication(neighbor, pub, distanceForThisNeighbor);
                 forwardedToAny = true;
             }
         }
 
-        // [METRIC] False Positive Logic (Dead Ends)
-        // If forwardedToAny is false, it means:
-        // A) If we are an Intermediate Node: No downstream path was closer.
-        // B) If we are a Leaf Node: No attached subscriber was closer.
-        // In BOTH cases, the message stopped here without reaching a new target. 
-        // This is a Dead End (False Positive).
         if (!forwardedToAny) {
              this.totalFalsePositiveEvents++;
         }
+        
+        // Use renamed flag
+        if (SimConfiguration.get().paths.enableEventTracing && pub.getMetrics() != null) {
+            String status = forwardedToAny ? "FORWARDED" : "PRUNED";
+            if (!forwardedToAny && getParentBroker() == null && childTopologicalTargets.isEmpty()) {
+                 status = "RECEIVED_ROOT";
+            }
+            
+            String payload;
+            if (minDistSqToInterestedChild < Double.MAX_VALUE) {
+                double distKm = Math.sqrt(minDistSqToInterestedChild) * 111.1; 
+                payload = String.format("MinDist: %.0fkm", distKm);
+            } else {
+                payload = "No Interest";
+            }
+            
+            CsvMetricWriter.getInstance().logPublication(
+                pub, 
+                getName(), 
+                payload, 
+                status
+            );
+        }
     }
 
-    private void forwardPublication(TreeNode neighbor, PublicationWithLocation pub) {
-        SimulationPublication copy = pub.getPublication();
-        copy.setSource(this);
-        copy.copyStateFrom(pub);
-        copy.incrementHops();
+    private void forwardPublication(TreeNode neighbor, PublicationWithLocation pub, double distSq) {
+        this.totalMessagesForwarded++; 
+
+        SimulationPublication abstractCopy = pub.getPublication();
         
-        if (neighbor instanceof BoundedBroker) {
-            ((BoundedBroker) neighbor).processPublication(copy);
-        } else if (neighbor instanceof SubscriberWithLocation) {
-            ((SubscriberWithLocation) neighbor).receive(copy);
+        if (abstractCopy instanceof PublicationWithLocation) {
+             PublicationWithLocation copy = (PublicationWithLocation) abstractCopy;
+             copy.setSource(this);
+             copy.copyStateFrom(pub); 
+             copy.incrementHops();
+
+             if (distSq >= 0) {
+                 copy.setCachedDistanceSquared(distSq);
+             }
+
+             if (neighbor instanceof BoundedBroker) {
+                 ((BoundedBroker) neighbor).processPublication(copy);
+             } else if (neighbor instanceof SubscriberWithLocation) {
+                 ((SubscriberWithLocation) neighbor).receive(copy);
+             }
         }
     }
 

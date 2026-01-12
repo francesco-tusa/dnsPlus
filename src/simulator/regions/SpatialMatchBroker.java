@@ -65,20 +65,28 @@ public class SpatialMatchBroker extends BoundedBroker {
     protected void handleSubscriptionProcessing(SimulationSubscription s) {
         if (!(s instanceof SubscriptionWithRegion newSub)) return;
 
+        // 1. Perform the Logic
         StoreUpdate inputUpdate = inputStore.addOrUpdate(s.getSource(), newSub);
         updateInputCounters(inputUpdate);
 
-        if (SimConfiguration.get().paths.enableSubscriptionTracing) {
-            String logDetail = buildLogDetail(newSub, inputUpdate);
-            CsvMetricWriter.getInstance().logSubscription(s, getName(), logDetail, inputUpdate.getResult().name());
+        // 2. [TRACING] Log WITH the incoming subscription context
+        if (SimConfiguration.get().paths.enableEventTracing) {
+            String logDetail = buildLogDetail(inputUpdate, newSub);
+            
+            // This ensures 'Covered' events are logged even if we don't propagate them
+            CsvMetricWriter.getInstance().logSubscription(
+                s, 
+                getName(), 
+                logDetail, 
+                inputUpdate.getResult().name()
+            );
         }
 
+        // 3. Propagation Logic (Only if changed)
         if (inputUpdate.getResult() != StoreOpResult.NO_CHANGE) {
             SubscriptionWithRegion aggregatedState = inputUpdate.getRegion();
             if (aggregatedState != null) {
                 aggregatedState.setSource(s.getSource());
-                
-                // COPY & HOP Logic
                 aggregatedState.copyStateFrom(newSub);
                 aggregatedState.incrementHops();
                 
@@ -88,6 +96,16 @@ public class SpatialMatchBroker extends BoundedBroker {
                 propagateSubscriptionDownward(aggregatedState);
             }
         }
+    }
+
+    /**
+     * Re-added the incoming subscription region to the log string.
+     */
+    private String buildLogDetail(StoreUpdate update, SubscriptionWithRegion incomingSub) {
+        return String.format("Incoming: %s | BrokerRegion: %s | %s", 
+                              incomingSub.getRegion().toLogString(), 
+                              this.getRegion().toLogString(), 
+                              update.getAdditionalInfo());
     }
 
     private void propagateSubscriptionUpward(SubscriptionWithRegion aggregatedState) {
@@ -105,9 +123,7 @@ public class SpatialMatchBroker extends BoundedBroker {
              if (finalReg != null) {
                  SubscriptionWithRegion toSend = (SubscriptionWithRegion) finalReg.getSubscription();
                  toSend.setSource(this);
-                 
-                 toSend.copyStateFrom(aggregatedState); // Safe Copy
-                 
+                 toSend.copyStateFrom(aggregatedState); 
                  parent.processSubscription(toSend);
              }
         }
@@ -133,21 +149,12 @@ public class SpatialMatchBroker extends BoundedBroker {
                      if (finalReg != null) {
                          SubscriptionWithRegion toSend = (SubscriptionWithRegion) finalReg.getSubscription();
                          toSend.setSource(this);
-                         
-                         toSend.copyStateFrom(aggregatedState); // Safe Copy
-                         
+                         toSend.copyStateFrom(aggregatedState);
                          childBroker.processSubscription(toSend);
                      }
                  }
              }
         }
-    }
-
-    private String buildLogDetail(SubscriptionWithRegion sub, StoreUpdate update) {
-        return String.format("Broker: %s; Incoming: %s; %s", 
-                              this.getRegion().toLogString(), 
-                              sub.getRegion().toLogString(), 
-                              update.getAdditionalInfo());
     }
 
     private void updateInputCounters(StoreUpdate update) {
@@ -169,12 +176,9 @@ public class SpatialMatchBroker extends BoundedBroker {
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         if (p instanceof PublicationWithLocation pub) {
-            
-            // 1. Perform Matching
             this.totalMatchingComputations += inputStore.size();
             List<TreeNode> matches = inputStore.findMatches(pub.getLocation());
             
-            // 2. Pre-calculate useful forwards to determine status
             int usefulForwardsCount = 0;
             for (TreeNode target : matches) {
                 if (target != p.getSource()) {
@@ -182,15 +186,13 @@ public class SpatialMatchBroker extends BoundedBroker {
                 }
             }
 
-            // 3. Update Metrics and Define Status String
             String status = "Received";
             if (usefulForwardsCount == 0) {
                 this.totalFalsePositiveEvents++;
                 status = "Received (Dead End)";
             }
 
-            // 4. Log once (Single entry with correct status)
-            if (SimConfiguration.get().paths.enableSubscriptionTracing) {
+            if (SimConfiguration.get().paths.enableEventTracing) {
                 CsvMetricWriter.getInstance().logPublication(
                     p, 
                     getName(), 
@@ -199,7 +201,6 @@ public class SpatialMatchBroker extends BoundedBroker {
                 );
             }
 
-            // 5. Execute Forwarding
             for (TreeNode target : matches) {
                 if (target == p.getSource()) continue;
                 forwardPublicationToNode(p, target);
@@ -211,9 +212,7 @@ public class SpatialMatchBroker extends BoundedBroker {
     public void forwardPublicationToNode(SimulationPublication p, TreeNode next) {
         SimulationPublication forwardedCopy = p.getPublication();
         forwardedCopy.setSource(this);
-        
         forwardedCopy.copyStateFrom(p);
-        
         if (next instanceof BoundedBroker) {
             forwardedCopy.incrementHops();
         }

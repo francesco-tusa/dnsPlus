@@ -95,7 +95,7 @@ public abstract class AbstractPerformanceSimulation<
 
     @Override
     protected void setupSimulation() {
-        boolean enableTracing = SimConfiguration.get().paths.enableSubscriptionTracing;
+        boolean enableTracing = SimConfiguration.get().paths.enableEventTracing;
         
         CsvMetricWriter.getInstance().initialize(this.simulationTimestamp, enableTracing);
         

@@ -1,5 +1,7 @@
 package simulator.entities;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import simulator.config.SimConfiguration;
@@ -17,26 +19,25 @@ import utils.CustomLogger;
 public class SubscriberWithLocation extends TreeNode {
 
     private static final Logger logger = CustomLogger.getLogger(SubscriberWithLocation.class.getName());
-    
     private static final AtomicInteger SUBSCRIBER_ID_GENERATOR = new AtomicInteger(1);
 
-    // --- INSTANCE FIELDS ---
     private final int mySubscriberId; 
-    
     private float[] regionCoords = null; 
     private int activeRegionCount = 0;
     
     private final float myLat;
     private final float myLon;
     
-    private float lastPubLon = Float.NaN;
-    private float lastPubLat = Float.NaN;
-    private Location lastReceivedPubLocation = null;
+    // Cached origin country
+    private String myCountry = null;
+    
+    // Polymorphic Strategy for Logging (initialized lazily)
+    private SubscriberTraceStrategy traceStrategy;
 
+    // Metrics
     private int falsePositiveDeliveries = 0;
     private int nSubscriptions = 0; 
     private int nPublications = 0;
-
     private long hopSum = 0;
     private int hopCount = 0;
     private int hopMin = Integer.MAX_VALUE;
@@ -55,20 +56,19 @@ public class SubscriberWithLocation extends TreeNode {
         this.mySubscriberId = id;
         this.myLon = (float) location.getX();
         this.myLat = (float) location.getY();
+        // traceStrategy is lazily initialized based on the parent broker type
     }
     
     private static String resolveName(int id, String explicitName) {
         if (explicitName != null) return explicitName;
-        if (SimConfiguration.get().paths.enableSubscriptionTracing) return "Sub-" + id;
-        return null;
+        // Consistent naming regardless of trace flag, used by writer when enabled
+        return "Sub-" + id;
     }
     
     @Override
     public String getName() {
         String storedName = super.getName();
-        if (storedName != null) {
-            return storedName;
-        }
+        if (storedName != null) return storedName;
         return "Sub-" + mySubscriberId;
     }
 
@@ -80,38 +80,15 @@ public class SubscriberWithLocation extends TreeNode {
         nPublications++;
 
         if (p instanceof PublicationWithLocation pub) {
-            float pubLon = (float) pub.getLocation().getX();
-            float pubLat = (float) pub.getLocation().getY();
-
-            boolean matchesInterest = false;
-            if (regionCoords != null) {
-                for (int i = 0; i < activeRegionCount; i++) {
-                    int offset = i * 4;
-                    if (Region.fastContains(
-                            regionCoords[offset], regionCoords[offset+1], 
-                            regionCoords[offset+2], regionCoords[offset+3], 
-                            pubLon, pubLat)) {
-                        matchesInterest = true;
-                        break;
-                    }
-                }
-                if (!matchesInterest) falsePositiveDeliveries++;
-            }
-
-            this.lastReceivedPubLocation = pub.getLocation();
-            this.lastPubLon = pubLon;
-            this.lastPubLat = pubLat;
+            boolean matchesInterest = checkRegionInterest(pub);
+            if (!matchesInterest) falsePositiveDeliveries++;
 
             if (p.getMetrics() != null) {
-                String pubLocStr = String.format("(%.4f, %.4f)", pub.getLocation().getX(), pub.getLocation().getY());
-                String payload = "Pub:" + pubLocStr + " -> Sub:" + getFormattedLocation();
-
-                String status = matchesInterest ? "Delivered" : "Delivered (Unwanted)";
-                CsvMetricWriter.getInstance().logPublication(
-                        p,
-                        getName(),
-                        payload,
-                        status);
+                // Lazily determine strategy if not set
+                if (traceStrategy == null) {
+                    resolveTraceStrategy();
+                }
+                traceStrategy.trace(this, pub, matchesInterest);
             }
 
             int hops = p.getHops();
@@ -124,6 +101,37 @@ public class SubscriberWithLocation extends TreeNode {
         }
     }
 
+    // Determine the tracing strategy based on the parent broker type
+    private void resolveTraceStrategy() {
+        SimulationBroker broker = getBroker();
+        if (broker != null && broker.getClass().getSimpleName().contains("Proximity")) {
+            // If attached to a Proximity Broker (Leaf or otherwise), use Proximity Strategy
+            this.traceStrategy = new ProximityTraceStrategy();
+        } else {
+            // Default to Region Strategy for SpatialMatchBroker or others
+            this.traceStrategy = RegionTraceStrategy.INSTANCE;
+        }
+    }
+
+    private boolean checkRegionInterest(PublicationWithLocation pub) {
+        if (activeRegionCount == 0) return true; 
+        if (regionCoords == null) return false;
+
+        float pubLon = (float) pub.getLocation().getX();
+        float pubLat = (float) pub.getLocation().getY();
+
+        for (int i = 0; i < activeRegionCount; i++) {
+            int offset = i * 4;
+            if (Region.fastContains(
+                    regionCoords[offset], regionCoords[offset+1], 
+                    regionCoords[offset+2], regionCoords[offset+3], 
+                    pubLon, pubLat)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void send(SimulationSubscription s) {
         SimulationBroker broker = getBroker();
         if (broker == null) {
@@ -133,10 +141,26 @@ public class SubscriberWithLocation extends TreeNode {
 
         s.setSource(this);
         
-        if (SimConfiguration.get().paths.enableSubscriptionTracing) {
+        // Use renamed global flag
+        if (SimConfiguration.get().paths.enableEventTracing) {
             long seqId = this.nSubscriptions + 1;
             long structuredTraceId = ((long) this.mySubscriberId << 32) | (seqId & 0xFFFFFFFFL);
-            s.setMetrics(new EventMetrics(structuredTraceId));
+            
+            EventMetrics metrics = new EventMetrics(structuredTraceId);
+            
+            if (myCountry == null) {
+                myCountry = resolveCountry();
+            }
+            
+            metrics.setOriginalSourceInfo(getName(), myCountry, (double)myLon, (double)myLat);
+            s.setMetrics(metrics);
+            
+            CsvMetricWriter.getInstance().logSubscription(
+                s,
+                broker.getName(),
+                "Created at " + getFormattedLocation(),
+                "SENT"
+            );
         }
 
         if (s instanceof SubscriptionWithRegion swr) {
@@ -150,8 +174,23 @@ public class SubscriberWithLocation extends TreeNode {
         }
 
         broker.processSubscription(s);
-        
         nSubscriptions++;
+    }
+
+    private String resolveCountry() {
+        List<TreeNode> path = new ArrayList<>();
+        TreeNode current = this;
+        while (current != null) { 
+            path.add(current); 
+            current = current.getParent(); 
+        }
+        if (path.size() >= 3) {
+            return path.get(path.size() - 3).getName();
+        }
+        if (path.size() >= 2) {
+            return path.get(path.size() - 2).getName();
+        }
+        return "Unknown";
     }
 
     private void ensureRegionCapacity() {
@@ -164,7 +203,6 @@ public class SubscriberWithLocation extends TreeNode {
         }
     }
 
-    // --- Accessors ---
     public int getnPublications() { return nPublications; }
     public int getnSubscriptions() { return nSubscriptions; }
     public int getFalsePositiveDeliveries() { return falsePositiveDeliveries; }
@@ -172,8 +210,73 @@ public class SubscriberWithLocation extends TreeNode {
     public long getHopSum() { return hopSum; }
     public int getHopMin() { return hopMin; }
     public int getHopMax() { return hopMax; }
-    public Location getLastReceivedPubLocation() { return Float.isNaN(lastPubLon) ? null : new Location(lastPubLon, lastPubLat, -1); }
     @Override public Location getMetricLocation() { return new Location(myLon, myLat, -1); }
     public Location getLocation() { return getMetricLocation(); }
     public SimulationBroker getBroker() { return (getParent() instanceof SimulationBroker) ? (SimulationBroker) getParent() : null; }
+
+    // ==========================================================
+    // STRATEGY PATTERN IMPLEMENTATION
+    // ==========================================================
+
+    private interface SubscriberTraceStrategy {
+        void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest);
+    }
+
+    // 1. REGION STRATEGY (Stateless, uses Coordinates, Default)
+    private static class RegionTraceStrategy implements SubscriberTraceStrategy {
+        static final RegionTraceStrategy INSTANCE = new RegionTraceStrategy();
+
+        @Override
+        public void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest) {
+            String logLocation = String.format("Pub:%s -> Sub:%s", 
+                pub.getLocation().toString(), 
+                sub.getFormattedLocation()
+            );
+            
+            String result = matchesInterest ? "Delivered" : "FalsePositive";
+            
+            CsvMetricWriter.getInstance().logPublication(
+                pub,
+                sub.getName(),
+                logLocation,
+                result
+            );
+        }
+    }
+
+    // 2. PROXIMITY STRATEGY (Stateful, uses Distance & NEW/UPDATE)
+    private static class ProximityTraceStrategy implements SubscriberTraceStrategy {
+        private double bestDistanceSqSoFar = Double.MAX_VALUE;
+
+        @Override
+        public void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest) {
+            double currentDistSq = pub.getCachedDistanceSquared();
+            if (currentDistSq < 0) {
+                currentDistSq = sub.getLocation().distanceSquared(pub.getLocation());
+            }
+
+            String status;
+            if (!matchesInterest) {
+                status = "UNWANTED";
+            } else if (bestDistanceSqSoFar == Double.MAX_VALUE) {
+                status = "NEW";
+                bestDistanceSqSoFar = currentDistSq;
+            } else if (currentDistSq < bestDistanceSqSoFar) {
+                status = "UPDATE";
+                bestDistanceSqSoFar = currentDistSq;
+            } else {
+                status = "NO_UPDATE";
+            }
+
+            double approxKm = Math.sqrt(currentDistSq) * 111.1;
+            String distancePayload = String.format("%.0fkm", approxKm);
+
+            CsvMetricWriter.getInstance().logPublication(
+                pub,
+                sub.getName(),
+                distancePayload,
+                status
+            );
+        }
+    }
 }

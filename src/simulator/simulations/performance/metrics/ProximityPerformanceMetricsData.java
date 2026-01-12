@@ -8,6 +8,9 @@ public class ProximityPerformanceMetricsData extends PerformanceMetricsData {
     // Track actual upstream subscriptions to verify aggregation
     public long totalPropagatedSubscriptions = 0;
 
+    // Track actual downstream message volume (Fan-out)
+    public long totalMessagesForwarded = 0;
+
     @Override
     public String getAlgorithmLabel() {
         return "PROXIMITY (Closest Node)";

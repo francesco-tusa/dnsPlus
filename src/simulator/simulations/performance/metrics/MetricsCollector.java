@@ -10,14 +10,11 @@ public class MetricsCollector {
     public PerformanceMetricsData collect(TreeNode root, List<SubscriberWithLocation> subs,
             List<PublisherWithLocation> pubs) {
         
-        // 1. Factory Logic: Create specific data object based on Root Node Type
         PerformanceMetricsData data;
         
-        // Check for Proximity/Location Broker first
         if (root instanceof ProximityRoutingBroker) {
             data = new ProximityPerformanceMetricsData();
         } else {
-            // Default to Region for SpatialMatchBroker (which extends BoundedBroker)
             data = new RegionPerformanceMetricsData();
         }
 
@@ -29,7 +26,7 @@ public class MetricsCollector {
             TreeNode curr = queue.poll();
             
             if (curr instanceof SimulationBroker b) {
-                // A. Common Stats (collected for ALL simulation types)
+                // A. Common Stats
                 data.inputTableStats.accept(b.getInputSubscriptionCount());
                 data.outputTableStats.accept(b.getOutputSubscriptionCount());
 
@@ -38,17 +35,14 @@ public class MetricsCollector {
                 data.totalMatchingComputations += b.getTotalMatchingComputations();
                 data.totalFalsePositiveEvents += b.getTotalFalsePositiveEvents();
 
-                // B. Polymorphic Stats Collection (Specific to Algorithm)
+                // B. Polymorphic Stats Extraction
                 if (data instanceof RegionPerformanceMetricsData rd && b instanceof BoundedBroker bb) {
-                    // --- Region (Spatial Match) Metrics ---
-                    // INPUT
                     rd.totalSubCovered += bb.getSubCoveredCount();
                     rd.totalSubExpanded += bb.getSubExpandedCount();
                     rd.totalSubAdded += bb.getSubAddedCount();
                     rd.totalSubAbsorbed += bb.getSubAbsorbedCount();
                     rd.totalSubMerged += bb.getSubMergedCount();
                     
-                    // OUTPUT
                     rd.totalOutSubCovered += bb.getOutSubCoveredCount();
                     rd.totalOutSubExpanded += bb.getOutSubExpandedCount();
                     rd.totalOutSubAdded += bb.getOutSubAddedCount();
@@ -56,20 +50,17 @@ public class MetricsCollector {
                     rd.totalOutSubMerged += bb.getOutSubMergedCount();
                 } 
                 else if (data instanceof ProximityPerformanceMetricsData pd && b instanceof ProximityRoutingBroker pb) {
-                    // --- Proximity (Location) Metrics ---
-                    // "Brake" strategy stats (suppressed updates)
                     pd.totalBrakeFilteredEvents += pb.getBrakeFilteredCount();
-
                     pd.totalPropagatedSubscriptions += pb.getOutSubAddedCount();
+                    pd.totalMessagesForwarded += pb.getTotalMessagesForwarded();
                 }
             }
             
-            // Traverse down the tree
             if (curr.getChildren() != null)
                 queue.addAll(curr.getChildren());
         }
 
-        // C. Subscriber Stats (Notifications & Hops)
+        // C. Subscriber Stats
         for (SubscriberWithLocation s : subs) {
             data.totalNotifications += s.getnPublications();
             data.totalFalsePositiveDeliveries += s.getFalsePositiveDeliveries();
@@ -77,14 +68,12 @@ public class MetricsCollector {
             if (s.getHopCount() > 0) {
                 data.totalHopSum += s.getHopSum();
                 data.totalHopCount += s.getHopCount();
-                
-                // Track global min/max hops
                 if (s.getHopMin() < data.globalMinHops) data.globalMinHops = s.getHopMin();
                 if (s.getHopMax() > data.globalMaxHops) data.globalMaxHops = s.getHopMax();
             }
         }
         
-        // D. Publisher Stats (Publications Sent)
+        // D. Publisher Stats
         for (PublisherWithLocation p : pubs) {
             data.totalPubsSent += p.getnPublications();
         }

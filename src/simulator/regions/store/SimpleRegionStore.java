@@ -25,18 +25,19 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
         if (existing == null) {
             SubscriptionWithRegion newEntry = new SubscriptionWithRegion(sub);
             map.put(source, newEntry);
-            return new StoreUpdate(StoreOpResult.ADDED, newEntry, "New Entry");
+            return new StoreUpdate(StoreOpResult.ADDED, newEntry, "Added (New Entry)");
         }
 
         if (existing.contains(sub)) {
-            return new StoreUpdate(StoreOpResult.NO_CHANGE, existing, "Covered");
+            // Updated: Explicitly state "Filtered" and return the existing object for context
+            return new StoreUpdate(StoreOpResult.NO_CHANGE, existing, "Covered (Filtered)");
         }
 
         Region currentRegion = existing.getRegion();
         currentRegion.expand(sub.getRegion());
         existing.setRegion(currentRegion);
 
-        return new StoreUpdate(StoreOpResult.EXPANDED, existing, "Expanded MBR");
+        return new StoreUpdate(StoreOpResult.EXPANDED, existing, "Expanded (MBR Merge)");
     }
 
     @Override

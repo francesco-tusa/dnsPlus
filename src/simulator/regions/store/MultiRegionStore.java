@@ -26,9 +26,10 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         List<SubscriptionWithRegion> regions = map.computeIfAbsent(source, k -> new ArrayList<>());
 
+        // 1. Coverage Check
         for (SubscriptionWithRegion existing : regions) {
             if (existing.contains(sub)) {
-                return new StoreUpdate(StoreOpResult.NO_CHANGE, null, "Covered", 0, 0);
+                return new StoreUpdate(StoreOpResult.NO_CHANGE, existing, "Covered (Filtered)", 0, 0);
             }
         }
 
@@ -38,20 +39,19 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         int mergedCount = 0;
         double absorbedArea = 0.0;
 
+        // 2. Absorb/Merge Loop
         do {
             mergedInPass = false;
             Iterator<SubscriptionWithRegion> it = regions.iterator();
             while (it.hasNext()) {
                 SubscriptionWithRegion existing = it.next();
 
-                // Case A: Accumulator eats Existing
                 if (existing.isContainedIn((float) accumulator.getMinLon(), (float) accumulator.getMaxLon(),
                         (float) accumulator.getMinLat(), (float) accumulator.getMaxLat())) {
                     absorbedArea += existing.getArea();
                     it.remove();
                     absorbedCount++;
                 }
-                // Case B: Merge Condition
                 else if (shouldMerge(accumulator, existing)) {
                     accumulator.expand(existing.getRegion());
                     it.remove();
@@ -66,48 +66,59 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         regions.add(resultingEntry);
         updateSummary(source);
 
+        // 3. Generate Clean Explanation
         double accumArea = accumulator.getArea();
         boolean isIdenticalReplacement = (mergedCount == 0
                 && Math.abs(accumArea - (sub.getArea() + absorbedArea)) < 1e-6);
 
-        StoreOpResult opResult;
-        if (absorbedCount == 0 && mergedCount == 0) {
-            opResult = StoreOpResult.ADDED;
-        } else if (isIdenticalReplacement) {
-            opResult = StoreOpResult.NO_CHANGE;
-        } else {
-            opResult = StoreOpResult.EXPANDED;
-        }
+        StoreOpResult opResult = determineResult(absorbedCount, mergedCount, isIdenticalReplacement);
+        String explanation = createExplanation(opResult, mergedCount, absorbedCount, isIdenticalReplacement);
 
-        return new StoreUpdate(opResult, resultingEntry, accumulator.toLogString(), absorbedCount, mergedCount);
+        return new StoreUpdate(opResult, resultingEntry, explanation, absorbedCount, mergedCount);
     }
 
+    private StoreOpResult determineResult(int absorbed, int merged, boolean isReplacement) {
+        if (absorbed == 0 && merged == 0) return StoreOpResult.ADDED;
+        if (isReplacement) return StoreOpResult.NO_CHANGE;
+        return StoreOpResult.EXPANDED;
+    }
+
+    private String createExplanation(StoreOpResult result, int merged, int absorbed, boolean isReplacement) {
+        switch (result) {
+            case ADDED:
+                return "Added (New Disjoint)";
+            case NO_CHANGE:
+                return isReplacement 
+                    ? String.format("Replaced (Internal Structure Change: Absorbed %d)", absorbed)
+                    : "Covered (Filtered)"; 
+            case EXPANDED:
+                if (merged > 0) {
+                    return String.format("Expanded (Merged %d, Absorbed %d)", merged, absorbed);
+                } else {
+                    return String.format("Expanded (Absorbed %d existing entries)", absorbed);
+                }
+            default:
+                return "Unknown State";
+        }
+    }
+    
     private boolean shouldMerge(Region acc, SubscriptionWithRegion existing) {
         float aMinL = (float) acc.getMinLon(), aMaxL = (float) acc.getMaxLon(),
                 aMinT = (float) acc.getMinLat(), aMaxT = (float) acc.getMaxLat();
-
         float interArea = existing.getIntersectionArea(aMinL, aMaxL, aMinT, aMaxT);
         float area1 = Region.fastArea(aMinL, aMaxL, aMinT, aMaxT);
         float area2 = existing.getArea();
-
         float geometricUnion = area1 + area2 - interArea;
         float mbrArea = Region.fastMBRArea(aMinL, aMaxL, aMinT, aMaxT,
-                existing.getMinLon(), existing.getMaxLon(),
-                existing.getMinLat(), existing.getMaxLat());
-
+                existing.getMinLon(), existing.getMaxLon(), existing.getMinLat(), existing.getMaxLat());
         return (mbrArea > 0) && ((mbrArea - geometricUnion) / mbrArea < mergeThreshold);
     }
 
     private void updateSummary(TreeNode source) {
         List<SubscriptionWithRegion> list = map.get(source);
-        if (list == null || list.isEmpty()) {
-            summaryRegions.remove(source);
-            return;
-        }
+        if (list == null || list.isEmpty()) { summaryRegions.remove(source); return; }
         Region summary = new Region(list.get(0).getRegion());
-        for (int i = 1; i < list.size(); i++) {
-            summary.expand(list.get(i).getRegion());
-        }
+        for (int i = 1; i < list.size(); i++) summary.expand(list.get(i).getRegion());
         summaryRegions.put(source, summary);
     }
 
@@ -147,13 +158,10 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     @Override
     public int size() {
         int count = 0;
-        for (List<SubscriptionWithRegion> list : map.values())
-            count += list.size();
+        for (List<SubscriptionWithRegion> list : map.values()) count += list.size();
         return count;
     }
 
     @Override
-    public boolean isEmpty() {
-        return map.isEmpty();
-    }
+    public boolean isEmpty() { return map.isEmpty(); }
 }
