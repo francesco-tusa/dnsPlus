@@ -59,7 +59,7 @@ public class MetricsPrinter {
         } else if (data instanceof ProximityPerformanceMetricsData pd) {
             // For Proximity: Input is total traffic, Output is traffic NOT suppressed by brakes
             totalInput = pd.totalSubscriptionTraffic;
-            totalOutput = pd.totalSubscriptionTraffic - pd.totalBrakeFilteredEvents;
+            totalOutput = pd.totalPropagatedSubscriptions;
         } else {
             // Default/Fallback
             totalInput = data.totalSubscriptionTraffic;

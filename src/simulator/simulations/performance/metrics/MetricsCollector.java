@@ -59,6 +59,8 @@ public class MetricsCollector {
                     // --- Proximity (Location) Metrics ---
                     // "Brake" strategy stats (suppressed updates)
                     pd.totalBrakeFilteredEvents += pb.getBrakeFilteredCount();
+
+                    pd.totalPropagatedSubscriptions += pb.getOutSubAddedCount();
                 }
             }
             

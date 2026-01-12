@@ -158,6 +158,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
             
             getParentBroker().processSubscription(proxySubscription);
             isSubscribedToParent = true;
+            recordOutSubAdded();
         }
     }
 
