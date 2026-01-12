@@ -1,26 +1,44 @@
 package simulator.simulations.performance;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 import simulator.config.BrokerConfig;
 import simulator.config.SimConfiguration;
-import simulator.entities.SubscriberWithLocation;
-import simulator.events.SimulationSubscription;
+import simulator.core.WorkloadRepository;
+import simulator.events.PublicationWithLocation;
 import simulator.regions.BoundedBroker;
+
+import simulator.simulations.performance.metrics.PerformanceMetricsData;
+import simulator.simulations.performance.metrics.ProximityPerformanceMetricsData;
+import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
+import simulator.simulations.performance.metrics.groundtruth.ProximityGroundTruthCalculator;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.workload.LocationWorkloadGenerator;
-import simulator.workload.SubscriptionWorkloadGenerator;
+import simulator.workload.SubscriptionWorkloadOrchestrator;
 import utils.CustomLogger; 
 
 public abstract class AbstractLocationPerformanceSimulation<C extends TopologyConfiguration, F extends AbstractTopologyFactory<C, BoundedBroker>> extends AbstractPerformanceSimulation<C, F> {
 
     private static final Logger logger = CustomLogger.getLogger(AbstractLocationPerformanceSimulation.class.getName());
     
-    private final SubscriptionWorkloadGenerator workloadGenerator = new LocationWorkloadGenerator();
+    private final LocationWorkloadGenerator workloadGenerator = new LocationWorkloadGenerator();
+    private final SubscriptionWorkloadOrchestrator orchestrator = new SubscriptionWorkloadOrchestrator();
 
     public AbstractLocationPerformanceSimulation() {
-        // No-arg constructor
+    }
+
+    // --- Polymorphic Factories ---
+    @Override
+    protected PerformanceMetricsData createMetricsData() {
+        return new ProximityPerformanceMetricsData();
+    }
+
+    @Override
+    protected GroundTruthCalculator createGroundTruthCalculator() {
+        return new ProximityGroundTruthCalculator();
     }
 
     @Override
@@ -37,48 +55,55 @@ public abstract class AbstractLocationPerformanceSimulation<C extends TopologyCo
     }
     
     @Override
-    protected void logSpecificMetrics() {
-        long total = SimConfiguration.get().workload.getTotalSubscribers();
-        if (total > 0) {
-            long matched = allSubscribers.stream().filter(s -> s.getnPublications() > 0).count();
-            double rate = (double) matched / total * 100.0;
-            logger.info("\n5. LOCATION-SPECIFIC METRICS:");
-            logMetricItem("Matched Subscribers", matched);
-            logMetricItem("Match Rate", String.format("%.2f%%", rate));
-        }
-    }
-    
-    @Override
     protected void executeScenarios() {
         logSectionHeader("Executing Location-Based Performance Scenario");
 
         if (allSubscribers.isEmpty()) return;
 
-        long totalSubscriptions = allSubscribers.size();
-        long interval = Math.max(1, totalSubscriptions / 10);
+        // 1. Prepare Leaf Brokers
+        List<BoundedBroker> leafBrokers = new ArrayList<>();
+        for (var s : allSubscribers) {
+            if (s.getBroker() instanceof BoundedBroker bb && !leafBrokers.contains(bb)) {
+                leafBrokers.add(bb);
+            }
+        }
 
-        logger.info("");
-        logger.info(">>> Phase 1: Subscriptions... <<<");
+        // 2. Pre-generate Publications
+        // Using existing logic: Random Location in Root Region
+        logger.info("Pre-generating " + allPublishers.size() + " publications for Ground Truth context...");
+        List<PublicationWithLocation> preGeneratedPubs = new ArrayList<>();
         
-        for (int i = 0; i < totalSubscriptions; i++) {
-            SubscriberWithLocation sub = allSubscribers.get(i);
-            
-            SimulationSubscription s = workloadGenerator.generateSubscription(sub, null);
-            sub.send(s); 
-
-            if ((i + 1) % interval == 0) {
-                logger.info(String.format("  ... %d / %d", (i + 1), totalSubscriptions));
+        if (this.rootNode instanceof BoundedBroker root) {
+            for (var p : allPublishers) {
+                simulator.core.Location pubLocation = root.getRegion().getRandomLocation();
+                PublicationWithLocation pub = new PublicationWithLocation(pubLocation);
+                pub.setSource(p);
+                preGeneratedPubs.add(pub);
             }
         }
 
         logger.info("");
+        logger.info(">>> Phase 1: Subscriptions & GT Calculation... <<<");
+        
+        // 3. Streaming Generation & Ground Truth
+        orchestrator.generateDispatchAndCalculate(
+            allSubscribers, 
+            leafBrokers, 
+            workloadGenerator, 
+            this.metricsData, 
+            preGeneratedPubs,
+            this.truthCalculator // Pass the Proximity strategy
+        );
+
+        logger.info("");
         logger.info(">>> Phase 2: Publications... <<<");
         
-        for (var pub : allPublishers) {
-            simulator.core.Location pubLocation = this.rootNode.getRegion().getRandomLocation();
-            pub.send(new simulator.events.PublicationWithLocation(pubLocation));
+        // 4. Send Publications
+        for (int i = 0; i < preGeneratedPubs.size(); i++) {
+             allPublishers.get(i).send(preGeneratedPubs.get(i));
         }
         
         collectAndPrintMetrics();
+        WorkloadRepository.reset();
     }
 }

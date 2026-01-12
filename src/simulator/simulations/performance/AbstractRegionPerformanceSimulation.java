@@ -10,6 +10,11 @@ import simulator.config.WorkloadConfig;
 import simulator.core.WorkloadRepository;
 import simulator.events.PublicationWithLocation;
 import simulator.regions.BoundedBroker;
+// Polymorphic Imports
+import simulator.simulations.performance.metrics.PerformanceMetricsData;
+import simulator.simulations.performance.metrics.RegionPerformanceMetricsData;
+import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
+import simulator.simulations.performance.metrics.groundtruth.RegionGroundTruthCalculator;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.analysis.TopologyAnalyser;
@@ -22,6 +27,7 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
     private static final Logger logger = CustomLogger.getLogger(AbstractRegionPerformanceSimulation.class.getName());
     
     private final RegionWorkloadGenerator workloadGenerator = new RegionWorkloadGenerator();
+    // No-arg constructor as per your Orchestrator code
     private final SubscriptionWorkloadOrchestrator orchestrator = new SubscriptionWorkloadOrchestrator();
 
     public AbstractRegionPerformanceSimulation() {
@@ -29,8 +35,19 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
     
     protected abstract List<BoundedBroker> getInterestHotspots(BoundedBroker root);
 
+    // --- Polymorphic Factories ---
+    @Override
+    protected PerformanceMetricsData createMetricsData() {
+        return new RegionPerformanceMetricsData();
+    }
+
+    @Override
+    protected GroundTruthCalculator createGroundTruthCalculator() {
+        return new RegionGroundTruthCalculator();
+    }
+
+    @Override
     protected void logSpecificConfiguration() {
-        // 1. Log Routing Configuration
         BrokerConfig brokerConfig = SimConfiguration.get().broker;
         logConfigItem("Routing Algorithm", "SPATIAL MATCH (Region Overlap)");
         logConfigItem("Broker Strategy", brokerConfig.strategy);
@@ -42,7 +59,6 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
         }
         logConfigItem("Intersection Optimization", brokerConfig.isIntersectionOptimizationEnabled());
 
-        // 2. Log Region-Specific Workload Configuration
         WorkloadConfig w = SimConfiguration.get().workload;
         logConfigItem("Subscription Region Size", w.subscriptionRegionSize);
         logConfigItem("Remote Interest Probability", w.remoteInterestProbability);
@@ -51,8 +67,6 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
 
     @Override
     protected void executeScenarios() {
-        WorkloadConfig w = SimConfiguration.get().workload;
-
         logSectionHeader("Executing Region-Based Performance Scenario");
 
         if (allSubscribers.isEmpty()) return;
@@ -67,56 +81,37 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
             logger.info("Configured Workload Generator with NO Hotspots (Pure Random Remote).");
         }
         
-        // 0. Pre-generate Publication Objects (for Ground Truth calculation)
-        // We generate the data now, but we do NOT send them yet.
+        // 0. Pre-generate Publication Objects (for Ground Truth context)
         logger.info("Pre-generating " + allPublishers.size() + " publications for Ground Truth context...");
         List<PublicationWithLocation> preGeneratedPubs = new ArrayList<>();
         for(var p : allPublishers) {
-            // We assume 1 pub per publisher for this scenario as per original code
             PublicationWithLocation pub = new PublicationWithLocation(p.getLocation());
+            pub.setSource(p); 
             preGeneratedPubs.add(pub);
         }
 
         logger.info("");
         logger.info(">>> Phase 1: Subscriptions (Streaming Batch Mode) ... <<<");
 
-        // 1. Streaming Generation & Dispatching
-        // This method handles:
-        //    - Batching subscribers (Randomized)
-        //    - Generating subs into WorkloadRepository
-        //    - Calculating Ground Truth (Parallel Thread)
-        //    - Dispatching (Main Thread)
-        //    - Clearing Repository
+        // 1. Streaming Generation & Ground Truth Calculation
         orchestrator.generateDispatchAndCalculate(
             allSubscribers, 
             leafBrokers, 
             workloadGenerator,
             this.metricsData,
-            preGeneratedPubs
+            preGeneratedPubs,
+            this.truthCalculator // Pass the Region strategy
         );
 
         logger.info("");
         logger.info(">>> Phase 2: Publications... <<<");
         
-        // 2. Actually send the publications through the network
-        // Note: We reuse the preGeneratedPubs to ensure consistency if IDs were involved, 
-        // though here we just need to ensure the logic matches.
-        int pubIndex = 0;
-        for(var p : allPublishers) {
-            if (pubIndex < preGeneratedPubs.size()) {
-                p.send(preGeneratedPubs.get(pubIndex));
-            } else {
-                // Fallback if mismatch (shouldn't happen)
-                p.send(new PublicationWithLocation(p.getLocation()));
-            }
-            pubIndex++;
+        // 2. Send Publications
+        for (int i = 0; i < preGeneratedPubs.size(); i++) {
+            allPublishers.get(i).send(preGeneratedPubs.get(i));
         }
         
-        // 3. Metrics Collection
-        // Note: Ground Truth matches were already calculated incrementally in Phase 1.
         collectAndPrintMetrics();
-        
-        // 4. Final Cleanup
         WorkloadRepository.reset();
     }
 }

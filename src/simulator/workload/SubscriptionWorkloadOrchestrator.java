@@ -17,9 +17,8 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
 import simulator.regions.BoundedBroker;
-import simulator.regions.SubscriptionWithRegion;
-import simulator.simulations.performance.metrics.GroundTruthCalculator;
 import simulator.simulations.performance.metrics.PerformanceMetricsData;
+import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
 import utils.CustomLogger;
 
 public class SubscriptionWorkloadOrchestrator {
@@ -32,25 +31,34 @@ public class SubscriptionWorkloadOrchestrator {
     // Log progress every 20 batches (approx every 100k subscribers)
     private static final int LOG_INTERVAL_BATCHES = 20;
 
+    /**
+     * Simplified entry point without metrics calculation.
+     */
     public void generateAndDispatchWorkload(
             List<SubscriberWithLocation> subscribers, 
             List<BoundedBroker> leafBrokers, 
             SubscriptionWorkloadGenerator generator) {
-        generateDispatchAndCalculate(subscribers, leafBrokers, generator, null, null);
+        // Pass null for metrics and calculator
+        generateDispatchAndCalculate(subscribers, leafBrokers, generator, null, null, null);
     }
 
+    /**
+     * Main orchestration method with support for Polymorphic Ground Truth calculation.
+     */
     public void generateDispatchAndCalculate(
             List<SubscriberWithLocation> subscribers, 
             List<BoundedBroker> leafBrokers, 
             SubscriptionWorkloadGenerator generator,
             PerformanceMetricsData metricsData,
-            List<PublicationWithLocation> allPublications) {
+            List<PublicationWithLocation> allPublications,
+            GroundTruthCalculator calculator) {
         
         WorkloadConfig config = SimConfiguration.get().workload;
         logger.info("Starting Streaming Workload Gen: Strategy=" + config.arrivalDistribution + 
                     ", Mean=" + config.meanSubscriptionsPerSubscriber + 
                     ", DensitySkew=" + config.enableDensitySkew);
         
+        // 1. Shuffle subscribers to avoid spatial bias in batch processing
         List<SubscriberWithLocation> shuffledSubscribers = new ArrayList<>(subscribers);
         Collections.shuffle(shuffledSubscribers);
 
@@ -74,26 +82,32 @@ public class SubscriptionWorkloadOrchestrator {
                     logger.info(String.format("--- Processing Batch %d (Subs %d-%d / %d) ---", batchCounter, i, end, totalSubscribers));
                 }
 
-                // A. Prepare Repository
+                // A. Prepare Repository (Memory Allocation hint)
                 int estimatedBatchVolume = calculateEstimatedVolume(config, batchSubscribers.size());
                 repository.prepare(estimatedBatchVolume);
 
-                // B. Generate
+                // B. Generate (Populate Repository)
                 generateBatchIntoRepository(batchSubscribers, leafBrokers, generator, config, repository);
                 
-                // C. Shuffle
+                // C. Shuffle (Repository level shuffle to mix subscription order)
                 repository.shuffle();
                 
-                // D. Async Ground Truth
+                // D. Async Ground Truth (Polymorphic Logic)
                 Future<Long> gtFuture = null;
-                if (metricsData != null && allPublications != null && !allPublications.isEmpty()) {
-                    List<SubscriptionWithRegion> batchSubsForGt = repository.getSubscriptions();
+                // Only calculate if we have data, publications, AND a calculator strategy
+                if (metricsData != null && allPublications != null && !allPublications.isEmpty() && calculator != null) {
+                    
+                    // Retrieve generated subscriptions. 
+                    // Note: We use <? extends SimulationSubscription> to allow the calculator to cast 
+                    // to SubscriptionWithRegion or SubscriptionWithLocation as needed.
+                    List<? extends SimulationSubscription> batchSubsForGt = repository.getSubscriptions();
+                    
                     gtFuture = gtExecutor.submit(() -> 
-                        GroundTruthCalculator.calculateRegionMatches(batchSubsForGt, allPublications)
+                        calculator.calculate(batchSubsForGt, allPublications)
                     );
                 }
 
-                // E. Dispatch
+                // E. Dispatch (Send to Brokers)
                 dispatch(repository, shouldLog);
 
                 // F. Aggregate Results
@@ -102,7 +116,7 @@ public class SubscriptionWorkloadOrchestrator {
                         long batchMatches = gtFuture.get();
                         metricsData.groundTruthMatches += batchMatches;
                         if (shouldLog) {
-                            logger.info("Cumulative GT Matches: " + metricsData.groundTruthMatches);
+                            logger.info("Cumulative GT Matches (" + metricsData.getAlgorithmLabel() + "): " + metricsData.groundTruthMatches);
                         }
                     } catch (InterruptedException | ExecutionException e) {
                         logger.severe("Error calculating Ground Truth for batch: " + e.getMessage());
@@ -110,6 +124,7 @@ public class SubscriptionWorkloadOrchestrator {
                     }
                 }
 
+                // G. Reset Repository for next batch
                 WorkloadRepository.reset();
                 batchCounter++;
             }

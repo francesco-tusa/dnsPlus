@@ -29,6 +29,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
     
     // --- Brake Strategy ---
     private BrakeStrategy brakeStrategy;
+    private long brakeFilteredCount = 0;
     
     // --- High-Performance Routing State ---
     protected final Map<TreeNode, Location[]> childTopologicalTargets = new HashMap<>();
@@ -60,6 +61,10 @@ public class ProximityRoutingBroker extends BoundedBroker {
     
     public void setBrakeStrategy(BrakeStrategy strategy) {
         this.brakeStrategy = strategy;
+    }
+
+    public long getBrakeFilteredCount() {
+        return brakeFilteredCount;
     }
 
     // --- Topology & Quadrant Management ---
@@ -191,18 +196,22 @@ public class ProximityRoutingBroker extends BoundedBroker {
         parentBroker.processPublication(forwardedCopy);
     }
 
-    protected void processPublicationDownward(PublicationWithLocation pub) {
+   
+    private void processPublicationDownward(PublicationWithLocation pub) {
+        // Track if we forwarded to at least one child (Broker OR Subscriber)
+        boolean forwardedToAny = false; 
+
+        // Iterate over ALL children (Neighboring Brokers AND Attached Subscribers)
         for (Map.Entry<TreeNode, Location[]> entry : childTopologicalTargets.entrySet()) {
             TreeNode neighbor = entry.getKey();
             
-            // 1. Don't send back to source
+            // 1. Loop Prevention
             if (neighbor == pub.getSource()) continue;
 
-            // 2. Don't send "downward" to the Parent.
-            // The parent path is handled exclusively by propagatePublicationUpward.
+            // 2. Directionality (Don't send back up to Parent)
             if (neighbor == getParentBroker()) continue;
             
-            // 3. Only route if they have an active subscription
+            // 3. Pruning (Must have an active subscription interest)
             if (inputStore.get(neighbor) == null) continue;
 
             Location[] targets = entry.getValue();
@@ -213,7 +222,12 @@ public class ProximityRoutingBroker extends BoundedBroker {
             boolean shouldSend = false;
 
             for (int i = 0; i < targets.length; i++) {
+                // [METRIC] Computational Cost: Track every distance check
+                this.totalMatchingComputations++;
+
                 double newDistSq = pub.getLocation().distanceSquared(targets[i]);
+                
+                // HEURISTIC: Only forward if strictly closer than previous best
                 if (newDistSq < bestDists[i]) {
                     bestDists[i] = newDistSq;
                     shouldSend = true;
@@ -222,7 +236,18 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
             if (shouldSend) {
                 forwardPublication(neighbor, pub);
+                forwardedToAny = true;
             }
+        }
+
+        // [METRIC] False Positive Logic (Dead Ends)
+        // If forwardedToAny is false, it means:
+        // A) If we are an Intermediate Node: No downstream path was closer.
+        // B) If we are a Leaf Node: No attached subscriber was closer.
+        // In BOTH cases, the message stopped here without reaching a new target. 
+        // This is a Dead End (False Positive).
+        if (!forwardedToAny) {
+             this.totalFalsePositiveEvents++;
         }
     }
 

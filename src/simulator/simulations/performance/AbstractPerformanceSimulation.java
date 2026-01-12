@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import simulator.config.BrokerConfig;
 import simulator.config.SimConfiguration;
 import simulator.config.WorkloadConfig;
 import simulator.core.SimulationRunner;
@@ -15,7 +14,11 @@ import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BoundedBroker;
-import simulator.simulations.performance.metrics.*;
+// --- Metrics & GT Imports ---
+import simulator.simulations.performance.metrics.MetricsCollector;
+import simulator.simulations.performance.metrics.MetricsPrinter;
+import simulator.simulations.performance.metrics.PerformanceMetricsData;
+import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.analysis.TopologyAnalyser;
@@ -32,7 +35,13 @@ public abstract class AbstractPerformanceSimulation<
     protected final List<SubscriberWithLocation> allSubscribers = new ArrayList<>();
     protected final List<PublisherWithLocation> allPublishers = new ArrayList<>();
     
-    protected final PerformanceMetricsData metricsData = new PerformanceMetricsData();
+    // --- Polymorphic Fields ---
+    protected PerformanceMetricsData metricsData;
+    protected GroundTruthCalculator truthCalculator;
+
+    // --- Abstract Factories ---
+    protected abstract PerformanceMetricsData createMetricsData();
+    protected abstract GroundTruthCalculator createGroundTruthCalculator();
 
     protected abstract PublishersPlacementStrategy getPublisherPlacementStrategy();
 
@@ -41,10 +50,7 @@ public abstract class AbstractPerformanceSimulation<
 
     // --- Logging Helpers ---
     protected void printBanner(String t) {
-        logger.info("");
-        logger.info("==================================================================================");
-        logger.info("  " + t);
-        logger.info("==================================================================================");
+        logger.info("\n==================================================================================\n  " + t + "\n==================================================================================");
     }
     
     protected void printSeparator() { 
@@ -61,10 +67,13 @@ public abstract class AbstractPerformanceSimulation<
 
     @Override
     protected void initialise(F factory, C config) {
+        // 1. Initialize Polymorphic Components
+        this.metricsData = createMetricsData();
+        this.truthCalculator = createGroundTruthCalculator();
+
         super.initialise(factory, config);
         
         WorkloadConfig workload = SimConfiguration.get().workload;
-        BrokerConfig brokerConfig = SimConfiguration.get().broker; 
         
         printBanner("SIMULATION CONFIGURATION");
         logConfigItem("Run ID", this.simulationTimestamp);
@@ -74,10 +83,8 @@ public abstract class AbstractPerformanceSimulation<
         logConfigItem("Number of Replicas", workload.numberOfReplicas);
         logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);
         logConfigItem("Total Subscribers", workload.getTotalSubscribers());
-        
         logConfigItem("Avg Subscriptions per Subscriber", workload.meanSubscriptionsPerSubscriber);
         logConfigItem("Arrival Distribution", workload.arrivalDistribution);
-        
         logConfigItem("Publisher Strategy", getPublisherPlacementStrategy().getClass().getSimpleName());
         
         logSpecificConfiguration();
@@ -135,22 +142,18 @@ public abstract class AbstractPerformanceSimulation<
     protected void collectAndPrintMetrics() {
         MetricsCollector collector = new MetricsCollector();
         PerformanceMetricsData collected = collector.collect(this.rootNode, allSubscribers, allPublishers);
+        
+        // Transfer the Ground Truth calculated during orchestration
         collected.groundTruthMatches = this.metricsData.groundTruthMatches;
         
         MetricsPrinter printer = new MetricsPrinter(logger);
-        printer.print(collected);
-        
-        logSpecificMetrics();
+        printer.print(collected);        
     }
     
-    protected void logSpecificMetrics() {}
-
     @Override
     protected void cleanup() {
         super.cleanup();
-        
         CsvMetricWriter.getInstance().close();
-        
         if (SimConfiguration.get().paths.enableVerboseLogs) {
             logger.info("Metrics writer closed.");
         }

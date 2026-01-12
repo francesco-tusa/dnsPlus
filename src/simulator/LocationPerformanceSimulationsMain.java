@@ -15,8 +15,8 @@ public class LocationPerformanceSimulationsMain {
 
     public static void main(String[] args) {
         // Run a smaller-scale performance test on a random topology
-        logger.info("--- Launching Location-Based Random Topology Simulation ---");
-        RandomTopologyLocationPerformanceSimulation.main(args);
+        // logger.info("--- Launching Location-Based Random Topology Simulation ---");
+        // RandomTopologyLocationPerformanceSimulation.main(args);
         
         // Uncomment the line below to run the full-scale, realistic performance test
         // logger.info("--- Launching Location-Based GeoNames Topology Simulation ---");
