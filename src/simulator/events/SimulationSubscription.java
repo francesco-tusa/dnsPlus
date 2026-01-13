@@ -35,10 +35,7 @@ public abstract class SimulationSubscription extends AbstractSubscription {
 
     public void copyStateFrom(SimulationSubscription other) {
         this.hops = other.hops;
-        
-        if (other.metrics != null) {
-            this.metrics = new EventMetrics(other.metrics);
-        }
+        this.metrics = other.metrics;
     }
 
     public abstract String toDisplayString();

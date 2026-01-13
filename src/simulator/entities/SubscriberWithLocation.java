@@ -56,19 +56,19 @@ public class SubscriberWithLocation extends TreeNode {
         this.mySubscriberId = id;
         this.myLon = (float) location.getX();
         this.myLat = (float) location.getY();
-        // traceStrategy is lazily initialized based on the parent broker type
     }
     
     private static String resolveName(int id, String explicitName) {
         if (explicitName != null) return explicitName;
-        // Consistent naming regardless of trace flag, used by writer when enabled
-        return "Sub-" + id;
+        if (SimConfiguration.get().paths.enableEventTracing) return "Sub-" + id;
+        return null; 
     }
     
     @Override
     public String getName() {
         String storedName = super.getName();
         if (storedName != null) return storedName;
+        // Fallback for debug/logging if needed, but not stored permanently in TreeNode
         return "Sub-" + mySubscriberId;
     }
 
@@ -83,8 +83,7 @@ public class SubscriberWithLocation extends TreeNode {
             boolean matchesInterest = checkRegionInterest(pub);
             if (!matchesInterest) falsePositiveDeliveries++;
 
-            if (p.getMetrics() != null) {
-                // Lazily determine strategy if not set
+            if (SimConfiguration.get().paths.enableEventTracing && p.getMetrics() != null) {
                 if (traceStrategy == null) {
                     resolveTraceStrategy();
                 }
@@ -101,14 +100,11 @@ public class SubscriberWithLocation extends TreeNode {
         }
     }
 
-    // Determine the tracing strategy based on the parent broker type
     private void resolveTraceStrategy() {
         SimulationBroker broker = getBroker();
         if (broker != null && broker.getClass().getSimpleName().contains("Proximity")) {
-            // If attached to a Proximity Broker (Leaf or otherwise), use Proximity Strategy
             this.traceStrategy = new ProximityTraceStrategy();
         } else {
-            // Default to Region Strategy for SpatialMatchBroker or others
             this.traceStrategy = RegionTraceStrategy.INSTANCE;
         }
     }
@@ -141,7 +137,6 @@ public class SubscriberWithLocation extends TreeNode {
 
         s.setSource(this);
         
-        // Use renamed global flag
         if (SimConfiguration.get().paths.enableEventTracing) {
             long seqId = this.nSubscriptions + 1;
             long structuredTraceId = ((long) this.mySubscriberId << 32) | (seqId & 0xFFFFFFFFL);
@@ -222,7 +217,6 @@ public class SubscriberWithLocation extends TreeNode {
         void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest);
     }
 
-    // 1. REGION STRATEGY (Stateless, uses Coordinates, Default)
     private static class RegionTraceStrategy implements SubscriberTraceStrategy {
         static final RegionTraceStrategy INSTANCE = new RegionTraceStrategy();
 
@@ -244,7 +238,6 @@ public class SubscriberWithLocation extends TreeNode {
         }
     }
 
-    // 2. PROXIMITY STRATEGY (Stateful, uses Distance & NEW/UPDATE)
     private static class ProximityTraceStrategy implements SubscriberTraceStrategy {
         private double bestDistanceSqSoFar = Double.MAX_VALUE;
 

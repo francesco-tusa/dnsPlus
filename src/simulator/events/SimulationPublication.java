@@ -34,9 +34,7 @@ public class SimulationPublication extends AbstractPublication {
 
     public void copyStateFrom(SimulationPublication other) {
         this.hops = other.hops;
-        if (other.metrics != null) {
-            this.metrics = new EventMetrics(other.metrics);
-        }
+        this.metrics = other.metrics;
     }
 
     public SimulationPublication getPublication() {

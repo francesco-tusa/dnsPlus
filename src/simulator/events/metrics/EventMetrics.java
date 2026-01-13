@@ -2,12 +2,23 @@ package simulator.events.metrics;
 
 import java.io.Serializable;
 
+/**
+ * Holds metadata for event tracing and metrics.
+ * <p>
+ * Optimization Note: This object is shared by reference across multiple
+ * SimulationPublication/Subscription instances during propagation.
+ * Fields like originalSourceName should only be populated if 
+ * event tracing is explicitly enabled in SimConfiguration.
+ * The traceId is always required for latency and ground-truth calculations.
+ */
 public class EventMetrics implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     private final long traceId;
     
+    // These fields are lazily populated by generators only if tracing is enabled.
+    // They are effectively immutable once set for a given event.
     private String originalSourceName;
     private String originalCountry;
     private Double originalLongitude;

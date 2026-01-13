@@ -57,19 +57,24 @@ public class PublisherWithLocation extends TreeNode {
         pub.setSource(this);
 
         long seqId = this.nPublications + 1;
+        // TraceID is always required for latency calculations (GroundTruthCalculator)
         long traceId = ((long) this.myPublisherId << 32) | (seqId & 0xFFFFFFFFL);
         
         EventMetrics metrics = new EventMetrics(traceId);
-        if (myCountry == null) {
-            myCountry = resolveCountry();
+        
+        if (SimConfiguration.get().paths.enableEventTracing) {
+            if (myCountry == null) {
+                myCountry = resolveCountry();
+            }
+            
+            metrics.setOriginalSourceInfo(
+                getName(), 
+                myCountry, 
+                location.getX(), 
+                location.getY()
+            );
         }
         
-        metrics.setOriginalSourceInfo(
-            getName(), 
-            myCountry, 
-            location.getX(), 
-            location.getY()
-        );
         pub.setMetrics(metrics);
 
         TreeNode parent = getParent();
@@ -96,7 +101,6 @@ public class PublisherWithLocation extends TreeNode {
         }
     }
 
-    // Resolves the country based on the topology structure (Standard 3-level depth assumption)
     private String resolveCountry() {
         List<TreeNode> path = new ArrayList<>();
         TreeNode current = this;
@@ -104,11 +108,7 @@ public class PublisherWithLocation extends TreeNode {
             path.add(current); 
             current = current.getParent(); 
         }
-        // Assuming Standard Topology: [Pub, Leaf, Region, Country, Root] -> Size 5. 
-        // Index (Size-3) = 2 -> Region. 
-        // Index (Size-4) = 1 -> Leaf. 
-        // Based on your previous output "EU"/"AS", the country is likely higher up.
-        // We preserve the logic you relied on: 3rd node from the top.
+        // [Pub, Leaf, Region, Country, Root] -> Country is at index size-3
         if (path.size() >= 3) {
             return path.get(path.size() - 3).getName();
         }
