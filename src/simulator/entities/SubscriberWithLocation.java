@@ -135,7 +135,7 @@ public class SubscriberWithLocation extends TreeNode {
                 s,
                 broker.getName(),
                 myLon, 
-                myLat, 
+                myLat,
                 "SENT"
             );
         }
@@ -157,16 +157,9 @@ public class SubscriberWithLocation extends TreeNode {
     private String resolveCountry() {
         List<TreeNode> path = new ArrayList<>();
         TreeNode current = this;
-        while (current != null) { 
-            path.add(current); 
-            current = current.getParent(); 
-        }
-        if (path.size() >= 3) {
-            return path.get(path.size() - 3).getName();
-        }
-        if (path.size() >= 2) {
-            return path.get(path.size() - 2).getName();
-        }
+        while (current != null) { path.add(current); current = current.getParent(); }
+        if (path.size() >= 3) return path.get(path.size() - 3).getName();
+        if (path.size() >= 2) return path.get(path.size() - 2).getName();
         return "Unknown";
     }
 
@@ -197,24 +190,25 @@ public class SubscriberWithLocation extends TreeNode {
 
     private static class RegionTraceStrategy implements SubscriberTraceStrategy {
         static final RegionTraceStrategy INSTANCE = new RegionTraceStrategy();
+
         @Override
         public void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest) {
-            String logLocation = String.format("Pub:%s -> Sub:%s", 
-                pub.getLocation().toString(), 
-                sub.getFormattedLocation()
-            );
             String result = matchesInterest ? "Delivered" : "FalsePositive";
-            CsvMetricWriter.getInstance().logPublication(
+            
+            CsvMetricWriter.getInstance().logSubscriberPublicationEvent(
                 pub,
                 sub.getName(),
-                logLocation,
-                result
+                result,
+                sub.myLon,
+                sub.myLat,
+                -1.0
             );
         }
     }
 
     private static class ProximityTraceStrategy implements SubscriberTraceStrategy {
         private double bestDistanceSqSoFar = Double.MAX_VALUE;
+
         @Override
         public void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest) {
             double currentDistSq = pub.getCachedDistanceSquared();
@@ -235,14 +229,13 @@ public class SubscriberWithLocation extends TreeNode {
                 status = "NO_UPDATE";
             }
 
-            double approxKm = Math.sqrt(currentDistSq) * 111.1;
-            String distancePayload = String.format("%.0fkm", approxKm);
-
-            CsvMetricWriter.getInstance().logPublication(
+            CsvMetricWriter.getInstance().logSubscriberPublicationEvent(
                 pub,
                 sub.getName(),
-                distancePayload,
-                status
+                status,
+                sub.myLon,
+                sub.myLat,
+                currentDistSq
             );
         }
     }

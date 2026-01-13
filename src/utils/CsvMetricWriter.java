@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import simulator.config.SimConfiguration;
 import simulator.core.Location;
-import simulator.core.TreeNode;
+import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.events.metrics.EventMetrics;
@@ -17,12 +17,20 @@ import simulator.regions.SpatialRegion;
 public class CsvMetricWriter {
 
     public interface TraceMetricStrategy {
+        // --- Subscription Methods ---
         String getSubscriptionHeader();
-        String formatBrokerEvent(Object... args);
-        String formatSubscriberEvent(double x, double y);
+        String formatBrokerSubscriptionEvent(Object... args);
+        String formatSubscriberSubscriptionEvent(double x, double y);
+
+        // --- Publication Methods ---
+        String getPublicationHeader();
+        
+        String formatBrokerPublicationEvent(Object... args);
+        
+        String formatSubscriberPublicationEvent(SimulationPublication p, double subX, double subY, double distSq);
     }
 
-    // Strategy 1: Regional / Spatial
+    // --- Strategy 1: Regional / Spatial ---
     public static class RegionTraceStrategy implements TraceMetricStrategy {
         @Override
         public String getSubscriptionHeader() {
@@ -30,7 +38,7 @@ public class CsvMetricWriter {
         }
 
         @Override
-        public String formatBrokerEvent(Object... args) {
+        public String formatBrokerSubscriptionEvent(Object... args) {
             String incoming = (args.length > 0 && args[0] instanceof SpatialRegion r) ? r.toLogString() : "";
             String broker   = (args.length > 1 && args[1] instanceof SpatialRegion r) ? r.toLogString() : "";
             String detail   = (args.length > 2) ? String.valueOf(args[2]) : "";
@@ -38,12 +46,37 @@ public class CsvMetricWriter {
         }
 
         @Override
-        public String formatSubscriberEvent(double x, double y) {
+        public String formatSubscriberSubscriptionEvent(double x, double y) {
             return String.format("\"(%.4f, %.4f)\",\"\",\"\"", x, y);
+        }
+
+        // Publication
+        @Override
+        public String getPublicationHeader() {
+            return "TraceID,MsgCount,Source,Receiver,Hops,RegionOrPub,SubLocation,Result\n";
+        }
+
+        @Override
+        public String formatBrokerPublicationEvent(Object... args) {
+            String reg = (args.length > 0 && args[0] instanceof SpatialRegion r) ? r.toLogString() : "";
+            return String.format("\"%s\",\"\"", reg);
+        }
+
+        @Override
+        public String formatSubscriberPublicationEvent(SimulationPublication p, double subX, double subY, double distSq) {
+            String pLoc = "";
+            if (p instanceof PublicationWithLocation pwl) {
+                Location l = pwl.getLocation();
+                pLoc = String.format("(%.4f, %.4f)", l.getX(), l.getY());
+            }
+            
+            String sLoc = String.format("(%.4f, %.4f)", subX, subY);
+            
+            return String.format("\"Pub:%s\",\"Sub:%s\"", pLoc, sLoc);
         }
     }
 
-    // Strategy 2: Proximity / Location
+    // --- Strategy 2: Proximity / Location ---
     public static class ProximityTraceStrategy implements TraceMetricStrategy {
         @Override
         public String getSubscriptionHeader() {
@@ -51,19 +84,42 @@ public class CsvMetricWriter {
         }
 
         @Override
-        public String formatBrokerEvent(Object... args) {
+        public String formatBrokerSubscriptionEvent(Object... args) {
             String locStr = "";
             if (args.length > 0 && args[0] instanceof Location l) {
                 locStr = String.format("(%.4f, %.4f)", l.getX(), l.getY());
             }
             String decision = (args.length > 1) ? String.valueOf(args[1]) : "";
-            
             return String.format("\"%s\",\"%s\"", locStr, decision);
         }
 
         @Override
-        public String formatSubscriberEvent(double x, double y) {
+        public String formatSubscriberSubscriptionEvent(double x, double y) {
             return String.format("\"(%.4f, %.4f)\",\"\"", x, y);
+        }
+
+        @Override
+        public String getPublicationHeader() {
+            // Col 1: Distance, Col 2: Stats
+            return "TraceID,MsgCount,Source,Receiver,Hops,Distance,UpdateStats,Result\n";
+        }
+
+        @Override
+        public String formatBrokerPublicationEvent(Object... args) {
+            double distSq = (args.length > 0 && args[0] instanceof Double d) ? d : Double.MAX_VALUE;
+            int actual = (args.length > 1 && args[1] instanceof Integer i) ? i : 0;
+            int potential = (args.length > 2 && args[2] instanceof Integer i) ? i : 0;
+
+            String distStr = (distSq < Double.MAX_VALUE) ? String.format("MinDist:%.0fkm", Math.sqrt(distSq) * 111.1) : "";
+            String statsStr = (potential > 0) ? String.format("Upd:%d/%d", actual, potential) : "";
+            
+            return String.format("\"%s\",\"%s\"", distStr, statsStr);
+        }
+
+        @Override
+        public String formatSubscriberPublicationEvent(SimulationPublication p, double subX, double subY, double distSq) {
+            String distStr = (distSq < Double.MAX_VALUE) ? String.format("%.0fkm", Math.sqrt(distSq) * 111.1) : "N/A";
+            return String.format("\"%s\",\"\"", distStr);
         }
     }
 
@@ -125,7 +181,7 @@ public class CsvMetricWriter {
             subscriptionWriter = new RotatingFileWriter(subDir, "subscriptions", this.traceStrategy.getSubscriptionHeader());
             subSummaryWriter = initializeSummaryWriter(subDir, "subscription_summary.csv");
 
-            publicationWriter = new RotatingFileWriter(pubDir, "publications", "TraceID,MsgCount,Source,Receiver,Hops,Location,Result\n");
+            publicationWriter = new RotatingFileWriter(pubDir, "publications", this.traceStrategy.getPublicationHeader());
             pubSummaryWriter = initializeSummaryWriter(pubDir, "publication_summary.csv");
             
             initialized = true;
@@ -136,15 +192,17 @@ public class CsvMetricWriter {
         initialize(runId, enableTracing, new RegionTraceStrategy());
     }
 
+    // --- Subscription Logging ---
+
     public void logSubscription(SimulationSubscription s, String receiver, String result, Object... args) {
         if (!eventTracingEnabled || s.getMetrics() == null) return;
-        String formattedData = traceStrategy.formatBrokerEvent(args);
+        String formattedData = traceStrategy.formatBrokerSubscriptionEvent(args);
         writeSubscriptionLine(s, receiver, formattedData, result);
     }
 
     public void logSubscriberEvent(SimulationSubscription s, String receiver, double x, double y, String result) {
         if (!eventTracingEnabled || s.getMetrics() == null) return;
-        String formattedData = traceStrategy.formatSubscriberEvent(x, y);
+        String formattedData = traceStrategy.formatSubscriberSubscriptionEvent(x, y);
         writeSubscriptionLine(s, receiver, formattedData, result);
     }
 
@@ -181,6 +239,57 @@ public class CsvMetricWriter {
                 idStr, count, sourceName, receiver, s.getHops(), formattedData, result));
         } catch (IOException e) { e.printStackTrace(); }
     }
+
+    // --- Publication Logging ---
+
+    public void logPublication(SimulationPublication p, String receiver, String result, Object... args) {
+        if (!initialized || !eventTracingEnabled || p.getMetrics() == null) return;
+        String formattedData = traceStrategy.formatBrokerPublicationEvent(args);
+        writePublicationLine(p, receiver, formattedData, result);
+    }
+
+    public void logSubscriberPublicationEvent(SimulationPublication p, String receiver, String result, double subX, double subY, double distSq) {
+        if (!initialized || !eventTracingEnabled || p.getMetrics() == null) return;
+        String formattedData = traceStrategy.formatSubscriberPublicationEvent(p, subX, subY, distSq);
+        writePublicationLine(p, receiver, formattedData, result);
+    }
+
+    private synchronized void writePublicationLine(SimulationPublication p, String receiver, String formattedData, String result) {
+        EventMetrics metrics = p.getMetrics();
+        long traceId = metrics.getTraceId();
+
+        if (currentPubTraceId != null && traceId != currentPubTraceId) {
+            flushSummary(pubSummaryWriter, currentPubSummary, pubTraceCounts.get(currentPubTraceId));
+            pubTraceCounts.remove(currentPubTraceId);
+            currentPubSummary = null;
+        }
+        currentPubTraceId = traceId;
+
+        if (currentPubSummary == null) {
+            currentPubSummary = new SummaryEntry();
+            currentPubSummary.id = traceId;
+        }
+
+        if (metrics != null) {
+            if (metrics.getOriginalSourceName() != null) currentPubSummary.sourceName = metrics.getOriginalSourceName();
+            if (metrics.getOriginalCountry() != null) currentPubSummary.country = metrics.getOriginalCountry();
+            if (metrics.getOriginalLongitude() != null) currentPubSummary.longitude = metrics.getOriginalLongitude();
+            if (metrics.getOriginalLatitude() != null) currentPubSummary.latitude = metrics.getOriginalLatitude();
+        }
+        if (currentPubSummary.sourceName == null && p.getSource() != null) {
+            currentPubSummary.sourceName = p.getSource().getName();
+        }
+
+        try {
+            int count = pubTraceCounts.getOrDefault(traceId, 0) + 1;
+            pubTraceCounts.put(traceId, count);
+            String sourceName = (p.getSource() != null) ? p.getSource().getName() : "null";
+            String idStr = formatTraceId(traceId);
+            
+            publicationWriter.write(String.format("%s,%d,\"%s\",\"%s\",%d,%s,%s\n", 
+                idStr, count, sourceName, receiver, p.getHops(), formattedData, result));
+        } catch (IOException e) { e.printStackTrace(); }
+    }
     
     private BufferedWriter initializeSummaryWriter(String dir, String filename) throws IOException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dir, filename)));
@@ -210,16 +319,13 @@ public class CsvMetricWriter {
     public void logPublication(SimulationPublication p, String receiver, String location, String result) {
          if (!initialized || !eventTracingEnabled) return;
          if (p.getMetrics() == null) return;
-         logEvent(p.getMetrics().getTraceId(), receiver, p.getSource(), p.getHops(), location, result, publicationWriter, pubTraceCounts);
-    }
-
-    private synchronized void logEvent(long traceId, String receiver, TreeNode sourceNode, int hops, String payload, String result, RotatingFileWriter writer, Map<Long, Integer> counts) {
-        try {
-            int count = counts.getOrDefault(traceId, 0) + 1;
-            counts.put(traceId, count);
-            String sourceName = (sourceNode != null) ? sourceNode.getName() : "null";
-            String idStr = formatTraceId(traceId);
-            writer.write(String.format("%s,%d,\"%s\",\"%s\",%d,\"%s\",%s\n", idStr, count, sourceName, receiver, hops, payload, result));
+         // Legacy fallback (should ideally not be reached with new brokers)
+         try {
+            int count = pubTraceCounts.getOrDefault(p.getMetrics().getTraceId(), 0) + 1;
+            pubTraceCounts.put(p.getMetrics().getTraceId(), count);
+            String sourceName = (p.getSource() != null) ? p.getSource().getName() : "null";
+            String idStr = formatTraceId(p.getMetrics().getTraceId());
+            publicationWriter.write(String.format("%s,%d,\"%s\",\"%s\",%d,\"%s\",\"\",%s\n", idStr, count, sourceName, receiver, p.getHops(), location, result));
         } catch (IOException e) { e.printStackTrace(); }
     }
 
