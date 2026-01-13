@@ -86,11 +86,17 @@ public class ProximityRoutingBroker extends BoundedBroker {
     protected void handleSubscriptionProcessing(SimulationSubscription s) {
         s.incrementHops();
         inputStore.add(s);
-        if (SimConfiguration.get().paths.enableEventTracing) logSubscriptionInput(s);
+        
+        if (SimConfiguration.get().paths.enableEventTracing) {
+            logSubscriptionInput(s);
+        }
+
         TreeNode child = s.getSource();
         if (!childTopologicalTargets.containsKey(child)) updateTopologicalTargets(child);
+
         Location[] targets = childTopologicalTargets.get(child);
         if (targets != null) childBestDistances.put(child, initializeDistances(targets.length));
+
         propagateSubscriptionUpward(s);
     }
     
@@ -138,9 +144,20 @@ public class ProximityRoutingBroker extends BoundedBroker {
     private void processPublicationDownward(PublicationWithLocation pub) {
         boolean forwardedToAny = false;
         boolean tracingEnabled = SimConfiguration.get().paths.enableEventTracing && pub.getMetrics() != null;
+        
         double minDistSqToInterestedChild = tracingEnabled ? Double.MAX_VALUE : -1.0;
         int potentialRecipients = 0;
         int actualRecipients = 0;
+
+        int maxNeighbors = childTopologicalTargets.size();
+        TreeNode[] pendingNodes = null;
+        double[] pendingDists = null;
+        int pendingCount = 0;
+
+        if (maxNeighbors > 0) {
+            pendingNodes = new TreeNode[maxNeighbors];
+            pendingDists = new double[maxNeighbors];
+        }
 
         for (Map.Entry<TreeNode, Location[]> entry : childTopologicalTargets.entrySet()) {
             TreeNode neighbor = entry.getKey();
@@ -149,10 +166,12 @@ public class ProximityRoutingBroker extends BoundedBroker {
             if (inputStore.get(neighbor) == null) continue;
 
             if (tracingEnabled) potentialRecipients++;
+
             Location[] targets = entry.getValue();
             double[] bestDists = childBestDistances.get(neighbor);
 
             if (bestDists == null || targets == null || bestDists.length != targets.length) continue;
+
             boolean shouldSend = false;
             double distanceForThisNeighbor = -1.0;
 
@@ -160,18 +179,45 @@ public class ProximityRoutingBroker extends BoundedBroker {
                 this.totalMatchingComputations++;
                 double newDistSq = pub.getLocation().distanceSquared(targets[i]);
                 double currentBest = bestDists[i];
-                if (tracingEnabled && newDistSq < minDistSqToInterestedChild) minDistSqToInterestedChild = newDistSq;
+                
+                if (tracingEnabled && newDistSq < minDistSqToInterestedChild) {
+                    minDistSqToInterestedChild = newDistSq;
+                }
+                
                 if (targets.length == 1) distanceForThisNeighbor = newDistSq;
-                if (newDistSq < currentBest) { bestDists[i] = newDistSq; shouldSend = true; }
+
+                if (newDistSq < currentBest) {
+                    bestDists[i] = newDistSq;
+                    shouldSend = true;
+                }
             }
+
             if (shouldSend) {
-                forwardPublication(neighbor, pub, distanceForThisNeighbor);
+                // Buffer the decision; do not recurse yet
+                if (pendingNodes != null) {
+                    pendingNodes[pendingCount] = neighbor;
+                    pendingDists[pendingCount] = distanceForThisNeighbor;
+                    pendingCount++;
+                }
+                
                 forwardedToAny = true;
                 if (tracingEnabled) actualRecipients++;
             }
         }
-        if (!forwardedToAny) this.totalFalsePositiveEvents++;
-        if (tracingEnabled) logPublicationTrace(pub, forwardedToAny, minDistSqToInterestedChild, actualRecipients, potentialRecipients);
+
+        if (!forwardedToAny) {
+             this.totalFalsePositiveEvents++;
+        }
+        
+        // 1. Log the event (Broker Trace) - happens BEFORE children trace
+        if (tracingEnabled) {
+            logPublicationTrace(pub, forwardedToAny, minDistSqToInterestedChild, actualRecipients, potentialRecipients);
+        }
+
+        // 2. Execute the buffered forwards (DFS Recursion) - Children trace will happen nested inside here
+        for (int i = 0; i < pendingCount; i++) {
+            forwardPublication(pendingNodes[i], pub, pendingDists[i]);
+        }
     }
 
     private void forwardPublication(TreeNode neighbor, PublicationWithLocation pub, double distSq) {
@@ -204,7 +250,9 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
     private void logPublicationTrace(PublicationWithLocation pub, boolean forwardedToAny, double minDistSq, int actual, int potential) {
         String status = forwardedToAny ? "FORWARDED" : "PRUNED";
-        if (!forwardedToAny && getParentBroker() == null && childTopologicalTargets.isEmpty()) status = "RECEIVED_ROOT";
+        if (!forwardedToAny && getParentBroker() == null && childTopologicalTargets.isEmpty()) {
+             status = "RECEIVED_ROOT";
+        }
         
         CsvMetricWriter.getInstance().logPublication(
             pub, 
