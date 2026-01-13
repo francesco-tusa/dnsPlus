@@ -39,7 +39,7 @@ public class SpatialMatchBroker extends BoundedBroker {
             this.outputStore = new MultiRegionStore(threshold);
         }
     }
-
+    
     public SpatialMatchBroker(String name, Location p1, Location p2, boolean forceSingleRegion, double threshold, PropagationRegionPolicy policy) {
         super(name, p1, p2); 
         this.downwardPolicy = (policy != null) ? policy : new StrictPropagationPolicy();
@@ -51,7 +51,7 @@ public class SpatialMatchBroker extends BoundedBroker {
             this.outputStore = new MultiRegionStore(threshold);
         }
     }
-    
+
     @Override
     public int getInputSubscriptionCount() { return inputStore.size(); }
     @Override
@@ -65,16 +65,13 @@ public class SpatialMatchBroker extends BoundedBroker {
     protected void handleSubscriptionProcessing(SimulationSubscription s) {
         if (!(s instanceof SubscriptionWithRegion newSub)) return;
 
-        // 1. Core Logic: Update Store and Counters
         StoreUpdate inputUpdate = inputStore.addOrUpdate(s.getSource(), newSub);
         updateInputCounters(inputUpdate);
 
-        // 2. Tracing Logic: Isolated in helper and strictly guarded
         if (SimConfiguration.get().paths.enableEventTracing) {
             logSubscriptionTrace(s, inputUpdate, newSub);
         }
 
-        // 3. Propagation Logic
         if (inputUpdate.getResult() != StoreOpResult.NO_CHANGE) {
             SubscriptionWithRegion aggregatedState = inputUpdate.getRegion();
             if (aggregatedState != null) {
@@ -199,19 +196,16 @@ public class SpatialMatchBroker extends BoundedBroker {
     // --- Logging Helpers ---
 
     private void logSubscriptionTrace(SimulationSubscription s, StoreUpdate inputUpdate, SubscriptionWithRegion newSub) {
-        String logDetail = String.format("Incoming: %s | BrokerRegion: %s | %s", 
-                              newSub.getRegion().toLogString(), 
-                              this.getRegion().toLogString(), 
-                              inputUpdate.getAdditionalInfo());
-                              
         CsvMetricWriter.getInstance().logSubscription(
             s, 
             getName(), 
-            logDetail, 
-            inputUpdate.getResult().name()
+            inputUpdate.getResult().name(),
+            newSub.getRegion(),       
+            this.getRegion(),         
+            inputUpdate.getAdditionalInfo() // No helper needed
         );
     }
-
+    
     private void logPublicationTrace(SimulationPublication p, boolean forwardedToAny) {
         String status = forwardedToAny ? "Received" : "Received (Dead End)";
         CsvMetricWriter.getInstance().logPublication(

@@ -20,21 +20,13 @@ public class SubscriberWithLocation extends TreeNode {
 
     private static final Logger logger = CustomLogger.getLogger(SubscriberWithLocation.class.getName());
     private static final AtomicInteger SUBSCRIBER_ID_GENERATOR = new AtomicInteger(1);
-
     private final int mySubscriberId; 
     private float[] regionCoords = null; 
     private int activeRegionCount = 0;
-    
     private final float myLat;
     private final float myLon;
-    
-    // Cached origin country
     private String myCountry = null;
-    
-    // Polymorphic Strategy for Logging (initialized lazily)
     private SubscriberTraceStrategy traceStrategy;
-
-    // Metrics
     private int falsePositiveDeliveries = 0;
     private int nSubscriptions = 0; 
     private int nPublications = 0;
@@ -46,39 +38,31 @@ public class SubscriberWithLocation extends TreeNode {
     public SubscriberWithLocation(String name, Location location) {
         this(SUBSCRIBER_ID_GENERATOR.getAndIncrement(), name, location);
     }
-
     public SubscriberWithLocation(Location location) {
         this(SUBSCRIBER_ID_GENERATOR.getAndIncrement(), null, location);
     }
-
     private SubscriberWithLocation(int id, String explicitName, Location location) {
         super(resolveName(id, explicitName));
         this.mySubscriberId = id;
         this.myLon = (float) location.getX();
         this.myLat = (float) location.getY();
     }
-    
     private static String resolveName(int id, String explicitName) {
         if (explicitName != null) return explicitName;
         if (SimConfiguration.get().paths.enableEventTracing) return "Sub-" + id;
         return null; 
     }
-    
-    @Override
-    public String getName() {
+    @Override public String getName() {
         String storedName = super.getName();
         if (storedName != null) return storedName;
-        // Fallback for debug/logging if needed, but not stored permanently in TreeNode
         return "Sub-" + mySubscriberId;
     }
-
     public String getFormattedLocation() {
         return String.format("(%.4f, %.4f)", this.myLon, this.myLat);
     }
 
     public void receive(SimulationPublication p) {
         nPublications++;
-
         if (p instanceof PublicationWithLocation pub) {
             boolean matchesInterest = checkRegionInterest(pub);
             if (!matchesInterest) falsePositiveDeliveries++;
@@ -89,7 +73,6 @@ public class SubscriberWithLocation extends TreeNode {
                 }
                 traceStrategy.trace(this, pub, matchesInterest);
             }
-
             int hops = p.getHops();
             synchronized(this) {
                 hopSum += hops;
@@ -99,7 +82,7 @@ public class SubscriberWithLocation extends TreeNode {
             }
         }
     }
-
+    
     private void resolveTraceStrategy() {
         SimulationBroker broker = getBroker();
         if (broker != null && broker.getClass().getSimpleName().contains("Proximity")) {
@@ -112,10 +95,8 @@ public class SubscriberWithLocation extends TreeNode {
     private boolean checkRegionInterest(PublicationWithLocation pub) {
         if (activeRegionCount == 0) return true; 
         if (regionCoords == null) return false;
-
         float pubLon = (float) pub.getLocation().getX();
         float pubLat = (float) pub.getLocation().getY();
-
         for (int i = 0; i < activeRegionCount; i++) {
             int offset = i * 4;
             if (Region.fastContains(
@@ -150,10 +131,11 @@ public class SubscriberWithLocation extends TreeNode {
             metrics.setOriginalSourceInfo(getName(), myCountry, (double)myLon, (double)myLat);
             s.setMetrics(metrics);
             
-            CsvMetricWriter.getInstance().logSubscription(
+            CsvMetricWriter.getInstance().logSubscriberEvent(
                 s,
                 broker.getName(),
-                "Created at " + getFormattedLocation(),
+                myLon, 
+                myLat, 
                 "SENT"
             );
         }
@@ -209,26 +191,19 @@ public class SubscriberWithLocation extends TreeNode {
     public Location getLocation() { return getMetricLocation(); }
     public SimulationBroker getBroker() { return (getParent() instanceof SimulationBroker) ? (SimulationBroker) getParent() : null; }
 
-    // ==========================================================
-    // STRATEGY PATTERN IMPLEMENTATION
-    // ==========================================================
-
     private interface SubscriberTraceStrategy {
         void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest);
     }
 
     private static class RegionTraceStrategy implements SubscriberTraceStrategy {
         static final RegionTraceStrategy INSTANCE = new RegionTraceStrategy();
-
         @Override
         public void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest) {
             String logLocation = String.format("Pub:%s -> Sub:%s", 
                 pub.getLocation().toString(), 
                 sub.getFormattedLocation()
             );
-            
             String result = matchesInterest ? "Delivered" : "FalsePositive";
-            
             CsvMetricWriter.getInstance().logPublication(
                 pub,
                 sub.getName(),
@@ -240,7 +215,6 @@ public class SubscriberWithLocation extends TreeNode {
 
     private static class ProximityTraceStrategy implements SubscriberTraceStrategy {
         private double bestDistanceSqSoFar = Double.MAX_VALUE;
-
         @Override
         public void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest) {
             double currentDistSq = pub.getCachedDistanceSquared();

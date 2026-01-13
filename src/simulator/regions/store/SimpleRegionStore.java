@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.SimulationSubscription;
@@ -25,21 +24,20 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
         if (existing == null) {
             SubscriptionWithRegion newEntry = new SubscriptionWithRegion(sub);
             map.put(source, newEntry);
-            return new StoreUpdate(StoreOpResult.ADDED, newEntry, "Added (New Entry)");
+            return new StoreUpdate(StoreOpResult.ADDED, newEntry, "New Entry");
         }
 
         if (existing.contains(sub)) {
-            // Updated: Explicitly state "Filtered" and return the existing object for context
-            return new StoreUpdate(StoreOpResult.NO_CHANGE, existing, "Covered (Filtered)");
+            return new StoreUpdate(StoreOpResult.NO_CHANGE, existing, "Filtered");
         }
 
         Region currentRegion = existing.getRegion();
         currentRegion.expand(sub.getRegion());
         existing.setRegion(currentRegion);
 
-        return new StoreUpdate(StoreOpResult.EXPANDED, existing, "Expanded (MBR Merge)");
+        return new StoreUpdate(StoreOpResult.EXPANDED, existing, "MBR Merge");
     }
-
+    
     @Override
     public List<TreeNode> findMatches(Location loc) {
         if (map.isEmpty())

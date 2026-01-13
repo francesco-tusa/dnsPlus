@@ -26,10 +26,9 @@ public class MultiRegionStore implements RegionSubscriptionStore {
     public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         List<SubscriptionWithRegion> regions = map.computeIfAbsent(source, k -> new ArrayList<>());
 
-        // 1. Coverage Check
         for (SubscriptionWithRegion existing : regions) {
             if (existing.contains(sub)) {
-                return new StoreUpdate(StoreOpResult.NO_CHANGE, existing, "Covered (Filtered)", 0, 0);
+                return new StoreUpdate(StoreOpResult.NO_CHANGE, existing, "Filtered", 0, 0);
             }
         }
 
@@ -39,7 +38,6 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         int mergedCount = 0;
         double absorbedArea = 0.0;
 
-        // 2. Absorb/Merge Loop
         do {
             mergedInPass = false;
             Iterator<SubscriptionWithRegion> it = regions.iterator();
@@ -66,13 +64,13 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         regions.add(resultingEntry);
         updateSummary(source);
 
-        // 3. Generate Clean Explanation
         double accumArea = accumulator.getArea();
         boolean isIdenticalReplacement = (mergedCount == 0
                 && Math.abs(accumArea - (sub.getArea() + absorbedArea)) < 1e-6);
 
         StoreOpResult opResult = determineResult(absorbedCount, mergedCount, isIdenticalReplacement);
-        String explanation = createExplanation(opResult, mergedCount, absorbedCount, isIdenticalReplacement);
+        
+        String explanation = createCleanExplanation(opResult, mergedCount, absorbedCount, isIdenticalReplacement);
 
         return new StoreUpdate(opResult, resultingEntry, explanation, absorbedCount, mergedCount);
     }
@@ -83,19 +81,19 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         return StoreOpResult.EXPANDED;
     }
 
-    private String createExplanation(StoreOpResult result, int merged, int absorbed, boolean isReplacement) {
+    private String createCleanExplanation(StoreOpResult result, int merged, int absorbed, boolean isReplacement) {
         switch (result) {
             case ADDED:
-                return "Added (New Disjoint)";
+                return "New"; 
             case NO_CHANGE:
                 return isReplacement 
-                    ? String.format("Replaced (Internal Structure Change: Absorbed %d)", absorbed)
-                    : "Covered (Filtered)"; 
+                    ? String.format("Internal Structure Change: Absorbed %d", absorbed)
+                    : "Filtered"; 
             case EXPANDED:
                 if (merged > 0) {
-                    return String.format("Expanded (Merged %d, Absorbed %d)", merged, absorbed);
+                    return String.format("Merged %d, Absorbed %d", merged, absorbed);
                 } else {
-                    return String.format("Expanded (Absorbed %d existing entries)", absorbed);
+                    return String.format("Absorbed %d", absorbed);
                 }
             default:
                 return "Unknown State";

@@ -4,19 +4,15 @@ import java.util.*;
 import simulator.core.TreeNode;
 import simulator.entities.*;
 import simulator.regions.BoundedBroker;
-import simulator.regions.ProximityRoutingBroker; 
+import simulator.regions.ProximityRoutingBroker;
+import simulator.simulations.performance.SimulationType; // NEW IMPORT
 
 public class MetricsCollector {
     public PerformanceMetricsData collect(TreeNode root, List<SubscriberWithLocation> subs,
             List<PublisherWithLocation> pubs) {
         
-        PerformanceMetricsData data;
-        
-        if (root instanceof ProximityRoutingBroker) {
-            data = new ProximityPerformanceMetricsData();
-        } else {
-            data = new RegionPerformanceMetricsData();
-        }
+        SimulationType type = SimulationType.infer(root);
+        PerformanceMetricsData data = type.createMetricsData();
 
         Queue<TreeNode> queue = new LinkedList<>();
         if (root != null)
@@ -26,7 +22,7 @@ public class MetricsCollector {
             TreeNode curr = queue.poll();
             
             if (curr instanceof SimulationBroker b) {
-                // A. Common Stats
+                // Common Stats
                 data.inputTableStats.accept(b.getInputSubscriptionCount());
                 data.outputTableStats.accept(b.getOutputSubscriptionCount());
 
@@ -35,7 +31,7 @@ public class MetricsCollector {
                 data.totalMatchingComputations += b.getTotalMatchingComputations();
                 data.totalFalsePositiveEvents += b.getTotalFalsePositiveEvents();
 
-                // B. Polymorphic Stats Extraction
+                // Polymorphic Stats
                 if (data instanceof RegionPerformanceMetricsData rd && b instanceof BoundedBroker bb) {
                     rd.totalSubCovered += bb.getSubCoveredCount();
                     rd.totalSubExpanded += bb.getSubExpandedCount();
@@ -60,7 +56,7 @@ public class MetricsCollector {
                 queue.addAll(curr.getChildren());
         }
 
-        // C. Subscriber Stats
+        // Subscriber & Publisher stats collection UNCHANGED
         for (SubscriberWithLocation s : subs) {
             data.totalNotifications += s.getnPublications();
             data.totalFalsePositiveDeliveries += s.getFalsePositiveDeliveries();
@@ -72,8 +68,6 @@ public class MetricsCollector {
                 if (s.getHopMax() > data.globalMaxHops) data.globalMaxHops = s.getHopMax();
             }
         }
-        
-        // D. Publisher Stats
         for (PublisherWithLocation p : pubs) {
             data.totalPubsSent += p.getnPublications();
         }
