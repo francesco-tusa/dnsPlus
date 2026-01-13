@@ -1,5 +1,6 @@
 package simulator.regions;
 
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.events.SimulationPublication;
@@ -12,8 +13,6 @@ public class SpatialMatchLeafBroker extends SpatialMatchBroker implements LeafBr
 
     private static final Logger logger = CustomLogger.getLogger(SpatialMatchLeafBroker.class.getName());
 
-    // --- Primary Constructors (Matching Super) ---
-
     public SpatialMatchLeafBroker(String name, boolean forceSingleRegion, double threshold, PropagationRegionPolicy policy) {
         super(name, forceSingleRegion, threshold, policy);
     }
@@ -21,8 +20,6 @@ public class SpatialMatchLeafBroker extends SpatialMatchBroker implements LeafBr
     public SpatialMatchLeafBroker(String name, Location p1, Location p2, boolean forceSingleRegion, double threshold, PropagationRegionPolicy policy) {
         super(name, p1, p2, forceSingleRegion, threshold, policy);
     }
-
-    // --- Legacy Constructors (Defaulting to Strict Policy) ---
 
     public SpatialMatchLeafBroker(String name) {
         super(name, true, 0.5, new StrictPropagationPolicy());
@@ -34,8 +31,11 @@ public class SpatialMatchLeafBroker extends SpatialMatchBroker implements LeafBr
 
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-        String sourceName = (p.getSource() != null) ? p.getSource().getName() : "NULL_SOURCE";
-        logger.fine(getName() + ": processing a publication received from " + sourceName);
+        if (logger.isLoggable(Level.FINE)) {
+            String sourceName = (p.getSource() != null) ? p.getSource().getName() : "NULL_SOURCE";
+            logger.fine(getName() + ": processing a publication received from " + sourceName);
+        }
+        
         super.matchPublication(p);
         return null;
     }

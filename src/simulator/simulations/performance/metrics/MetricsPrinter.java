@@ -21,7 +21,6 @@ public class MetricsPrinter {
         } else if (data instanceof ProximityPerformanceMetricsData pd) {
             printProximityProcessing(pd);
         } else {
-            // Fallback for unknown types
             printGenericProcessing(data);
         }
 
@@ -31,8 +30,12 @@ public class MetricsPrinter {
         // 4. Delivery (Common)
         printDeliveryPerformance(data);
         
-        // 5. Routing Efficiency (Common)
-        printRoutingEfficiency(data);
+        // 5. Routing Efficiency (Algorithm Specific Dispatch)
+        if (data instanceof RegionPerformanceMetricsData rd) {
+            printRegionRoutingEfficiency(rd);
+        } else if (data instanceof ProximityPerformanceMetricsData pd) {
+            printProximityRoutingEfficiency(pd);
+        }
 
         // 6. Algorithm Specific Accuracy
         if (data instanceof RegionPerformanceMetricsData rd) {
@@ -52,16 +55,13 @@ public class MetricsPrinter {
         long totalInput = 0;
         long totalOutput = 0;
 
-        // Calculate Totals based on specific type
         if (data instanceof RegionPerformanceMetricsData rd) {
             totalInput = rd.totalSubCovered + rd.totalSubAbsorbed + rd.totalSubMerged + rd.totalSubExpanded + rd.totalSubAdded;
             totalOutput = rd.totalOutSubCovered + rd.totalOutSubExpanded + rd.totalOutSubAdded + rd.totalOutSubAbsorbed + rd.totalOutSubMerged;
         } else if (data instanceof ProximityPerformanceMetricsData pd) {
-            // For Proximity: Input is total traffic, Output is traffic NOT suppressed by brakes
             totalInput = pd.totalSubscriptionTraffic;
             totalOutput = pd.totalPropagatedSubscriptions;
         } else {
-            // Default/Fallback
             totalInput = data.totalSubscriptionTraffic;
             totalOutput = 0; 
         }
@@ -81,13 +81,11 @@ public class MetricsPrinter {
         
         long totalInput = data.totalSubCovered + data.totalSubAbsorbed + data.totalSubMerged + data.totalSubExpanded + data.totalSubAdded;
         
-        // Calculate Effective Input/Output (Forwarded events)
         long effectiveInput = totalInput - data.totalSubCovered;
         long effectiveOutput = data.totalOutSubExpanded + data.totalOutSubAdded + data.totalOutSubMerged + data.totalOutSubAbsorbed; 
 
         logItem("Total Subscriptions Processed", format(totalInput));
         
-        // Format: "InputVal / OutputVal"
         logItem("  -> Covered (Filtered)", 
                 format(data.totalSubCovered) + " / " + format(data.totalOutSubCovered));
         
@@ -118,7 +116,6 @@ public class MetricsPrinter {
         logItem("      Events Filtered (Suppressed)", format(data.totalBrakeFilteredEvents));
         
         long totalAttempts = data.totalSubscriptionTraffic; 
-        // Note: In collector, totalSubscriptionTraffic is total events. Filtered are a subset.
         
         double filterRate = (totalAttempts > 0) 
             ? (double) data.totalBrakeFilteredEvents / totalAttempts * 100.0 
@@ -163,25 +160,50 @@ public class MetricsPrinter {
         logger.info("");
     }
 
-    private void printRoutingEfficiency(PerformanceMetricsData data) {
-        logger.info("5. ROUTING EFFICIENCY:");
+    private void printRegionRoutingEfficiency(RegionPerformanceMetricsData data) {
+        logger.info("5. ROUTING EFFICIENCY (Regional/Spatial):");
         
+        // 1. Dead Ends (Relevant for Region)
         logItem("False Positive Events (Dead Ends)", format(data.totalFalsePositiveEvents));
         double fpRateEvents = (data.totalPubForwardingEvents > 0) 
                 ? ((double) data.totalFalsePositiveEvents / data.totalPubForwardingEvents) * 100.0 
                 : 0.0;
         logItem(" -> Rate (vs Traffic)", String.format("%.2f%%", fpRateEvents));
 
+        // 2. Unwanted Deliveries (STRICTLY REGIONAL)
         logItem("False Positive Deliveries (Unwanted)", format(data.totalFalsePositiveDeliveries));
         double fpRateDelivery = (data.totalNotifications > 0) 
                 ? ((double) data.totalFalsePositiveDeliveries / data.totalNotifications) * 100.0 
                 : 0.0;
         logItem(" -> Rate (vs Notifications)", String.format("%.2f%%", fpRateDelivery));
 
+        // 3. Traffic Ratio
         double trafficRatio = (data.totalNotifications > 0) 
                 ? (double) data.totalPubForwardingEvents / data.totalNotifications 
                 : 0.0;
         logItem("Traffic Ratio (Events per Delivery)", String.format("%.2f", trafficRatio));
+        logger.info("");
+    }
+
+    private void printProximityRoutingEfficiency(ProximityPerformanceMetricsData data) {
+        logger.info("5. ROUTING EFFICIENCY (Proximity/Closest):");
+        
+        // 1. Traffic Ratio (Primary Efficiency Metric for Proximity)
+        double trafficRatio = (data.totalNotifications > 0) 
+                ? (double) data.totalPubForwardingEvents / data.totalNotifications 
+                : 0.0;
+        logItem("Traffic Ratio (Events per Delivery)", String.format("%.2f", trafficRatio));
+        logger.info("      (Lower is better: <1.0 means effective aggregation)");
+
+        // 2. Dead Ends (Secondary Metric)
+        logItem("False Positive Events (Dead Ends)", format(data.totalFalsePositiveEvents));
+        double fpRateEvents = (data.totalPubForwardingEvents > 0) 
+                ? ((double) data.totalFalsePositiveEvents / data.totalPubForwardingEvents) * 100.0 
+                : 0.0;
+        logItem(" -> Rate (vs Traffic)", String.format("%.2f%%", fpRateEvents));
+        
+        // NOTE: "False Positive Deliveries" are deliberately OMITTED here.
+        
         logger.info("");
     }
     

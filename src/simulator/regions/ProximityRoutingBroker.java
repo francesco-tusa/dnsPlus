@@ -118,15 +118,12 @@ public class ProximityRoutingBroker extends BoundedBroker {
     }
 
     @Override
-    protected void handleSubscriptionProcessing(SimulationSubscription s) {        
-        boolean isUpdate = (inputStore.get(s.getSource()) != null);
+    protected void handleSubscriptionProcessing(SimulationSubscription s) {
+        s.incrementHops();
         inputStore.add(s);
         
-        // Use renamed flag
         if (SimConfiguration.get().paths.enableEventTracing) {
-            String logDetail = buildLogDetail(s, isUpdate);
-            String result = isUpdate ? "UPDATED" : "ADDED";
-            CsvMetricWriter.getInstance().logSubscription(s, getName(), logDetail, result);
+            logSubscriptionInput(s);
         }
 
         TreeNode child = s.getSource();
@@ -142,13 +139,6 @@ public class ProximityRoutingBroker extends BoundedBroker {
         propagateSubscriptionUpward(s);
     }
     
-    private String buildLogDetail(SimulationSubscription s, boolean isUpdate) {
-        String subLoc = (s instanceof SubscriptionWithLocation sl) ? sl.getLocation().toString() : "Unknown";
-        String uplinkStatus = isSubscribedToParent ? "Uplink Active" : "Uplink Inactive";
-        return String.format("Broker: %s; Source: %s; SubLoc: %s; %s", 
-                getName(), s.getSource().getName(), subLoc, uplinkStatus);
-    }
-
     private void propagateSubscriptionUpward(SimulationSubscription originalSub) {
         if (getParentBroker() == null || isSubscribedToParent) return;
 
@@ -158,19 +148,14 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
         SubscriptionWithLocation proxySubscription = new SubscriptionWithLocation(myCenter);
         proxySubscription.setSource(this);
+        proxySubscription.setHops(originalSub.getHops());
         
         if (originalSub.getMetrics() != null) {
             proxySubscription.setMetrics(new EventMetrics(originalSub.getMetrics().getTraceId()));
         }
 
-        // Use renamed flag
         if (SimConfiguration.get().paths.enableEventTracing) {
-             CsvMetricWriter.getInstance().logSubscription(
-                 originalSub, 
-                 getName(), 
-                 "Propagating Proxy Subscription to Parent", 
-                 "PROPAGATED"
-             );
+            logSubscriptionOutput(proxySubscription);
         }
         
         getParentBroker().processSubscription(proxySubscription);
@@ -210,8 +195,12 @@ public class ProximityRoutingBroker extends BoundedBroker {
     }
 
     private void processPublicationDownward(PublicationWithLocation pub) {
-        boolean forwardedToAny = false; 
-        double minDistSqToInterestedChild = Double.MAX_VALUE;
+        boolean forwardedToAny = false;
+        boolean tracingEnabled = SimConfiguration.get().paths.enableEventTracing && pub.getMetrics() != null;
+        
+        double minDistSqToInterestedChild = tracingEnabled ? Double.MAX_VALUE : -1.0;
+        int potentialRecipients = 0;
+        int actualRecipients = 0;
 
         for (Map.Entry<TreeNode, Location[]> entry : childTopologicalTargets.entrySet()) {
             TreeNode neighbor = entry.getKey();
@@ -219,6 +208,8 @@ public class ProximityRoutingBroker extends BoundedBroker {
             if (neighbor == pub.getSource()) continue;
             if (neighbor == getParentBroker()) continue;
             if (inputStore.get(neighbor) == null) continue;
+
+            if (tracingEnabled) potentialRecipients++;
 
             Location[] targets = entry.getValue();
             double[] bestDists = childBestDistances.get(neighbor);
@@ -234,7 +225,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
                 double newDistSq = pub.getLocation().distanceSquared(targets[i]);
                 double currentBest = bestDists[i];
                 
-                if (newDistSq < minDistSqToInterestedChild) {
+                if (tracingEnabled && newDistSq < minDistSqToInterestedChild) {
                     minDistSqToInterestedChild = newDistSq;
                 }
                 
@@ -249,6 +240,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
             if (shouldSend) {
                 forwardPublication(neighbor, pub, distanceForThisNeighbor);
                 forwardedToAny = true;
+                if (tracingEnabled) actualRecipients++;
             }
         }
 
@@ -256,27 +248,8 @@ public class ProximityRoutingBroker extends BoundedBroker {
              this.totalFalsePositiveEvents++;
         }
         
-        // Use renamed flag
-        if (SimConfiguration.get().paths.enableEventTracing && pub.getMetrics() != null) {
-            String status = forwardedToAny ? "FORWARDED" : "PRUNED";
-            if (!forwardedToAny && getParentBroker() == null && childTopologicalTargets.isEmpty()) {
-                 status = "RECEIVED_ROOT";
-            }
-            
-            String payload;
-            if (minDistSqToInterestedChild < Double.MAX_VALUE) {
-                double distKm = Math.sqrt(minDistSqToInterestedChild) * 111.1; 
-                payload = String.format("MinDist: %.0fkm", distKm);
-            } else {
-                payload = "No Interest";
-            }
-            
-            CsvMetricWriter.getInstance().logPublication(
-                pub, 
-                getName(), 
-                payload, 
-                status
-            );
+        if (tracingEnabled) {
+            logPublicationTrace(pub, forwardedToAny, minDistSqToInterestedChild, actualRecipients, potentialRecipients);
         }
     }
 
@@ -301,6 +274,49 @@ public class ProximityRoutingBroker extends BoundedBroker {
                  ((SubscriberWithLocation) neighbor).receive(copy);
              }
         }
+    }
+
+    // --- Logging Helpers ---
+
+    private void logSubscriptionInput(SimulationSubscription s) {
+        String coords = "Unknown";
+        if (s instanceof SubscriptionWithLocation sl) {
+            Location loc = sl.getLocation();
+            coords = String.format("[%.4f, %.4f]", loc.getX(), loc.getY());
+        }
+
+        boolean willPropagate = (getParentBroker() != null && !isSubscribedToParent);
+        String decision = willPropagate ? "Decision:Forward" : "Decision:Absorb";
+        String payload = String.format("Loc:%s %s", coords, decision);
+
+        CsvMetricWriter.getInstance().logSubscription(s, getName(), payload, "INPUT");
+    }
+
+    private void logSubscriptionOutput(SubscriptionWithLocation proxySub) {
+        Location center = proxySub.getLocation();
+        String centerCoords = String.format("[%.4f, %.4f]", center.getX(), center.getY());
+        String targetName = getParentBroker().getName();
+        String payload = String.format("Proxy:%s Target:%s", centerCoords, targetName);
+
+        CsvMetricWriter.getInstance().logSubscription(proxySub, getName(), payload, "OUTPUT");
+    }
+
+    private void logPublicationTrace(PublicationWithLocation pub, boolean forwardedToAny, 
+                                     double minDistSq, int actual, int potential) {
+        String status = forwardedToAny ? "FORWARDED" : "PRUNED";
+        if (!forwardedToAny && getParentBroker() == null && childTopologicalTargets.isEmpty()) {
+             status = "RECEIVED_ROOT";
+        }
+        
+        String payload;
+        if (minDistSq < Double.MAX_VALUE) {
+            double distKm = Math.sqrt(minDistSq) * 111.1; 
+            payload = String.format("MinDist:%.0fkm Upd:%d/%d", distKm, actual, potential);
+        } else {
+            payload = "No Interest";
+        }
+        
+        CsvMetricWriter.getInstance().logPublication(pub, getName(), payload, status);
     }
 
     private double[] initializeDistances(int size) {

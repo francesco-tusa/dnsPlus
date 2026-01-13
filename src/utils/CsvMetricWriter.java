@@ -21,8 +21,6 @@ public class CsvMetricWriter {
     private BufferedWriter pubSummaryWriter;
 
     private boolean initialized = false;
-    
-    // Master switch for all event tracing
     private boolean eventTracingEnabled = true;
 
     private final Map<Long, Integer> subTraceCounts = new HashMap<>();
@@ -53,24 +51,15 @@ public class CsvMetricWriter {
             currentSubTraceId = null; currentSubSummary = null;
             currentPubTraceId = null; currentPubSummary = null;
 
-            // 1. Resolve Output Directory (Respecting Config)
             String outputRoot = "output/";
             try {
-                // Try to get from config, fallback to default if config not ready (e.g. unit tests)
                 outputRoot = SimConfiguration.get().paths.outputDir;
                 if (!outputRoot.endsWith("/")) outputRoot += "/";
-            } catch (Exception e) {
-                // Fallback used if SimConfiguration is not initialized
-            }
+            } catch (Exception e) { }
             
             String baseDir = outputRoot + runId;
-
-            // 2. ALWAYS create the base directory.
-            // This ensures that the general simulation.log (created by CustomLogger/SimulationRunner)
-            // has a valid destination, even if we decide not to write CSV traces.
             new File(baseDir).mkdirs();
 
-            // 3. Check Flag to decide on CSV Writers
             if (!this.eventTracingEnabled) {
                 initialized = true;
                 return;
@@ -79,12 +68,11 @@ public class CsvMetricWriter {
             String subDir = baseDir + "/subscriptions";
             String pubDir = baseDir + "/publications";
             
-            // Create Subscription Writers
             new File(subDir).mkdirs();
-            subscriptionWriter = new RotatingFileWriter(subDir, "subscriptions", "TraceID,MsgCount,Source,Receiver,Hops,Region,Result\n");
+            // CHANGE: Simplified Headers: From, Node, Info, Op
+            subscriptionWriter = new RotatingFileWriter(subDir, "subscriptions", "TraceID,Seq,From,Node,Hops,Info,Op\n");
             subSummaryWriter = initializeSummaryWriter(subDir, "subscription_summary.csv");
 
-            // Create Publication Writers
             new File(pubDir).mkdirs();
             publicationWriter = new RotatingFileWriter(pubDir, "publications", "TraceID,MsgCount,Source,Receiver,Hops,Location,Result\n");
             pubSummaryWriter = initializeSummaryWriter(pubDir, "publication_summary.csv");
@@ -182,9 +170,7 @@ public class CsvMetricWriter {
             int count = (maxCount != null) ? maxCount : 0;
             String countryStr = (summary.country != null) ? summary.country : "Unknown";
             String sourceStr = (summary.sourceName != null) ? summary.sourceName : "Unknown";
-            
             String idStr = formatTraceId(summary.id);
-
             writer.write(String.format("%s,\"%s\",\"%s\",%.4f,%.4f,%d\n", idStr, sourceStr, countryStr, summary.longitude, summary.latitude, count));
             writer.flush(); 
         } catch (IOException e) { e.printStackTrace(); }
@@ -206,12 +192,10 @@ public class CsvMetricWriter {
                 if (currentSubTraceId != null) flushSummary(subSummaryWriter, currentSubSummary, subTraceCounts.get(currentSubTraceId));
                 if (subscriptionWriter != null) subscriptionWriter.close();
                 if (subSummaryWriter != null) subSummaryWriter.close();
-                
                 if (currentPubTraceId != null) flushSummary(pubSummaryWriter, currentPubSummary, pubTraceCounts.get(currentPubTraceId));
                 if (publicationWriter != null) publicationWriter.close();
                 if (pubSummaryWriter != null) pubSummaryWriter.close();
             }
-            
             subTraceCounts.clear(); pubTraceCounts.clear(); initialized = false;
         } catch (IOException e) { e.printStackTrace(); }
     }
