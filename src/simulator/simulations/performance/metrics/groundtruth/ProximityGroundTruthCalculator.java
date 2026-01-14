@@ -34,9 +34,6 @@ public class ProximityGroundTruthCalculator implements GroundTruthCalculator {
         logger.fine("--- Calculating Proximity Ground Truth (Necessary Updates) ---");
 
         // 2. Parallel Strategy: Partition SUBSCRIBERS
-        // We cannot partition Publications effectively because the order matters (temporal state).
-        // Each subscriber must process the full stream of pubs to update their "best distance".
-        
         int numThreads = Runtime.getRuntime().availableProcessors();
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
         long totalNecessaryUpdates = 0;
@@ -54,12 +51,11 @@ public class ProximityGroundTruthCalculator implements GroundTruthCalculator {
                     
                     for (SubscriptionWithLocation sub : subBatch) {
                         double bestDistSq = Double.MAX_VALUE;
-                        
+
                         // STRICT ORDER REQUIRED: Iterate publications in generation/send order
                         for (PublicationWithLocation pub : pubs) {
-                            // Assuming SubscriptionWithLocation has a getLocation() method
                             double d = sub.getLocation().distanceSquared(pub.getLocation());
-                            
+
                             if (d < bestDistSq) {
                                 bestDistSq = d;
                                 localCount++; // This is a necessary update (strict improvement)

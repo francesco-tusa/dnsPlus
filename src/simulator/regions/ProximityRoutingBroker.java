@@ -198,7 +198,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
     private void processPublicationDownward(PublicationWithLocation pub) {
         boolean forwardedToAny = false;
         boolean tracingEnabled = SimConfiguration.get().paths.enableEventTracing && pub.getMetrics() != null;
-
+        
         double minDistSqToInterestedChild = tracingEnabled ? Double.MAX_VALUE : -1.0;
         int potentialRecipients = 0;
         int actualRecipients = 0;
@@ -215,21 +215,16 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
         for (Map.Entry<TreeNode, Location[]> entry : childTopologicalTargets.entrySet()) {
             TreeNode neighbor = entry.getKey();
-            if (neighbor == pub.getSource())
-                continue;
-            if (neighbor == getParentBroker())
-                continue;
-            if (inputStore.get(neighbor) == null)
-                continue;
+            if (neighbor == pub.getSource()) continue;
+            if (neighbor == getParentBroker()) continue;
+            if (inputStore.get(neighbor) == null) continue;
 
-            if (tracingEnabled)
-                potentialRecipients++;
+            if (tracingEnabled) potentialRecipients++;
 
             Location[] targets = entry.getValue();
             double[] bestDists = childBestDistances.get(neighbor);
 
-            if (bestDists == null || targets == null || bestDists.length != targets.length)
-                continue;
+            if (bestDists == null || targets == null || bestDists.length != targets.length) continue;
 
             boolean shouldSend = false;
             double distanceForThisNeighbor = -1.0;
@@ -246,6 +241,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
                 if (targets.length == 1)
                     distanceForThisNeighbor = newDistSq;
 
+                // THE CORE LOGIC: Strict Inequality (<) required for update
                 if (newDistSq < currentBest) {
                     bestDists[i] = newDistSq;
                     shouldSend = true;
@@ -260,8 +256,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
                 }
 
                 forwardedToAny = true;
-                if (tracingEnabled)
-                    actualRecipients++;
+                if (tracingEnabled) actualRecipients++;
             }
         }
 
