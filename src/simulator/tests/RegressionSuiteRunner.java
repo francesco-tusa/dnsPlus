@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+import simulator.config.SimConfiguration;
 import simulator.tests.fixtures.*;
 import simulator.tests.framework.*;
 
@@ -25,6 +26,10 @@ public class RegressionSuiteRunner {
 
     public static void main(String[] args) {
         logger.info(">>> STARTING GLOBAL REGRESSION SUITE <<<");
+
+        // --- GLOBAL CONFIGURATION ---
+        // Explicitly disable event tracing. 
+        SimConfiguration.get().paths.enableEventTracing = false;
 
         // --- FACTORY SETUP ---
         List<FactorySetup> regionalSetups = new ArrayList<>();
@@ -50,14 +55,14 @@ public class RegressionSuiteRunner {
         // =================================================================
         logger.info("\n=== PHASE 1: Broker Logic & Mechanism Verification ===");
 
-        // 1.1 Region Logic (Runs on both Simple and Smart to ensure Storage implementations behave correctly)
+        // 1.1 Region Logic
         List<TestScenario> regionLogic = new ArrayList<>();
         regionLogic.add(new RegionCoveringLogicTest());
         regionLogic.add(new RegionExpansionLogicTest());
         
         runBatch(new FixedTopologyFixture(), regionLogic, regionalSetups);
 
-        // 1.2 Proximity Logic (Runs on Proximity)
+        // 1.2 Proximity Logic
         List<TestScenario> proxLogic = new ArrayList<>();
         proxLogic.add(new ProximityAggregationLogicTest());
         proxLogic.add(new ProximityPropagationLogicTest());
