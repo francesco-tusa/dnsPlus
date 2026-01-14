@@ -143,7 +143,11 @@ public class GeoNamesTopologyLoader
                 } else {
                     currentBroker = brokerFactory.createBroker(pendingName);
                 }
-                if (parent != null) parent.addChild(currentBroker);
+                
+                // --- FIX: DO NOT ADD TO PARENT HERE ---
+                // Adding here causes the parent to read the child's Region as (0,0)
+                // because the "bounds" field hasn't been parsed yet.
+                // We moved this logic to the end of the method.
 
             } else if (JSON_FIELD_NAME.equals(fieldName)) {
                 pendingName = parser.getText();
@@ -168,6 +172,13 @@ public class GeoNamesTopologyLoader
             } else {
                 parser.skipChildren();
             }
+        }
+
+        // --- FIX: ADD TO PARENT HERE ---
+        // Ensure the broker is fully populated (including bounds) before the parent
+        // inspects it to calculate routing targets.
+        if (parent != null && currentBroker != null) {
+            parent.addChild(currentBroker);
         }
         
         return currentBroker;

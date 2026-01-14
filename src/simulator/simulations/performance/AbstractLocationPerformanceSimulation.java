@@ -68,18 +68,13 @@ public abstract class AbstractLocationPerformanceSimulation<C extends TopologyCo
             }
         }
 
-        // 2. Pre-generate Publications
-        // Using existing logic: Random Location in Root Region
         logger.info("Pre-generating " + allPublishers.size() + " publications for Ground Truth context...");
         List<PublicationWithLocation> preGeneratedPubs = new ArrayList<>();
-        
-        if (this.rootNode instanceof BoundedBroker root) {
-            for (var p : allPublishers) {
-                simulator.core.Location pubLocation = root.getRegion().getRandomLocation();
-                PublicationWithLocation pub = new PublicationWithLocation(pubLocation);
-                pub.setSource(p);
-                preGeneratedPubs.add(pub);
-            }
+
+        for (var p : allPublishers) {
+            PublicationWithLocation pub = new PublicationWithLocation(p.getLocation());
+            pub.setSource(p);
+            preGeneratedPubs.add(pub);
         }
 
         logger.info("");
