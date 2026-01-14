@@ -180,7 +180,7 @@ public class SubscriberWithLocation extends TreeNode {
     public long getHopSum() { return hopSum; }
     public int getHopMin() { return hopMin; }
     public int getHopMax() { return hopMax; }
-    @Override public Location getMetricLocation() { return new Location(myLon, myLat, -1); }
+    @Override public Location getMetricLocation() { return new Location(myLon, myLat, 0); }
     public Location getLocation() { return getMetricLocation(); }
     public SimulationBroker getBroker() { return (getParent() instanceof SimulationBroker) ? (SimulationBroker) getParent() : null; }
 

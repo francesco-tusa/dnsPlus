@@ -92,9 +92,9 @@ public abstract class AbstractPerformanceSimulation<
         CsvMetricWriter.getInstance().initialize(this.simulationTimestamp, enableTracing, traceStrategy);
         
         if (enableTracing) {
-            logger.info("Subscription Tracing: ENABLED (Strategy: " + type.name() + ")");
+            logger.info("Event Tracing: ENABLED (Strategy: " + type.name() + ")");
         } else {
-            logger.info("Subscription Tracing: DISABLED (Stats only mode)");
+            logger.info("Event Tracing: DISABLED (Stats only mode)");
         }
 
         logSectionHeader("Populating Topology for Performance Simulation");

@@ -2,6 +2,8 @@ package simulator.core;
 
 import java.text.DecimalFormat;
 import java.util.Objects;
+import java.util.logging.Logger; // Import Logger
+import utils.CustomLogger;       // Import CustomLogger
 
 /**
  * Memory-Optimized Location class using single-precision (float).
@@ -10,7 +12,7 @@ public final class Location implements Comparable<Location> {
     private final float x;
     private final float y;
     private final float z;
-
+    
     /**
      * Constructor accepting double for compatibility, but casts to float.
      */
@@ -20,9 +22,6 @@ public final class Location implements Comparable<Location> {
         this.z = (float) z;
     }
 
-    /**
-     * Copy constructor.
-     */
     public Location(Location l) {
         Objects.requireNonNull(l, "Location to copy cannot be null.");
         this.x = l.x;
@@ -35,7 +34,6 @@ public final class Location implements Comparable<Location> {
     public double getZ() { return z; }
 
     public double distanceSquared(Location other) {
-        // Cast to double for calculation to preserve precision during squaring
         double dx = (double)this.x - other.x;
         double dy = (double)this.y - other.y;
         double dz = (double)this.z - other.z;
@@ -74,7 +72,6 @@ public final class Location implements Comparable<Location> {
 
     @Override
     public int hashCode() {
-        // Updated to hash floats directly
         return Objects.hash(x, y, z);
     }
 }

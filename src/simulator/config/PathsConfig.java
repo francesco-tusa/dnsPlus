@@ -27,8 +27,8 @@ public class PathsConfig {
     public final boolean enableVerboseLogs;
     
     // Controls BOTH Subscription and Publication tracing
-    // Defaults to true. If false, no CSV files are generated for events.
-    public final boolean enableEventTracing;
+    // Is not final because RegressionSuiteRunner needs to set it to false
+    public boolean enableEventTracing;
 
     public PathsConfig(Properties props) {
         this.resourcesDir = props.getProperty("paths.resourcesDir", "resources/world/");
@@ -38,7 +38,7 @@ public class PathsConfig {
         this.enableVerboseLogs = Boolean.parseBoolean(props.getProperty("paths.enableVerboseLogs", "false"));
         
         // Renamed property key to reflect broader usage
-        this.enableEventTracing = Boolean.parseBoolean(props.getProperty("paths.enableEventTracing", "true"));
+        this.enableEventTracing = Boolean.parseBoolean(props.getProperty("paths.enableEventTracing", "false"));
 
         this.allCountriesFile = resourcesDir + "allCountries.txt";
         this.countryInfoFile = resourcesDir + "countryInfo.txt";

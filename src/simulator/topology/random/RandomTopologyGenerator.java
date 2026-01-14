@@ -20,7 +20,7 @@ public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRando
     private final List<BoundedBroker> allLeafBrokers = new ArrayList<>();
     private final Random random = new Random();
 
-    private static final int MAX_Z = 100; // Z-axis can remain constant
+    private static final int MAX_Z = 0; // Z-axis can remain constant
     private static final long MOCK_POPULATION = 10000;
 
     public RandomTopologyGenerator(BoundedBrokerFactory brokerFactory) {
