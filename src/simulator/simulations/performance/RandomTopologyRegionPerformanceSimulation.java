@@ -6,7 +6,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import simulator.population.ProportionalPublishersPlacement;
+import simulator.population.PopulationBasedPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.regions.BoundedBroker;
 import simulator.topology.analysis.TopologyAnalyser;
@@ -27,9 +27,7 @@ public class RandomTopologyRegionPerformanceSimulation
      */
     @Override
     protected PublishersPlacementStrategy getPublisherPlacementStrategy() {
-        // This will result in a uniform random placement, as all leaf
-        // brokers have the same MOCK_POPULATION
-        return new ProportionalPublishersPlacement();
+        return new PopulationBasedPublishersPlacement();
     }
 
 

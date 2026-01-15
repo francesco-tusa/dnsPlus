@@ -22,6 +22,6 @@ public class RegionPerformanceSimulationsMain {
 
         // Option 2: Run the simulation using the Top-N Population list
         // logger.info("--- Launching Region-Based GeoNames Simulation (Population Strategy) ---");
-        // PopulationGeonamesRegionPerformanceSimulation.main(args);
+        PopulationGeonamesRegionPerformanceSimulation.main(args);
     }
 }
