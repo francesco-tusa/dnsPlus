@@ -294,21 +294,47 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
     private void logSubscriptionInput(SimulationSubscription s) {
         Location loc = (s instanceof SubscriptionWithLocation sl) ? sl.getLocation() : null;
-        boolean willPropagate = (getParentBroker() != null && !isSubscribedToParent);
-        String decision = willPropagate ? "Forward" : "Covered";
-        CsvMetricWriter.getInstance().logSubscription(s, getName(), "INPUT", loc, decision);
+        String decision;
+
+        if (getParentBroker() == null) {
+            // Topology Result: We are at the World/Root broker. 
+            // There is nowhere else to go.
+            decision = "ROOT_REACHED";
+        } else if (isSubscribedToParent) {
+            // Algorithm Result: We have a parent, but we (the broker) have already 
+            // sent a subscription that covers this new request. 
+            // Bandwidth saved.
+            decision = "COVERED";
+        } else {
+            // Normal Operation: New interest, propagating up.
+            decision = "FORWARDED";
+        }
+
+        CsvMetricWriter.getInstance().logSubscription(s, getName(), decision, loc, "Input");
     }
 
     private void logSubscriptionOutput(SubscriptionWithLocation proxySub) {
         Location center = proxySub.getLocation();
-        CsvMetricWriter.getInstance().logSubscription(proxySub, getName(), "OUTPUT", center, "Proxy_Forward");
+        CsvMetricWriter.getInstance().logSubscription(proxySub, getName(), "PROXY_SENT", center, "Output");
     }
 
     private void logPublicationTrace(PublicationWithLocation pub, boolean forwardedToAny, double minDistSq, int actual,
             int potential) {
-        String status = forwardedToAny ? "FORWARDED" : "PRUNED";
-        if (!forwardedToAny && getParentBroker() == null && childTopologicalTargets.isEmpty()) {
-            status = "RECEIVED_ROOT";
+        String status;
+
+        if (forwardedToAny) {
+            status = "FORWARDED";
+        } else {
+            if (potential == 0) {
+                // Topology Result: The propagation branch died naturally because 
+                // no child nodes (Countries/States) have subscribed to this topic.
+                status = "NO_MATCH"; 
+            } else {
+                // Algorithm Result: Neighbors WANTED this topic, but the Proximity Algorithm 
+                // calculated that the new publication is not "closer" than what they already have.
+                // This is a successful optimisation.
+                status = "PRUNED";
+            }
         }
 
         CsvMetricWriter.getInstance().logPublication(
