@@ -60,7 +60,6 @@ public abstract class AbstractLocationPerformanceSimulation<C extends TopologyCo
 
         if (allSubscribers.isEmpty()) return;
 
-        // 1. Prepare Leaf Brokers
         List<BoundedBroker> leafBrokers = new ArrayList<>();
         for (var s : allSubscribers) {
             if (s.getBroker() instanceof BoundedBroker bb && !leafBrokers.contains(bb)) {
@@ -80,20 +79,18 @@ public abstract class AbstractLocationPerformanceSimulation<C extends TopologyCo
         logger.info("");
         logger.info(">>> Phase 1: Subscriptions & GT Calculation... <<<");
         
-        // 3. Streaming Generation & Ground Truth
         orchestrator.generateDispatchAndCalculate(
             allSubscribers, 
             leafBrokers, 
             workloadGenerator, 
             this.metricsData, 
             preGeneratedPubs,
-            this.truthCalculator // Pass the Proximity strategy
+            this.truthCalculator
         );
 
         logger.info("");
         logger.info(">>> Phase 2: Publications... <<<");
         
-        // 4. Send Publications
         for (int i = 0; i < preGeneratedPubs.size(); i++) {
              allPublishers.get(i).send(preGeneratedPubs.get(i));
         }

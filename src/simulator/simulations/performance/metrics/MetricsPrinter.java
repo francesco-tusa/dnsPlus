@@ -163,14 +163,14 @@ public class MetricsPrinter {
     private void printRegionRoutingEfficiency(RegionPerformanceMetricsData data) {
         logger.info("5. ROUTING EFFICIENCY (Regional/Spatial):");
         
-        // 1. Dead Ends (Relevant for Region)
+        // 1. Dead Ends
         logItem("False Positive Events (Dead Ends)", format(data.totalFalsePositiveEvents));
         double fpRateEvents = (data.totalPubForwardingEvents > 0) 
                 ? ((double) data.totalFalsePositiveEvents / data.totalPubForwardingEvents) * 100.0 
                 : 0.0;
         logItem(" -> Rate (vs Traffic)", String.format("%.2f%%", fpRateEvents));
 
-        // 2. Unwanted Deliveries (STRICTLY REGIONAL)
+        // 2. Unwanted Deliveries
         logItem("False Positive Deliveries (Unwanted)", format(data.totalFalsePositiveDeliveries));
         double fpRateDelivery = (data.totalNotifications > 0) 
                 ? ((double) data.totalFalsePositiveDeliveries / data.totalNotifications) * 100.0 
@@ -188,21 +188,17 @@ public class MetricsPrinter {
     private void printProximityRoutingEfficiency(ProximityPerformanceMetricsData data) {
         logger.info("5. ROUTING EFFICIENCY (Proximity/Closest):");
         
-        // 1. Traffic Ratio (Primary Efficiency Metric for Proximity)
+        // 1. Traffic Ratio
         double trafficRatio = (data.totalNotifications > 0) 
                 ? (double) data.totalPubForwardingEvents / data.totalNotifications 
                 : 0.0;
         logItem("Traffic Ratio (Events per Delivery)", String.format("%.2f", trafficRatio));
-        logger.info("      (Lower is better: <1.0 means effective aggregation)");
-
         // 2. Dead Ends (Secondary Metric)
         logItem("False Positive Events (Dead Ends)", format(data.totalFalsePositiveEvents));
         double fpRateEvents = (data.totalPubForwardingEvents > 0) 
                 ? ((double) data.totalFalsePositiveEvents / data.totalPubForwardingEvents) * 100.0 
                 : 0.0;
         logItem(" -> Rate (vs Traffic)", String.format("%.2f%%", fpRateEvents));
-        
-        // NOTE: "False Positive Deliveries" are deliberately OMITTED here.
         
         logger.info("");
     }

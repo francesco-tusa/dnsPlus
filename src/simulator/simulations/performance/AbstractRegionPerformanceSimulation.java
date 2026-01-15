@@ -10,7 +10,7 @@ import simulator.config.WorkloadConfig;
 import simulator.core.WorkloadRepository;
 import simulator.events.PublicationWithLocation;
 import simulator.regions.BoundedBroker;
-// Polymorphic Imports
+
 import simulator.simulations.performance.metrics.PerformanceMetricsData;
 import simulator.simulations.performance.metrics.RegionPerformanceMetricsData;
 import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
@@ -27,7 +27,6 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
     private static final Logger logger = CustomLogger.getLogger(AbstractRegionPerformanceSimulation.class.getName());
     
     private final RegionWorkloadGenerator workloadGenerator = new RegionWorkloadGenerator();
-    // No-arg constructor as per your Orchestrator code
     private final SubscriptionWorkloadOrchestrator orchestrator = new SubscriptionWorkloadOrchestrator();
 
     public AbstractRegionPerformanceSimulation() {
@@ -81,7 +80,6 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
             logger.info("Configured Workload Generator with NO Hotspots (Pure Random Remote).");
         }
         
-        // 0. Pre-generate Publication Objects (for Ground Truth context)
         logger.info("Pre-generating " + allPublishers.size() + " publications for Ground Truth context...");
         List<PublicationWithLocation> preGeneratedPubs = new ArrayList<>();
         for(var p : allPublishers) {
@@ -93,20 +91,18 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
         logger.info("");
         logger.info(">>> Phase 1: Subscriptions (Streaming Batch Mode) ... <<<");
 
-        // 1. Streaming Generation & Ground Truth Calculation
         orchestrator.generateDispatchAndCalculate(
             allSubscribers, 
             leafBrokers, 
             workloadGenerator,
             this.metricsData,
             preGeneratedPubs,
-            this.truthCalculator // Pass the Region strategy
+            this.truthCalculator 
         );
 
         logger.info("");
         logger.info(">>> Phase 2: Publications... <<<");
         
-        // 2. Send Publications
         for (int i = 0; i < preGeneratedPubs.size(); i++) {
             allPublishers.get(i).send(preGeneratedPubs.get(i));
         }

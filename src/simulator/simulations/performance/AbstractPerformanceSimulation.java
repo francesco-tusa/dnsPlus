@@ -1,6 +1,5 @@
 package simulator.simulations.performance;
 
-// ... existing imports ...
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -15,6 +14,7 @@ import simulator.population.ProportionalSubscribersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BoundedBroker;
+// --- Metrics & GT Imports ---
 import simulator.simulations.performance.metrics.MetricsCollector;
 import simulator.simulations.performance.metrics.MetricsPrinter;
 import simulator.simulations.performance.metrics.PerformanceMetricsData;
@@ -30,15 +30,19 @@ public abstract class AbstractPerformanceSimulation<
     F extends AbstractTopologyFactory<C, BoundedBroker>
 > extends SimulationRunner<C, BoundedBroker, F> {
 
-    // ... (fields: logger, allSubscribers, etc. UNCHANGED) ...
     private static final Logger logger = CustomLogger.getLogger(AbstractPerformanceSimulation.class.getName());
+
     protected final List<SubscriberWithLocation> allSubscribers = new ArrayList<>();
     protected final List<PublisherWithLocation> allPublishers = new ArrayList<>();
+    
+    // --- Polymorphic Fields ---
     protected PerformanceMetricsData metricsData;
     protected GroundTruthCalculator truthCalculator;
 
+    // --- Abstract Factories ---
     protected abstract PerformanceMetricsData createMetricsData();
     protected abstract GroundTruthCalculator createGroundTruthCalculator();
+
     protected abstract PublishersPlacementStrategy getPublisherPlacementStrategy();
 
     @Override
@@ -57,47 +61,67 @@ public abstract class AbstractPerformanceSimulation<
         logger.info(String.format("%-35s : %s", k, v)); 
     }
 
-    protected void logMetricItem(String k, Object v) {
-        logger.info(String.format("%-35s : %s", k, v));
-    }
-
     @Override
     protected void initialise(F factory, C config) {
         this.metricsData = createMetricsData();
         this.truthCalculator = createGroundTruthCalculator();
+
         super.initialise(factory, config);
         
         WorkloadConfig workload = SimConfiguration.get().workload;
+        
+        // 2. Print Common Configuration
         printBanner("SIMULATION CONFIGURATION");
+        logConfigItem("Run ID", this.simulationTimestamp);
+        logConfigItem("Topology Factory", factory.getClass().getSimpleName());
+        
+        // Log Topology Details via Config
+        config.logDetails(logger);
+        
+        // Log Workload Configuration
+        logConfigItem("Number of Replicas", workload.numberOfReplicas);
+        logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);
         logConfigItem("Total Subscribers", workload.getTotalSubscribers());
-        logConfigItem("Publishers", "Defined by placement strategy");
+        logConfigItem("Avg Subscriptions per Subscriber", workload.meanSubscriptionsPerSubscriber);
+        logConfigItem("Arrival Distribution", workload.arrivalDistribution);
+        
+        // Log Strategy Name (Actual count will be logged after population)
+        try {
+            logConfigItem("Publisher Strategy", getPublisherPlacementStrategy().getClass().getSimpleName());
+        } catch (Exception e) {
+            logConfigItem("Publisher Strategy", "Unknown (Init Error)");
+        }
+        
+        // 3. Allow subclasses to inject their specific settings
         logSpecificConfiguration();
+        
         printSeparator();
     }
 
-    protected void logSpecificConfiguration() {}
+    /**
+     * Hook for subclasses to log algorithm-specific settings.
+     */
+    protected abstract void logSpecificConfiguration();
 
     @Override
     protected void setupSimulation() {
         boolean enableTracing = SimConfiguration.get().paths.enableEventTracing;
         
+        CsvMetricWriter.getInstance().initialize(this.simulationTimestamp, enableTracing);
+        
+        if (enableTracing) {
+            logger.info("Subscription Tracing: ENABLED (CSV files will be generated)");
+        } else {
+            logger.info("Subscription Tracing: DISABLED (Stats only mode)");
+        }
+
+        logSectionHeader("Populating Topology for Performance Simulation");
+
         if (this.rootNode == null) {
             logger.severe("Cannot populate topology: Root node is null.");
             return;
         }
 
-        SimulationType type = SimulationType.infer(this.rootNode);
-        CsvMetricWriter.TraceMetricStrategy traceStrategy = type.createTraceStrategy();
-
-        CsvMetricWriter.getInstance().initialize(this.simulationTimestamp, enableTracing, traceStrategy);
-        
-        if (enableTracing) {
-            logger.info("Event Tracing: ENABLED (Strategy: " + type.name() + ")");
-        } else {
-            logger.info("Event Tracing: DISABLED (Stats only mode)");
-        }
-
-        logSectionHeader("Populating Topology for Performance Simulation");
         TopologyAnalyser.logStructure(this.rootNode, logger);
 
         List<BoundedBroker> leafBrokers = TopologyAnalyser.findLeafBrokers(this.rootNode);
@@ -107,6 +131,8 @@ public abstract class AbstractPerformanceSimulation<
         }
         
         WorkloadConfig workload = SimConfiguration.get().workload;
+        
+        // Populate Topology
         TopologyPopulator populater = new TopologyPopulator(new ProportionalSubscribersPlacement(), getPublisherPlacementStrategy());
         populater.populate(this.rootNode, leafBrokers, workload.getTotalSubscribers(), workload.numberOfReplicas);
         
@@ -114,20 +140,24 @@ public abstract class AbstractPerformanceSimulation<
     }
 
     private void collectClients(List<BoundedBroker> leafBrokers) {
-        allSubscribers.clear(); allPublishers.clear();
+        allSubscribers.clear();
+        allPublishers.clear();
         for (BoundedBroker leaf : leafBrokers) {
             for (Object child : leaf.getChildren()) {
                 if (child instanceof SubscriberWithLocation s) allSubscribers.add(s);
                 else if (child instanceof PublisherWithLocation p) allPublishers.add(p);
             }
         }
+        // Log actual counts now that they exist
         logger.info("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
     }
 
     protected void collectAndPrintMetrics() {
         MetricsCollector collector = new MetricsCollector();
         PerformanceMetricsData collected = collector.collect(this.rootNode, allSubscribers, allPublishers);
+        
         collected.groundTruthMatches = this.metricsData.groundTruthMatches;
+        
         MetricsPrinter printer = new MetricsPrinter(logger);
         printer.print(collected);        
     }
