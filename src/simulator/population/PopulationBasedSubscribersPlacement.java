@@ -10,12 +10,12 @@ import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import utils.CustomLogger;
 
-public class ProportionalSubscribersPlacement implements SubscribersPlacementStrategy {
+public class PopulationBasedSubscribersPlacement implements SubscribersPlacementStrategy {
 
-    private static final Logger logger = CustomLogger.getLogger(ProportionalSubscribersPlacement.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(PopulationBasedSubscribersPlacement.class.getName());
     private final Random random = new Random();
         
-    public ProportionalSubscribersPlacement() { }
+    public PopulationBasedSubscribersPlacement() { }
 
     @Override
     public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {

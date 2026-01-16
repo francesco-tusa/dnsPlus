@@ -4,7 +4,7 @@ import java.util.Properties;
 
 public class WorkloadConfig {
     public final int numberOfReplicas;
-    public final int subscribersPerReplica;
+    public final double subscribersPerReplica;
     public final double subscriptionRegionSize;
     public final double remoteInterestProbability;
 
@@ -24,7 +24,7 @@ public class WorkloadConfig {
 
     public WorkloadConfig(Properties props) {
         this.numberOfReplicas = ConfigParser.parseInt(props, "workload.replicas", 20);
-        this.subscribersPerReplica = ConfigParser.parseInt(props, "workload.subscribersPerReplica", 2500);
+        this.subscribersPerReplica = ConfigParser.parseDouble(props, "workload.subscribersPerReplica", 2500);
         this.subscriptionRegionSize = ConfigParser.parseDouble(props, "workload.subscriptionRegionSize", 10.0);
         this.remoteInterestProbability = ConfigParser.parseDouble(props, "workload.remoteInterestProb", 0.1);
 
@@ -39,7 +39,7 @@ public class WorkloadConfig {
         this.publishersPerLeafNode = ConfigParser.parseInt(props, "workload.publishersPerLeaf", 1);
     }
     
-    public long getTotalSubscribers() {
-        return (long) numberOfReplicas * subscribersPerReplica;
+    public int getTotalSubscribers() {
+        return (int) (numberOfReplicas * subscribersPerReplica);
     }
 }

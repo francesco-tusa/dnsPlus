@@ -10,7 +10,7 @@ public class GeoNamesTopologyConfiguration implements TopologyConfiguration {
 
     // Workload Parameters (Cached here for the simulation runner)
     private final int numberOfReplicas;
-    private final int subscribersPerReplica;
+    private final double subscribersPerReplica;
     private final int totalSubscribers;
     private final double subscriptionRegionSize;
     private final double remoteInterestProbability;
@@ -22,7 +22,7 @@ public class GeoNamesTopologyConfiguration implements TopologyConfiguration {
         this.topologyFilePath = config.paths.getActiveTopologyFile(config.topology.simulationStrategy);
         this.numberOfReplicas = config.workload.numberOfReplicas;
         this.subscribersPerReplica = config.workload.subscribersPerReplica;
-        this.totalSubscribers = numberOfReplicas * subscribersPerReplica;
+        this.totalSubscribers = config.workload.getTotalSubscribers();
         this.subscriptionRegionSize = config.workload.subscriptionRegionSize;
         this.remoteInterestProbability = config.workload.remoteInterestProbability;
         this.enableVerboseLogs = config.paths.enableVerboseLogs;
@@ -37,7 +37,7 @@ public class GeoNamesTopologyConfiguration implements TopologyConfiguration {
         return numberOfReplicas;
     }
 
-    public int getSubscribersPerReplica() {
+    public double getSubscribersPerReplica() {
         return subscribersPerReplica;
     }
 

@@ -10,7 +10,7 @@ import simulator.config.WorkloadConfig;
 import simulator.core.SimulationRunner;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
-import simulator.population.ProportionalSubscribersPlacement;
+import simulator.population.PopulationBasedSubscribersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BoundedBroker;
@@ -133,7 +133,7 @@ public abstract class AbstractPerformanceSimulation<
         WorkloadConfig workload = SimConfiguration.get().workload;
         
         // Populate Topology
-        TopologyPopulator populater = new TopologyPopulator(new ProportionalSubscribersPlacement(), getPublisherPlacementStrategy());
+        TopologyPopulator populater = new TopologyPopulator(new PopulationBasedSubscribersPlacement(), getPublisherPlacementStrategy());
         populater.populate(this.rootNode, leafBrokers, workload.getTotalSubscribers(), workload.numberOfReplicas);
         
         collectClients(leafBrokers);
