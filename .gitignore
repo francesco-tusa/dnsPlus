@@ -8,3 +8,4 @@ resources/world/countryInfo.txt
 resources/simulation.properties
 .gitignore
 .vscode/launch.json
+resources/simulation.properties
