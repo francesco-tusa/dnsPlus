@@ -135,7 +135,20 @@ public class SpatialMatchBroker extends BoundedBroker {
     private void updateInputCounters(StoreUpdate update) {
         switch (update.getResult()) {
             case NO_CHANGE -> recordSubCovered();
-            case EXPANDED -> { recordSubExpanded(); recordSubAbsorbed(update.getAbsorbedCount()); recordSubMerged(update.getMergedCount()); }
+            case EXPANDED -> { 
+                recordSubExpanded(); 
+                
+                // Logic: 0 or 1 removal means the topology didn't "collapse".
+                int removed = update.getAbsorbedCount() + update.getMergedCount();
+                
+                if (removed <= 1) {
+                    recordSubSimpleExpanded(); 
+                } else {
+                    recordSubComplexExpanded(); // Record the EVENT
+                    recordSubAbsorbed(update.getAbsorbedCount()); // Record the VICTIMS
+                    recordSubMerged(update.getMergedCount()); 
+                }
+            }
             case ADDED -> recordSubAdded();
         }
     }
@@ -143,7 +156,19 @@ public class SpatialMatchBroker extends BoundedBroker {
     private void updateOutputCounters(StoreUpdate update) {
         switch (update.getResult()) {
             case NO_CHANGE -> recordOutSubCovered();
-            case EXPANDED -> { recordOutSubExpanded(); recordOutSubAbsorbed(update.getAbsorbedCount()); recordOutSubMerged(update.getMergedCount()); }
+            case EXPANDED -> { 
+                recordOutSubExpanded(); 
+                
+                int removed = update.getAbsorbedCount() + update.getMergedCount();
+                
+                if (removed <= 1) {
+                    recordOutSubSimpleExpanded(); 
+                } else {
+                    recordOutSubComplexExpanded(); // Record the EVENT
+                    recordOutSubAbsorbed(update.getAbsorbedCount()); // Record the VICTIMS
+                    recordOutSubMerged(update.getMergedCount());
+                }
+            }
             case ADDED -> recordOutSubAdded();
         }
     }
@@ -180,26 +205,14 @@ public class SpatialMatchBroker extends BoundedBroker {
         else if (next instanceof SubscriberWithLocation subscriber) subscriber.receive(forwardedCopy);
     }
 
-    // --- Logging Helpers ---
-
     private void logSubscriptionTrace(SimulationSubscription s, StoreUpdate inputUpdate, SubscriptionWithRegion newSub) {
         CsvMetricWriter.getInstance().logSubscription(
-            s, 
-            getName(), 
-            inputUpdate.getResult().name(),
-            newSub.getRegion(),       
-            this.getRegion(),         
-            inputUpdate.getAdditionalInfo() 
+            s, getName(), inputUpdate.getResult().name(), newSub.getRegion(), this.getRegion(), inputUpdate.getAdditionalInfo() 
         );
     }
 
     private void logPublicationTrace(SimulationPublication p, boolean forwardedToAny) {
         String status = forwardedToAny ? "Received" : "Received (Dead End)";
-        CsvMetricWriter.getInstance().logPublication(
-            p, 
-            getName(), 
-            status,
-            this.getRegion() 
-        );
+        CsvMetricWriter.getInstance().logPublication(p, getName(), status, this.getRegion());
     }
 }

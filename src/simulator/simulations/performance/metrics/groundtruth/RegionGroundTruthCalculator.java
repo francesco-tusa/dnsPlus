@@ -15,6 +15,7 @@ import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
+import simulator.regions.Region; // Required for static fastContains
 import simulator.regions.SubscriptionWithRegion;
 import utils.CustomLogger;
 
@@ -95,7 +96,6 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
             total += result.get();
         }
         
-        // Removed explicit log per call to reduce console spam in streaming mode
         return total;
     }
 
@@ -109,11 +109,13 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
         long totalMatches = 0;
         int batchSize = (int) Math.ceil((double) subs.size() / numThreads);
 
-        // Note: Ideally, we would flatten this loop to avoid invoking the executor multiple times,
-        // but for "Few Publishers" (e.g. < 50), this inner loop is acceptable IF the subscriber count is massive.
         for (PublicationWithLocation pub : pubs) {
             List<Callable<Set<TreeNode>>> tasks = new ArrayList<>();
             Location pubLoc = pub.getLocation();
+            
+            // Optimization: Pre-calculate float coordinates once per publication
+            float pLon = (float) pubLoc.getX();
+            float pLat = (float) pubLoc.getY();
 
             for (int i = 0; i < subs.size(); i += batchSize) {
                 int end = Math.min(i + batchSize, subs.size());
@@ -122,8 +124,18 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
                 tasks.add(() -> {
                     Set<TreeNode> localFound = new HashSet<>();
                     for (SubscriptionWithRegion s : subBatch) {
-                        if (s.getRegion().contains(pubLoc) && s.getSource() != null) {
-                            localFound.add(s.getSource());
+                        // FIX: Explicitly use float precision (Region.fastContains) 
+                        // to match the Broker's Propagation Policy logic.
+                        Region r = (Region) s.getRegion();
+                        
+                        if (Region.fastContains(
+                                (float) r.getMinLon(), (float) r.getMaxLon(), 
+                                (float) r.getMinLat(), (float) r.getMaxLat(), 
+                                pLon, pLat)) {
+                            
+                            if (s.getSource() != null) {
+                                localFound.add(s.getSource());
+                            }
                         }
                     }
                     return localFound;
@@ -143,20 +155,28 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
     }
 
     private long calculateSequential(List<SubscriptionWithRegion> subs, List<PublicationWithLocation> pubs) {
-        // Logging changed to FINEST to avoid spamming logs 1000 times
         logger.finest("--- Calculating Region Ground Truth Matches (Sequential) ---");
-        long matches = countMatchesInBatch(pubs, subs);
-        return matches;
+        return countMatchesInBatch(pubs, subs);
     }
 
     private long countMatchesInBatch(List<PublicationWithLocation> batch, List<SubscriptionWithRegion> subs) {
         long localMatches = 0;
         for (PublicationWithLocation pub : batch) {
             Location pubLoc = pub.getLocation();
+            // Optimization: Pre-calculate float coordinates
+            float pLon = (float) pubLoc.getX();
+            float pLat = (float) pubLoc.getY();
+
             Set<TreeNode> matchedSubscribers = new HashSet<>();
             for (SubscriptionWithRegion sub : subs) {
-                // LOGIC: Deduplicates subscribers here (Correct)
-                if (sub.getRegion().contains(pubLoc)) {
+                // FIX: Explicitly use float precision (Region.fastContains)
+                Region r = (Region) sub.getRegion();
+                
+                if (Region.fastContains(
+                        (float) r.getMinLon(), (float) r.getMaxLon(), 
+                        (float) r.getMinLat(), (float) r.getMaxLat(), 
+                        pLon, pLat)) {
+                    
                     if (sub.getSource() != null) {
                         matchedSubscribers.add(sub.getSource());
                     }

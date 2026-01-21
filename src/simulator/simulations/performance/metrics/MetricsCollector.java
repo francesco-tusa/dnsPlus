@@ -5,7 +5,7 @@ import simulator.core.TreeNode;
 import simulator.entities.*;
 import simulator.regions.BoundedBroker;
 import simulator.regions.ProximityRoutingBroker;
-import simulator.simulations.performance.SimulationType; // NEW IMPORT
+import simulator.simulations.performance.SimulationType;
 
 public class MetricsCollector {
     public PerformanceMetricsData collect(TreeNode root, List<SubscriberWithLocation> subs,
@@ -35,12 +35,16 @@ public class MetricsCollector {
                 if (data instanceof RegionPerformanceMetricsData rd && b instanceof BoundedBroker bb) {
                     rd.totalSubCovered += bb.getSubCoveredCount();
                     rd.totalSubExpanded += bb.getSubExpandedCount();
+                    rd.totalSubSimpleExpanded += bb.getSubSimpleExpandedCount();
+                    rd.totalSubComplexExpanded += bb.getSubComplexExpandedCount(); // NEW
                     rd.totalSubAdded += bb.getSubAddedCount();
                     rd.totalSubAbsorbed += bb.getSubAbsorbedCount();
                     rd.totalSubMerged += bb.getSubMergedCount();
                     
                     rd.totalOutSubCovered += bb.getOutSubCoveredCount();
                     rd.totalOutSubExpanded += bb.getOutSubExpandedCount();
+                    rd.totalOutSubSimpleExpanded += bb.getOutSubSimpleExpandedCount();
+                    rd.totalOutSubComplexExpanded += bb.getOutSubComplexExpandedCount(); // NEW
                     rd.totalOutSubAdded += bb.getOutSubAddedCount();
                     rd.totalOutSubAbsorbed += bb.getOutSubAbsorbedCount();
                     rd.totalOutSubMerged += bb.getOutSubMergedCount();

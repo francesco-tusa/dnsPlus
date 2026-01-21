@@ -145,14 +145,28 @@ public class TopologyAnalyser {
         Queue<BoundedBroker> queue = new LinkedList<>();
         queue.add(root);
         int currentLevel = 0;
+        
+        // 1. Initialize global counters
+        long totalBrokers = 0;
+        long totalLeafBrokers = 0;
 
         while (!queue.isEmpty()) {
             int levelSize = queue.size(); 
             long totalBrokerChildrenAtLevel = 0; 
+            int levelLeafCount = 0; // Counter for leaves at this specific level
             
+            // 2. Add current level size to total brokers count
+            totalBrokers += levelSize;
+
             for (int i = 0; i < levelSize; i++) {
                 BoundedBroker broker = queue.poll();
                 if (broker == null) continue;
+                
+                // 3. Check if current broker is a leaf
+                if (isLeafBroker(broker)) {
+                    levelLeafCount++;
+                }
+
                 if (broker.getChildren() != null) {
                     for (TreeNode child : broker.getChildren()) {
                         if (child instanceof BoundedBroker childBroker) { 
@@ -162,12 +176,25 @@ public class TopologyAnalyser {
                     }
                 }
             }
+            
+            // 4. Add level leaves to global leaf count
+            totalLeafBrokers += levelLeafCount;
+
             if (levelSize > 0) {
                 double avgFanOut = (totalBrokerChildrenAtLevel > 0) ? (double) totalBrokerChildrenAtLevel / levelSize : 0.0;
-                logger.info(String.format("  Level %d: %d brokers, Avg. Fan-Out: %.2f", currentLevel, levelSize, avgFanOut));
+                
+                // 5. Update log to show level stats including leaves
+                logger.info(String.format("  Level %d: %d brokers (%d leaves), Avg. Fan-Out: %.2f", 
+                    currentLevel, levelSize, levelLeafCount, avgFanOut));
+                
                 currentLevel++;
             }
         }
+        
+        // 6. Print the final totals
+        logger.info("-----------------------------------------------");
+        logger.info(String.format("  Total Brokers: %d", totalBrokers));
+        logger.info(String.format("  Total Leaf Brokers: %d", totalLeafBrokers));
         logger.info("--- End of Topology Summary ---");
     }
 }
