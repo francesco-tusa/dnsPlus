@@ -1,0 +1,140 @@
+# ==========================================
+#   GENERAL I/O AND LOGGING CONFIGURATION
+# ==========================================
+
+# --- Path Settings ---
+# Directory containing raw input data (GeoNames dumps)
+paths.resourcesDir=resources/world/
+# Directory for generated topology JSONs and simulation metrics
+paths.outputDir=output/
+# Toggles verbose logging (WARNING: produces large log files)
+paths.enableVerboseLogs=false
+# Toggles Full Event Tracing (WARNING: produces large CSV files and causes memory/performance issues)
+paths.enableEventTracing=false
+
+
+# ==========================================
+#   TOPOLOGY GENERATION (BUILDER)
+# ==========================================
+# Controls how the topology JSON file is created.
+# Options: POLITICAL, RTREE
+topology.generation.strategy=POLITICAL
+
+# Unified Branching Factor. 
+# For R-Tree: Controls max children per node.
+# For Political: Controls max children per grid split (0 = Flat/Infinite).
+topology.branchingFactor=0
+
+# --- General Analysis Settings ---
+# Toggles the heavy offline structural analysis (Overlaps, Redundancy, Fan-out stats)
+# Runs immediately after topology generation.
+topology.analysis.enabled=true
+
+# --- Political Generation Settings ---
+# Enable provenance analysis for Political Topology generation
+topology.political.enableAnalysis=true
+
+# Enable Leaf Expansion (Grid Splitting)
+# If true: Large regions are split into grids based on thresholds (Default: true)
+# If false: Topology remains strictly Political (no grid splits)
+topology.political.enableExpansion=true
+
+# Coarse Expansion Threshold (Pass 8)
+# Administrative regions with population > this value trigger the first Grid Split.
+topology.political.threshold.adm3=1000000
+
+# Leaf Node Capacity (Pass 9)
+# The target maximum population for a single Leaf Broker (Default: 10K). 
+# Nodes exceeding this are split into a Fine Grid.
+topology.political.leafCapacity=300000
+
+# --- R-Tree Generation Settings ---
+# Target number of Populated Places (PPL) to aggregate into a single Leaf Broker
+# Higher values = fewer leaf brokers, covering larger geographic areas
+topology.rtree.leafCapacity=50
+# Countries wider than 20 degrees will be split into sub-clusters
+topology.rtree.maxCountryWidth=20.0
+
+
+# ==========================================
+#   SIMULATION RUNTIME (RUNNER)
+# ==========================================
+# Controls which topology is loaded/used for the simulation run.
+# Options: POLITICAL, RTREE, GRID, FIXED, RANDOM
+topology.simulation.strategy=POLITICAL
+
+# Toggles whether to load the full topology file or the subset testing file
+# (Applies mainly to POLITICAL/RTREE strategies)
+paths.useFullTopology=true
+
+# --- Random Topology Defaults ---
+topology.random.depth=4
+topology.random.branching=4
+topology.random.regions=100
+topology.random.width=100.0
+topology.random.height=100.0
+
+# --- Grid Topology Defaults ---
+topology.grid.dimension=10
+topology.grid.overlapFactor=0.0
+
+
+# ==========================================
+#   BROKER BEHAVIOR (ROUTING LOGIC)
+# ==========================================
+# Options: SIMPLE (Legacy Aggregation), SMART (Threshold-Based Disjoint)
+broker.strategy=SMART
+
+# If true: Enables "Clipped Aggregation" (Intersection Propagation).
+#          Sends only the intersection of the Global MBR and the Child's Region.
+#          Optimizes traffic and fixes "Gap" issues.
+# If false: (Default) Strictly follows the algorithm by propagating the full Aggregated MBR.
+broker.optimization.region_intersection=true
+
+# --- SMART Strategy Settings ---
+# Only used if broker.strategy=SMART. Ignored for SIMPLE.
+# Determines the upper limit for FPR of the union of two processed subscriptions to cause a merge.
+broker.smartThreshold=0.25
+
+# --- Proximity Routing Brake Configuration ---
+# Enables the congestion control mechanism (true/false)
+proximity.brake.enabled=false
+
+# Maximum number of publications allowed per quadrant per interval
+proximity.brake.limit=5
+
+# Time interval for the counter reset in milliseconds
+proximity.brake.interval_ms=1000
+
+
+# ==========================================
+#   WORKLOAD CONFIGURATION
+# ==========================================
+# Number of Publishers (Data Centers)
+workload.replicas=100000
+# Average Subscribers per Publisher
+workload.subscribersPerReplica=10
+# Size (in degrees) of the square region a user subscribes to
+workload.subscriptionRegionSize=1.0
+# Probability (0.0-1.0) that a user subscribes to a remote hotspot instead of their local area
+workload.remoteInterestProb=0.0
+
+# --- Arrival Distribution Settings ---
+# Controls the statistical model for user activity.
+# Options: 
+#   UNIFORM (Predictable: Each user sends exactly 'mean' subscriptions)
+#   POISSON (Realistic: Varies per user, creates 'heavy hitters' and idle users)
+workload.arrivalDistribution=UNIFORM
+
+# The average number of subscriptions generated per subscriber.
+# If POISSON: Lambda for the distribution.
+# If UNIFORM: The exact count (rounded).
+workload.meanSubscriptionsPerSubscriber=1
+
+# Jitter (e.g., 5% of region size) to trigger Merges at a broker's input
+workload.locationJitter=0.05
+
+# --- External Factors (Density Skew) ---
+# If true, users in high-population brokers (cities) will generate more subscriptions
+# than users in low-population brokers (rural), multiplying the mean above.
+workload.enableDensitySkew=false
