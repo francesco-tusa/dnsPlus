@@ -10,7 +10,7 @@ import simulator.simulations.performance.SimulationType;
 public class MetricsCollector {
     public PerformanceMetricsData collect(TreeNode root, List<SubscriberWithLocation> subs,
             List<PublisherWithLocation> pubs) {
-        
+
         SimulationType type = SimulationType.infer(root);
         PerformanceMetricsData data = type.createMetricsData();
 
@@ -20,62 +20,79 @@ public class MetricsCollector {
 
         while (!queue.isEmpty()) {
             TreeNode curr = queue.poll();
-            
+
             if (curr instanceof SimulationBroker b) {
                 // Common Stats
                 data.inputTableStats.accept(b.getInputSubscriptionCount());
                 data.outputTableStats.accept(b.getOutputSubscriptionCount());
 
-                data.totalSubscriptionTraffic += b.getTotalSubscriptionProcessingEvents();
-                data.totalPubForwardingEvents += b.getTotalPublicationProcessingEvents();
+                data.totalSubscriptionInputEvents += b.getTotalSubscriptionProcessingEvents();
+                data.totalPublicationProcessingEvents += b.getTotalPublicationProcessingEvents();
                 data.totalMatchingComputations += b.getTotalMatchingComputations();
                 data.totalFalsePositiveEvents += b.getTotalFalsePositiveEvents();
 
-                // Polymorphic Stats
                 if (data instanceof RegionPerformanceMetricsData rd && b instanceof BoundedBroker bb) {
-                    rd.totalSubCovered += bb.getSubCoveredCount();
-                    rd.totalSubExpanded += bb.getSubExpandedCount();
-                    rd.totalSubSimpleExpanded += bb.getSubSimpleExpandedCount();
-                    rd.totalSubComplexExpanded += bb.getSubComplexExpandedCount(); // NEW
-                    rd.totalSubAdded += bb.getSubAddedCount();
-                    rd.totalSubAbsorbed += bb.getSubAbsorbedCount();
-                    rd.totalSubMerged += bb.getSubMergedCount();
-                    
-                    rd.totalOutSubCovered += bb.getOutSubCoveredCount();
-                    rd.totalOutSubExpanded += bb.getOutSubExpandedCount();
-                    rd.totalOutSubSimpleExpanded += bb.getOutSubSimpleExpandedCount();
-                    rd.totalOutSubComplexExpanded += bb.getOutSubComplexExpandedCount(); // NEW
-                    rd.totalOutSubAdded += bb.getOutSubAddedCount();
-                    rd.totalOutSubAbsorbed += bb.getOutSubAbsorbedCount();
-                    rd.totalOutSubMerged += bb.getOutSubMergedCount();
-                } 
-                else if (data instanceof ProximityPerformanceMetricsData pd && b instanceof ProximityRoutingBroker pb) {
-                    pd.totalBrakeFilteredEvents += pb.getBrakeFilteredCount();
-                    pd.totalPropagatedSubscriptions += pb.getOutSubAddedCount();
-                    pd.totalMessagesForwarded += pb.getTotalMessagesForwarded();
+
+                    // =========================================================
+                    // 1. INPUT METRICS (Child -> Broker)
+                    // =========================================================
+                    rd.totalInputCovered += bb.getSubCoveredCount();
+                    rd.totalInputExpanded += bb.getSubExpandedCount();
+
+                    // Expansion Breakdown
+                    rd.totalInputSimpleExpanded += bb.getSubSimpleExpandedCount();
+                    rd.totalInputComplexExpanded += bb.getSubComplexExpandedCount();
+
+                    rd.totalInputAdded += bb.getSubAddedCount();
+
+                    // Optimization Side-effects
+                    rd.totalInputMerged += bb.getSubMergedCount();
+                    rd.totalInputAbsorbed += bb.getSubAbsorbedCount();
+
+                    // =========================================================
+                    // 2. UPSTREAM METRICS (Broker -> Parent)
+                    // Mapping internal 'OutSub' counters to 'Upstream' metrics
+                    // =========================================================
+                    rd.totalPropagatedCovered += bb.getOutSubCoveredCount();
+                    rd.totalPropagatedExpanded += bb.getOutSubExpandedCount();
+
+                    // Expansion Breakdown
+                    rd.totalPropagatedSimpleExpanded += bb.getOutSubSimpleExpandedCount();
+                    rd.totalPropagatedComplexExpanded += bb.getOutSubComplexExpandedCount();
+
+                    rd.totalPropagatedAdded += bb.getOutSubAddedCount();
+
+                    // Optimization Side-effects
+                    rd.totalPropagatedMerged += bb.getOutSubMergedCount();
+                    rd.totalPropagatedAbsorbed += bb.getOutSubAbsorbedCount();
+                } else if (data instanceof ProximityPerformanceMetricsData pd
+                        && b instanceof ProximityRoutingBroker pb) {
+                    pd.totalBrakeSuppressedEvents += pb.getBrakeFilteredCount();
+                    pd.totalUpstreamSubscriptionUpdates += pb.getOutSubAddedCount();
                 }
             }
-            
+
             if (curr.getChildren() != null)
                 queue.addAll(curr.getChildren());
         }
 
         // Subscriber & Publisher stats collection UNCHANGED
         for (SubscriberWithLocation s : subs) {
-            data.totalNotifications += s.getnPublications();
+            data.totalDeliveriesReceived += s.getnPublications();
             data.totalFalsePositiveDeliveries += s.getFalsePositiveDeliveries();
-            
+
             if (s.getHopCount() > 0) {
                 data.totalHopSum += s.getHopSum();
-                data.totalHopCount += s.getHopCount();
-                if (s.getHopMin() < data.globalMinHops) data.globalMinHops = s.getHopMin();
-                if (s.getHopMax() > data.globalMaxHops) data.globalMaxHops = s.getHopMax();
+                if (s.getHopMin() < data.globalMinHops)
+                    data.globalMinHops = s.getHopMin();
+                if (s.getHopMax() > data.globalMaxHops)
+                    data.globalMaxHops = s.getHopMax();
             }
         }
         for (PublisherWithLocation p : pubs) {
-            data.totalPubsSent += p.getnPublications();
+            data.totalPublicationsSent += p.getnPublications();
         }
-        
+
         return data;
     }
 }

@@ -41,6 +41,7 @@ public abstract class AbstractPerformanceSimulation<
 
     // --- Abstract Factories ---
     protected abstract PerformanceMetricsData createMetricsData();
+    protected abstract MetricsPrinter createMetricsPrinter();
     protected abstract GroundTruthCalculator createGroundTruthCalculator();
 
     protected abstract PublishersPlacementStrategy getPublisherPlacementStrategy();
@@ -158,7 +159,7 @@ public abstract class AbstractPerformanceSimulation<
         
         collected.groundTruthMatches = this.metricsData.groundTruthMatches;
         
-        MetricsPrinter printer = new MetricsPrinter(logger);
+        MetricsPrinter printer = createMetricsPrinter();
         printer.print(collected);        
     }
     

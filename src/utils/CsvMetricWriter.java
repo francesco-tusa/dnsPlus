@@ -42,7 +42,7 @@ public class CsvMetricWriter {
             String incoming = (args.length > 0 && args[0] instanceof SpatialRegion r) ? r.toLogString() : "";
             String broker = (args.length > 1 && args[1] instanceof SpatialRegion r) ? r.toLogString() : "";
             String stage = (args.length > 2) ? String.valueOf(args[2]) : "";
-            
+
             return "\"" + incoming + "\",\"" + broker + "\",\"" + stage + "\"";
         }
 
@@ -53,13 +53,15 @@ public class CsvMetricWriter {
 
         @Override
         public String getPublicationHeader() {
-            return "TraceID,MsgCount,ReceivedFrom,ProcessingNode,Hops,RegionOrPub,UpdateStats,Result\n";
+            // REMOVED: UpdateStats column
+            return "TraceID,MsgCount,ReceivedFrom,ProcessingNode,Hops,RegionOrPub,Result\n";
         }
 
         @Override
         public String formatBrokerPublicationEvent(Object... args) {
             String reg = (args.length > 0 && args[0] instanceof SpatialRegion r) ? r.toLogString() : "";
-            return "\"" + reg + "\",\"\"";
+            // REMOVED: Empty column for UpdateStats
+            return "\"" + reg + "\"";
         }
 
         @Override
@@ -89,7 +91,7 @@ public class CsvMetricWriter {
                 locStr = String.format("(%.4f, %.4f)", l.getX(), l.getY());
             }
             String stage = (args.length > 1) ? String.valueOf(args[1]) : "";
-            
+
             return "\"" + locStr + "\",\"" + stage + "\"";
         }
 
@@ -109,7 +111,8 @@ public class CsvMetricWriter {
             int actual = (args.length > 1 && args[1] instanceof Integer i) ? i : 0;
             int potential = (args.length > 2 && args[2] instanceof Integer i) ? i : 0;
 
-            String distStr = (distSq < Double.MAX_VALUE) ? String.format("MinDist:%.0fkm", Math.sqrt(distSq) * 111.1) : "";
+            String distStr = (distSq < Double.MAX_VALUE) ? String.format("MinDist:%.0fkm", Math.sqrt(distSq) * 111.1)
+                    : "";
             String statsStr = (potential > 0) ? "Upd:" + actual + "/" + potential : "";
 
             return "\"" + distStr + "\",\"" + statsStr + "\"";
@@ -277,13 +280,13 @@ public class CsvMetricWriter {
 
             StringBuilder sb = new StringBuilder(128);
             sb.append(idStr).append(',')
-              .append(count).append(',')
-              .append('"').append(sourceName).append("\",")
-              .append('"').append(receiver).append("\",")
-              .append(s.getHops()).append(',')
-              .append(formattedData).append(',')
-              .append('"').append(result).append("\"\n");
-            
+                    .append(count).append(',')
+                    .append('"').append(sourceName).append("\",")
+                    .append('"').append(receiver).append("\",")
+                    .append(s.getHops()).append(',')
+                    .append(formattedData).append(',')
+                    .append('"').append(result).append("\"\n");
+
             subscriptionWriter.write(sb.toString());
 
         } catch (IOException e) {
@@ -329,12 +332,12 @@ public class CsvMetricWriter {
 
             StringBuilder sb = new StringBuilder(128);
             sb.append(idStr).append(',')
-              .append(count).append(',')
-              .append('"').append(sourceName).append("\",")
-              .append('"').append(receiver).append("\",")
-              .append(p.getHops()).append(',')
-              .append(formattedData).append(',')
-              .append('"').append(result).append("\"\n");
+                    .append(count).append(',')
+                    .append('"').append(sourceName).append("\",")
+                    .append('"').append(receiver).append("\",")
+                    .append(p.getHops()).append(',')
+                    .append(formattedData).append(',')
+                    .append('"').append(result).append("\"\n");
 
             publicationWriter.write(sb.toString());
 
@@ -364,15 +367,15 @@ public class CsvMetricWriter {
             String countryStr = (summary.country != null) ? summary.country : "Unknown";
             String sourceStr = (summary.sourceName != null) ? summary.sourceName : "Unknown";
             String idStr = formatTraceId(summary.id);
-            
+
             StringBuilder sb = new StringBuilder(128);
             sb.append(idStr).append(',')
-              .append('"').append(sourceStr).append("\",")
-              .append('"').append(countryStr).append("\",")
-              .append(String.format("%.4f", summary.longitude)).append(',')
-              .append(String.format("%.4f", summary.latitude)).append(',')
-              .append(count).append('\n');
-              
+                    .append('"').append(sourceStr).append("\",")
+                    .append('"').append(countryStr).append("\",")
+                    .append(String.format("%.4f", summary.longitude)).append(',')
+                    .append(String.format("%.4f", summary.latitude)).append(',')
+                    .append(count).append('\n');
+
             writer.write(sb.toString());
             writer.flush();
         } catch (IOException e) {
@@ -396,9 +399,6 @@ public class CsvMetricWriter {
                 if (pubSummaryWriter != null)
                     pubSummaryWriter.close();
             }
-            subTraceCounts.clear();
-            pubTraceCounts.clear();
-            initialized = false;
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -408,47 +408,46 @@ public class CsvMetricWriter {
         long id;
         String sourceName;
         String country;
-        double longitude;
-        double latitude;
+        Double longitude;
+        Double latitude;
     }
 
-    private class RotatingFileWriter {
-        private final String dirPath;
-        private final String baseName;
+    private static class RotatingFileWriter {
+        private final String baseDir;
+        private final String baseFilename;
         private final String header;
-        private BufferedWriter currentWriter;
-        private int fileIndex = 1;
-        private long currentBytes = 0;
+        private BufferedWriter writer;
+        private File currentFile;
+        private int fileIndex = 0;
 
-        public RotatingFileWriter(String dirPath, String baseName, String header) throws IOException {
-            this.dirPath = dirPath;
-            this.baseName = baseName;
+        public RotatingFileWriter(String baseDir, String baseFilename, String header) throws IOException {
+            this.baseDir = baseDir;
+            this.baseFilename = baseFilename;
             this.header = header;
             rotate();
         }
 
-        private void rotate() throws IOException {
-            if (currentWriter != null)
-                currentWriter.close();
-            File file = new File(dirPath, baseName + "_" + fileIndex + ".csv");
-            currentWriter = new BufferedWriter(new FileWriter(file));
-            currentWriter.write(header);
-            currentWriter.flush();
-            currentBytes = header.length();
-            fileIndex++;
+        public void write(String content) throws IOException {
+            if (currentFile.length() >= MAX_FILE_SIZE_BYTES) {
+                rotate();
+            }
+            writer.write(content);
         }
 
-        public void write(String line) throws IOException {
-            if (currentBytes + line.length() > MAX_FILE_SIZE_BYTES)
-                rotate();
-            currentWriter.write(line);
-            currentWriter.flush();
-            currentBytes += line.length();
+        private void rotate() throws IOException {
+            if (writer != null) {
+                writer.close();
+            }
+            fileIndex++;
+            currentFile = new File(baseDir, baseFilename + "_" + fileIndex + ".csv");
+            writer = new BufferedWriter(new FileWriter(currentFile));
+            writer.write(header);
         }
 
         public void close() throws IOException {
-            if (currentWriter != null)
-                currentWriter.close();
+            if (writer != null) {
+                writer.close();
+            }
         }
     }
 }

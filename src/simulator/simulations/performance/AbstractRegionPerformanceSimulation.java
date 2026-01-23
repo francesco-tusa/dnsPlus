@@ -10,8 +10,9 @@ import simulator.config.WorkloadConfig;
 import simulator.core.WorkloadRepository;
 import simulator.events.PublicationWithLocation;
 import simulator.regions.BoundedBroker;
-
+import simulator.simulations.performance.metrics.MetricsPrinter;
 import simulator.simulations.performance.metrics.PerformanceMetricsData;
+import simulator.simulations.performance.metrics.RegionMetricsPrinter;
 import simulator.simulations.performance.metrics.RegionPerformanceMetricsData;
 import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
 import simulator.simulations.performance.metrics.groundtruth.RegionGroundTruthCalculator;
@@ -38,6 +39,11 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
     @Override
     protected PerformanceMetricsData createMetricsData() {
         return new RegionPerformanceMetricsData();
+    }
+
+    @Override
+    protected MetricsPrinter createMetricsPrinter() {
+        return new RegionMetricsPrinter(logger);
     }
 
     @Override

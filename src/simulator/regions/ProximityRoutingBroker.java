@@ -27,7 +27,6 @@ public class ProximityRoutingBroker extends BoundedBroker {
     private long brakeFilteredCount = 0;
     protected final Map<TreeNode, Location[]> childTopologicalTargets = new HashMap<>();
     protected final Map<TreeNode, double[]> childBestDistances = new HashMap<>();
-    protected long totalMessagesForwarded = 0;
     private boolean isSubscribedToParent = false;
 
     public ProximityRoutingBroker(String name) {
@@ -56,10 +55,6 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
     public long getBrakeFilteredCount() {
         return brakeFilteredCount;
-    }
-
-    public long getTotalMessagesForwarded() {
-        return totalMessagesForwarded;
     }
 
     @Override
@@ -274,7 +269,6 @@ public class ProximityRoutingBroker extends BoundedBroker {
     }
 
     private void forwardPublication(TreeNode neighbor, PublicationWithLocation pub, double distSq) {
-        this.totalMessagesForwarded++;
         SimulationPublication abstractCopy = pub.getPublication();
         if (abstractCopy instanceof PublicationWithLocation) {
             PublicationWithLocation copy = (PublicationWithLocation) abstractCopy;

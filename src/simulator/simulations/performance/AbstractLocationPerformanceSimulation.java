@@ -9,8 +9,9 @@ import simulator.config.SimConfiguration;
 import simulator.core.WorkloadRepository;
 import simulator.events.PublicationWithLocation;
 import simulator.regions.BoundedBroker;
-
+import simulator.simulations.performance.metrics.MetricsPrinter;
 import simulator.simulations.performance.metrics.PerformanceMetricsData;
+import simulator.simulations.performance.metrics.ProximityMetricsPrinter;
 import simulator.simulations.performance.metrics.ProximityPerformanceMetricsData;
 import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
 import simulator.simulations.performance.metrics.groundtruth.ProximityGroundTruthCalculator;
@@ -34,6 +35,11 @@ public abstract class AbstractLocationPerformanceSimulation<C extends TopologyCo
     @Override
     protected PerformanceMetricsData createMetricsData() {
         return new ProximityPerformanceMetricsData();
+    }
+
+    @Override
+    protected MetricsPrinter createMetricsPrinter() {
+        return new ProximityMetricsPrinter(logger);
     }
 
     @Override

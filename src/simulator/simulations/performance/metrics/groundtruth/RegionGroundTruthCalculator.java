@@ -15,7 +15,7 @@ import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
-import simulator.regions.Region; // Required for static fastContains
+import simulator.regions.Region; // Required for casting
 import simulator.regions.SubscriptionWithRegion;
 import utils.CustomLogger;
 
@@ -24,7 +24,6 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
 
     // UPDATED: Raised from 100,000 to 1,000,000.
     // 100k operations are too fast to justify the overhead of creating a ThreadPool.
-    // In streaming mode (batches of 5000 subs), this prevents "Thread Thrashing".
     private static final long MIN_WORKLOAD_THRESHOLD = 1_000_000;
 
     @Override
@@ -46,7 +45,6 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
         long workload = (long) pubs.size() * regionSubs.size();
 
         // LOGIC UPDATE: Added check for very small publication lists.
-        // Even if workload is high, parallelizing 20 pubs is inefficient due to setup costs.
         boolean tooFewPubsForParallel = pubs.size() < numThreads && pubs.size() < 50;
 
         if (workload < MIN_WORKLOAD_THRESHOLD || numThreads <= 1 || tooFewPubsForParallel) {
@@ -113,10 +111,6 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
             List<Callable<Set<TreeNode>>> tasks = new ArrayList<>();
             Location pubLoc = pub.getLocation();
             
-            // Optimization: Pre-calculate float coordinates once per publication
-            float pLon = (float) pubLoc.getX();
-            float pLat = (float) pubLoc.getY();
-
             for (int i = 0; i < subs.size(); i += batchSize) {
                 int end = Math.min(i + batchSize, subs.size());
                 List<SubscriptionWithRegion> subBatch = subs.subList(i, end);
@@ -124,15 +118,11 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
                 tasks.add(() -> {
                     Set<TreeNode> localFound = new HashSet<>();
                     for (SubscriptionWithRegion s : subBatch) {
-                        // FIX: Explicitly use float precision (Region.fastContains) 
-                        // to match the Broker's Propagation Policy logic.
+                        // FIX: Replaced fastContains(float) with contains(Location) 
+                        // to ensure DOUBLE precision matches Broker logic.
                         Region r = (Region) s.getRegion();
                         
-                        if (Region.fastContains(
-                                (float) r.getMinLon(), (float) r.getMaxLon(), 
-                                (float) r.getMinLat(), (float) r.getMaxLat(), 
-                                pLon, pLat)) {
-                            
+                        if (r.contains(pubLoc)) {
                             if (s.getSource() != null) {
                                 localFound.add(s.getSource());
                             }
@@ -163,20 +153,13 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
         long localMatches = 0;
         for (PublicationWithLocation pub : batch) {
             Location pubLoc = pub.getLocation();
-            // Optimization: Pre-calculate float coordinates
-            float pLon = (float) pubLoc.getX();
-            float pLat = (float) pubLoc.getY();
 
             Set<TreeNode> matchedSubscribers = new HashSet<>();
             for (SubscriptionWithRegion sub : subs) {
-                // FIX: Explicitly use float precision (Region.fastContains)
+
                 Region r = (Region) sub.getRegion();
                 
-                if (Region.fastContains(
-                        (float) r.getMinLon(), (float) r.getMaxLon(), 
-                        (float) r.getMinLat(), (float) r.getMaxLat(), 
-                        pLon, pLat)) {
-                    
+                if (r.contains(pubLoc)) {
                     if (sub.getSource() != null) {
                         matchedSubscribers.add(sub.getSource());
                     }
