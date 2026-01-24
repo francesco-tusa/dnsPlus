@@ -15,8 +15,12 @@ public final class CustomLogger {
     private static Level globalLevel = Level.INFO; 
     private static FileHandler fileHandler = null;
     private static String logFilePath = ""; 
+    
+    // Default to standard output folder, but allow overrides
+    private static String baseOutputDirectory = "output" + File.separator;
+    
     private static final int LOG_FILE_LIMIT_BYTES = 90 * 1024 * 1024; // 90 MB
-    private static final int LOG_FILE_COUNT = 100; // Keep up to 100 rotated files
+    private static final int LOG_FILE_COUNT = 100; 
 
     static {
         Logger rootLogger = Logger.getLogger("");
@@ -55,6 +59,13 @@ public final class CustomLogger {
         });
     }
 
+    public static void setBaseOutputDirectory(String dir) {
+        if (!dir.endsWith(File.separator)) {
+            dir += File.separator;
+        }
+        baseOutputDirectory = dir;
+    }
+
     public static synchronized void setGlobalLogLevel(Level newLevel, String simulationTimestamp) {
         Logger rootLogger = Logger.getLogger("");
         Logger selfLogger = getLogger(CustomLogger.class.getName());
@@ -68,28 +79,26 @@ public final class CustomLogger {
             }
         }
 
-        // Remove old file handler
         if (fileHandler != null) {
             rootLogger.removeHandler(fileHandler);
             fileHandler.close();
             fileHandler = null;
         }
 
-        // Configure Rotating File Handler
         try {
-            String logDir = "output/" + simulationTimestamp;
+            // Use the configured base directory (e.g., "output/batch_123/")
+            String logDir = baseOutputDirectory + simulationTimestamp;
             new File(logDir).mkdirs();
             
-            String pattern = logDir + "/simulation_log_" + simulationTimestamp + "_%g.log";
+            String pattern = logDir + File.separator + "simulation_log_" + simulationTimestamp + "_%g.log";
             
             fileHandler = new FileHandler(pattern, LOG_FILE_LIMIT_BYTES, LOG_FILE_COUNT, true);
             fileHandler.setFormatter(new SimpleFileFormatter());
             fileHandler.setLevel(globalLevel);
             rootLogger.addHandler(fileHandler);
             
-            // Approximate current file path for logging info
-            logFilePath = logDir + "/simulation_log_" + simulationTimestamp + "_0.log"; 
-            selfLogger.info("--- Log file initialized at: " + logDir + " (Max " + (LOG_FILE_LIMIT_BYTES/1024/1024) + "MB per file) ---");
+            logFilePath = logDir + File.separator + "simulation_log_" + simulationTimestamp + "_0.log"; 
+            selfLogger.info("--- Log file initialized at: " + logDir + " ---");
             
         } catch (IOException | SecurityException e) {
             selfLogger.log(Level.SEVERE, "Failed to create log file handler", e);

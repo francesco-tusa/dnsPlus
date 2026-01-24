@@ -20,11 +20,12 @@ import simulator.regions.BoundedBroker;
 import simulator.simulations.performance.metrics.PerformanceMetricsData;
 import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
 import utils.CustomLogger;
+import utils.SimulationRandom;
 
 public class SubscriptionWorkloadOrchestrator {
 
     private static final Logger logger = CustomLogger.getLogger(SubscriptionWorkloadOrchestrator.class.getName());
-    private final Random random = new Random();
+    private final Random random = SimulationRandom.get();
     
     // Batch size for streaming
     private static final int BATCH_SIZE_SUBSCRIBERS = 5000;

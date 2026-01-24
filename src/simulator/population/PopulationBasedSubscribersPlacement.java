@@ -1,7 +1,6 @@
 package simulator.population;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
 import java.util.logging.Logger;
 import simulator.core.Location;
@@ -9,11 +8,12 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import utils.CustomLogger;
+import utils.SimulationRandom;
 
 public class PopulationBasedSubscribersPlacement implements SubscribersPlacementStrategy {
 
     private static final Logger logger = CustomLogger.getLogger(PopulationBasedSubscribersPlacement.class.getName());
-    private final Random random = new Random();
+    private final Random random = SimulationRandom.get();
         
     public PopulationBasedSubscribersPlacement() { }
 

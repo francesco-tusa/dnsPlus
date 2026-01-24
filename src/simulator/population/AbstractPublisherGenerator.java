@@ -1,11 +1,11 @@
 package simulator.population;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
 import simulator.core.Location;
 import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
+import utils.SimulationRandom;
 
 /**
  * An abstract base class for different publisher generation strategies.
@@ -13,7 +13,7 @@ import simulator.regions.Region;
  */
 public abstract class AbstractPublisherGenerator {
 
-    protected final Random random = new Random();
+    protected final Random random = SimulationRandom.get();
     
     // Removed: publisherIdCounter (Now handled inside PublisherWithLocation)
 

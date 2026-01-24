@@ -13,11 +13,12 @@ import simulator.regions.BoundedBroker;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import utils.CustomLogger;
+import utils.SimulationRandom;
 
 public class RegionWorkloadGenerator implements SubscriptionWorkloadGenerator {
 
     private static final Logger logger = CustomLogger.getLogger(RegionWorkloadGenerator.class.getName());
-    private final Random random = new Random();
+    private final Random random = SimulationRandom.get();
     
     private List<BoundedBroker> hotspots = null;
     private double hotspotInterestProbability = 0.8; 

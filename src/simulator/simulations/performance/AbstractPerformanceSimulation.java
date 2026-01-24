@@ -39,12 +39,18 @@ public abstract class AbstractPerformanceSimulation<
     protected PerformanceMetricsData metricsData;
     protected GroundTruthCalculator truthCalculator;
 
+    protected PerformanceMetricsData lastRunMetrics;
+
     // --- Abstract Factories ---
     protected abstract PerformanceMetricsData createMetricsData();
     protected abstract MetricsPrinter createMetricsPrinter();
     protected abstract GroundTruthCalculator createGroundTruthCalculator();
 
     protected abstract PublishersPlacementStrategy getPublisherPlacementStrategy();
+
+    public PerformanceMetricsData getLastRunMetrics() {
+        return lastRunMetrics;
+    }
 
     @Override
     protected Level getLogLevel() { return Level.INFO; }
@@ -81,7 +87,13 @@ public abstract class AbstractPerformanceSimulation<
         
         // Log Workload Configuration
         logConfigItem("Number of Replicas", workload.numberOfReplicas);
-        logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);
+
+        if (workload.isBatchMode()) {
+            logConfigItem("Subscribers per Replica", "IGNORED (Batch Override)");
+        } else {
+            logConfigItem("Subscribers per Replica", workload.subscribersPerReplica);
+        }
+        
         logConfigItem("Total Subscribers", workload.getTotalSubscribers());
         logConfigItem("Avg Subscriptions per Subscriber", workload.meanSubscriptionsPerSubscriber);
         logConfigItem("Arrival Distribution", workload.arrivalDistribution);
@@ -158,6 +170,8 @@ public abstract class AbstractPerformanceSimulation<
         PerformanceMetricsData collected = collector.collect(this.rootNode, allSubscribers, allPublishers);
         
         collected.groundTruthMatches = this.metricsData.groundTruthMatches;
+        
+        this.lastRunMetrics = collected;
         
         MetricsPrinter printer = createMetricsPrinter();
         printer.print(collected);        

@@ -9,6 +9,7 @@ import java.util.logging.Logger;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import simulator.core.Location;
 import utils.CustomLogger;
+import utils.SimulationRandom;
 
 public class Region extends AbstractRegion {
 
@@ -660,7 +661,7 @@ public class Region extends AbstractRegion {
     @Override
     @JsonIgnore
     public Location getRandomLocation() {
-        return getRandomLocation(new Random());
+        return getRandomLocation(SimulationRandom.get());
     }
 
     /**

@@ -12,13 +12,14 @@ import simulator.regions.Region;
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.factories.BoundedBrokerFactory;
+import utils.SimulationRandom;
 
 public class RandomTopologyGenerator extends AbstractTopologyFactory<RegionRandomTopologyConfiguration, BoundedBroker> {
 
     private final BoundedBrokerFactory brokerFactory;
     private List<Region> leafRegionsDefinition;
     private final List<BoundedBroker> allLeafBrokers = new ArrayList<>();
-    private final Random random = new Random();
+    private final Random random = SimulationRandom.get();
 
     private static final int MAX_Z = 0; // Z-axis can remain constant
     private static final long MOCK_POPULATION = 10000;
