@@ -13,6 +13,7 @@ public class BrokerConfig {
     public final StrategyType strategy;
     private final double smartThreshold;
     private final boolean intersectionOptimizationEnabled;
+    public final String storeImplementation; // Implementation strategy for the SMART store (LIST or TREE)
 
     // Proximity Routing Brake Settings
     // (These apply only when running a Proximity/Location Simulation)
@@ -31,8 +32,10 @@ public class BrokerConfig {
             if (this.smartThreshold < 0.0 || this.smartThreshold > 1.0) {
                 throw new IllegalArgumentException("Config Error: broker.smartThreshold must be between 0.0 and 1.0.");
             }
+            this.storeImplementation = props.getProperty("broker.strategy.implementation", "TREE");
         } else {
             this.smartThreshold = -1.0; // Sentinel for SIMPLE
+            this.storeImplementation = null;
         }
         
         // 2. Proximity Brake Configuration

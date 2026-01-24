@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import simulator.events.SimulationSubscription;
+import utils.SimulationRandom;
 
 /**
  * Centralized High-Performance Repository for Simulation Workloads.
@@ -59,7 +60,7 @@ public class WorkloadRepository {
     }
 
     public void shuffle() {
-        Collections.shuffle(subscriptionRegistry);
+        Collections.shuffle(subscriptionRegistry, SimulationRandom.get());
     }
 
     /**

@@ -61,7 +61,7 @@ public class SubscriptionWorkloadOrchestrator {
         
         // 1. Shuffle subscribers to avoid spatial bias in batch processing
         List<SubscriberWithLocation> shuffledSubscribers = new ArrayList<>(subscribers);
-        Collections.shuffle(shuffledSubscribers);
+        Collections.shuffle(shuffledSubscribers, SimulationRandom.get());
 
         int totalSubscribers = shuffledSubscribers.size();
         int batchSize = BATCH_SIZE_SUBSCRIBERS;

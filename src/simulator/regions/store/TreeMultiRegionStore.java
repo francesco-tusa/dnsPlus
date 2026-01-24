@@ -1,28 +1,18 @@
 package simulator.regions.store;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.SimulationSubscription;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 
-public class MultiRegionStore implements RegionSubscriptionStore {
+public class TreeMultiRegionStore extends AbstractMultiRegionStore {
 
     private final Map<TreeNode, RegionQuadTree> map = new HashMap<>();
-    // We can now trust the QuadTree to give us the MBR (Summary) instantly
-    // so we don't need to maintain a separate 'summaryRegions' map unless we want to cache the object.
-    // For simplicity, we will query the tree.getMBR() which is O(1).
-    
-    private final double mergeThreshold;
 
-    public MultiRegionStore(double threshold) {
-        this.mergeThreshold = threshold;
+    public TreeMultiRegionStore(double threshold) {
+        super(threshold);
     }
 
     @Override
@@ -30,7 +20,7 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         RegionQuadTree tree = map.computeIfAbsent(source, 
             k -> new RegionQuadTree(-180, -90, 180, 90));
 
-        // 1. Filter Check (Does an existing region fully contain the new one?)
+        // 1. Filter Check (O(log N))
         List<SubscriptionWithRegion> candidates = tree.findCandidatesContaining(sub.getRegion());
         for (SubscriptionWithRegion existing : candidates) {
             if (existing.contains(sub)) {
@@ -44,10 +34,9 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         int mergedCount = 0;
         double absorbedArea = 0.0;
 
-        // 2. Absorb/Merge Loop
+        // 2. Absorb/Merge Loop (O(log N))
         do {
             mergedInPass = false;
-            // Find overlaps using the QuadTree structure
             List<SubscriptionWithRegion> overlaps = tree.findIntersections(accumulator);
             
             for (SubscriptionWithRegion existing : overlaps) {
@@ -55,59 +44,25 @@ public class MultiRegionStore implements RegionSubscriptionStore {
                     absorbedArea += existing.getArea();
                     tree.remove(existing); 
                     absorbedCount++;
-                }
-                else if (shouldMerge(accumulator, existing)) {
+                } else if (shouldMerge(accumulator, existing)) {
                     accumulator.expand(existing.getRegion());
                     tree.remove(existing);
                     mergedInPass = true;
                     mergedCount++;
-                    break; // Restart loop with new accumulator
+                    break; 
                 }
             }
         } while (mergedInPass);
 
         SubscriptionWithRegion resultingEntry = new SubscriptionWithRegion(accumulator);
         tree.insert(resultingEntry);
-        
-        // NO CALL TO updateSummary() NEEDED - The Tree updates itself.
 
         double accumArea = accumulator.getArea();
-        boolean isIdenticalReplacement = (mergedCount == 0
-                && Math.abs(accumArea - (sub.getArea() + absorbedArea)) < 1e-6);
+        boolean isIdenticalReplacement = (mergedCount == 0 && Math.abs(accumArea - (sub.getArea() + absorbedArea)) < 1e-9);
 
         StoreOpResult opResult = determineResult(absorbedCount, mergedCount, isIdenticalReplacement);
         String explanation = createCleanExplanation(opResult, mergedCount, absorbedCount, isIdenticalReplacement);
-
         return new StoreUpdate(opResult, resultingEntry, explanation, absorbedCount, mergedCount);
-    }
-
-    private StoreOpResult determineResult(int absorbed, int merged, boolean isReplacement) {
-        if (absorbed == 0 && merged == 0) return StoreOpResult.ADDED;
-        if (isReplacement) return StoreOpResult.NO_CHANGE;
-        return StoreOpResult.EXPANDED;
-    }
-
-    private String createCleanExplanation(StoreOpResult result, int merged, int absorbed, boolean isReplacement) {
-        switch (result) {
-            case ADDED: return "New"; 
-            case NO_CHANGE: return isReplacement ? String.format("Absorbed %d", absorbed) : "Filtered"; 
-            case EXPANDED: return merged > 0 ? String.format("Merged %d, Absorbed %d", merged, absorbed) : String.format("Absorbed %d", absorbed);
-            default: return "Unknown State";
-        }
-    }
-    
-    private boolean shouldMerge(Region acc, SubscriptionWithRegion existing) {
-        if (mergeThreshold <= 0.0) return false;
-        
-        float aMinL = (float) acc.getMinLon(), aMaxL = (float) acc.getMaxLon(),
-                aMinT = (float) acc.getMinLat(), aMaxT = (float) acc.getMaxLat();
-        float interArea = existing.getIntersectionArea(aMinL, aMaxL, aMinT, aMaxT);
-        float area1 = Region.fastArea(aMinL, aMaxL, aMinT, aMaxT);
-        float area2 = existing.getArea();
-        float geometricUnion = area1 + area2 - interArea;
-        float mbrArea = Region.fastMBRArea(aMinL, aMaxL, aMinT, aMaxT,
-                existing.getMinLon(), existing.getMaxLon(), existing.getMinLat(), existing.getMaxLat());
-        return (mbrArea > 0) && ((mbrArea - geometricUnion) / mbrArea < mergeThreshold);
     }
 
     @Override
@@ -115,14 +70,9 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         List<TreeNode> matches = new ArrayList<>();
         for (Map.Entry<TreeNode, RegionQuadTree> entry : map.entrySet()) {
             RegionQuadTree tree = entry.getValue();
-            // Fast fail using the Tree's maintained MBR (O(1))
-            Region summary = tree.getMBR();
-            
-            if (summary != null && summary.contains(loc)) {
-                // Logarithmic point query
-                if (tree.containsPoint(loc)) {
-                    matches.add(entry.getKey());
-                }
+            // Fast fail using MBR
+            if (tree.containsPoint(loc)) {
+                matches.add(entry.getKey());
             }
         }
         return matches;
@@ -145,34 +95,32 @@ public class MultiRegionStore implements RegionSubscriptionStore {
 
     @Override
     public int size() {
-        int count = 0;
-        for (RegionQuadTree tree : map.values()) count += tree.size();
-        return count;
+        return map.values().stream().mapToInt(RegionQuadTree::size).sum();
     }
 
     @Override
     public boolean isEmpty() { return map.isEmpty(); }
-
+    
     // =========================================================================
-    // OPTIMIZED INNER CLASS: RegionQuadTree (With MBR Tracking)
+    // RegionQuadTree (Double Precision)
     // =========================================================================
     private static class RegionQuadTree {
-        private static final int MAX_ITEMS = 16; 
-        private static final int MAX_DEPTH = 10; 
+        private static final int MAX_ITEMS = 16;
+        private static final int MAX_DEPTH = 10;
 
-        private final float minLon, minLat, maxLon, maxLat;
+        private final double minLon, minLat, maxLon, maxLat;
         private final List<SubscriptionWithRegion> items;
         private RegionQuadTree[] children;
         private final int depth;
-        
-        // CRITICAL FIX: Track MBR at the node level
+
+        // Track MBR at the node level
         private Region cachedMBR = null;
 
-        public RegionQuadTree(float minLon, float minLat, float maxLon, float maxLat) {
+        public RegionQuadTree(double minLon, double minLat, double maxLon, double maxLat) {
             this(minLon, minLat, maxLon, maxLat, 0);
         }
 
-        private RegionQuadTree(float minLon, float minLat, float maxLon, float maxLat, int depth) {
+        private RegionQuadTree(double minLon, double minLat, double maxLon, double maxLat, int depth) {
             this.minLon = minLon; this.minLat = minLat;
             this.maxLon = maxLon; this.maxLat = maxLat;
             this.items = new ArrayList<>();
@@ -180,11 +128,10 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         }
 
         public void insert(SubscriptionWithRegion sub) {
-            // 1. Efficiently update MBR without scanning
+            // 1. Efficiently update MBR 
             if (cachedMBR == null) cachedMBR = new Region(sub.getRegion());
             else cachedMBR.expand(sub.getRegion());
 
-            // 2. Insert into children or self
             if (children != null) {
                 int index = getIndex(sub.getRegion());
                 if (index != -1) {
@@ -193,8 +140,7 @@ public class MultiRegionStore implements RegionSubscriptionStore {
                 }
             }
             items.add(sub);
-            
-            // 3. Split if needed
+
             if (items.size() > MAX_ITEMS && depth < MAX_DEPTH) {
                 if (children == null) split();
                 Iterator<SubscriptionWithRegion> it = items.iterator();
@@ -211,7 +157,6 @@ public class MultiRegionStore implements RegionSubscriptionStore {
 
         public boolean remove(SubscriptionWithRegion sub) {
             boolean removed = false;
-            // Try removing from this node
             if (items.remove(sub)) {
                 removed = true;
             } else if (children != null) {
@@ -219,19 +164,14 @@ public class MultiRegionStore implements RegionSubscriptionStore {
                 if (index != -1) {
                     removed = children[index].remove(sub);
                 } else {
-                    // Fallback search if index logic doesn't match perfectly (unlikely but safe)
                     for (RegionQuadTree child : children) {
-                         if (child.remove(sub)) {
-                             removed = true;
-                             break;
-                         }
+                        if (child.remove(sub)) {
+                            removed = true;
+                            break;
+                        }
                     }
                 }
             }
-            
-            // CRITICAL FIX: If something was removed, we must recalculate the MBR
-            // But we only recalculate THIS node's MBR based on immediate children/items.
-            // This is O(1) because MAX_ITEMS is 16 and children is 4.
             if (removed) {
                 recalculateMBR();
             }
@@ -240,12 +180,10 @@ public class MultiRegionStore implements RegionSubscriptionStore {
 
         private void recalculateMBR() {
             this.cachedMBR = null;
-            // Union of all items
             for (SubscriptionWithRegion s : items) {
                 if (cachedMBR == null) cachedMBR = new Region(s.getRegion());
                 else cachedMBR.expand(s.getRegion());
             }
-            // Union of all children MBRs
             if (children != null) {
                 for (RegionQuadTree child : children) {
                     Region childMBR = child.getMBR();
@@ -256,11 +194,11 @@ public class MultiRegionStore implements RegionSubscriptionStore {
                 }
             }
         }
-        
+
         public Region getMBR() {
             return cachedMBR;
         }
-        
+
         public List<SubscriptionWithRegion> getAll() {
             List<SubscriptionWithRegion> all = new ArrayList<>(items);
             if (children != null) {
@@ -268,7 +206,7 @@ public class MultiRegionStore implements RegionSubscriptionStore {
             }
             return all;
         }
-        
+
         public int size() {
             int count = items.size();
             if (children != null) {
@@ -278,16 +216,15 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         }
 
         public boolean containsPoint(Location loc) {
-            // Optimization: If the MBR doesn't contain the point, nothing inside does
             if (cachedMBR == null || !cachedMBR.contains(loc)) return false;
 
-            float x = (float) loc.getX();
-            float y = (float) loc.getY();
-            
+            double x = loc.getX();
+            double y = loc.getY();
+
             for (SubscriptionWithRegion s : items) {
                 if (s.getRegion().contains(loc)) return true;
             }
-            
+
             if (children != null) {
                 int index = getPointIndex(x, y);
                 if (index != -1) return children[index].containsPoint(loc);
@@ -296,23 +233,22 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         }
 
         public List<SubscriptionWithRegion> findCandidatesContaining(Region query) {
+            // Strict check: If the MBR of this node doesn't contain the query, 
+            // no single item inside can possibly contain it.
             if (cachedMBR == null || !cachedMBR.contains(query)) {
-                // If our Hull doesn't contain the query, we can't possibly have a sub that contains it
-                // (Unless the query is smaller than the node, but MBR logic still holds for containment)
-                // Actually, if cachedMBR does NOT contain query, could we have a massive region in 'items'?
-                // Yes, 'items' can be larger than this node bounds. But cachedMBR covers them.
-                // So if cachedMBR does not contain query, no item inside can contain query.
                 return Collections.emptyList();
             }
 
             List<SubscriptionWithRegion> candidates = new ArrayList<>();
             for (SubscriptionWithRegion s : items) {
-                 if (s.getRegion().contains(query)) candidates.add(s);
+                if (s.getRegion().contains(query)) candidates.add(s);
             }
-            
+
             if (children != null) {
                 int index = getIndex(query);
                 if (index != -1) {
+                    // Only a child that fully encloses the query region can contain a 
+                    // subscription that fully encloses the query region.
                     candidates.addAll(children[index].findCandidatesContaining(query));
                 }
             }
@@ -320,18 +256,18 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         }
 
         public List<SubscriptionWithRegion> findIntersections(Region query) {
-            // Fast fail
             if (cachedMBR == null || !cachedMBR.intersects(query)) return Collections.emptyList();
 
             List<SubscriptionWithRegion> hits = new ArrayList<>();
             for (SubscriptionWithRegion s : items) {
                 if (s.getRegion().intersects(query)) hits.add(s);
             }
-            
+
             if (children != null) {
                 for (RegionQuadTree child : children) {
-                    // Only recurse into children that actually touch the query
-                    if (child.getMBR() != null && child.getMBR().intersects(query)) {
+                    // CHANGED: Use child.getMBR() safely
+                    Region childMBR = child.getMBR();
+                    if (childMBR != null && childMBR.intersects(query)) {
                         hits.addAll(child.findIntersections(query));
                     }
                 }
@@ -340,8 +276,8 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         }
 
         private void split() {
-            float midLon = (minLon + maxLon) / 2;
-            float midLat = (minLat + maxLat) / 2;
+            double midLon = (minLon + maxLon) / 2;
+            double midLat = (minLat + maxLat) / 2;
             children = new RegionQuadTree[4];
             children[0] = new RegionQuadTree(minLon, midLat, midLon, maxLat, depth + 1); // NW
             children[1] = new RegionQuadTree(midLon, midLat, maxLon, maxLat, depth + 1); // NE
@@ -350,12 +286,12 @@ public class MultiRegionStore implements RegionSubscriptionStore {
         }
 
         private int getIndex(Region r) {
-            float midLon = (minLon + maxLon) / 2;
-            float midLat = (minLat + maxLat) / 2;
-            boolean top = r.getMinLat() > midLat;
-            boolean bottom = r.getMaxLat() < midLat;
-            boolean left = r.getMaxLon() < midLon;
-            boolean right = r.getMinLon() > midLon;
+            double midLon = (minLon + maxLon) / 2;
+            double midLat = (minLat + maxLat) / 2;
+            boolean top = r.getMinLat() >= midLat;     // Use >= to match point logic
+            boolean bottom = r.getMaxLat() <= midLat;
+            boolean left = r.getMaxLon() <= midLon;
+            boolean right = r.getMinLon() >= midLon;
 
             if (top) {
                 if (left) return 0; // NW
@@ -364,14 +300,14 @@ public class MultiRegionStore implements RegionSubscriptionStore {
                 if (left) return 2; // SW
                 if (right) return 3; // SE
             }
-            return -1; 
+            return -1;
         }
-        
-        private int getPointIndex(float x, float y) {
-            float midLon = (minLon + maxLon) / 2;
-            float midLat = (minLat + maxLat) / 2;
-            boolean top = y > midLat;
-            boolean left = x < midLon;
+
+        private int getPointIndex(double x, double y) {
+            double midLon = (minLon + maxLon) / 2;
+            double midLat = (minLat + maxLat) / 2;
+            boolean top = y >= midLat;
+            boolean left = x <= midLon;
             if (top) return left ? 0 : 1;
             else return left ? 2 : 3;
         }

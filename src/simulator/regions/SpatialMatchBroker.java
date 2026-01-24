@@ -10,11 +10,12 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
-import simulator.regions.store.MultiRegionStore;
+import simulator.regions.store.ListMultiRegionStore;
 import simulator.regions.store.RegionSubscriptionStore;
 import simulator.regions.store.SimpleRegionStore;
 import simulator.regions.store.StoreOpResult;
 import simulator.regions.store.StoreUpdate;
+import simulator.regions.store.TreeMultiRegionStore;
 import simulator.regions.policy.PropagationRegionPolicy;
 import simulator.regions.policy.StrictPropagationPolicy;
 import utils.CsvMetricWriter;
@@ -31,24 +32,31 @@ public class SpatialMatchBroker extends BoundedBroker {
     public SpatialMatchBroker(String name, boolean forceSingleRegion, double threshold, PropagationRegionPolicy policy) {
         super(name);
         this.downwardPolicy = (policy != null) ? policy : new StrictPropagationPolicy();
-        if (forceSingleRegion) {
-            this.inputStore = new SimpleRegionStore();
-            this.outputStore = new SimpleRegionStore();
-        } else {
-            this.inputStore = new MultiRegionStore(threshold);
-            this.outputStore = new MultiRegionStore(threshold);
-        }
+        // Centralized Store Selection
+        this.inputStore = createStore(forceSingleRegion, threshold);
+        this.outputStore = createStore(forceSingleRegion, threshold);
     }
 
     public SpatialMatchBroker(String name, Location p1, Location p2, boolean forceSingleRegion, double threshold, PropagationRegionPolicy policy) {
         super(name, p1, p2); 
         this.downwardPolicy = (policy != null) ? policy : new StrictPropagationPolicy();
+        // Centralized Store Selection
+        this.inputStore = createStore(forceSingleRegion, threshold);
+        this.outputStore = createStore(forceSingleRegion, threshold);
+    }
+
+    private RegionSubscriptionStore createStore(boolean forceSingleRegion, double threshold) {
         if (forceSingleRegion) {
-            this.inputStore = new SimpleRegionStore();
-            this.outputStore = new SimpleRegionStore();
+            return new SimpleRegionStore();
+        }
+
+        String impl = SimConfiguration.get().broker.storeImplementation;
+        
+        if ("LIST".equalsIgnoreCase(impl)) {
+            return new ListMultiRegionStore(threshold);
         } else {
-            this.inputStore = new MultiRegionStore(threshold);
-            this.outputStore = new MultiRegionStore(threshold);
+            // Default to TREE for "TREE" or any unknown value
+            return new TreeMultiRegionStore(threshold);
         }
     }
     
