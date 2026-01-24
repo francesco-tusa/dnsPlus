@@ -1,5 +1,6 @@
 package simulator.regions;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -28,6 +29,8 @@ public class SpatialMatchBroker extends BoundedBroker {
     private final RegionSubscriptionStore inputStore;
     private final RegionSubscriptionStore outputStore;
     private final PropagationRegionPolicy downwardPolicy;
+
+    private final List<TreeNode> matchBuffer = new ArrayList<>();
 
     public SpatialMatchBroker(String name, boolean forceSingleRegion, double threshold, PropagationRegionPolicy policy) {
         super(name);
@@ -184,18 +187,28 @@ public class SpatialMatchBroker extends BoundedBroker {
     @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
         if (p instanceof PublicationWithLocation pub) {
-            this.totalMatchingComputations += inputStore.size();
-            List<TreeNode> matches = inputStore.findMatches(pub.getLocation());
-            
+
+            this.matchBuffer.clear();
+            int actualOps = inputStore.findMatches(pub.getLocation(), this.matchBuffer);
+            this.totalMatchingComputations += actualOps;
+
             boolean forwardedToAny = false;
 
-            for (TreeNode target : matches) {
-                if (target == p.getSource()) continue;
+            // Use simple loop to avoid Iterator allocation
+            for (int i = 0; i < matchBuffer.size(); i++) {
+                TreeNode target = matchBuffer.get(i);
+
+                // Don't bounce back to sender
+                if (target == p.getSource())
+                    continue;
+
                 forwardPublicationToNode(p, target);
                 forwardedToAny = true;
             }
 
-            if (!forwardedToAny) this.totalFalsePositiveEvents++;
+            if (!forwardedToAny) {
+                this.totalFalsePositiveEvents++;
+            }
 
             if (SimConfiguration.get().paths.enableEventTracing) {
                 logPublicationTrace(p, forwardedToAny);

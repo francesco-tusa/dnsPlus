@@ -16,9 +16,10 @@ public interface RegionSubscriptionStore extends SubscriptionStore{
 
     /**
      * Finds all neighbors whose stored subscriptions cover the given location.
+     * Returns the number of geometric comparisons performed (CPU Cost)
      */
-    List<TreeNode> findMatches(Location loc);
-    
+    int findMatches(Location loc, List<TreeNode> resultsBuffer);
+
     /**
      * Retrieves the current subscription state for a specific target (Output View).
      */

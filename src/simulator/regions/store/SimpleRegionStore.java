@@ -39,17 +39,19 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     }
     
     @Override
-    public List<TreeNode> findMatches(Location loc) {
-        if (map.isEmpty())
-            return Collections.emptyList();
+    public int findMatches(Location loc, List<TreeNode> resultsBuffer) {
+        if (map.isEmpty()) {
+            return 0;
+        }
 
-        java.util.ArrayList<TreeNode> matches = new java.util.ArrayList<>();
+        int ops = 0;
         for (Map.Entry<TreeNode, SubscriptionWithRegion> entry : map.entrySet()) {
+            ops++;
             if (entry.getValue().getRegion().contains(loc)) {
-                matches.add(entry.getKey());
+                resultsBuffer.add(entry.getKey());
             }
         }
-        return matches;
+        return ops;
     }
 
     @Override

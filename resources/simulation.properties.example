@@ -1,4 +1,12 @@
 # ==========================================
+#   GLOBAL SIMULATION SETTINGS
+# ==========================================
+# Seed for the Random Number Generator. 
+# Set to a fixed integer (e.g., 123456789) for deterministic, reproducible runs.
+# Remove or set to -1 to use the system time (non-deterministic).
+# simulation.seed=1769296721365
+
+# ==========================================
 #   GENERAL I/O AND LOGGING CONFIGURATION
 # ==========================================
 
@@ -84,6 +92,13 @@ topology.grid.overlapFactor=0.0
 # ==========================================
 # Options: SIMPLE (Legacy Aggregation), SMART (Threshold-Based Disjoint)
 broker.strategy=SMART
+
+# Implementation of the Subscription Store (Internal Data Structure)
+# Defines how the broker indexes and searches for matching subscriptions.
+# Options:
+#   - LIST: (Legacy) Uses a linear ArrayList O(N). Simple but slow for high subscription counts.
+#   - TREE: (Optimized) Uses a Region QuadTree O(log N). Significantly faster (30x+) for large simulations.
+broker.strategy.implementation=TREE
 
 # If true: Enables "Clipped Aggregation" (Intersection Propagation).
 #          Sends only the intersection of the Global MBR and the Child's Region.

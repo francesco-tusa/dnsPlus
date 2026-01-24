@@ -49,18 +49,19 @@ public class ListMultiRegionStore extends AbstractMultiRegionStore {
                     it.remove();
                     mergedInPass = true;
                     mergedCount++;
-                    break; 
+                    break;
                 }
             }
         } while (mergedInPass);
 
         SubscriptionWithRegion resultingEntry = new SubscriptionWithRegion(accumulator);
         regions.add(resultingEntry);
-        
+
         updateSummary(source);
 
         double accumArea = accumulator.getArea();
-        boolean isIdenticalReplacement = (mergedCount == 0 && Math.abs(accumArea - (sub.getArea() + absorbedArea)) < 1e-9);
+        boolean isIdenticalReplacement = (mergedCount == 0
+                && Math.abs(accumArea - (sub.getArea() + absorbedArea)) < 1e-9);
 
         StoreOpResult opResult = determineResult(absorbedCount, mergedCount, isIdenticalReplacement);
         String explanation = createCleanExplanation(opResult, mergedCount, absorbedCount, isIdenticalReplacement);
@@ -69,28 +70,37 @@ public class ListMultiRegionStore extends AbstractMultiRegionStore {
 
     private void updateSummary(TreeNode source) {
         List<SubscriptionWithRegion> list = map.get(source);
-        if (list == null || list.isEmpty()) { summaryRegions.remove(source); return; }
+        if (list == null || list.isEmpty()) {
+            summaryRegions.remove(source);
+            return;
+        }
         Region summary = new Region(list.get(0).getRegion());
-        for (int i = 1; i < list.size(); i++) summary.expand(list.get(i).getRegion());
+        for (int i = 1; i < list.size(); i++)
+            summary.expand(list.get(i).getRegion());
         summaryRegions.put(source, summary);
     }
 
     @Override
-    public List<TreeNode> findMatches(Location loc) {
-        List<TreeNode> matches = new ArrayList<>();
-        for (Map.Entry<TreeNode, List<SubscriptionWithRegion>> entry : map.entrySet()) {
-            TreeNode neighbor = entry.getKey();
-            Region summary = summaryRegions.get(neighbor);
-            if (summary != null && summary.contains(loc)) {
-                for (SubscriptionWithRegion sub : entry.getValue()) {
-                    if (sub.getRegion().contains(loc)) {
-                        matches.add(neighbor);
-                        break;
+    public int findMatches(Location loc, List<TreeNode> resultsBuffer) {
+        int ops = 0;
+        for (var entry : map.entrySet()) {
+            // 1. Summary Check
+            Region summary = summaryRegions.get(entry.getKey());
+            if (summary != null) {
+                ops++; // Count summary check
+                if (summary.contains(loc)) {
+                    // 2. Detailed Checks
+                    for (SubscriptionWithRegion sub : entry.getValue()) {
+                        ops++; // Count item check
+                        if (sub.getRegion().contains(loc)) {
+                            resultsBuffer.add(entry.getKey());
+                            break; // Optimization: Stop after first match for this neighbor
+                        }
                     }
                 }
             }
         }
-        return matches;
+        return ops;
     }
 
     @Override
@@ -114,5 +124,7 @@ public class ListMultiRegionStore extends AbstractMultiRegionStore {
     }
 
     @Override
-    public boolean isEmpty() { return map.isEmpty(); }
+    public boolean isEmpty() {
+        return map.isEmpty();
+    }
 }

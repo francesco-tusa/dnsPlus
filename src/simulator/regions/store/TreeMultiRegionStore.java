@@ -17,8 +17,8 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
 
     @Override
     public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
-        RegionQuadTree tree = map.computeIfAbsent(source, 
-            k -> new RegionQuadTree(-180, -90, 180, 90));
+        RegionQuadTree tree = map.computeIfAbsent(source,
+                k -> new RegionQuadTree(-180, -90, 180, 90));
 
         // 1. Filter Check (O(log N))
         List<SubscriptionWithRegion> candidates = tree.findCandidatesContaining(sub.getRegion());
@@ -38,18 +38,18 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
         do {
             mergedInPass = false;
             List<SubscriptionWithRegion> overlaps = tree.findIntersections(accumulator);
-            
+
             for (SubscriptionWithRegion existing : overlaps) {
                 if (accumulator.contains(existing.getRegion())) {
                     absorbedArea += existing.getArea();
-                    tree.remove(existing); 
+                    tree.remove(existing);
                     absorbedCount++;
                 } else if (shouldMerge(accumulator, existing)) {
                     accumulator.expand(existing.getRegion());
                     tree.remove(existing);
                     mergedInPass = true;
                     mergedCount++;
-                    break; 
+                    break;
                 }
             }
         } while (mergedInPass);
@@ -58,7 +58,8 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
         tree.insert(resultingEntry);
 
         double accumArea = accumulator.getArea();
-        boolean isIdenticalReplacement = (mergedCount == 0 && Math.abs(accumArea - (sub.getArea() + absorbedArea)) < 1e-9);
+        boolean isIdenticalReplacement = (mergedCount == 0
+                && Math.abs(accumArea - (sub.getArea() + absorbedArea)) < 1e-9);
 
         StoreOpResult opResult = determineResult(absorbedCount, mergedCount, isIdenticalReplacement);
         String explanation = createCleanExplanation(opResult, mergedCount, absorbedCount, isIdenticalReplacement);
@@ -66,16 +67,23 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
     }
 
     @Override
-    public List<TreeNode> findMatches(Location loc) {
-        List<TreeNode> matches = new ArrayList<>();
+    public int findMatches(Location loc, List<TreeNode> resultsBuffer) {
+        // 1. Setup a lightweight counter (allocated once by caller if optimized,
+        // or we use a temp array here if the signature returns int)
+        int[] opsCounter = new int[1];
+
         for (Map.Entry<TreeNode, RegionQuadTree> entry : map.entrySet()) {
             RegionQuadTree tree = entry.getValue();
-            // Fast fail using MBR
-            if (tree.containsPoint(loc)) {
-                matches.add(entry.getKey());
+
+            // 2. Call the counting version
+            // This updates opsCounter[0] in-place
+            if (tree.containsPoint(loc, opsCounter)) {
+                resultsBuffer.add(entry.getKey());
             }
         }
-        return matches;
+
+        // 3. Return the total geometric operations performed
+        return opsCounter[0];
     }
 
     @Override
@@ -99,8 +107,10 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
     }
 
     @Override
-    public boolean isEmpty() { return map.isEmpty(); }
-    
+    public boolean isEmpty() {
+        return map.isEmpty();
+    }
+
     // =========================================================================
     // RegionQuadTree (Double Precision)
     // =========================================================================
@@ -121,16 +131,20 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
         }
 
         private RegionQuadTree(double minLon, double minLat, double maxLon, double maxLat, int depth) {
-            this.minLon = minLon; this.minLat = minLat;
-            this.maxLon = maxLon; this.maxLat = maxLat;
+            this.minLon = minLon;
+            this.minLat = minLat;
+            this.maxLon = maxLon;
+            this.maxLat = maxLat;
             this.items = new ArrayList<>();
             this.depth = depth;
         }
 
         public void insert(SubscriptionWithRegion sub) {
-            // 1. Efficiently update MBR 
-            if (cachedMBR == null) cachedMBR = new Region(sub.getRegion());
-            else cachedMBR.expand(sub.getRegion());
+            // 1. Efficiently update MBR
+            if (cachedMBR == null)
+                cachedMBR = new Region(sub.getRegion());
+            else
+                cachedMBR.expand(sub.getRegion());
 
             if (children != null) {
                 int index = getIndex(sub.getRegion());
@@ -142,7 +156,8 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
             items.add(sub);
 
             if (items.size() > MAX_ITEMS && depth < MAX_DEPTH) {
-                if (children == null) split();
+                if (children == null)
+                    split();
                 Iterator<SubscriptionWithRegion> it = items.iterator();
                 while (it.hasNext()) {
                     SubscriptionWithRegion s = it.next();
@@ -181,15 +196,19 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
         private void recalculateMBR() {
             this.cachedMBR = null;
             for (SubscriptionWithRegion s : items) {
-                if (cachedMBR == null) cachedMBR = new Region(s.getRegion());
-                else cachedMBR.expand(s.getRegion());
+                if (cachedMBR == null)
+                    cachedMBR = new Region(s.getRegion());
+                else
+                    cachedMBR.expand(s.getRegion());
             }
             if (children != null) {
                 for (RegionQuadTree child : children) {
                     Region childMBR = child.getMBR();
                     if (childMBR != null) {
-                        if (cachedMBR == null) cachedMBR = new Region(childMBR);
-                        else cachedMBR.expand(childMBR);
+                        if (cachedMBR == null)
+                            cachedMBR = new Region(childMBR);
+                        else
+                            cachedMBR.expand(childMBR);
                     }
                 }
             }
@@ -202,7 +221,8 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
         public List<SubscriptionWithRegion> getAll() {
             List<SubscriptionWithRegion> all = new ArrayList<>(items);
             if (children != null) {
-                for (RegionQuadTree child : children) all.addAll(child.getAll());
+                for (RegionQuadTree child : children)
+                    all.addAll(child.getAll());
             }
             return all;
         }
@@ -210,30 +230,42 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
         public int size() {
             int count = items.size();
             if (children != null) {
-                for (RegionQuadTree child : children) count += child.size();
+                for (RegionQuadTree child : children)
+                    count += child.size();
             }
             return count;
         }
 
-        public boolean containsPoint(Location loc) {
-            if (cachedMBR == null || !cachedMBR.contains(loc)) return false;
+        public boolean containsPoint(Location loc, int[] ops) {
+            // 1. MBR Check Cost (1 Op)
+            ops[0]++;
+            if (cachedMBR == null || !cachedMBR.contains(loc))
+                return false;
 
-            double x = loc.getX();
-            double y = loc.getY();
-
+            // 2. Items Check Cost (N Ops)
+            // Iterate list to find if any subscription covers the point
             for (SubscriptionWithRegion s : items) {
-                if (s.getRegion().contains(loc)) return true;
+                ops[0]++;
+                if (s.getRegion().contains(loc)) {
+                    return true; // Match found! Stop counting and return.
+                }
             }
 
+            // 3. Child Traversal (Recursion)
             if (children != null) {
-                int index = getPointIndex(x, y);
-                if (index != -1) return children[index].containsPoint(loc);
+                // Calculating index is pure math (very cheap), usually not counted as a
+                // "geometric check"
+                int index = getPointIndex(loc.getX(), loc.getY());
+                if (index != -1) {
+                    // Recurse down the tree, passing the SAME counter array
+                    return children[index].containsPoint(loc, ops);
+                }
             }
             return false;
         }
 
         public List<SubscriptionWithRegion> findCandidatesContaining(Region query) {
-            // Strict check: If the MBR of this node doesn't contain the query, 
+            // Strict check: If the MBR of this node doesn't contain the query,
             // no single item inside can possibly contain it.
             if (cachedMBR == null || !cachedMBR.contains(query)) {
                 return Collections.emptyList();
@@ -241,13 +273,14 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
 
             List<SubscriptionWithRegion> candidates = new ArrayList<>();
             for (SubscriptionWithRegion s : items) {
-                if (s.getRegion().contains(query)) candidates.add(s);
+                if (s.getRegion().contains(query))
+                    candidates.add(s);
             }
 
             if (children != null) {
                 int index = getIndex(query);
                 if (index != -1) {
-                    // Only a child that fully encloses the query region can contain a 
+                    // Only a child that fully encloses the query region can contain a
                     // subscription that fully encloses the query region.
                     candidates.addAll(children[index].findCandidatesContaining(query));
                 }
@@ -256,11 +289,13 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
         }
 
         public List<SubscriptionWithRegion> findIntersections(Region query) {
-            if (cachedMBR == null || !cachedMBR.intersects(query)) return Collections.emptyList();
+            if (cachedMBR == null || !cachedMBR.intersects(query))
+                return Collections.emptyList();
 
             List<SubscriptionWithRegion> hits = new ArrayList<>();
             for (SubscriptionWithRegion s : items) {
-                if (s.getRegion().intersects(query)) hits.add(s);
+                if (s.getRegion().intersects(query))
+                    hits.add(s);
             }
 
             if (children != null) {
@@ -288,17 +323,21 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
         private int getIndex(Region r) {
             double midLon = (minLon + maxLon) / 2;
             double midLat = (minLat + maxLat) / 2;
-            boolean top = r.getMinLat() >= midLat;     // Use >= to match point logic
+            boolean top = r.getMinLat() >= midLat; // Use >= to match point logic
             boolean bottom = r.getMaxLat() <= midLat;
             boolean left = r.getMaxLon() <= midLon;
             boolean right = r.getMinLon() >= midLon;
 
             if (top) {
-                if (left) return 0; // NW
-                if (right) return 1; // NE
+                if (left)
+                    return 0; // NW
+                if (right)
+                    return 1; // NE
             } else if (bottom) {
-                if (left) return 2; // SW
-                if (right) return 3; // SE
+                if (left)
+                    return 2; // SW
+                if (right)
+                    return 3; // SE
             }
             return -1;
         }
@@ -308,8 +347,10 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
             double midLat = (minLat + maxLat) / 2;
             boolean top = y >= midLat;
             boolean left = x <= midLon;
-            if (top) return left ? 0 : 1;
-            else return left ? 2 : 3;
+            if (top)
+                return left ? 0 : 1;
+            else
+                return left ? 2 : 3;
         }
     }
 }
