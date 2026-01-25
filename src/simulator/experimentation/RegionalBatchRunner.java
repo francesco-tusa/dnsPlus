@@ -7,7 +7,7 @@ public class RegionalBatchRunner extends AbstractBatchOrchestrator {
         
         new RegionalBatchRunner().runBatch(
             new RegionalScenario(), 
-            "results_regional_heavy.csv"
+            "results_regional.csv"
         );
     }
 }

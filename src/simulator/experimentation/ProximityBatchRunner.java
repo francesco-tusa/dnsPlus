@@ -7,7 +7,7 @@ public class ProximityBatchRunner extends AbstractBatchOrchestrator {
         
         new ProximityBatchRunner().runBatch(
             new ProximityScenario(), 
-            "results_closest_proximity.csv"
+            "results_closest.csv"
         );
     }
 }

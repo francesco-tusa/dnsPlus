@@ -20,6 +20,16 @@ public abstract class AbstractBatchOrchestrator {
 
     protected void runBatch(SimulationScenario scenario, String csvFilename) {
         
+        long configuredSeed = SimConfiguration.get().simulationSeed;
+        String batchSeed;
+        
+        if (configuredSeed == -1) {
+            logger.warning("Configured seed is -1 (Random). Forcing fixed seed for batch consistency.");
+            batchSeed = "123456789"; 
+        } else {
+            batchSeed = String.valueOf(configuredSeed);
+        }
+
         // 1. Setup Batch Directory
         String batchId = String.valueOf(System.currentTimeMillis());
         // Structure: output/batch_1769.../
@@ -41,6 +51,7 @@ public abstract class AbstractBatchOrchestrator {
         logger.info(" Logic: " + scenario.getClass().getSimpleName());
         logger.info(" Results: " + csvFile.getAbsolutePath());
         logger.info(" Logs: " + batchDirPath + File.separator + "<Run_Timestamp>");
+        logger.info(" Using Batch Seed: " + batchSeed);
         logger.info("===============================================================");
 
         try (PrintWriter writer = new PrintWriter(new FileWriter(csvFile))) {
@@ -57,7 +68,7 @@ public abstract class AbstractBatchOrchestrator {
                         props.setProperty("workload.replicas", String.valueOf(pubs));
                         props.setProperty("workload.subscribers.count", String.valueOf(subs));
                         props.setProperty(scenario.getKnobKey(), knobVal);
-                        props.setProperty("simulation.seed", "12345");
+                        props.setProperty("simulation.seed", batchSeed);
                         
                         scenario.configure(props);
 

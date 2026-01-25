@@ -16,7 +16,7 @@ public class SimConfiguration {
     // Storage for batch overrides
     private static Properties programmedOverrides = null;
 
-    public final long seed;
+    public final long simulationSeed;
     public final PathsConfig paths;
     public final TopologyConfig topology;
     public final BrokerConfig broker;
@@ -49,14 +49,14 @@ public class SimConfiguration {
         // 2. Load Seed
         String seedStr = props.getProperty("simulation.seed");
         if (seedStr != null && !seedStr.isEmpty()) {
-            this.seed = Long.parseLong(seedStr);
+            this.simulationSeed = Long.parseLong(seedStr);
         } else {
-            this.seed = System.currentTimeMillis();
-            logger.warning("No 'simulation.seed' found. Using System.currentTimeMillis(): " + this.seed);
+            this.simulationSeed = System.currentTimeMillis();
+            logger.warning("No 'simulation.seed' found. Using System.currentTimeMillis(): " + this.simulationSeed);
         }
 
         // 3. Initialize Randomness
-        SimulationRandom.init(this.seed);
+        SimulationRandom.init(this.simulationSeed);
 
         // 4. Load other configs
         this.paths = new PathsConfig(props);
@@ -64,7 +64,7 @@ public class SimConfiguration {
         this.broker = new BrokerConfig(props);
         this.workload = new WorkloadConfig(props);
         
-        logger.info("Configuration Loaded (Eager). Seed: " + this.seed);
+        logger.info("Configuration Loaded (Eager). Seed: " + this.simulationSeed);
     }
 
     private Properties loadProperties() {
