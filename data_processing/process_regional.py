@@ -8,7 +8,7 @@ import sys
 # ================= CONFIGURATION =================
 
 # Input Filename (Fixed based on your specification)
-INPUT_FILENAME = 'results_regional_heavy.csv'
+INPUT_FILENAME = 'results_regional.csv'
 
 # Metric Mapping: CSV Header -> Friendly Graph Title
 METRIC_MAPPING = {
