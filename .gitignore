@@ -9,3 +9,4 @@ resources/simulation.properties
 .gitignore
 .vscode/launch.json
 resources/simulation.properties
+data_processing/graphs/*
