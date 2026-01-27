@@ -4,11 +4,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- *
- * @author f.tusa
- */
-public class Subscription {
+public class Subscription extends AbstractSubscription {
     
     private BigInteger matchValue;
     private BigInteger matchValuePlusOne;

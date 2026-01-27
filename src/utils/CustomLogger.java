@@ -1,128 +1,115 @@
 package utils;
 
-import java.io.OutputStream;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Logger;
-import java.util.logging.Formatter;
-import java.util.logging.ConsoleHandler;
+import java.util.logging.FileHandler;
+import java.util.logging.Handler;
 import java.util.logging.Level;
-import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
-/**
- *
- * @author f.tusa
- */
 public final class CustomLogger {
 
-    private static Map<String, Logger> loggers = new HashMap<>();
-    private static Level level = Level.INFO;
+    private static final Map<String, Logger> loggers = new HashMap<>();
+    private static Level globalLevel = Level.INFO; 
+    private static FileHandler fileHandler = null;
+    private static String logFilePath = ""; 
     
-    private static Logger configureLogger(Logger logger) {
-        logger.setUseParentHandlers(false); // Disable parent handlers to avoid duplicate logs
-        LoggerConsoleHandler handler = new LoggerConsoleHandler(System.out, new CustomFormatter());
-        handler.setLevel(level);
-        logger.addHandler(handler);
-        logger.setLevel(level);
+    // Default to standard output folder, but allow overrides
+    private static String baseOutputDirectory = "output" + File.separator;
+    
+    private static final int LOG_FILE_LIMIT_BYTES = 90 * 1024 * 1024; // 90 MB
+    private static final int LOG_FILE_COUNT = 100; 
 
-        return logger; 
-    }
-    
-    private static Logger getInstance(String className) {
-        if (loggers.containsKey(className)) {
-            return loggers.get(className);
-        } else {
-            Logger logger = configureLogger(Logger.getLogger(className));
-            loggers.put(className, logger);
-            return logger;
+    static {
+        Logger rootLogger = Logger.getLogger("");
+        Handler[] handlers = rootLogger.getHandlers();
+        for (Handler handler : handlers) {
+            handler.close();
+            rootLogger.removeHandler(handler);
         }
         
-    }    
-    
-    public static Logger getLogger(String className, Level l) {
-        level = l;
-        return getInstance(className);
+        rootLogger.setLevel(Level.ALL); 
+        
+        try {
+            Handler consoleHandler = new LoggerConsoleHandler(System.out, new CustomFormatter());
+            consoleHandler.setLevel(Level.INFO); 
+            rootLogger.addHandler(consoleHandler);
+        } catch (Exception e) {
+            System.err.println("Failed to create console handler: " + e.getMessage());
+        }
+        
+        silenceSystemLoggers();
     }
     
+    private static void silenceSystemLoggers() {
+        String[] noisyPackages = { "java.awt", "javax.swing", "sun.awt", "sun.lwawt", "org.graphstream" };
+        for (String pkg : noisyPackages) {
+            Logger.getLogger(pkg).setLevel(Level.INFO);
+        }
+    }
+
     public static Logger getLogger(String className) {
-        return getInstance(className);
-    }
-    
-    public static Level getLevel() {
-        return level;
-    }
-    
-}
-
-
-
-final class LoggerConsoleHandler extends ConsoleHandler {
-
-    public LoggerConsoleHandler(OutputStream out, Formatter formatter) {
-        super();
-        setOutputStream(out);
-        setFormatter(formatter);
+        return loggers.computeIfAbsent(className, k -> {
+            Logger logger = Logger.getLogger(k);
+            logger.setLevel(globalLevel); 
+            logger.setUseParentHandlers(true); 
+            return logger;
+        });
     }
 
-    public LoggerConsoleHandler(OutputStream out) {
-        this(out, new CustomFormatter());
-    }
-}
-
-
-
-
-final class CustomFormatter extends Formatter {
-    //private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    private static final SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
-
-    @Override
-    public String format(LogRecord record) {
-        return generateFormatString(record);
-    }
-    
-    
-    private String generateFormatString(LogRecord record) {
-        String levelColor = getLevelColor(record.getLevel().getName());
-        String date = dateFormat.format(new Date(record.getMillis()));
-        String className = record.getSourceClassName();
-        String methodName = record.getSourceMethodName();
-        String threadName = Thread.currentThread().getName();
-        
-        if (CustomLogger.getLevel().intValue() < Level.INFO.intValue()) {
-            return String.format("%s%s %s [%s][%s][%s]: %s%s%n",
-                    levelColor,
-                    date,
-                    record.getLevel().getName(),
-                    className,
-                    threadName,
-                    methodName,
-                    formatMessage(record),
-                    getLevelColor("RESET"));
-        } else {
-            return String.format("%s%s [%s][%s]: %s%s%n",
-                    levelColor,
-                    date,
-                    //record.getLevel().getName(),
-                    className,
-                    //threadName,
-                    methodName,
-                    formatMessage(record),
-                    getLevelColor("RESET"));
+    public static void setBaseOutputDirectory(String dir) {
+        if (!dir.endsWith(File.separator)) {
+            dir += File.separator;
         }
+        baseOutputDirectory = dir;
+    }
+
+    public static synchronized void setGlobalLogLevel(Level newLevel, String simulationTimestamp) {
+        Logger rootLogger = Logger.getLogger("");
+        Logger selfLogger = getLogger(CustomLogger.class.getName());
+        selfLogger.info("--- Setting Global Log Level to: " + newLevel.getName() + " ---");
+
+        globalLevel = newLevel;
+
+        for (Handler handler : rootLogger.getHandlers()) {
+            if (handler instanceof LoggerConsoleHandler) {
+                handler.setLevel(Level.INFO);
+            }
+        }
+
+        if (fileHandler != null) {
+            rootLogger.removeHandler(fileHandler);
+            fileHandler.close();
+            fileHandler = null;
+        }
+
+        try {
+            // Use the configured base directory (e.g., "output/batch_123/")
+            String logDir = baseOutputDirectory + simulationTimestamp;
+            new File(logDir).mkdirs();
+            
+            String pattern = logDir + File.separator + "simulation_log_" + simulationTimestamp + "_%g.log";
+            
+            fileHandler = new FileHandler(pattern, LOG_FILE_LIMIT_BYTES, LOG_FILE_COUNT, true);
+            fileHandler.setFormatter(new SimpleFileFormatter());
+            fileHandler.setLevel(globalLevel);
+            rootLogger.addHandler(fileHandler);
+            
+            logFilePath = logDir + File.separator + "simulation_log_" + simulationTimestamp + "_0.log"; 
+            selfLogger.info("--- Log file initialized at: " + logDir + " ---");
+            
+        } catch (IOException | SecurityException e) {
+            selfLogger.log(Level.SEVERE, "Failed to create log file handler", e);
+        }
+
+        for (Logger logger : loggers.values()) {
+            logger.setLevel(globalLevel);
+        }
+        silenceSystemLoggers();
     }
     
-
-    private String getLevelColor(String levelName) {
-        return switch (levelName) {
-            case "SEVERE" -> "\u001B[31m"; // Red
-            case "WARNING" -> "\u001B[33m"; // Yellow
-            case "INFO" -> "\u001B[34m"; // Blue
-            case "FINE" -> "\u001B[30m"; // Black
-            case "FINER" -> "\u001B[90m"; // Light gray
-            default -> "\u001B[0m"; // Reset
-        }; 
-    }
+    public static String getLogFilePath() { return logFilePath; }
+    public static Level getLevel() { return globalLevel; }
 }

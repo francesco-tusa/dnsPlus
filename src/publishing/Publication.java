@@ -7,7 +7,7 @@ import java.util.List;
  *
  * @author f.tusa
  */
-public class Publication {
+public class Publication extends AbstractPublication {
     
     private BigInteger matchValue;
  
