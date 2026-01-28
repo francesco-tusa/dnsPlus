@@ -1,6 +1,7 @@
 package simulator.simulations.performance.metrics;
 
 import java.util.logging.Logger;
+import simulator.config.SimConfiguration; // [NEW] Import
 
 public class RegionMetricsPrinter extends MetricsPrinter {
 
@@ -16,7 +17,6 @@ public class RegionMetricsPrinter extends MetricsPrinter {
         long totalInput = data.totalInputCovered + data.totalInputExpanded + data.totalInputAdded;
         long totalOutput = data.totalPropagatedExpanded + data.totalPropagatedAdded;
         
-        // Traffic saved because the Parent already covered the region (Supressed)
         long totalFiltered = data.totalPropagatedCovered;
 
         double aggFactor = (totalOutput > 0) ? (double) totalInput / totalOutput : (totalInput > 0 ? Double.POSITIVE_INFINITY : 0.0);
@@ -39,14 +39,12 @@ public class RegionMetricsPrinter extends MetricsPrinter {
 
         logItem("Total Subscriptions Processed", format(totalInput));
         
-        // Format: Input (Child Request) / Upstream (Parent Update)
         logItem("  -> Covered (Filtered/Suppressed)", 
                 format(data.totalInputCovered) + " / " + format(data.totalPropagatedCovered));
         
         logItem("  -> Effective Updates (Forwarded)", 
                 format(effectiveInput) + " / " + format(effectiveOutput));
         
-        // Expansion Breakdown
         logItem("       -> Expansion Events (Total)", 
                 format(data.totalInputExpanded) + " / " + format(data.totalPropagatedExpanded));
         
@@ -56,7 +54,6 @@ public class RegionMetricsPrinter extends MetricsPrinter {
         logItem("           -> Complex Expansions (Optimizing)", 
                 format(data.totalInputComplexExpanded) + " / " + format(data.totalPropagatedComplexExpanded));
         
-        // Optimization Side-effects (Victims of growth)
         logItem("                -> Entries Merged (Count)", 
                 format(data.totalInputMerged) + " / " + format(data.totalPropagatedMerged)); 
         
@@ -74,7 +71,6 @@ public class RegionMetricsPrinter extends MetricsPrinter {
         RegionPerformanceMetricsData data = (RegionPerformanceMetricsData) rawData;
         logger.info("5. ROUTING OVERHEAD & EFFICIENCY (Regional/Spatial):");
         
-        // False Positives: Dead ends at the broker level
         logItem("False Positive Events (Dead Ends)", format(data.totalFalsePositiveEvents));
         
         double fpRate = (data.totalPublicationProcessingEvents > 0) 
@@ -82,7 +78,6 @@ public class RegionMetricsPrinter extends MetricsPrinter {
                 : 0.0;
         logItem(" -> Rate (vs Traffic)", String.format("%.2f%%", fpRate));
         
-        // False Deliveries: Unwanted messages reaching the subscriber
         logItem("False Positive Deliveries (Unwanted)", format(data.totalFalsePositiveDeliveries));
         
         double fpDel = (data.totalDeliveriesReceived > 0) 
@@ -90,7 +85,6 @@ public class RegionMetricsPrinter extends MetricsPrinter {
                 : 0.0;
         logItem(" -> Rate (vs Notifications)", String.format("%.2f%%", fpDel));
         
-        // Traffic Ratio: Network cost per successful delivery (Multicast efficiency)
         double tr = (data.totalDeliveriesReceived > 0) 
                 ? (double) data.totalPublicationProcessingEvents / data.totalDeliveriesReceived 
                 : 0.0;
@@ -100,6 +94,10 @@ public class RegionMetricsPrinter extends MetricsPrinter {
 
     @Override
     protected void printAccuracy(PerformanceMetricsData rawData) {
+        if (!SimConfiguration.get().workload.enableGroundTruth) {
+            return;
+        }
+
         RegionPerformanceMetricsData data = (RegionPerformanceMetricsData) rawData;
         if (data.groundTruthMatches <= 0) return;
         
@@ -113,7 +111,6 @@ public class RegionMetricsPrinter extends MetricsPrinter {
         double acc = (data.groundTruthMatches > 0) 
                 ? ((double) data.totalDeliveriesReceived / data.groundTruthMatches) * 100.0 
                 : 0.0;
-        // High precision to detect micro-deviations
         logItem("Delivery Accuracy (Total / GT)", String.format("%.6f%%", acc)); 
     }
 }

@@ -1,6 +1,7 @@
 package simulator.simulations.performance.metrics;
 
 import java.util.logging.Logger;
+import simulator.config.SimConfiguration;
 
 public class ProximityMetricsPrinter extends MetricsPrinter {
 
@@ -52,8 +53,13 @@ public class ProximityMetricsPrinter extends MetricsPrinter {
 
     @Override
     protected void printAccuracy(PerformanceMetricsData rawData) {
+        if (!SimConfiguration.get().workload.enableGroundTruth) {
+            return;
+        }
+
         ProximityPerformanceMetricsData data = (ProximityPerformanceMetricsData) rawData;
         if (data.groundTruthMatches <= 0) return;
+        
         logger.info("6. PROXIMITY ALGORITHM ACCURACY:");
         logItem("Necessary Updates", format(data.groundTruthMatches));
         logItem("Actual Notifications", format(data.totalDeliveriesReceived));

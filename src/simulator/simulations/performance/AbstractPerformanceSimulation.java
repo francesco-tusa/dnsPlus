@@ -71,7 +71,12 @@ public abstract class AbstractPerformanceSimulation<
     @Override
     protected void initialise(F factory, C config) {
         this.metricsData = createMetricsData();
-        this.truthCalculator = createGroundTruthCalculator();
+        
+        if (SimConfiguration.get().workload.enableGroundTruth) {
+            this.truthCalculator = createGroundTruthCalculator();
+        } else {
+            this.truthCalculator = null;
+        }
 
         super.initialise(factory, config);
         
@@ -97,6 +102,7 @@ public abstract class AbstractPerformanceSimulation<
         logConfigItem("Total Subscribers", workload.getTotalSubscribers());
         logConfigItem("Avg Subscriptions per Subscriber", workload.meanSubscriptionsPerSubscriber);
         logConfigItem("Arrival Distribution", workload.arrivalDistribution);
+        logConfigItem("Ground Truth Calculation", workload.enableGroundTruth ? "ENABLED" : "DISABLED (Skipped)");
         
         // Log Strategy Name (Actual count will be logged after population)
         try {
@@ -110,7 +116,7 @@ public abstract class AbstractPerformanceSimulation<
         
         printSeparator();
     }
-
+    
     /**
      * Hook for subclasses to log algorithm-specific settings.
      */
