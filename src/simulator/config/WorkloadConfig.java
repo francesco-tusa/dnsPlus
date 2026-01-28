@@ -18,6 +18,8 @@ public class WorkloadConfig {
     public final double locationJitter;
     public final int subscribersPerLeafNode;
     public final int publishersPerLeafNode;
+    
+    public final boolean enableGroundTruth;
 
     public enum ArrivalDistribution { UNIFORM, POISSON }
 
@@ -37,6 +39,7 @@ public class WorkloadConfig {
         this.locationJitter = ConfigParser.parseDouble(props, "workload.locationJitter", 0.0); 
         this.subscribersPerLeafNode = ConfigParser.parseInt(props, "workload.subscribersPerLeaf", 5);
         this.publishersPerLeafNode = ConfigParser.parseInt(props, "workload.publishersPerLeaf", 1);
+        this.enableGroundTruth = ConfigParser.parseBoolean(props, "workload.enableGroundTruth", true);
     }
     
     public boolean isBatchMode() {
