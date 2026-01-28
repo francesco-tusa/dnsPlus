@@ -1,10 +1,5 @@
 {
-    "java.project.referencedLibraries": {
-        "include": [
-            "lib/**/*.jar"
-        ],
-        "exclude": [
-            "lib/jackson-annotations-2.18.3.jar"
-        ]
-    }
+    "java.project.referencedLibraries": [
+        "lib/**/*.jar"
+    ]
 }

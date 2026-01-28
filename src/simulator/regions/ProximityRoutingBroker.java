@@ -69,7 +69,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
         updateTopologicalTargets(child);
     }
 
-    private void updateTopologicalTargets(TreeNode child) {
+    protected void updateTopologicalTargets(TreeNode child) {
         Location[] targets = null;
         if (child instanceof BoundedBroker) {
             Region r = ((BoundedBroker) child).getRegion();
@@ -137,7 +137,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
         propagateSubscriptionUpward(s);
     }
 
-    private void propagateSubscriptionUpward(SimulationSubscription originalSub) {
+    protected void propagateSubscriptionUpward(SimulationSubscription originalSub) {
         if (getParentBroker() == null || isSubscribedToParent)
             return;
         Region r = getRegion();
@@ -190,10 +190,10 @@ public class ProximityRoutingBroker extends BoundedBroker {
         parentBroker.processPublication(forwardedCopy);
     }
 
-    private void processPublicationDownward(PublicationWithLocation pub) {
+    protected void processPublicationDownward(PublicationWithLocation pub) {
         boolean forwardedToAny = false;
         boolean tracingEnabled = SimConfiguration.get().paths.enableEventTracing && pub.getMetrics() != null;
-        
+
         double minDistSqToInterestedChild = tracingEnabled ? Double.MAX_VALUE : -1.0;
         int potentialRecipients = 0;
         int actualRecipients = 0;
@@ -210,16 +210,21 @@ public class ProximityRoutingBroker extends BoundedBroker {
 
         for (Map.Entry<TreeNode, Location[]> entry : childTopologicalTargets.entrySet()) {
             TreeNode neighbor = entry.getKey();
-            if (neighbor == pub.getSource()) continue;
-            if (neighbor == getParentBroker()) continue;
-            if (inputStore.get(neighbor) == null) continue;
+            if (neighbor == pub.getSource())
+                continue;
+            if (neighbor == getParentBroker())
+                continue;
+            if (inputStore.get(neighbor) == null)
+                continue;
 
-            if (tracingEnabled) potentialRecipients++;
+            if (tracingEnabled)
+                potentialRecipients++;
 
             Location[] targets = entry.getValue();
             double[] bestDists = childBestDistances.get(neighbor);
 
-            if (bestDists == null || targets == null || bestDists.length != targets.length) continue;
+            if (bestDists == null || targets == null || bestDists.length != targets.length)
+                continue;
 
             boolean shouldSend = false;
             double distanceForThisNeighbor = -1.0;
@@ -251,7 +256,8 @@ public class ProximityRoutingBroker extends BoundedBroker {
                 }
 
                 forwardedToAny = true;
-                if (tracingEnabled) actualRecipients++;
+                if (tracingEnabled)
+                    actualRecipients++;
             }
         }
 
@@ -291,12 +297,12 @@ public class ProximityRoutingBroker extends BoundedBroker {
         String decision;
 
         if (getParentBroker() == null) {
-            // Topology Result: We are at the World/Root broker. 
+            // Topology Result: We are at the World/Root broker.
             // There is nowhere else to go.
             decision = "ROOT_REACHED";
         } else if (isSubscribedToParent) {
-            // Algorithm Result: We have a parent, but we (the broker) have already 
-            // sent a subscription that covers this new request. 
+            // Algorithm Result: We have a parent, but we (the broker) have already
+            // sent a subscription that covers this new request.
             // Bandwidth saved.
             decision = "COVERED";
         } else {
@@ -320,12 +326,13 @@ public class ProximityRoutingBroker extends BoundedBroker {
             status = "FORWARDED";
         } else {
             if (potential == 0) {
-                // Topology Result: The propagation branch died naturally because 
+                // Topology Result: The propagation branch died naturally because
                 // no child nodes (Countries/States) have subscribed to this topic.
-                status = "NO_MATCH"; 
+                status = "NO_MATCH";
             } else {
-                // Algorithm Result: Neighbors WANTED this topic, but the Proximity Algorithm 
-                // calculated that the new publication is not "closer" than what they already have.
+                // Algorithm Result: Neighbors WANTED this topic, but the Proximity Algorithm
+                // calculated that the new publication is not "closer" than what they already
+                // have.
                 // This is a successful optimisation.
                 status = "PRUNED";
             }

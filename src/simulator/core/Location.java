@@ -8,7 +8,7 @@ import utils.CustomLogger; // Import CustomLogger
 /**
  * Memory-Optimized Location class using single-precision (float).
  */
-public final class Location implements Comparable<Location> {
+public class Location implements Comparable<Location> {
     private final float x;
     private final float y;
     private final float z;
