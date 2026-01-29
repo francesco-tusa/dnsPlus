@@ -34,11 +34,48 @@ public class MarketplaceClient extends PublisherWithLocation {
         // 2. Create the Publication payload
         PublicationWithLocation pub = new PublicationWithLocation(requirementLoc);
 
+        // --- PREPARE METRICS FOR TRACING ---
+        // Even if caching/tracing is disabled globally, we inject metrics for Logic
+        // Verification
+        simulator.events.metrics.EventMetrics metrics = new simulator.events.metrics.EventMetrics(System.nanoTime());
+        metrics.setOriginalSourceInfo(getName(), "Marketplace", physicalLoc.getX(), physicalLoc.getY());
+        pub.setMetrics(metrics);
+
+        // DEBUG
+        // System.out.println("[DEBUG] Client " + getName() + " sending req. TraceID=" +
+        // metrics.getTraceId() + " Source="
+        // + metrics.getOriginalSourceName());
+
         // 3. Inject into the simulator
         // The 'send' method propagates it to the parent Broker.
         this.send(pub);
+    }
 
-        // System.out.println("[Client " + getName() + "] Requested service " +
-        // serviceId + " with constraints " + constraints);
+    /**
+     * Override send to bypass the default PublisherWithLocation logic which
+     * forcibly overwrites metrics based on SimConfiguration.
+     * We want to guarantee our TraceID/SourceInfo is preserved.
+     */
+
+    @Override
+    public void send(PublicationWithLocation pub) {
+        pub.setSource(this);
+
+        // Ensure the metrics we set in requestService are kept.
+        // If not set, we create them here.
+        if (pub.getMetrics() == null) {
+            simulator.events.metrics.EventMetrics metrics = new simulator.events.metrics.EventMetrics(
+                    System.nanoTime());
+            metrics.setOriginalSourceInfo(getName(), "Marketplace", this.getLocation().getX(),
+                    this.getLocation().getY());
+            pub.setMetrics(metrics);
+        }
+
+        simulator.core.TreeNode parent = getParent();
+        if (parent instanceof simulator.entities.SimulationBroker) {
+            ((simulator.entities.SimulationBroker) parent).processPublication(pub);
+        } else {
+            System.err.println(getName() + ": parent is not a SimulationBroker");
+        }
     }
 }

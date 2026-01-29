@@ -19,6 +19,8 @@ public class MarketplaceProvider extends SubscriberWithLocation {
         super(name, location);
     }
 
+    private Map<String, Double> lastAdvertisedMetrics;
+
     /**
      * Advertises a service to the network with specific QoS metrics.
      * 
@@ -26,6 +28,8 @@ public class MarketplaceProvider extends SubscriberWithLocation {
      * @param performanceMetrics Map of metrics (e.g., "latency": 10.0, "cost": 5.0)
      */
     public void advertiseService(long serviceId, Map<String, Double> performanceMetrics) {
+        this.lastAdvertisedMetrics = performanceMetrics; // Store for Oracle/Debug
+
         // 1. Create a MultiMetricLocation that represents THIS provider's performance
         // profile
         // (We base it on our physical location, but attach performance stats)
@@ -52,13 +56,34 @@ public class MarketplaceProvider extends SubscriberWithLocation {
         // serviceId + " with metrics " + performanceMetrics);
     }
 
+    public Map<String, Double> getLastAdvertisedMetrics() {
+        return lastAdvertisedMetrics;
+    }
+
     @Override
     public void receive(simulator.events.SimulationPublication p) {
         super.receive(p);
+        // Debugging Receive
+        System.out.println("[DEBUG] Provider " + getName() + " received msg ID=" + p.getId() + " Type="
+                + p.getClass().getSimpleName());
+
         if (p instanceof simulator.events.PublicationWithLocation pub) {
-            System.out.println("\n[Provider " + getName() + "] RECEIVED REQUEST:");
-            System.out.println("    From: " + pub.getSource().getName());
-            System.out.println("    Target Location: " + pub.getLocation());
+            String clientName = "UNKNOWN";
+            if (pub.getMetrics() != null) {
+                if (pub.getMetrics().getOriginalSourceName() != null) {
+                    clientName = pub.getMetrics().getOriginalSourceName();
+                } else {
+                    System.out.println(
+                            "[DEBUG] Metrics present but SourceName is NULL. TraceID=" + pub.getMetrics().getTraceId());
+                }
+            } else {
+                System.out.println("[DEBUG] Metrics object is NULL for msg ID=" + pub.getId());
+            }
+
+            System.out.println("[DEBUG] RECORDING MATCH: " + clientName + " -> " + getName());
+            marketplace.simulations.MarketplaceContinuumSimulation.recordMatch(clientName, getName());
+        } else {
+            System.out.println("[DEBUG] IGNORING msg type: " + p.getClass().getName());
         }
     }
 }
