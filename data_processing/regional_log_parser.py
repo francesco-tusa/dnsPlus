@@ -18,7 +18,8 @@ def parse_log_file(file_path):
         'avg_comparisons': None,
         'sub_updates_sent': None,
         'traffic_ratio': None,
-        'traffic_saved': None,
+        'traffic_saved': None,      # UPDATED: Now includes Input + Output savings
+        'suppression_rate': None,   # NEW: traffic_saved / total_input_events
         'false_positives': None
     }
 
@@ -35,7 +36,7 @@ def parse_log_file(file_path):
                 if match_filename:
                     metrics['experiment_id'] = match_filename.group(1)
             
-            # Threshold: Look for "Smart Threshold :" in the summary or "broker.smartThreshold =" in the config dump
+            # Threshold
             match_thresh = re.search(r"Smart Threshold\s+:\s+([\d\.]+)", content)
             if match_thresh:
                 metrics['fpr_threshold'] = float(match_thresh.group(1))
@@ -44,56 +45,83 @@ def parse_log_file(file_path):
                 if match_thresh_cfg:
                      metrics['fpr_threshold'] = float(match_thresh_cfg.group(1))
 
-            # Subscribers: "Total Subscribers : 1000000"
+            # Subscribers
             match_subs = re.search(r"Total Subscribers\s+:\s+(\d+)", content)
             if match_subs:
                 metrics['subscribers'] = int(match_subs.group(1))
 
-            # Publishers: "Collected X subscribers and Y publishers" (most reliable)
+            # Publishers
             match_pubs = re.search(r"Collected\s+\d+\s+subscribers\s+and\s+(\d+)\s+publishers", content)
             if match_pubs:
                 metrics['publishers'] = int(match_pubs.group(1))
             else:
-                # Fallback: "Publisher Placement Complete: X created"
                 match_pubs_2 = re.search(r"Publisher Placement Complete:\s+(\d+)\s+created", content)
                 if match_pubs_2:
                     metrics['publishers'] = int(match_pubs_2.group(1))
 
             # --- 3. Extract Performance Metrics ---
             
-            # Table Size: "Input Table Size (Min / Avg / Max) : 0 / 200.85 / ..."
+            # Table Size
             match_table = re.search(r"Input Table Size \(Min / Avg / Max\)\s+:\s+\d+\s+/\s+([\d\.]+)\s+/\s+\d+", content)
             if match_table:
                 metrics['table_size_avg'] = float(match_table.group(1))
 
-            # Total Forwarding Events (Traffic) : 81,907,010
+            # Total Forwarding Events
             match_pub_events = re.search(r"Total Forwarding Events \(Traffic\)\s+:\s+([\d,]+)", content)
             if match_pub_events:
                 metrics['pub_events'] = int(match_pub_events.group(1).replace(',', ''))
 
-            # Avg Comparisons per Message : 215.63
+            # Avg Comparisons
             match_comparisons = re.search(r"Avg Comparisons per Message\s+:\s+([\d\.]+)", content)
             if match_comparisons:
                 metrics['avg_comparisons'] = float(match_comparisons.group(1))
 
-            # Total Output Entries (Propagated) : 11,352,571
+            # Total Output Entries
             match_sub_updates = re.search(r"Total Output Entries \(Propagated\)\s+:\s+([\d,]+)", content)
             if match_sub_updates:
                 metrics['sub_updates_sent'] = int(match_sub_updates.group(1).replace(',', ''))
 
-            # Traffic Ratio (Events per Delivery) : 0.06
+            # Traffic Ratio
             match_traffic_ratio = re.search(r"Traffic Ratio \(Events per Delivery\)\s+:\s+([\d\.]+)", content)
             if match_traffic_ratio:
                 metrics['traffic_ratio'] = float(match_traffic_ratio.group(1))
 
-            # Traffic Saved (Filtered/Absorbed)
-            match_traffic_saved = re.search(r"Traffic Saved \(Filtered/Absorbed\)\s+:\s+([\d,]+)", content)
-            if match_traffic_saved:
-                metrics['traffic_saved'] = int(match_traffic_saved.group(1).replace(',', ''))
-            elif "1. SUBSCRIPTION TRAFFIC & AGGREGATION" in content:
-                metrics['traffic_saved'] = 0
+            # --- FIX START: Capture Input Savings and Calculate Total Suppressed ---
+            
+            # 1. Get Total Input (Denominator for rate)
+            # "Total Input Entries (Received) : 1,699,692"
+            total_input = 0
+            match_total_input = re.search(r"Total Input Entries \(Received\)\s+:\s+([\d,]+)", content)
+            if match_total_input:
+                total_input = int(match_total_input.group(1).replace(',', ''))
 
-            # False Positive Events (Dead Ends)
+            # 2. Get Detailed Coverage (Input / Output)
+            # "-> Covered (Filtered/Suppressed) : 0 / 1,088,766"
+            # Group 1 = Input Covered (Missing in original metric)
+            # Group 2 = Output Covered (Original metric)
+            match_covered_detailed = re.search(r"-> Covered \(Filtered/Suppressed\)\s+:\s+([\d,]+)\s+/\s+([\d,]+)", content)
+            
+            if match_covered_detailed:
+                input_covered = int(match_covered_detailed.group(1).replace(',', ''))
+                output_covered = int(match_covered_detailed.group(2).replace(',', ''))
+                
+                # New Definition: Total Suppressed = Input + Output
+                metrics['traffic_saved'] = input_covered + output_covered
+                
+                # Calculate Rate
+                if total_input > 0:
+                    metrics['suppression_rate'] = float(metrics['traffic_saved']) / float(total_input)
+                else:
+                    metrics['suppression_rate'] = 0.0
+            else:
+                # Fallback for older logs (Output only)
+                match_traffic_saved = re.search(r"Traffic Saved \(Filtered/Absorbed\)\s+:\s+([\d,]+)", content)
+                if match_traffic_saved:
+                    metrics['traffic_saved'] = int(match_traffic_saved.group(1).replace(',', ''))
+            
+            # --- FIX END ---
+
+            # False Positives
             match_fp = re.search(r"False Positive Events \(Dead Ends\)\s+:\s+([\d,]+)", content)
             if match_fp:
                 metrics['false_positives'] = int(match_fp.group(1).replace(',', ''))
@@ -104,7 +132,6 @@ def parse_log_file(file_path):
         print(f"Error parsing {file_path}: {e}", file=sys.stderr)
         return None
 
-    # Filter out invalid logs
     if metrics['publishers'] is None or metrics['fpr_threshold'] is None:
         return None
         
@@ -122,6 +149,8 @@ def format_value(key, value):
     elif key == 'avg_comparisons':
         return f"{value:.2f}"
     elif key == 'traffic_ratio':
+        return f"{value:.4f}"
+    elif key == 'suppression_rate': # New formatting
         return f"{value:.4f}"
     else:
         return str(value)
@@ -153,7 +182,7 @@ def scan_directory_and_process(root_folder, output_csv):
         x['fpr_threshold'] if x['fpr_threshold'] is not None else 0
     ))
 
-    # Define CSV Headers
+    # Define CSV Headers (Added suppression_rate)
     headers = [
         'experiment_id',
         'publishers',
@@ -165,6 +194,7 @@ def scan_directory_and_process(root_folder, output_csv):
         'sub_updates_sent',
         'traffic_ratio',
         'traffic_saved',
+        'suppression_rate', # Added new column
         'false_positives'
     ]
 
@@ -175,7 +205,6 @@ def scan_directory_and_process(root_folder, output_csv):
         writer.writeheader()
         
         for row in all_data:
-            # Create a new dict with formatted values for writing
             formatted_row = {k: format_value(k, v) for k, v in row.items()}
             writer.writerow(formatted_row)
 
