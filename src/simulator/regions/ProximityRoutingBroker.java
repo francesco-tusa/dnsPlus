@@ -167,7 +167,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
         return null;
     }
 
-    private void propagatePublicationUpward(SimulationPublication p) {
+    protected void propagatePublicationUpward(SimulationPublication p) {
         BoundedBroker parentBroker = getParentBroker();
         if (parentBroker == null)
             return;

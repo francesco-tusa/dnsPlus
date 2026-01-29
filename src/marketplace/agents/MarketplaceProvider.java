@@ -51,4 +51,14 @@ public class MarketplaceProvider extends SubscriberWithLocation {
         // System.out.println("[Provider " + getName() + "] Advertised service " +
         // serviceId + " with metrics " + performanceMetrics);
     }
+
+    @Override
+    public void receive(simulator.events.SimulationPublication p) {
+        super.receive(p);
+        if (p instanceof simulator.events.PublicationWithLocation pub) {
+            System.out.println("\n[Provider " + getName() + "] RECEIVED REQUEST:");
+            System.out.println("    From: " + pub.getSource().getName());
+            System.out.println("    Target Location: " + pub.getLocation());
+        }
+    }
 }

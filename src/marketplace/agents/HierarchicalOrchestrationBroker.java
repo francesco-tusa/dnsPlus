@@ -6,10 +6,12 @@ import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.SimulationSubscription;
 import simulator.events.SubscriptionWithLocation;
-import marketplace.common.MultiMetricLocation;
-import java.util.HashMap;
-import java.util.List;
+
 import java.util.Map;
+
+import marketplace.common.MultiMetricLocation;
+import marketplace.topology.aggregation.AggregationPolicy;
+import marketplace.topology.aggregation.OptimisticPolicy;
 
 /**
  * A Broker that implements Hierarchical Aggregation and Multi-Metric Routing.
@@ -73,6 +75,26 @@ public class HierarchicalOrchestrationBroker extends ProximityRoutingBroker {
         super.updateTopologicalTargets(child);
     }
 
+    private AggregationPolicy aggregationPolicy = new OptimisticPolicy(); // Default to Optimistic (Frankenstein)
+
+    public void setAggregationPolicy(AggregationPolicy policy) {
+        this.aggregationPolicy = policy;
+    }
+
+    /**
+     * Override to ensure we refresh topological targets when a subscription
+     * arrives.
+     * The base ProximityRoutingBroker only updates if the child is missing,
+     * but we need to upgrade the target from "Plain Location" to
+     * "MultiMetricLocation".
+     */
+    @Override
+    protected void handleSubscriptionProcessing(SimulationSubscription s) {
+        super.handleSubscriptionProcessing(s);
+        // Force update to pick up metrics from the subscription
+        updateTopologicalTargets(s.getSource());
+    }
+
     /**
      * Override to Aggregates metrics from children instead of just sending the
      * center.
@@ -91,48 +113,120 @@ public class HierarchicalOrchestrationBroker extends ProximityRoutingBroker {
         if (myCenter == null)
             return;
 
-        // 1. Calculate Aggregated Metrics (Min Latency, Min Cost, etc.)
-        Map<String, Double> bestMetrics = new HashMap<>();
-        boolean hasMetrics = false;
+        // Delegate aggregation to the policy
+        SubscriptionWithLocation proxySubscription = aggregationPolicy.aggregate(inputStore.getAllSubscriptions(),
+                myCenter);
 
-        // Iterate over ALL children contributions in the input store
-        // inputStore.getAllSubscriptions() returns Map<TreeNode,
-        // List<SimulationSubscription>>
-        for (List<SimulationSubscription> subList : inputStore.getAllSubscriptions().values()) {
-            for (SimulationSubscription s : subList) {
-                if (s instanceof SubscriptionWithLocation) {
-                    Location loc = ((SubscriptionWithLocation) s).getLocation();
-                    if (loc instanceof MultiMetricLocation) {
-                        Map<String, Double> m = ((MultiMetricLocation) loc).getMetrics();
-                        if (m != null) {
-                            hasMetrics = true;
-                            // For each metric, we take the MIN
-                            for (Map.Entry<String, Double> entry : m.entrySet()) {
-                                String key = entry.getKey();
-                                double val = entry.getValue();
-                                if (!bestMetrics.containsKey(key) || val < bestMetrics.get(key)) {
-                                    bestMetrics.put(key, val);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. Create the Proxy Subscription
-        Location proxyLoc;
-        if (hasMetrics) {
-            proxyLoc = new MultiMetricLocation(myCenter, bestMetrics);
-        } else {
-            proxyLoc = myCenter;
-        }
-
-        SubscriptionWithLocation proxySubscription = new SubscriptionWithLocation(proxyLoc);
         proxySubscription.setSource(this);
         proxySubscription.setHops(originalSub.getHops());
 
         // 3. Send Upward
         getParentBroker().processSubscription(proxySubscription);
+    }
+
+    /**
+     * Override to implement SINGLE-WINNER Routing (Unicast/RPC style).
+     * Instead of propagating to ALL better options, we pick ONLY the absolute best.
+     */
+    @Override
+    public simulator.events.SimulationSubscription matchPublication(simulator.events.SimulationPublication p) {
+        // 1. Try to resolve LOCALLY (Downward)
+        boolean resolvedLocally = false;
+        if (p instanceof simulator.events.PublicationWithLocation pub) {
+            resolvedLocally = routeToBestChild(pub);
+        }
+
+        // 2. ONLY propagate UPWARD if NOT resolved locally
+        if (!resolvedLocally && p.getSource() != getParentBroker()) {
+            propagatePublicationUpward(p);
+        }
+
+        return null;
+    }
+
+    /**
+     * Override to redirect to our new logic.
+     * Kept for compatibility if base class calls it, but matchPublication is the
+     * main entry.
+     */
+    @Override
+    protected void processPublicationDownward(simulator.events.PublicationWithLocation pub) {
+        routeToBestChild(pub);
+    }
+
+    /**
+     * Tries to find the Single Winner among children.
+     * 
+     * @return true if a winner was found and accepted (Score < Threshold).
+     */
+    private boolean routeToBestChild(simulator.events.PublicationWithLocation pub) {
+        // 1. Identification Phase: Calculate scores for all candidates
+        TreeNode bestChild = null;
+        double minScore = Double.MAX_VALUE;
+
+        for (Map.Entry<TreeNode, Location[]> entry : childTopologicalTargets.entrySet()) {
+            TreeNode neighbor = entry.getKey();
+
+            // Loop prevention
+            if (neighbor == pub.getSource())
+                continue;
+            if (neighbor == getParentBroker())
+                continue;
+            if (inputStore.get(neighbor) == null)
+                continue; // No interest
+
+            Location[] targets = entry.getValue();
+            if (targets == null)
+                continue;
+
+            // Find the best distance for THIS neighbor against the request
+            for (Location target : targets) {
+                double score = pub.getLocation().distanceSquared(target);
+                if (score < minScore) {
+                    minScore = score;
+                    bestChild = neighbor;
+                }
+            }
+        }
+
+        // 2. Forwarding Phase: Send ONLY to the winner
+        if (bestChild != null) {
+            // STRICT REQUIREMENT CHECK
+            if (minScore > MultiMetricLocation.MAX_ACCEPTABLE_DISTANCE) {
+                if (simulator.config.SimConfiguration.get().paths.enableEventTracing && pub.getMetrics() != null) {
+                    System.out.println(
+                            "  [Broker " + getName() + "] REJECTED Winner: " + bestChild.getName() + " (Score: "
+                                    + String.format("%.2f", minScore) + " > Threshold)");
+                }
+                return false; // Found, but REJECTED -> Treated as "Not Resolved"
+            }
+
+            if (simulator.config.SimConfiguration.get().paths.enableEventTracing && pub.getMetrics() != null) {
+                System.out.println("  [Broker " + getName() + "] Routed to Winner: " + bestChild.getName() + " (Score: "
+                        + String.format("%.2f", minScore) + ")");
+            }
+            sendToChild(bestChild, pub, minScore);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void sendToChild(TreeNode child, simulator.events.PublicationWithLocation pub, double score) {
+        simulator.events.SimulationPublication abstractCopy = pub.getPublication();
+        if (abstractCopy instanceof simulator.events.PublicationWithLocation) {
+            simulator.events.PublicationWithLocation copy = (simulator.events.PublicationWithLocation) abstractCopy;
+            copy.setSource(this);
+            copy.copyStateFrom(pub);
+            copy.incrementHops();
+            if (score >= 0)
+                copy.setCachedDistanceSquared(score);
+
+            if (child instanceof simulator.regions.BoundedBroker) {
+                ((simulator.regions.BoundedBroker) child).processPublication(copy);
+            } else if (child instanceof simulator.entities.SubscriberWithLocation) {
+                ((simulator.entities.SubscriberWithLocation) child).receive(copy);
+            }
+        }
     }
 }
