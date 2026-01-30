@@ -14,13 +14,17 @@ def parse_log_file(file_path):
         'subscribers': None,
         'fpr_threshold': None,
         'table_size_avg': None,
+        'core_table_size_avg': None, 
         'pub_events': None,
         'avg_comparisons': None,
         'sub_updates_sent': None,
         'traffic_ratio': None,
-        'traffic_saved': None,      # UPDATED: Now includes Input + Output savings
-        'suppression_rate': None,   # NEW: traffic_saved / total_input_events
-        'false_positives': None
+        'traffic_saved': None,
+        'suppression_rate': None,
+        'false_positives': None,
+        'false_positive_rate': None,
+        'total_brokers': None,       
+        'total_leaf_brokers': None   
     }
 
     try:
@@ -58,13 +62,44 @@ def parse_log_file(file_path):
                 match_pubs_2 = re.search(r"Publisher Placement Complete:\s+(\d+)\s+created", content)
                 if match_pubs_2:
                     metrics['publishers'] = int(match_pubs_2.group(1))
+            
+            # --- Broker Counts ---
+            match_total_brokers = re.search(r"Total Brokers\s*:\s*(\d+)", content)
+            if match_total_brokers:
+                metrics['total_brokers'] = int(match_total_brokers.group(1))
+                
+            match_leaf_brokers = re.search(r"Total Leaf Brokers\s*:\s*(\d+)", content)
+            if match_leaf_brokers:
+                metrics['total_leaf_brokers'] = int(match_leaf_brokers.group(1))
 
             # --- 3. Extract Performance Metrics ---
             
-            # Table Size
+            # Table Size (Global Average)
             match_table = re.search(r"Input Table Size \(Min / Avg / Max\)\s+:\s+\d+\s+/\s+([\d\.]+)\s+/\s+\d+", content)
             if match_table:
                 metrics['table_size_avg'] = float(match_table.group(1))
+
+            # --- Calculate Core Table Size (REVERTED FORMULA) ---
+            # Architectural Definition: Leaf Brokers typically only hold entries from their
+            # local subscribers (Split Horizon). They do NOT hold an entry from the Parent.
+            # Therefore: TotalSystemEntries = (CoreEntries) + (SubscriberEntries)
+            if (metrics['table_size_avg'] is not None and 
+                metrics['total_brokers'] and 
+                metrics['total_leaf_brokers'] and 
+                metrics['subscribers'] is not None):
+                
+                core_brokers = metrics['total_brokers'] - metrics['total_leaf_brokers']
+                
+                if core_brokers > 0:
+                    total_system_entries = metrics['table_size_avg'] * float(metrics['total_brokers'])
+                    
+                    # Simply subtract the subscribers (who reside at the leaves)
+                    core_entries = total_system_entries - float(metrics['subscribers'])
+                    
+                    core_entries = max(0.0, core_entries)
+                    metrics['core_table_size_avg'] = core_entries / float(core_brokers)
+                else:
+                    metrics['core_table_size_avg'] = 0.0
 
             # Total Forwarding Events
             match_pub_events = re.search(r"Total Forwarding Events \(Traffic\)\s+:\s+([\d,]+)", content)
@@ -86,47 +121,40 @@ def parse_log_file(file_path):
             if match_traffic_ratio:
                 metrics['traffic_ratio'] = float(match_traffic_ratio.group(1))
 
-            # --- FIX START: Capture Input Savings and Calculate Total Suppressed ---
-            
-            # 1. Get Total Input (Denominator for rate)
-            # "Total Input Entries (Received) : 1,699,692"
+            # Traffic Saved & Suppression Rate
             total_input = 0
             match_total_input = re.search(r"Total Input Entries \(Received\)\s+:\s+([\d,]+)", content)
             if match_total_input:
                 total_input = int(match_total_input.group(1).replace(',', ''))
 
-            # 2. Get Detailed Coverage (Input / Output)
-            # "-> Covered (Filtered/Suppressed) : 0 / 1,088,766"
-            # Group 1 = Input Covered (Missing in original metric)
-            # Group 2 = Output Covered (Original metric)
             match_covered_detailed = re.search(r"-> Covered \(Filtered/Suppressed\)\s+:\s+([\d,]+)\s+/\s+([\d,]+)", content)
             
             if match_covered_detailed:
                 input_covered = int(match_covered_detailed.group(1).replace(',', ''))
                 output_covered = int(match_covered_detailed.group(2).replace(',', ''))
-                
-                # New Definition: Total Suppressed = Input + Output
                 metrics['traffic_saved'] = input_covered + output_covered
                 
-                # Calculate Rate
                 if total_input > 0:
                     metrics['suppression_rate'] = float(metrics['traffic_saved']) / float(total_input)
                 else:
                     metrics['suppression_rate'] = 0.0
             else:
-                # Fallback for older logs (Output only)
                 match_traffic_saved = re.search(r"Traffic Saved \(Filtered/Absorbed\)\s+:\s+([\d,]+)", content)
                 if match_traffic_saved:
                     metrics['traffic_saved'] = int(match_traffic_saved.group(1).replace(',', ''))
-            
-            # --- FIX END ---
 
-            # False Positives
+            # False Positives & Rate
             match_fp = re.search(r"False Positive Events \(Dead Ends\)\s+:\s+([\d,]+)", content)
             if match_fp:
                 metrics['false_positives'] = int(match_fp.group(1).replace(',', ''))
             elif "5. ROUTING OVERHEAD & EFFICIENCY" in content:
                 metrics['false_positives'] = 0
+            
+            # Calculate FP Rate
+            if metrics['false_positives'] is not None and metrics['pub_events'] and metrics['pub_events'] > 0:
+                metrics['false_positive_rate'] = (float(metrics['false_positives']) / float(metrics['pub_events'])) * 100.0
+            elif metrics['false_positives'] == 0:
+                metrics['false_positive_rate'] = 0.0
 
     except Exception as e:
         print(f"Error parsing {file_path}: {e}", file=sys.stderr)
@@ -138,29 +166,26 @@ def parse_log_file(file_path):
     return metrics
 
 def format_value(key, value):
-    """
-    Applies the specific decimal precision required to match the original CSV.
-    """
     if value is None:
         return ""
     
     if key == 'table_size_avg':
         return f"{value:.2f}"
+    elif key == 'core_table_size_avg': 
+        return f"{value:.2f}"
     elif key == 'avg_comparisons':
         return f"{value:.2f}"
     elif key == 'traffic_ratio':
         return f"{value:.4f}"
-    elif key == 'suppression_rate': # New formatting
+    elif key == 'suppression_rate':
         return f"{value:.4f}"
+    elif key == 'false_positive_rate':
+        return f"{value:.2f}" 
     else:
         return str(value)
 
 def scan_directory_and_process(root_folder, output_csv):
-    """
-    Recursively scans for .log files, extracts data, sorts it, and writes CSV.
-    """
     all_data = []
-
     print(f"Scanning directory: {root_folder} ...")
 
     for root, dirs, files in os.walk(root_folder):
@@ -175,27 +200,29 @@ def scan_directory_and_process(root_folder, output_csv):
         print("No valid simulation logs found.")
         return
 
-    # Sort data: Publishers (asc) -> Subscribers (asc) -> Threshold (asc)
+    # Sort data
     all_data.sort(key=lambda x: (
         x['publishers'] if x['publishers'] is not None else 0, 
         x['subscribers'] if x['subscribers'] is not None else 0, 
         x['fpr_threshold'] if x['fpr_threshold'] is not None else 0
     ))
 
-    # Define CSV Headers (Added suppression_rate)
+    # Define CSV Headers
     headers = [
         'experiment_id',
         'publishers',
         'subscribers',
         'fpr_threshold',
         'table_size_avg',
+        'core_table_size_avg',
         'pub_events',
         'avg_comparisons',
         'sub_updates_sent',
         'traffic_ratio',
         'traffic_saved',
-        'suppression_rate', # Added new column
-        'false_positives'
+        'suppression_rate',
+        'false_positives',
+        'false_positive_rate'
     ]
 
     print(f"Writing {len(all_data)} rows to {output_csv} ...")
@@ -205,7 +232,8 @@ def scan_directory_and_process(root_folder, output_csv):
         writer.writeheader()
         
         for row in all_data:
-            formatted_row = {k: format_value(k, v) for k, v in row.items()}
+            row_to_write = {k: row.get(k) for k in headers}
+            formatted_row = {k: format_value(k, v) for k, v in row_to_write.items()}
             writer.writerow(formatted_row)
 
     print("Done.")
