@@ -8,7 +8,7 @@ import simulator.topology.geonames.GeoNamesTopologyConfiguration;
 import simulator.topology.geonames.GeoNamesTopologyLoader;
 import java.util.Properties;
 
-public class RegionalScenario implements SimulationScenario {
+public class RegionalScenario extends AbstractSimulationScenario {
 
     @Override
     public String getKnobKey() {
@@ -22,7 +22,7 @@ public class RegionalScenario implements SimulationScenario {
 
     @Override
     public String getCsvHeader() {
-        return "publishers,subscribers,fpr_threshold," +
+        return getCommonCsvHeader() + ",fpr_threshold," +
                "table_size_avg,core_table_size_avg," +
                "pub_events,avg_comparisons," +
                "sub_updates_sent," +
@@ -31,7 +31,7 @@ public class RegionalScenario implements SimulationScenario {
     }
 
     @Override
-    public void configure(Properties props) {
+    protected void configureSpecific(Properties props) {
         props.setProperty("broker.brake.strategy", "simulator.regions.policy.NoOpBrakeStrategy");
     }
 
@@ -40,7 +40,11 @@ public class RegionalScenario implements SimulationScenario {
         var sim = new PopulationGeonamesRegionPerformanceSimulation();
         GeoNamesTopologyConfiguration config = new GeoNamesTopologyConfiguration();
         GeoNamesTopologyLoader factory = new GeoNamesTopologyLoader(new SpatialMatchBrokerFactory());
+        
         sim.run(factory, config);
+        
+        this.currentExperimentId = sim.getSimulationId();
+
         return sim.getLastRunMetrics();
     }
 
@@ -50,44 +54,25 @@ public class RegionalScenario implements SimulationScenario {
             return "";
         }
 
-        // 1. Config Props
-        String publishers = props.getProperty("workload.replicas", "Unknown");
-        String subscribers = props.getProperty("workload.subscribers.count", "Unknown");
-        String knobValue = props.getProperty(getKnobKey(), "0.0");
-
-        // 2. Table Stats
+        // Stats calculation
         double avgTableSize = regionData.inputTableStats.getAverage();
-        
         double avgCoreTableSize = (regionData.coreInputTableStats.getCount() > 0) 
-            ? regionData.coreInputTableStats.getAverage() 
-            : 0.0;
-
-        // 3. Pub Overhead & Comparisons
+            ? regionData.coreInputTableStats.getAverage() : 0.0;
         long pubEvents = regionData.totalPublicationProcessingEvents;
         long computations = regionData.totalMatchingComputations;
         double avgComparisons = (pubEvents > 0) ? (double) computations / pubEvents : 0.0;
-
-        // 4. Sub Overhead
         long subOverhead = regionData.totalPropagatedExpanded + regionData.totalPropagatedAdded;
-
-        // 5. Traffic Ratio
         double trafficRatio = (regionData.totalDeliveriesReceived > 0) 
-                ? (double) regionData.totalPublicationProcessingEvents / regionData.totalDeliveriesReceived 
-                : 0.0;
-
-        // 6. Traffic Saved & Suppression Rate
+                ? (double) regionData.totalPublicationProcessingEvents / regionData.totalDeliveriesReceived : 0.0;
         long trafficSaved = regionData.totalInputCovered + regionData.totalPropagatedCovered;
         long totalInput = regionData.totalInputCovered + regionData.totalInputExpanded + regionData.totalInputAdded;
         double suppressionRate = (totalInput > 0) ? (double) trafficSaved / totalInput : 0.0;
-
-        // 7. False Positives
         long falsePositives = regionData.totalFalsePositiveEvents;
         double fpRate = (pubEvents > 0) ? (double) falsePositives / pubEvents * 100.0 : 0.0;
 
-        return String.format("%s,%s,%s,%.2f,%.2f,%d,%.2f,%d,%.4f,%d,%.4f,%d,%.2f",
-                publishers,
-                subscribers,
-                knobValue,
+        return String.format("%s,%s,%.2f,%.2f,%d,%.2f,%d,%.4f,%d,%.4f,%d,%.2f",
+                getCommonCsvPrefix(props),
+                props.getProperty(getKnobKey(), "0.0"),
                 avgTableSize,
                 avgCoreTableSize,
                 pubEvents,

@@ -56,7 +56,6 @@ public abstract class AbstractLocationPerformanceSimulation<C extends TopologyCo
         
         if (brokerConfig.proximityBrakeEnabled) {
             logConfigItem("Brake Limit (Burst Cap)", brokerConfig.proximityBrakeLimit);
-            logConfigItem("Brake Interval", brokerConfig.proximityBrakeIntervalMs + " ms");
         }
     }
     

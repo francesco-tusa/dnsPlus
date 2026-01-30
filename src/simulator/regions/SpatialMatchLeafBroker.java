@@ -39,9 +39,4 @@ public class SpatialMatchLeafBroker extends SpatialMatchBroker implements LeafBr
         super.matchPublication(p);
         return null;
     }
-
-    @Override
-    public void processPublicationForLocalDelivery(SimulationPublication p) {
-        // Handled by super.matchPublication
-    }
 }

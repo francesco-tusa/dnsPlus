@@ -82,7 +82,7 @@ public abstract class AbstractBilevelPublishersPlacement extends AbstractPublish
             chosenLeaf.addChild(publisher);
             publishersCreated++;
             
-            logger.info(String.format("  -> Placed %s in LEAF '%s' (inside RANDOMLY SELECTED region '%s')",
+            logger.fine(String.format("  -> Placed %s in LEAF '%s' (inside RANDOMLY SELECTED region '%s')",
                               publisher.getName(), 
                               chosenLeaf.getName(),
                               chosenMajorRegion.getName()

@@ -28,6 +28,10 @@ public abstract class SimulationRunner<
     public void setLogLevel(Level level) {
         this.overrideLogLevel = level;
     }
+    
+    public String getSimulationId() {
+        return this.simulationTimestamp;
+    }
 
     // --- Logging Helper ---
     protected void logSectionHeader(String title) {

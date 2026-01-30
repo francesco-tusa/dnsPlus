@@ -5,26 +5,27 @@ import simulator.entities.SimulationBroker;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SubscriptionWithLocation;
 import simulator.regions.ProximityRoutingLeafBroker;
-import simulator.regions.policy.DecayingCounterBrakeStrategy;
+import simulator.regions.policy.FixedCounterBrakeStrategy;
 import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 
 /**
- * Verifies the "Brake Rule" from the Heavy Version (Closest) algorithm.
+ * Verifies the "Fixed Brake Rule" works independently per quadrant.
  * * Logic Tested:
- * 1. Configures a Leaf Broker with a Brake Strategy (Limit=5, Interval=1000ms).
- * 2. Simulates a burst of publications.
- * 3. Asserts that the Parent Broker's processing counter increases by exactly 5.
- * 4. Advances time and asserts the counter increases again.
+ * 1. Configures a Leaf Broker with a Fixed Brake Strategy (Limit=5 per quadrant).
+ * 2. Iterates through all 4 quadrants (NE, NW, SW, SE).
+ * 3. For each quadrant, sends a burst of 10 publications.
+ * 4. Asserts that exactly 5 pass for THAT quadrant (proving independence).
+ * 5. Asserts that subsequent traffic for that quadrant is permanently blocked.
  */
 public class ProximityBrakeLogicTest extends TestScenario {
 
     private static final int BRAKE_LIMIT = 5;
-    private static final long BRAKE_INTERVAL_MS = 1000;
+    private static final int BURST_SIZE = 10;
 
     @Override
     public String getTestName() {
-        return "Proximity Brake Logic Test";
+        return "Proximity Brake Logic Test (Multi-Quadrant Independence)";
     }
 
     @Override
@@ -46,68 +47,79 @@ public class ProximityBrakeLogicTest extends TestScenario {
         ProximityRoutingLeafBroker proxLeaf = (ProximityRoutingLeafBroker) leaf;
         SimulationBroker parent = leaf.getParentBroker();
 
-        logger.info("Testing Brake on Broker: " + proxLeaf.getName() + " -> Parent: " + parent.getName());
+        logger.info("Testing Per-Quadrant Brake on Broker: " + proxLeaf.getName());
 
         // 2. Inject Brake Strategy
-        DecayingCounterBrakeStrategy strategy = new DecayingCounterBrakeStrategy(BRAKE_LIMIT, BRAKE_INTERVAL_MS);
+        FixedCounterBrakeStrategy strategy = new FixedCounterBrakeStrategy(BRAKE_LIMIT);
         proxLeaf.setBrakeStrategy(strategy);
 
-        // 3. Setup Subscription
-        // Note: Using proxLeaf.getRegion() as discussed previously
+        // 3. Setup Subscription (Center) so all pubs match interest
         SubscriptionWithLocation sub = new SubscriptionWithLocation(proxLeaf.getRegion().getCenter());
         sub.setSource(parent);
         proxLeaf.addSubscription(sub);
 
-        // 4. Phase 1: The Burst (Time T=0)
+        // 4. Define Test Points for all 4 Quadrants
+        // We use a small delta (0.1) to ensure we stay inside the region (assuming reasonable region size)
+        // while clearly landing in different quadrants relative to the center.
         Location center = proxLeaf.getRegion().getCenter();
-        Location northEastLoc = new Location(center.getX() + 1.0, center.getY() + 1.0, 0);
+        double cx = center.getX();
+        double cy = center.getY();
 
-        logger.info("--- Phase 1: Sending burst of 10 pubs (Limit " + BRAKE_LIMIT + ") ---");
-        
-        // Capture baseline metric from the Parent
-        long initialParentCount = parent.getTotalPublicationProcessingEvents();
-        
-        for (int i = 0; i < 10; i++) {
-            PublicationWithLocation pub = new PublicationWithLocation(northEastLoc);
-            proxLeaf.matchPublication(pub); 
+        // Array of test configurations: {Name, OffsetX, OffsetY}
+        // Q0: NE (+,+), Q1: NW (-,+), Q2: SW (-,-), Q3: SE (+,-)
+        Object[][] testQuadrants = {
+            {"NE (Quadrant 0)",  0.1,  0.1},
+            {"NW (Quadrant 1)", -0.1,  0.1},
+            {"SW (Quadrant 2)", -0.1, -0.1},
+            {"SE (Quadrant 3)",  0.1, -0.1}
+        };
+
+        long previousTotalEvents = parent.getTotalPublicationProcessingEvents();
+
+        // 5. Loop through each quadrant and verify independence
+        for (Object[] qData : testQuadrants) {
+            String qName = (String) qData[0];
+            double offX = (double) qData[1];
+            double offY = (double) qData[2];
+
+            Location pubLoc = new Location(cx + offX, cy + offY, 0);
+
+            logger.info("--- Testing " + qName + " ---");
+            
+            // Send Burst
+            for (int i = 0; i < BURST_SIZE; i++) {
+                PublicationWithLocation pub = new PublicationWithLocation(pubLoc);
+                proxLeaf.matchPublication(pub);
+            }
+
+            // Check Results
+            long currentTotalEvents = parent.getTotalPublicationProcessingEvents();
+            long processedInBatch = currentTotalEvents - previousTotalEvents;
+            previousTotalEvents = currentTotalEvents; // Update baseline for next loop
+
+            logger.info(qName + ": Sent " + BURST_SIZE + ", Parent processed " + processedInBatch);
+
+            // Assertions
+            if (processedInBatch != BRAKE_LIMIT) {
+                logger.severe("FAILURE: " + qName + " failed. Expected " + BRAKE_LIMIT + " passed, but got " + processedInBatch);
+                // If we get 0, it means the counters are NOT independent (shared pool exhausted).
+                if (processedInBatch == 0) {
+                    logger.severe("       (Result 0 implies quadrants are sharing a single counter!)");
+                }
+                return false;
+            }
+
+            // Verify Blocking specifically for this quadrant now
+            PublicationWithLocation extraPub = new PublicationWithLocation(pubLoc);
+            proxLeaf.matchPublication(extraPub);
+            
+            if (parent.getTotalPublicationProcessingEvents() != previousTotalEvents) {
+                logger.severe("FAILURE: " + qName + " did not permanently block after limit.");
+                return false;
+            }
         }
 
-        // Calculate how many reached the parent
-        long afterBurstCount = parent.getTotalPublicationProcessingEvents();
-        long receivedPhase1 = afterBurstCount - initialParentCount;
-        
-        logger.info("Parent processed " + receivedPhase1 + " new publications.");
-
-        if (receivedPhase1 != BRAKE_LIMIT) {
-            logger.severe("FAILURE: Brake failed. Expected " + BRAKE_LIMIT + " but Parent processed " + receivedPhase1);
-            return false;
-        }
-
-        // 5. Phase 2: The Reset (Time T > 1000ms)
-        logger.info("--- Phase 2: Waiting " + (BRAKE_INTERVAL_MS + 100) + "ms for token reset ---");
-        
-        try {
-            Thread.sleep(BRAKE_INTERVAL_MS + 100);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            return false;
-        }
-
-        // Send 1 more pub. It should pass now.
-        PublicationWithLocation pubAfterReset = new PublicationWithLocation(northEastLoc);
-        proxLeaf.matchPublication(pubAfterReset);
-
-        long finalCount = parent.getTotalPublicationProcessingEvents();
-        long receivedPhase2 = finalCount - afterBurstCount;
-
-        logger.info("Parent processed " + receivedPhase2 + " additional publications.");
-
-        if (receivedPhase2 != 1) {
-            logger.severe("FAILURE: Brake reset failed. Expected 1 passed message but got " + receivedPhase2);
-            return false;
-        }
-
-        logger.info("SUCCESS: Proximity Brake Logic verified.");
+        logger.info("SUCCESS: All quadrants handled traffic independently and enforced limits.");
         return true;
     }
 

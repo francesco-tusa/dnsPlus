@@ -232,6 +232,40 @@ public class Region extends AbstractRegion {
         }
     }
 
+
+    /**
+     * Determines the quadrant of a point relative to the region's center.
+     * Handles wrapping logic (Anti-Meridian).
+     * * @param p      The target location
+     * @param region The reference region (used to extract center)
+     * @return 0: NE, 1: NW, 2: SW, 3: SE
+     */
+    public static int getQuadrant(Location p, Region region) {
+        Location center = region.getCenter();
+        
+        // 1. Latitude Check (North/South)
+        boolean north = p.getY() >= center.getY();
+
+        // 2. Longitude Check (East/West) - Handles Wrapping
+        double diff = p.getX() - center.getX();
+        
+        // Normalize difference to [-180, 180]
+        if (diff < -180.0) {
+            diff += 360.0; // Crossed Date Line Eastward
+        } else if (diff > 180.0) {
+            diff -= 360.0; // Crossed Date Line Westward
+        }
+        
+        boolean east = diff >= 0.0;
+
+        // 3. Assign Quadrant
+        if (north && east) return 0; // NE
+        if (north && !east) return 1; // NW
+        if (!north && !east) return 2; // SW
+        return 3; // SE
+    }
+
+
     // =========================================================================
     // INSTANCE METHODS (Original OOP Implementation)
     // =========================================================================

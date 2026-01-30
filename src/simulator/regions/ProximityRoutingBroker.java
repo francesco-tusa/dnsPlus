@@ -15,7 +15,7 @@ import simulator.events.SimulationSubscription;
 import simulator.events.SubscriptionWithLocation;
 import simulator.events.metrics.EventMetrics;
 import simulator.regions.policy.BrakeStrategy;
-import simulator.regions.policy.DecayingCounterBrakeStrategy;
+import simulator.regions.policy.FixedCounterBrakeStrategy;
 import simulator.regions.policy.NoOpBrakeStrategy;
 import simulator.regions.store.BasicSubscriptionStore;
 import utils.CsvMetricWriter;
@@ -42,8 +42,8 @@ public class ProximityRoutingBroker extends BoundedBroker {
     private void init() {
         BrokerConfig config = SimConfiguration.get().broker;
         if (config.proximityBrakeEnabled) {
-            this.brakeStrategy = new DecayingCounterBrakeStrategy(
-                    config.proximityBrakeLimit, config.proximityBrakeIntervalMs);
+            this.brakeStrategy = new FixedCounterBrakeStrategy(
+                    config.proximityBrakeLimit);
         } else {
             this.brakeStrategy = new NoOpBrakeStrategy();
         }
@@ -171,18 +171,21 @@ public class ProximityRoutingBroker extends BoundedBroker {
         BoundedBroker parentBroker = getParentBroker();
         if (parentBroker == null)
             return;
+            
         if (p instanceof PublicationWithLocation) {
             PublicationWithLocation pub = (PublicationWithLocation) p;
             Region r = getRegion();
-            if (r != null && r.getCenter() != null) {
-                long now = System.currentTimeMillis();
-                boolean allowed = brakeStrategy.shouldPropagate(pub.getLocation(), r.getCenter(), now);
+            
+            if (r != null) { 
+                boolean allowed = brakeStrategy.shouldPropagate(pub.getLocation(), r);
+                
                 if (!allowed) {
                     brakeFilteredCount++;
                     return;
                 }
             }
         }
+
         SimulationPublication forwardedCopy = p.getPublication();
         forwardedCopy.setSource(this);
         forwardedCopy.copyStateFrom(p);
