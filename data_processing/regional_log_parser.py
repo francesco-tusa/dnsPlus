@@ -64,9 +64,18 @@ def parse_log_file(file_path):
                     metrics['publishers'] = int(match_pubs_2.group(1))
             
             # --- Broker Counts ---
+            # 1. Try explicit line (in case you add it to Java later)
             match_total_brokers = re.search(r"Total Brokers\s*:\s*(\d+)", content)
             if match_total_brokers:
                 metrics['total_brokers'] = int(match_total_brokers.group(1))
+            
+            # 2. If missing, parse the "Structure Summary" table to calculate Total Brokers
+            if metrics['total_brokers'] is None:
+                # Matches lines like: "0      | 1          | 4.00"
+                # We sum the 2nd column (NODES)
+                structure_matches = re.findall(r"^\s*\d+\s+\|\s+(\d+)\s+\|", content, re.MULTILINE)
+                if structure_matches:
+                    metrics['total_brokers'] = sum(int(n) for n in structure_matches)
                 
             match_leaf_brokers = re.search(r"Total Leaf Brokers\s*:\s*(\d+)", content)
             if match_leaf_brokers:
@@ -79,10 +88,12 @@ def parse_log_file(file_path):
             if match_table:
                 metrics['table_size_avg'] = float(match_table.group(1))
 
-            # --- Calculate Core Table Size (REVERTED FORMULA) ---
-            # Architectural Definition: Leaf Brokers typically only hold entries from their
-            # local subscribers (Split Horizon). They do NOT hold an entry from the Parent.
-            # Therefore: TotalSystemEntries = (CoreEntries) + (SubscriberEntries)
+            # --- Calculate Core Table Size (UPDATED FORMULA) ---
+            # Architectural Definition: 
+            # 1. Leaf Brokers contain Subscribers.
+            # 2. Leaf Brokers ALSO contain at least one entry pointing to the Parent.
+            #    (This parent entry is required for publications to route upward).
+            # Therefore: TotalSystemEntries = (CoreEntries) + (SubscriberEntries + LeafRoutingOverhead)
             if (metrics['table_size_avg'] is not None and 
                 metrics['total_brokers'] and 
                 metrics['total_leaf_brokers'] and 
@@ -93,8 +104,18 @@ def parse_log_file(file_path):
                 if core_brokers > 0:
                     total_system_entries = metrics['table_size_avg'] * float(metrics['total_brokers'])
                     
-                    # Simply subtract the subscribers (who reside at the leaves)
-                    core_entries = total_system_entries - float(metrics['subscribers'])
+                    # FIX: Subtract BOTH subscribers and the leaf routing overhead
+                    # Leaf Brokers contain:
+                    # 1. Subscribers (metrics['subscribers'])
+                    # 2. At least one entry pointing to the Parent (metrics['total_leaf_brokers'])
+                    
+                    sub_count = float(metrics['subscribers']) if metrics['subscribers'] else 0.0
+                    leaf_structure_overhead = float(metrics['total_leaf_brokers'])
+                    
+                    # The total load residing in Leaf nodes that should be removed
+                    leaf_total_load = sub_count + leaf_structure_overhead
+                    
+                    core_entries = total_system_entries - leaf_total_load
                     
                     core_entries = max(0.0, core_entries)
                     metrics['core_table_size_avg'] = core_entries / float(core_brokers)

@@ -235,6 +235,43 @@ def plot_data_plane_filtered(df, output_dir, fixed_fpr=0.25):
         plt.savefig(os.path.join(output_dir, filename), format='pdf', bbox_inches='tight')
         plt.close()
 
+def plot_data_plane_inverted(df, output_dir, fixed_fpr=0.25):
+    """
+    NEW PLOT: Inverted version of Fig 5.
+    X-Axis: Subscribers
+    Lines: Publishers
+    """
+    print(f"Generating Inverted Data Plane Plots (Fixed FPR={fixed_fpr})...")
+    
+    subset = df[df['fpr_threshold'] == fixed_fpr].copy()
+    if subset.empty: return
+
+    # --- FILTERING STEP ---
+    # Adjusted to 10 to reveal the gap between 10 and 1000
+    subset = subset[subset['publishers'] >= 10]
+    
+    subset['Pubs_Label'] = subset['publishers'].apply(lambda x: f"{int(x):,}")
+    subset = subset.sort_values('publishers')
+
+    metrics = [
+        ('pub_events', 'Forwarding Load (Events)', 'log', 'Fig5b_DataPlane_Load_Inverted.pdf'),
+        ('false_positive_rate', 'Routing Error (False Positive %)', 'linear', 'Fig6b_Routing_Stability_Inverted.pdf')
+    ]
+
+    for y_col, y_label, y_scale, filename in metrics:
+        plt.figure(figsize=(8, 6))
+        # Hue = Publishers, X = Subscribers
+        sns.lineplot(data=subset, x='subscribers', y=y_col, hue='Pubs_Label', style='Pubs_Label', markers=True, palette="viridis", linewidth=LINE_WIDTH, markersize=MARKER_SIZE)
+        plt.xscale('log')
+        if y_scale == 'log': plt.yscale('log')
+        
+        plt.xlabel("Number of Subscribers", fontweight='bold')
+        plt.ylabel(y_label, fontweight='bold')
+        plt.title(f"{y_label} (Inverted View)\n(Fixed FPR: {fixed_fpr})")
+        plt.legend(title="Publishers", bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.savefig(os.path.join(output_dir, filename), format='pdf', bbox_inches='tight')
+        plt.close()
+
 def main():
     parser = argparse.ArgumentParser(description="Generate Paper-Ready Graphs for DNS++")
     parser.add_argument("batch_id", help="The numeric ID of the batch")
@@ -261,6 +298,7 @@ def main():
     
     # Fig 5, 6 (Filtered >= 10 + Heatmap)
     plot_data_plane_filtered(df, output_dir, fixed_fpr=0.25)
+    plot_data_plane_inverted(df, output_dir, fixed_fpr=0.25) # <--- Added Call
     plot_stability_heatmap(df, output_dir, fixed_fpr=0.25)
 
     print("\nProcessing Complete.")
