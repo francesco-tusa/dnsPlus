@@ -9,11 +9,9 @@ public abstract class PerformanceMetricsData {
     public final IntSummaryStatistics inputTableStats = new IntSummaryStatistics();
     public final IntSummaryStatistics outputTableStats = new IntSummaryStatistics();
     
-    // --- NEW: Core Table Stats (Min/Avg/Max for Non-Leaf Brokers) ---
     public final IntSummaryStatistics coreInputTableStats = new IntSummaryStatistics();
-    // --------------------------------------------------------------------
     
-    // --- Topology Stats (Populated from TopologyAnalyser) ---
+    // --- Topology Stats ---
     public long totalBrokers = 0;
     public long totalLeafBrokers = 0;
 
