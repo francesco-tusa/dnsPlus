@@ -14,7 +14,7 @@ import simulator.population.PopulationBasedSubscribersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.population.TopologyPopulator;
 import simulator.regions.BoundedBroker;
-// --- Metrics & GT Imports ---
+
 import simulator.simulations.performance.metrics.MetricsCollector;
 import simulator.simulations.performance.metrics.MetricsPrinter;
 import simulator.simulations.performance.metrics.PerformanceMetricsData;
@@ -22,6 +22,7 @@ import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculat
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.analysis.TopologyAnalyser;
+import simulator.topology.analysis.TopologyAnalyser.TopologyStats;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
@@ -40,6 +41,8 @@ public abstract class AbstractPerformanceSimulation<
     protected GroundTruthCalculator truthCalculator;
 
     protected PerformanceMetricsData lastRunMetrics;
+    
+    protected TopologyStats topologyStats;
 
     // --- Abstract Factories ---
     protected abstract PerformanceMetricsData createMetricsData();
@@ -117,9 +120,6 @@ public abstract class AbstractPerformanceSimulation<
         printSeparator();
     }
     
-    /**
-     * Hook for subclasses to log algorithm-specific settings.
-     */
     protected abstract void logSpecificConfiguration();
 
     @Override
@@ -141,7 +141,7 @@ public abstract class AbstractPerformanceSimulation<
             return;
         }
 
-        TopologyAnalyser.logStructure(this.rootNode, logger);
+        this.topologyStats = TopologyAnalyser.logStructure(this.rootNode, logger);
 
         List<BoundedBroker> leafBrokers = TopologyAnalyser.findLeafBrokers(this.rootNode);
         if (leafBrokers.isEmpty()) {
@@ -167,13 +167,12 @@ public abstract class AbstractPerformanceSimulation<
                 else if (child instanceof PublisherWithLocation p) allPublishers.add(p);
             }
         }
-        // Log actual counts now that they exist
         logger.info("Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
     }
 
     protected void collectAndPrintMetrics() {
         MetricsCollector collector = new MetricsCollector();
-        PerformanceMetricsData collected = collector.collect(this.rootNode, allSubscribers, allPublishers);
+        PerformanceMetricsData collected = collector.collect(this.rootNode, allSubscribers, allPublishers, this.topologyStats);
         
         collected.groundTruthMatches = this.metricsData.groundTruthMatches;
         

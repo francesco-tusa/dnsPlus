@@ -35,7 +35,7 @@ public class RegionWorkloadGenerator implements SubscriptionWorkloadGenerator {
     public SimulationSubscription generateSubscription(SubscriberWithLocation subscriber, List<BoundedBroker> leafBrokers) {
         double remoteProb = SimConfiguration.get().workload.remoteInterestProbability;
         double regionSize = SimConfiguration.get().workload.subscriptionRegionSize;
-        double jitter = SimConfiguration.get().workload.locationJitter; // [NEW] Read Config
+        double jitter = SimConfiguration.get().workload.locationJitter;
         
         Region subscriptionRegion;
         

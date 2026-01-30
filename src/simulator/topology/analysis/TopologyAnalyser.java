@@ -10,8 +10,20 @@ import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.regions.BoundedBroker;
+import simulator.regions.LeafBroker;
 
 public class TopologyAnalyser {
+
+    // --- Stats Container ---
+    public static class TopologyStats {
+        public final long totalBrokers;
+        public final long totalLeafBrokers;
+        
+        public TopologyStats(long totalBrokers, long totalLeafBrokers) {
+            this.totalBrokers = totalBrokers;
+            this.totalLeafBrokers = totalLeafBrokers;
+        }
+    }
 
     // --- Graph Traversal Utilities ---
 
@@ -39,7 +51,7 @@ public class TopologyAnalyser {
                         }
                     }
                 } else {
-                    // GENERIC PATH: Must queue everything (High Memory Risk with Subscribers)
+                    // GENERIC PATH: Must queue everything
                     queue.addAll(current.getChildren());
                 }
             }
@@ -56,7 +68,6 @@ public class TopologyAnalyser {
     }
 
     public static BoundedBroker findLeafBrokerAtLocation(BoundedBroker root, Location location) {
-        // This now uses the optimized findFirstNode, so it is safe.
         return findFirstNode(root, BoundedBroker.class, broker -> 
             isLeafBroker(broker) && 
             broker.getRegion() != null && 
@@ -107,38 +118,34 @@ public class TopologyAnalyser {
 
         while (!queue.isEmpty()) {
             BoundedBroker current = queue.poll();
-            boolean isLeaf = true;
             
-            if (current.getChildren() != null) {
-                for (TreeNode child : current.getChildren()) {
-                    if (child instanceof BoundedBroker broker) {
-                        isLeaf = false;
-                        queue.add(broker); // Only queue Brokers
+            if (isLeafBroker(current)) {
+                leaves.add(current);
+            } else {
+                // Only traverse down if it's NOT a leaf
+                if (current.getChildren() != null) {
+                    for (TreeNode child : current.getChildren()) {
+                        if (child instanceof BoundedBroker broker) {
+                            queue.add(broker); 
+                        }
                     }
                 }
-            }
-            
-            if (isLeaf) {
-                leaves.add(current);
             }
         }
         return leaves;
     }
 
     public static boolean isLeafBroker(BoundedBroker broker) {
-        if (broker.getChildren() == null) return true;
-        for (TreeNode child : broker.getChildren()) {
-            if (child instanceof BoundedBroker) return false;
-        }
-        return true;
+        return broker instanceof LeafBroker;
     }
 
     public static BoundedBroker findFirstLeafBroker(TreeNode root) {
         return findFirstNode(root, BoundedBroker.class, TopologyAnalyser::isLeafBroker);
     }
 
-    public static void logStructure(BoundedBroker root, Logger logger) {
-        if (root == null) return;
+    public static TopologyStats logStructure(BoundedBroker root, Logger logger) {
+        if (root == null) return new TopologyStats(0, 0);
+        
         logger.info("");
         logger.info("--- Broker Topology Structure Summary (Runtime) ---");
         
@@ -146,23 +153,20 @@ public class TopologyAnalyser {
         queue.add(root);
         int currentLevel = 0;
         
-        // 1. Initialize global counters
         long totalBrokers = 0;
         long totalLeafBrokers = 0;
 
         while (!queue.isEmpty()) {
             int levelSize = queue.size(); 
             long totalBrokerChildrenAtLevel = 0; 
-            int levelLeafCount = 0; // Counter for leaves at this specific level
+            int levelLeafCount = 0; 
             
-            // 2. Add current level size to total brokers count
             totalBrokers += levelSize;
 
             for (int i = 0; i < levelSize; i++) {
                 BoundedBroker broker = queue.poll();
                 if (broker == null) continue;
                 
-                // 3. Check if current broker is a leaf
                 if (isLeafBroker(broker)) {
                     levelLeafCount++;
                 }
@@ -177,13 +181,11 @@ public class TopologyAnalyser {
                 }
             }
             
-            // 4. Add level leaves to global leaf count
             totalLeafBrokers += levelLeafCount;
 
             if (levelSize > 0) {
                 double avgFanOut = (totalBrokerChildrenAtLevel > 0) ? (double) totalBrokerChildrenAtLevel / levelSize : 0.0;
                 
-                // 5. Update log to show level stats including leaves
                 logger.info(String.format("  Level %d: %d brokers (%d leaves), Avg. Fan-Out: %.2f", 
                     currentLevel, levelSize, levelLeafCount, avgFanOut));
                 
@@ -191,10 +193,11 @@ public class TopologyAnalyser {
             }
         }
         
-        // 6. Print the final totals
         logger.info("-----------------------------------------------");
         logger.info(String.format("  Total Brokers: %d", totalBrokers));
         logger.info(String.format("  Total Leaf Brokers: %d", totalLeafBrokers));
         logger.info("--- End of Topology Summary ---");
+        
+        return new TopologyStats(totalBrokers, totalLeafBrokers);
     }
 }

@@ -22,17 +22,12 @@ public class RegionalScenario implements SimulationScenario {
 
     @Override
     public String getCsvHeader() {
-        // Columns:
-        // 1. publishers
-        // 2. subscribers
-        // 3. fpr_threshold
-        // 4. table_size_avg
-        // 5. pub_events (Total Forwarding Events)
-        // 6. avg_comparisons (Computations per Event)
-        // 7. sub_overhead (Expanded + Added)
-        // 8. traffic_ratio (Events per Delivery)
-        // 9. traffic_saved (Covered/Filtered)
-        return "publishers,subscribers,fpr_threshold,table_size_avg,pub_events,avg_comparisons,sub_updates_sent,traffic_ratio,traffic_saved";
+        return "publishers,subscribers,fpr_threshold," +
+               "table_size_avg,core_table_size_avg," +
+               "pub_events,avg_comparisons," +
+               "sub_updates_sent," +
+               "traffic_ratio,traffic_saved,suppression_rate," +
+               "false_positives,false_positive_rate";
     }
 
     @Override
@@ -50,51 +45,59 @@ public class RegionalScenario implements SimulationScenario {
     }
 
     @Override
-public String getCsvRow(PerformanceMetricsData data, Properties props) {
-    // Type Check
-    if (!(data instanceof RegionPerformanceMetricsData regionData)) {
-        return "";
+    public String getCsvRow(PerformanceMetricsData data, Properties props) {
+        if (!(data instanceof RegionPerformanceMetricsData regionData)) {
+            return "";
+        }
+
+        // 1. Config Props
+        String publishers = props.getProperty("workload.replicas", "Unknown");
+        String subscribers = props.getProperty("workload.subscribers.count", "Unknown");
+        String knobValue = props.getProperty(getKnobKey(), "0.0");
+
+        // 2. Table Stats
+        double avgTableSize = regionData.inputTableStats.getAverage();
+        
+        double avgCoreTableSize = (regionData.coreInputTableStats.getCount() > 0) 
+            ? regionData.coreInputTableStats.getAverage() 
+            : 0.0;
+
+        // 3. Pub Overhead & Comparisons
+        long pubEvents = regionData.totalPublicationProcessingEvents;
+        long computations = regionData.totalMatchingComputations;
+        double avgComparisons = (pubEvents > 0) ? (double) computations / pubEvents : 0.0;
+
+        // 4. Sub Overhead
+        long subOverhead = regionData.totalPropagatedExpanded + regionData.totalPropagatedAdded;
+
+        // 5. Traffic Ratio
+        double trafficRatio = (regionData.totalDeliveriesReceived > 0) 
+                ? (double) regionData.totalPublicationProcessingEvents / regionData.totalDeliveriesReceived 
+                : 0.0;
+
+        // 6. Traffic Saved & Suppression Rate
+        long trafficSaved = regionData.totalInputCovered + regionData.totalPropagatedCovered;
+        long totalInput = regionData.totalInputCovered + regionData.totalInputExpanded + regionData.totalInputAdded;
+        double suppressionRate = (totalInput > 0) ? (double) trafficSaved / totalInput : 0.0;
+
+        // 7. False Positives
+        long falsePositives = regionData.totalFalsePositiveEvents;
+        double fpRate = (pubEvents > 0) ? (double) falsePositives / pubEvents * 100.0 : 0.0;
+
+        return String.format("%s,%s,%s,%.2f,%.2f,%d,%.2f,%d,%.4f,%d,%.4f,%d,%.2f",
+                publishers,
+                subscribers,
+                knobValue,
+                avgTableSize,
+                avgCoreTableSize,
+                pubEvents,
+                avgComparisons,
+                subOverhead,
+                trafficRatio,
+                trafficSaved,
+                suppressionRate,
+                falsePositives,
+                fpRate
+        );
     }
-
-    // --- 1. Retrieve Config Props ---
-    String publishers = props.getProperty("workload.replicas", "Unknown");
-    String subscribers = props.getProperty("workload.subscribers.count", "Unknown");
-    String knobValue = props.getProperty(getKnobKey(), "0.0");
-
-    // --- 2. Retrieve Table Stats ---
-    double avgTableSize = regionData.inputTableStats.getAverage();
-
-    // --- 3. Calculate Pub Overhead & Comparisons ---
-    long pubEvents = regionData.totalPublicationProcessingEvents;
-    long computations = regionData.totalMatchingComputations;
-    
-    // Avoid division by zero
-    double avgComparisons = (pubEvents > 0) 
-            ? (double) computations / pubEvents 
-            : 0.0;
-
-    // --- 4. Calculate Sub Overhead ---
-    long subOverhead = regionData.totalPropagatedExpanded + regionData.totalPropagatedAdded;
-
-    // --- 5. Calculate Traffic Ratio ---
-    double trafficRatio = (regionData.totalDeliveriesReceived > 0) 
-            ? (double) regionData.totalPublicationProcessingEvents / regionData.totalDeliveriesReceived 
-            : 0.0;
-
-    // --- 6. Retrieve Traffic Saved ---
-    long trafficSaved = regionData.totalPropagatedCovered;
-
-    // Format output
-    return String.format("%s,%s,%s,%.2f,%d,%.2f,%d,%.4f,%d",
-            publishers,
-            subscribers,
-            knobValue,
-            avgTableSize,
-            pubEvents,
-            avgComparisons,
-            subOverhead,
-            trafficRatio,
-            trafficSaved
-    );
-}
 }

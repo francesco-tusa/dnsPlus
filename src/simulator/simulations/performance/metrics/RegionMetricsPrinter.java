@@ -17,14 +17,18 @@ public class RegionMetricsPrinter extends MetricsPrinter {
         long totalInput = data.totalInputCovered + data.totalInputExpanded + data.totalInputAdded;
         long totalOutput = data.totalPropagatedExpanded + data.totalPropagatedAdded;
         
-        long totalFiltered = data.totalPropagatedCovered;
+        long totalSaved = data.totalInputCovered + data.totalPropagatedCovered;
 
         double aggFactor = (totalOutput > 0) ? (double) totalInput / totalOutput : (totalInput > 0 ? Double.POSITIVE_INFINITY : 0.0);
+        double suppressionRate = (totalInput > 0) ? (double) totalSaved / totalInput : 0.0;
 
         logItem("Total Input Entries (Received)", format(totalInput));
         logItem("Total Output Entries (Propagated)", format(totalOutput));
-        if (totalFiltered > 0) logItem("Traffic Saved (Filtered/Absorbed)", format(totalFiltered));
+        if (totalSaved > 0) logItem("Traffic Saved (Suppressed)", format(totalSaved));
+        
         logItem("Aggregation Factor (Input/Output)", (Double.isInfinite(aggFactor)) ? "Infinite" : String.format("%.2f", aggFactor));
+        logItem("Suppression Rate", String.format("%.4f", suppressionRate));
+        
         logger.info("");
     }
 
