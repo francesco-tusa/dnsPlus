@@ -1,6 +1,7 @@
 package simulator.simulations.performance.metrics.groundtruth;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
 
@@ -15,7 +16,8 @@ public interface GroundTruthCalculator {
      *
      * @param subs The list of subscriptions (can be Region-based or Location-based).
      * @param pubs The list of publications to check against.
+     * @param executor A shared executor service to parallelize calculations.
      * @return The count of valid matches/updates.
      */
-    long calculate(List<? extends SimulationSubscription> subs, List<PublicationWithLocation> pubs);
+    long calculate(List<? extends SimulationSubscription> subs, List<PublicationWithLocation> pubs, ExecutorService executor);
 }

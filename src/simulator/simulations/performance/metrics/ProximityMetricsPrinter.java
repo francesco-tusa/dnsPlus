@@ -16,38 +16,76 @@ public class ProximityMetricsPrinter extends MetricsPrinter {
         
         long totalInput = data.totalSubscriptionInputEvents;
         long totalOutput = data.totalUpstreamSubscriptionUpdates;
-        long totalFiltered = (totalInput > totalOutput) ? (totalInput - totalOutput) : 0;
+        // In Proximity, we don't "aggregate" regions, we "suppress" state updates (Deduplication)
+        long totalSuppressed = (totalInput > totalOutput) ? (totalInput - totalOutput) : 0;
         
         double aggFactor = (totalOutput > 0) ? (double) totalInput / totalOutput : (totalInput > 0 ? Double.POSITIVE_INFINITY : 0.0);
 
-        logItem("Total Input Entries (Received)", format(totalInput));
-        logItem("Total Output Entries (Propagated)", format(totalOutput));
-        if (totalFiltered > 0) logItem("Traffic Saved (Filtered/Absorbed)", format(totalFiltered));
-        logItem("Aggregation Factor (Input/Output)", (Double.isInfinite(aggFactor)) ? "Infinite" : String.format("%.2f", aggFactor));
+        logItem("Total Input Events (Received)", format(totalInput));
+        logItem("Total Output Events (Propagated)", format(totalOutput));
+        
+        if (totalSuppressed > 0) {
+            logItem("Traffic Saved (State Deduplication)", format(totalSuppressed));
+        }
+        
+        logItem("Aggregation Factor (Deduplication)", (Double.isInfinite(aggFactor)) ? "Infinite" : String.format("%.2f", aggFactor));
         logger.info("");
     }
 
+    // Skipped Section 2 (merged into Section 3)
     @Override
-    protected void printProcessingDetails(PerformanceMetricsData rawData) {
+    protected void printProcessingDetails(PerformanceMetricsData data) {
+        // No-op
+    }
+
+    @Override
+    protected void printPublicationTrafficAndCost(PerformanceMetricsData rawData) {
         ProximityPerformanceMetricsData data = (ProximityPerformanceMetricsData) rawData;
-        logger.info("2. PROXIMITY UPDATE SUPPRESSION (BRAKE STRATEGY):");
-        logItem("Total Subscriptions Processed", format(data.totalSubscriptionInputEvents));
         
-        logger.info("   -> Propagation Control (Brake Strategy)");
-        logItem("      Events Filtered (Suppressed)", format(data.totalBrakeSuppressedEvents));
+        logger.info("3. PUBLICATION TRAFFIC & PROXIMITY LOGIC:");
         
-        double filterRate = (data.totalSubscriptionInputEvents > 0) ? (double) data.totalBrakeSuppressedEvents / data.totalSubscriptionInputEvents * 100.0 : 0.0;
-        logItem("      Suppression Rate", String.format("%.2f%%", filterRate));
+        long processed = data.totalPublicationProcessingEvents;
+        long suppressed = data.totalBrakeSuppressedEvents;
+        long forwarded = processed - suppressed;
+
+        // 1. Overview
+        logItem("Total Publications Sent (Origins)", format(data.totalPublicationsSent));
+        
+        // 2. Brake Strategy Logic
+        logger.info("   --- Flow Control (Brake Strategy) ---");
+        logItem("Total Publications Processed (Input)", format(processed));
+        logItem("Stopped by Brake (Filtered)", format(suppressed));
+        logItem("Actual Forwarded (Upstream/Down)", format(forwarded)); 
+        
+        // 3. Ratios
+        double filterRate = (processed > 0) 
+            ? (double) suppressed / processed * 100.0 
+            : 0.0;
+        logItem("Suppression Rate (Brake)", String.format("%.2f%%", filterRate));
+        
+        // 4. Computational Cost
+        logger.info("   --- Computational Cost ---");
+        logItem("Total Matching Computations", format(data.totalMatchingComputations));
+        double avg = (processed > 0) ? (double) data.totalMatchingComputations / processed : 0.0;
+        logItem("Avg Comparisons per Message", String.format("%.2f", avg));
         logger.info("");
     }
 
     @Override
     protected void printRoutingEfficiency(PerformanceMetricsData rawData) {
         ProximityPerformanceMetricsData data = (ProximityPerformanceMetricsData) rawData;
-        logger.info("5. ROUTING OVERHEAD & EFFICIENCY (Proximity/Closest):");
+        logger.info("5. ROUTING OVERHEAD & EFFICIENCY:");
         
+        logItem("Dead Ends (False Positives)", format(data.totalFalsePositiveEvents));
+
+        double fpRate = (data.totalPublicationProcessingEvents > 0) 
+            ? ((double) data.totalFalsePositiveEvents / data.totalPublicationProcessingEvents) * 100.0 
+            : 0.0;
+        logItem(" -> Rate (vs Total Traffic)", String.format("%.2f%%", fpRate));
+        
+        // In a search/routing algorithm, this measures "How many nodes do we visit to find 1 subscriber?"
         double tr = (data.totalDeliveriesReceived > 0) ? (double) data.totalPublicationProcessingEvents / data.totalDeliveriesReceived : 0.0;
-        logItem("Traffic Ratio (Events per Delivery)", String.format("%.2f", tr));
+        logItem("Traffic Ratio (Search Cost Efficiency)", String.format("%.2f", tr));
         logger.info("");
     }
 
@@ -58,16 +96,29 @@ public class ProximityMetricsPrinter extends MetricsPrinter {
         }
 
         ProximityPerformanceMetricsData data = (ProximityPerformanceMetricsData) rawData;
-        if (data.groundTruthMatches <= 0) return;
+        if (data.groundTruthMatches <= 0 && data.totalDeliveriesReceived <= 0) return;
         
-        logger.info("6. PROXIMITY ALGORITHM ACCURACY:");
-        logItem("Necessary Updates", format(data.groundTruthMatches));
-        logItem("Actual Notifications", format(data.totalDeliveriesReceived));
+        logger.info("6. ALGORITHM ACCURACY (Recall & Stretch):");
+        logItem("Necessary Updates (Ground Truth)", format(data.groundTruthMatches));
+        logItem("Actual Notifications Delivered", format(data.totalDeliveriesReceived));
         
         long delta = data.totalDeliveriesReceived - data.groundTruthMatches;
-        logItem("Delivery Delta (Raw Gap)", String.format("%+d", delta));
+        logItem("Delivery Delta (Actual - GT)", String.format("%+d", delta));
 
-        double recall = (data.groundTruthMatches > 0) ? (double) Math.min(data.totalDeliveriesReceived, data.groundTruthMatches) / data.groundTruthMatches * 100.0 : 0.0;
-        logItem("Update Recall", String.format("%.6f%%", recall));
+        double deliveryRatio = (data.groundTruthMatches > 0) 
+            ? (double) data.totalDeliveriesReceived / data.groundTruthMatches * 100.0 
+            : 0.0;
+        logItem("Update Recall (Actual/Necessary)", String.format("%.2f%%", deliveryRatio));
+        
+        logger.info("   --- Stretch Metrics (Delta to Ideal) ---");
+        
+        if (data.stretchStats.getCount() > 0) {
+            logItem("Min Stretch", String.format("%.2f km", data.stretchStats.getMin() * 111.1)); 
+            logItem("Max Stretch", String.format("%.2f km", data.stretchStats.getMax() * 111.1));
+            logItem("Avg Stretch", String.format("%.2f km", data.stretchStats.getAverage() * 111.1));
+        } else {
+            logItem("Stretch Metrics", "N/A (No data)");
+        }
+        logger.info("");
     }
 }

@@ -12,6 +12,10 @@ public class LocationWorkloadGenerator implements SubscriptionWorkloadGenerator 
     public SimulationSubscription generateSubscription(SubscriberWithLocation subscriber, List<BoundedBroker> leafBrokers) {
         // Location-Based Logic:
         // Subscribers simply subscribe to their current physical coordinates.
-        return new SubscriptionWithLocation(subscriber.getLocation());
+        SubscriptionWithLocation sub = new SubscriptionWithLocation(subscriber.getLocation());
+
+        sub.setSource(subscriber);
+        
+        return sub;
     }
 }

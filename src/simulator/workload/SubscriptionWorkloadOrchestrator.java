@@ -27,25 +27,16 @@ public class SubscriptionWorkloadOrchestrator {
     private static final Logger logger = CustomLogger.getLogger(SubscriptionWorkloadOrchestrator.class.getName());
     private final Random random = SimulationRandom.get();
     
-    // Batch size for streaming
     private static final int BATCH_SIZE_SUBSCRIBERS = 5000;
-    // Log progress every 20 batches (approx every 100k subscribers)
     private static final int LOG_INTERVAL_BATCHES = 20;
 
-    /**
-     * Simplified entry point without metrics calculation.
-     */
     public void generateAndDispatchWorkload(
             List<SubscriberWithLocation> subscribers, 
             List<BoundedBroker> leafBrokers, 
             SubscriptionWorkloadGenerator generator) {
-        // Pass null for metrics and calculator
         generateDispatchAndCalculate(subscribers, leafBrokers, generator, null, null, null);
     }
 
-    /**
-     * Main orchestration method with support for Polymorphic Ground Truth calculation.
-     */
     public void generateDispatchAndCalculate(
             List<SubscriberWithLocation> subscribers, 
             List<BoundedBroker> leafBrokers, 
@@ -59,14 +50,15 @@ public class SubscriptionWorkloadOrchestrator {
                     ", Mean=" + config.meanSubscriptionsPerSubscriber + 
                     ", DensitySkew=" + config.enableDensitySkew);
         
-        // 1. Shuffle subscribers to avoid spatial bias in batch processing
         List<SubscriberWithLocation> shuffledSubscribers = new ArrayList<>(subscribers);
         Collections.shuffle(shuffledSubscribers, SimulationRandom.get());
 
         int totalSubscribers = shuffledSubscribers.size();
         int batchSize = BATCH_SIZE_SUBSCRIBERS;
         WorkloadRepository repository = WorkloadRepository.getInstance();
-        ExecutorService gtExecutor = Executors.newSingleThreadExecutor();
+        
+        ExecutorService gtOrchestratorExecutor = Executors.newSingleThreadExecutor();
+        ExecutorService calculationThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
         logger.info("Processing workload in batches of approx " + batchSize + " subscribers.");
 
@@ -83,35 +75,35 @@ public class SubscriptionWorkloadOrchestrator {
                     logger.info(String.format("--- Processing Batch %d (Subs %d-%d / %d) ---", batchCounter, i, end, totalSubscribers));
                 }
 
-                // A. Prepare Repository (Memory Allocation hint)
                 int estimatedBatchVolume = calculateEstimatedVolume(config, batchSubscribers.size());
                 repository.prepare(estimatedBatchVolume);
 
-                // B. Generate (Populate Repository)
                 generateBatchIntoRepository(batchSubscribers, leafBrokers, generator, config, repository);
                 
-                // C. Shuffle (Repository level shuffle to mix subscription order)
                 repository.shuffle();
                 
-                // D. Async Ground Truth (Polymorphic Logic)
                 Future<Long> gtFuture = null;
-                // Only calculate if we have data, publications, AND a calculator strategy
                 if (metricsData != null && allPublications != null && !allPublications.isEmpty() && calculator != null) {
                     
-                    // Retrieve generated subscriptions. 
-                    // Note: We use <? extends SimulationSubscription> to allow the calculator to cast 
-                    // to SubscriptionWithRegion or SubscriptionWithLocation as needed.
-                    List<? extends SimulationSubscription> batchSubsForGt = repository.getSubscriptions();
+                    List<? extends SimulationSubscription> originalSubs = repository.getSubscriptions();
+
+                    // === FIX 2: CLONE WITH SOURCE ===
+                    List<SimulationSubscription> batchSubsForGt = new ArrayList<>(originalSubs.size());
+                    for (SimulationSubscription s : originalSubs) {
+                        SimulationSubscription clone = s.getSubscription();
+                        // CRITICAL: Manually copy the source reference. 
+                        // .getSubscription() often returns a clean object (no source) for sending.
+                        clone.setSource(s.getSource()); 
+                        batchSubsForGt.add(clone);
+                    }
                     
-                    gtFuture = gtExecutor.submit(() -> 
-                        calculator.calculate(batchSubsForGt, allPublications)
+                    gtFuture = gtOrchestratorExecutor.submit(() -> 
+                        calculator.calculate(batchSubsForGt, allPublications, calculationThreadPool)
                     );
                 }
 
-                // E. Dispatch (Send to Brokers)
                 dispatch(repository, shouldLog);
 
-                // F. Aggregate Results
                 if (gtFuture != null) {
                     try {
                         long batchMatches = gtFuture.get();
@@ -125,12 +117,12 @@ public class SubscriptionWorkloadOrchestrator {
                     }
                 }
 
-                // G. Reset Repository for next batch
                 WorkloadRepository.reset();
                 batchCounter++;
             }
         } finally {
-            gtExecutor.shutdown();
+            gtOrchestratorExecutor.shutdown();
+            calculationThreadPool.shutdown();
         }
         
         logger.info("Workload generation and dispatching complete.");

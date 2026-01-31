@@ -48,6 +48,7 @@ public abstract class AbstractPerformanceSimulation<
     protected abstract PerformanceMetricsData createMetricsData();
     protected abstract MetricsPrinter createMetricsPrinter();
     protected abstract GroundTruthCalculator createGroundTruthCalculator();
+    protected abstract MetricsCollector createMetricsCollector();
 
     protected abstract PublishersPlacementStrategy getPublisherPlacementStrategy();
 
@@ -171,7 +172,7 @@ public abstract class AbstractPerformanceSimulation<
     }
 
     protected void collectAndPrintMetrics() {
-        MetricsCollector collector = new MetricsCollector();
+        MetricsCollector collector = createMetricsCollector();
         PerformanceMetricsData collected = collector.collect(this.rootNode, allSubscribers, allPublishers, this.topologyStats);
         
         collected.groundTruthMatches = this.metricsData.groundTruthMatches;

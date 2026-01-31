@@ -54,35 +54,34 @@ public class RegionalScenario extends AbstractSimulationScenario {
             return "";
         }
 
-        // Stats calculation
-        double avgTableSize = regionData.inputTableStats.getAverage();
-        double avgCoreTableSize = (regionData.coreInputTableStats.getCount() > 0) 
+        double avgCoreTable = (regionData.coreInputTableStats.getCount() > 0) 
             ? regionData.coreInputTableStats.getAverage() : 0.0;
+            
         long pubEvents = regionData.totalPublicationProcessingEvents;
-        long computations = regionData.totalMatchingComputations;
-        double avgComparisons = (pubEvents > 0) ? (double) computations / pubEvents : 0.0;
+        double avgComparisons = safeDiv(regionData.totalMatchingComputations, pubEvents);
+        
         long subOverhead = regionData.totalPropagatedExpanded + regionData.totalPropagatedAdded;
-        double trafficRatio = (regionData.totalDeliveriesReceived > 0) 
-                ? (double) regionData.totalPublicationProcessingEvents / regionData.totalDeliveriesReceived : 0.0;
+        
         long trafficSaved = regionData.totalInputCovered + regionData.totalPropagatedCovered;
         long totalInput = regionData.totalInputCovered + regionData.totalInputExpanded + regionData.totalInputAdded;
-        double suppressionRate = (totalInput > 0) ? (double) trafficSaved / totalInput : 0.0;
+        double suppressionRate = safeDiv(trafficSaved, totalInput);
+        
         long falsePositives = regionData.totalFalsePositiveEvents;
-        double fpRate = (pubEvents > 0) ? (double) falsePositives / pubEvents * 100.0 : 0.0;
+        double fpRate = safeDiv(falsePositives, pubEvents) * 100.0;
 
-        return String.format("%s,%s,%.2f,%.2f,%d,%.2f,%d,%.4f,%d,%.4f,%d,%.2f",
+        return String.format("%s,%s,%s,%s,%d,%s,%d,%s,%d,%s,%d,%s",
                 getCommonCsvPrefix(props),
                 props.getProperty(getKnobKey(), "0.0"),
-                avgTableSize,
-                avgCoreTableSize,
+                formatDouble(regionData.inputTableStats.getAverage()),
+                formatDouble(avgCoreTable),
                 pubEvents,
-                avgComparisons,
+                formatDouble(avgComparisons),
                 subOverhead,
-                trafficRatio,
+                formatDouble(calculateTrafficRatio(regionData)),
                 trafficSaved,
-                suppressionRate,
+                formatDouble(suppressionRate),
                 falsePositives,
-                fpRate
+                formatDouble(fpRate)
         );
     }
 }

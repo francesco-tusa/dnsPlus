@@ -4,29 +4,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
+
 import simulator.config.SimConfiguration;
 import simulator.core.Location;
 import simulator.core.TreeNode;
+import simulator.entities.context.RegionalEvaluationContext;
+import simulator.entities.context.SubscriberEvaluationContext;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
 import simulator.events.metrics.EventMetrics;
-import simulator.regions.Region;
-import simulator.regions.SubscriptionWithRegion;
-import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
 public class SubscriberWithLocation extends TreeNode {
 
     private static final Logger logger = CustomLogger.getLogger(SubscriberWithLocation.class.getName());
     private static final AtomicInteger SUBSCRIBER_ID_GENERATOR = new AtomicInteger(1);
+    
     private final int mySubscriberId; 
-    private float[] regionCoords = null; 
-    private int activeRegionCount = 0;
     private final float myLat;
     private final float myLon;
-    private String myCountry = null;
-    private SubscriberTraceStrategy traceStrategy;
+    private String myCountry = null; // Lazy loaded for traces
+    
+    // --- Metric State ---
     private int falsePositiveDeliveries = 0;
     private int nSubscriptions = 0; 
     private int nPublications = 0;
@@ -35,44 +35,57 @@ public class SubscriberWithLocation extends TreeNode {
     private int hopMin = Integer.MAX_VALUE;
     private int hopMax = Integer.MIN_VALUE;
 
+    // --- STRATEGY: Evaluation Context ---
+    private SubscriberEvaluationContext evalContext = new RegionalEvaluationContext();
+
     public SubscriberWithLocation(String name, Location location) {
         this(SUBSCRIBER_ID_GENERATOR.getAndIncrement(), name, location);
     }
+
     public SubscriberWithLocation(Location location) {
         this(SUBSCRIBER_ID_GENERATOR.getAndIncrement(), null, location);
     }
+
     private SubscriberWithLocation(int id, String explicitName, Location location) {
         super(resolveName(id, explicitName));
         this.mySubscriberId = id;
         this.myLon = (float) location.getX();
         this.myLat = (float) location.getY();
     }
+
     private static String resolveName(int id, String explicitName) {
         if (explicitName != null) return explicitName;
         if (SimConfiguration.get().paths.enableEventTracing) return "Sub-" + id;
         return null; 
     }
-    @Override public String getName() {
+
+    @Override 
+    public String getName() {
         String storedName = super.getName();
         if (storedName != null) return storedName;
         return "Sub-" + mySubscriberId;
     }
-    public String getFormattedLocation() {
-        return String.format("(%.4f, %.4f)", this.myLon, this.myLat);
+
+    public void setEvaluationContext(SubscriberEvaluationContext ctx) {
+        this.evalContext = ctx;
     }
+
+    public SubscriberEvaluationContext getContext() {
+        return this.evalContext;
+    }
+
+    // --- MAIN LOGIC ---
 
     public void receive(SimulationPublication p) {
         nPublications++;
         if (p instanceof PublicationWithLocation pub) {
-            boolean matchesInterest = checkRegionInterest(pub);
-            if (!matchesInterest) falsePositiveDeliveries++;
-
-            if (SimConfiguration.get().paths.enableEventTracing && p.getMetrics() != null) {
-                if (traceStrategy == null) {
-                    resolveTraceStrategy();
-                }
-                traceStrategy.trace(this, pub, matchesInterest);
+            
+            // 1. Delegate Logic & Tracing to Context
+            if (evalContext != null) {
+                evalContext.onPublicationReceived(this, pub);
             }
+
+            // 2. Update Stats
             int hops = p.getHops();
             synchronized(this) {
                 hopSum += hops;
@@ -81,32 +94,6 @@ public class SubscriberWithLocation extends TreeNode {
                 if (hops > hopMax) hopMax = hops;
             }
         }
-    }
-    
-    private void resolveTraceStrategy() {
-        SimulationBroker broker = getBroker();
-        if (broker != null && broker.getClass().getSimpleName().contains("Proximity")) {
-            this.traceStrategy = new ProximityTraceStrategy();
-        } else {
-            this.traceStrategy = RegionTraceStrategy.INSTANCE;
-        }
-    }
-
-    private boolean checkRegionInterest(PublicationWithLocation pub) {
-        if (activeRegionCount == 0) return true; 
-        if (regionCoords == null) return false;
-        float pubLon = (float) pub.getLocation().getX();
-        float pubLat = (float) pub.getLocation().getY();
-        for (int i = 0; i < activeRegionCount; i++) {
-            int offset = i * 4;
-            if (Region.fastContains(
-                    regionCoords[offset], regionCoords[offset+1], 
-                    regionCoords[offset+2], regionCoords[offset+3], 
-                    pubLon, pubLat)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public void send(SimulationSubscription s) {
@@ -118,61 +105,68 @@ public class SubscriberWithLocation extends TreeNode {
 
         s.setSource(this);
         
+        // 1. Prepare Metrics if Tracing is enabled (Common Logic)
         if (SimConfiguration.get().paths.enableEventTracing) {
-            long seqId = this.nSubscriptions + 1;
-            long structuredTraceId = ((long) this.mySubscriberId << 32) | (seqId & 0xFFFFFFFFL);
-            
-            EventMetrics metrics = new EventMetrics(structuredTraceId);
-            
-            if (myCountry == null) {
-                myCountry = resolveCountry();
-            }
-            
-            metrics.setOriginalSourceInfo(getName(), myCountry, (double)myLon, (double)myLat);
-            s.setMetrics(metrics);
-            
-            CsvMetricWriter.getInstance().logSubscriberEvent(
-                s,
-                broker.getName(),
-                myLon, 
-                myLat,
-                "SENT"
-            );
+             ensureTraceMetrics(s);
         }
 
-        if (s instanceof SubscriptionWithRegion swr) {
-            ensureRegionCapacity();
-            int offset = activeRegionCount * 4;
-            regionCoords[offset]   = swr.getMinLon();
-            regionCoords[offset+1] = swr.getMaxLon();
-            regionCoords[offset+2] = swr.getMinLat();
-            regionCoords[offset+3] = swr.getMaxLat();
-            activeRegionCount++;
+        // 2. Delegate Logic & Tracing to Context
+        if (evalContext != null) {
+            evalContext.onSubscriptionSent(s);
+            
+            if (SimConfiguration.get().paths.enableEventTracing) {
+                evalContext.traceSubscription(this, s, broker);
+            }
         }
 
         broker.processSubscription(s);
         nSubscriptions++;
+    }
+    
+    // --- Helper Methods ---
+
+    public void incrementFalsePositiveDeliveries() {
+        this.falsePositiveDeliveries++;
+    }
+
+    private void ensureTraceMetrics(SimulationSubscription s) {
+        long seqId = this.nSubscriptions + 1;
+        long structuredTraceId = ((long) this.mySubscriberId << 32) | (seqId & 0xFFFFFFFFL);
+        
+        EventMetrics metrics = new EventMetrics(structuredTraceId);
+        
+        if (myCountry == null) {
+            myCountry = resolveCountry();
+        }
+        
+        metrics.setOriginalSourceInfo(getName(), myCountry, (double)myLon, (double)myLat);
+        s.setMetrics(metrics);
     }
 
     private String resolveCountry() {
         List<TreeNode> path = new ArrayList<>();
         TreeNode current = this;
         while (current != null) { path.add(current); current = current.getParent(); }
+        // Attempt to find country in hierarchy (usually grand-parent in GeoNames)
         if (path.size() >= 3) return path.get(path.size() - 3).getName();
         if (path.size() >= 2) return path.get(path.size() - 2).getName();
         return "Unknown";
     }
 
-    private void ensureRegionCapacity() {
-        if (regionCoords == null) {
-            regionCoords = new float[4];
-        } else if (activeRegionCount * 4 >= regionCoords.length) {
-            float[] newArr = new float[regionCoords.length + 16];
-            System.arraycopy(regionCoords, 0, newArr, 0, regionCoords.length);
-            regionCoords = newArr;
-        }
+    public SimulationBroker getBroker() { 
+        return (getParent() instanceof SimulationBroker) ? (SimulationBroker) getParent() : null; 
     }
 
+    public Location getLocation() { 
+        return new Location(myLon, myLat, 0); 
+    }
+    
+    @Override 
+    public Location getMetricLocation() { 
+        return getLocation(); 
+    }
+
+    // Standard Getters
     public int getnPublications() { return nPublications; }
     public int getnSubscriptions() { return nSubscriptions; }
     public int getFalsePositiveDeliveries() { return falsePositiveDeliveries; }
@@ -180,63 +174,6 @@ public class SubscriberWithLocation extends TreeNode {
     public long getHopSum() { return hopSum; }
     public int getHopMin() { return hopMin; }
     public int getHopMax() { return hopMax; }
-    @Override public Location getMetricLocation() { return new Location(myLon, myLat, 0); }
-    public Location getLocation() { return getMetricLocation(); }
-    public SimulationBroker getBroker() { return (getParent() instanceof SimulationBroker) ? (SimulationBroker) getParent() : null; }
-
-    private interface SubscriberTraceStrategy {
-        void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest);
-    }
-
-    private static class RegionTraceStrategy implements SubscriberTraceStrategy {
-        static final RegionTraceStrategy INSTANCE = new RegionTraceStrategy();
-
-        @Override
-        public void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest) {
-            String result = matchesInterest ? "Delivered" : "FalsePositive";
-            
-            CsvMetricWriter.getInstance().logSubscriberPublicationEvent(
-                pub,
-                sub.getName(),
-                result,
-                sub.myLon,
-                sub.myLat,
-                -1.0
-            );
-        }
-    }
-
-    private static class ProximityTraceStrategy implements SubscriberTraceStrategy {
-        private double bestDistanceSqSoFar = Double.MAX_VALUE;
-
-        @Override
-        public void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest) {
-            double currentDistSq = pub.getCachedDistanceSquared();
-            if (currentDistSq < 0) {
-                currentDistSq = sub.getLocation().distanceSquared(pub.getLocation());
-            }
-
-            String status;
-            if (!matchesInterest) {
-                status = "UNWANTED";
-            } else if (bestDistanceSqSoFar == Double.MAX_VALUE) {
-                status = "NEW";
-                bestDistanceSqSoFar = currentDistSq;
-            } else if (currentDistSq < bestDistanceSqSoFar) {
-                status = "UPDATE";
-                bestDistanceSqSoFar = currentDistSq;
-            } else {
-                status = "NO_UPDATE";
-            }
-
-            CsvMetricWriter.getInstance().logSubscriberPublicationEvent(
-                pub,
-                sub.getName(),
-                status,
-                sub.myLon,
-                sub.myLat,
-                currentDistSq
-            );
-        }
-    }
+    public float getLat() { return myLat; }
+    public float getLon() { return myLon; }
 }

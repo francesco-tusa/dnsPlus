@@ -7,7 +7,6 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.logging.Logger;
 
@@ -15,19 +14,18 @@ import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationSubscription;
-import simulator.regions.Region; // Required for casting
+import simulator.regions.Region; 
 import simulator.regions.SubscriptionWithRegion;
 import utils.CustomLogger;
 
 public class RegionGroundTruthCalculator implements GroundTruthCalculator {
     private static final Logger logger = CustomLogger.getLogger(RegionGroundTruthCalculator.class.getName());
 
-    // UPDATED: Raised from 100,000 to 1,000,000.
-    // 100k operations are too fast to justify the overhead of creating a ThreadPool.
+    // Threshold below which we just do it sequentially to avoid context switch overhead
     private static final long MIN_WORKLOAD_THRESHOLD = 1_000_000;
 
     @Override
-    public long calculate(List<? extends SimulationSubscription> subs, List<PublicationWithLocation> pubs) {
+    public long calculate(List<? extends SimulationSubscription> subs, List<PublicationWithLocation> pubs, ExecutorService executor) {
         if (subs.isEmpty() || pubs.isEmpty()) return 0;
 
         // 1. Filter and Cast to SubscriptionWithRegion
@@ -44,14 +42,13 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
         int numThreads = Runtime.getRuntime().availableProcessors();
         long workload = (long) pubs.size() * regionSubs.size();
 
-        // LOGIC UPDATE: Added check for very small publication lists.
         boolean tooFewPubsForParallel = pubs.size() < numThreads && pubs.size() < 50;
 
+        // If workload is small, use sequential logic (ignoring the passed executor)
         if (workload < MIN_WORKLOAD_THRESHOLD || numThreads <= 1 || tooFewPubsForParallel) {
             return calculateSequential(regionSubs, pubs);
         }
 
-        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
         long totalMatches = 0;
 
         try {
@@ -66,9 +63,8 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
         } catch (InterruptedException | ExecutionException e) {
             logger.severe("Parallel region ground truth calculation failed: " + e.getMessage());
             e.printStackTrace();
-        } finally {
-            executor.shutdown();
         }
+        // Do NOT shutdown executor
 
         return totalMatches;
     }
@@ -118,8 +114,6 @@ public class RegionGroundTruthCalculator implements GroundTruthCalculator {
                 tasks.add(() -> {
                     Set<TreeNode> localFound = new HashSet<>();
                     for (SubscriptionWithRegion s : subBatch) {
-                        // FIX: Replaced fastContains(float) with contains(Location) 
-                        // to ensure DOUBLE precision matches Broker logic.
                         Region r = (Region) s.getRegion();
                         
                         if (r.contains(pubLoc)) {

@@ -53,14 +53,12 @@ public class CsvMetricWriter {
 
         @Override
         public String getPublicationHeader() {
-            // REMOVED: UpdateStats column
             return "TraceID,MsgCount,ReceivedFrom,ProcessingNode,Hops,RegionOrPub,Result\n";
         }
 
         @Override
         public String formatBrokerPublicationEvent(Object... args) {
             String reg = (args.length > 0 && args[0] instanceof SpatialRegion r) ? r.toLogString() : "";
-            // REMOVED: Empty column for UpdateStats
             return "\"" + reg + "\"";
         }
 

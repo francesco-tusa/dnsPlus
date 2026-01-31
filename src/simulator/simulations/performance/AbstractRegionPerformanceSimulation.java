@@ -8,10 +8,14 @@ import simulator.config.BrokerConfig;
 import simulator.config.SimConfiguration;
 import simulator.config.WorkloadConfig;
 import simulator.core.WorkloadRepository;
+import simulator.entities.SubscriberWithLocation;
+import simulator.entities.context.RegionalEvaluationContext;
 import simulator.events.PublicationWithLocation;
 import simulator.regions.BoundedBroker;
+import simulator.simulations.performance.metrics.MetricsCollector;
 import simulator.simulations.performance.metrics.MetricsPrinter;
 import simulator.simulations.performance.metrics.PerformanceMetricsData;
+import simulator.simulations.performance.metrics.RegionMetricsCollector;
 import simulator.simulations.performance.metrics.RegionMetricsPrinter;
 import simulator.simulations.performance.metrics.RegionPerformanceMetricsData;
 import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
@@ -52,6 +56,11 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
     }
 
     @Override
+    protected MetricsCollector createMetricsCollector() {
+        return new RegionMetricsCollector();
+    }
+
+    @Override
     protected void logSpecificConfiguration() {
         BrokerConfig brokerConfig = SimConfiguration.get().broker;
         logConfigItem("Routing Algorithm", "SPATIAL MATCH (Region Overlap)");
@@ -75,7 +84,12 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
         logSectionHeader("Executing Region-Based Performance Scenario");
 
         if (allSubscribers.isEmpty()) return;
-        
+
+        // Explicitly inject Regional Logic (Good Practice)
+        for (SubscriberWithLocation sub : allSubscribers) {
+            sub.setEvaluationContext(new RegionalEvaluationContext());
+        }
+
         List<BoundedBroker> leafBrokers = TopologyAnalyser.findLeafBrokers(this.rootNode);
         
         List<BoundedBroker> hotspots = getInterestHotspots(this.rootNode);

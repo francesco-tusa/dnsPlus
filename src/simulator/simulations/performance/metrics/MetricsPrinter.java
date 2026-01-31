@@ -43,7 +43,7 @@ public abstract class MetricsPrinter {
         long maxCore = coreCount > 0 ? data.coreInputTableStats.getMax() : 0;
         double avgCore = coreCount > 0 ? data.coreInputTableStats.getAverage() : 0.0;
 
-        logItem("Core Table Size (Min / Avg / Max)", 
+        logItem("Core Input Table Size (Min / Avg / Max)", 
             String.format("%d / %.1f / %d", minCore, avgCore, maxCore));
 
         logItem("Output Table Size (Min / Avg / Max)", 

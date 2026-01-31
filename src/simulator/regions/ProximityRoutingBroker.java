@@ -23,8 +23,10 @@ import utils.CsvMetricWriter;
 public class ProximityRoutingBroker extends BoundedBroker {
 
     protected final BasicSubscriptionStore inputStore = new BasicSubscriptionStore();
+    
     private BrakeStrategy brakeStrategy;
     private long brakeFilteredCount = 0;
+    
     protected final Map<TreeNode, Location[]> childTopologicalTargets = new HashMap<>();
     protected final Map<TreeNode, double[]> childBestDistances = new HashMap<>();
     private boolean isSubscribedToParent = false;
