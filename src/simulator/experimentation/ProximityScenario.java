@@ -22,16 +22,12 @@ public class ProximityScenario extends AbstractSimulationScenario {
 
     @Override
     public String getCsvHeader() {
-        // [Aligned Schema]
-        // 1. Common (Experiment ID, Pubs, Subs)
-        // 2. Config (Brake)
-        // 3. State (Tables)
-        // 4. Subscription Traffic (Input, Output, Aggregation)
-        // 5. Publication Traffic (Sent, Processed, Suppressed)
-        // 6. Routing Efficiency (Dead Ends, Cost, Ratio)
-        // 7. Accuracy (GT, Deliveries, Recall)
-        // 8. Stretch (Min, Max, Avg)
-        return getCommonCsvHeader() + ",brake_limit,table_size_avg,core_table_size_avg,sub_input_events,sub_output_events,sub_agg_factor,pubs_sent,pub_processed_events,pub_brake_suppressed,dead_ends,matching_cost,traffic_ratio,ground_truth,deliveries,recall,min_stretch,max_stretch,avg_stretch";
+        return getCommonCsvHeader() + ",brake_limit,table_size_avg,core_table_size_avg," + 
+               "sub_input_events,sub_output_events,sub_agg_factor," + 
+               "pubs_sent,pub_processed_events,pub_brake_suppressed,pub_forwarded_events," + 
+               "dead_ends,matching_cost,traffic_ratio," + 
+               "ground_truth,deliveries,recall," + 
+               "min_stretch,max_stretch,avg_stretch";
     }
 
     @Override
@@ -92,7 +88,7 @@ public class ProximityScenario extends AbstractSimulationScenario {
 
         // 3. Construct CSV String
         // Usage of formatDouble ensures consistency (4 decimal places) as requested.
-        return String.format("%s,%s,%s,%s,%d,%d,%s,%d,%d,%d,%d,%d,%s,%d,%d,%s,%s,%s,%s",
+        return String.format("%s,%s,%s,%s,%d,%d,%s,%d,%d,%d,%d,%d,%d,%s,%d,%d,%s,%s,%s,%s",
                 getCommonCsvPrefix(config),              // experiment_id, pubs, subs
                 config.getProperty(getKnobKey()),        // brake_limit
                 
@@ -109,6 +105,7 @@ public class ProximityScenario extends AbstractSimulationScenario {
                 pd.totalPublicationsSent,                // pubs_sent
                 pd.totalPublicationProcessingEvents,     // pub_processed_events
                 pd.totalBrakeSuppressedEvents,           // pub_brake_suppressed
+                pd.totalPublicationsForwarded,           // pub_forwarded_events 
                 
                 // ROUTING EFFICIENCY
                 pd.totalFalsePositiveEvents,             // dead_ends

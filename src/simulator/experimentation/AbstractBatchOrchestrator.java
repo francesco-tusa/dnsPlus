@@ -16,10 +16,10 @@ public abstract class AbstractBatchOrchestrator {
 
     // Global Scale Parameters
     //protected static final int[] PUBLISHERS = {1, 10, 1000, 100000, 1000000};
-    protected static final int[] PUBLISHERS = {1000};
+    protected static final int[] PUBLISHERS = {10, 1000, 10000};
 
     //protected static final int[] SUBSCRIBERS = {10, 1000, 10000, 1000000};
-    protected static final int[] SUBSCRIBERS = {10000};
+    protected static final int[] SUBSCRIBERS = {10, 1000, 10000};
 
     protected void runBatch(SimulationScenario scenario, String csvFilename) {
         

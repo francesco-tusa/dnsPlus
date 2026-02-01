@@ -221,6 +221,8 @@ public class SpatialMatchBroker extends BoundedBroker {
         SimulationPublication forwardedCopy = p.getPublication();
         forwardedCopy.setSource(this);
         forwardedCopy.copyStateFrom(p);
+
+        recordPublicationForwardingEvent();
         if (next instanceof BoundedBroker) forwardedCopy.incrementHops();
         if (next instanceof BoundedBroker broker) broker.processPublication(forwardedCopy);
         else if (next instanceof SubscriberWithLocation subscriber) subscriber.receive(forwardedCopy);

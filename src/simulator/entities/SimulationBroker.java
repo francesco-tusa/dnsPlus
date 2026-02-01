@@ -19,6 +19,7 @@ public abstract class SimulationBroker extends TreeNode
     
     // Tracks events where a message was processed but forwarded to no one (Dead End)
     protected long totalFalsePositiveEvents = 0; 
+    private long totalPublicationForwardingEvents = 0;
 
     public SimulationBroker(String name) {
         super(name);
@@ -102,5 +103,13 @@ public abstract class SimulationBroker extends TreeNode
 
     public long getTotalFalsePositiveEvents() {
         return totalFalsePositiveEvents;
+    }
+
+    public long getTotalPublicationForwardingEvents() {
+        return this.totalPublicationForwardingEvents;
+    }
+
+    protected void recordPublicationForwardingEvent() {
+        this.totalPublicationForwardingEvents++;
     }
 }

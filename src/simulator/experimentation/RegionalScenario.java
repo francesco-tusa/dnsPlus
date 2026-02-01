@@ -24,7 +24,7 @@ public class RegionalScenario extends AbstractSimulationScenario {
     public String getCsvHeader() {
         return getCommonCsvHeader() + ",fpr_threshold," +
                "table_size_avg,core_table_size_avg," +
-               "pub_events,avg_comparisons," +
+               "pub_events,pub_forwarded_events,avg_comparisons," + 
                "sub_updates_sent," +
                "traffic_ratio,traffic_saved,suppression_rate," +
                "false_positives,false_positive_rate";
@@ -58,6 +58,8 @@ public class RegionalScenario extends AbstractSimulationScenario {
             ? regionData.coreInputTableStats.getAverage() : 0.0;
             
         long pubEvents = regionData.totalPublicationProcessingEvents;
+        long pubForwarded = regionData.totalPublicationsForwarded;
+
         double avgComparisons = safeDiv(regionData.totalMatchingComputations, pubEvents);
         
         long subOverhead = regionData.totalPropagatedExpanded + regionData.totalPropagatedAdded;
@@ -69,12 +71,13 @@ public class RegionalScenario extends AbstractSimulationScenario {
         long falsePositives = regionData.totalFalsePositiveEvents;
         double fpRate = safeDiv(falsePositives, pubEvents) * 100.0;
 
-        return String.format("%s,%s,%s,%s,%d,%s,%d,%s,%d,%s,%d,%s",
+        return String.format("%s,%s,%s,%s,%d,%d,%s,%d,%s,%d,%s,%d,%s",
                 getCommonCsvPrefix(props),
                 props.getProperty(getKnobKey(), "0.0"),
                 formatDouble(regionData.inputTableStats.getAverage()),
                 formatDouble(avgCoreTable),
                 pubEvents,
+                pubForwarded,
                 formatDouble(avgComparisons),
                 subOverhead,
                 formatDouble(calculateTrafficRatio(regionData)),

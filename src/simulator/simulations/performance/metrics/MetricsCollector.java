@@ -67,6 +67,7 @@ public class MetricsCollector {
         data.totalPublicationProcessingEvents += b.getTotalPublicationProcessingEvents();
         data.totalMatchingComputations += b.getTotalMatchingComputations();
         data.totalFalsePositiveEvents += b.getTotalFalsePositiveEvents();
+        data.totalPublicationsForwarded += b.getTotalPublicationForwardingEvents();
     }
 
     /**

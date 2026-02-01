@@ -192,6 +192,7 @@ public class ProximityRoutingBroker extends BoundedBroker {
         forwardedCopy.setSource(this);
         forwardedCopy.copyStateFrom(p);
         forwardedCopy.incrementHops();
+        recordPublicationForwardingEvent();
         parentBroker.processPublication(forwardedCopy);
     }
 
@@ -282,6 +283,8 @@ public class ProximityRoutingBroker extends BoundedBroker {
             copy.incrementHops();
             if (distSq >= 0)
                 copy.setCachedDistanceSquared(distSq);
+
+            recordPublicationForwardingEvent();
             if (neighbor instanceof BoundedBroker)
                 ((BoundedBroker) neighbor).processPublication(copy);
             else if (neighbor instanceof SubscriberWithLocation)

@@ -17,7 +17,8 @@ public abstract class PerformanceMetricsData {
     public long totalSubscriptionInputEvents = 0;
     public long totalPublicationsSent = 0;
     public long totalPublicationProcessingEvents = 0;
-    public long totalMatchingComputations = 0; 
+    public long totalMatchingComputations = 0;
+    public long totalPublicationsForwarded = 0;
 
     // --- Common: Delivery & Accuracy ---
     public long totalDeliveriesReceived = 0;

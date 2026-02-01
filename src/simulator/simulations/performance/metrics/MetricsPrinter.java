@@ -1,6 +1,7 @@
 package simulator.simulations.performance.metrics;
 
 import java.util.logging.Logger;
+import simulator.config.SimConfiguration;
 
 public abstract class MetricsPrinter {
     
@@ -15,17 +16,23 @@ public abstract class MetricsPrinter {
         printSubscriptionTrafficAndAggregation(data);
         printProcessingDetails(data);
         printTableStats(data);
-        printPublicationTrafficAndCost(data);
+        printPublicationTrafficAndCost(data); 
         printDeliveryPathMetrics(data);
         printRoutingEfficiency(data);
         printAccuracy(data);
         printSeparator();
     }
     
+    // --- Abstract Hooks ---
+    
     protected abstract void printSubscriptionTrafficAndAggregation(PerformanceMetricsData data);
-    protected abstract void printProcessingDetails(PerformanceMetricsData data);
-    protected abstract void printRoutingEfficiency(PerformanceMetricsData data);
-    protected abstract void printAccuracy(PerformanceMetricsData data);
+    protected abstract void printFlowControlDetails(PerformanceMetricsData data);
+
+    protected void printProcessingDetails(PerformanceMetricsData data) {}
+    protected void printAdditionalRoutingMetrics(PerformanceMetricsData data) {}
+    protected void printAdditionalAccuracyMetrics(PerformanceMetricsData data) {}
+
+    // --- Common Logic Implementations ---
 
     protected void printTableStats(PerformanceMetricsData data) {
         logger.info("2a. BROKER STATE & MEMORY (TABLE SIZES):");
@@ -36,8 +43,6 @@ public abstract class MetricsPrinter {
                 data.inputTableStats.getAverage(), 
                 data.inputTableStats.getMax()));
             
-        // Log Core Table Size with Min/Avg/Max alignment
-        // Check count to handle cases with 0 core brokers gracefully
         long coreCount = data.coreInputTableStats.getCount();
         long minCore = coreCount > 0 ? data.coreInputTableStats.getMin() : 0;
         long maxCore = coreCount > 0 ? data.coreInputTableStats.getMax() : 0;
@@ -53,13 +58,23 @@ public abstract class MetricsPrinter {
                 data.outputTableStats.getMax()));
         logger.info("");
     }
-    
+
     protected void printPublicationTrafficAndCost(PerformanceMetricsData data) {
         logger.info("3. PUBLICATION TRAFFIC & COMPUTATIONAL COST:");
+        
         logItem("Total Publications Sent (Origins)", format(data.totalPublicationsSent));
-        logItem("Total Forwarding Events (Traffic)", format(data.totalPublicationProcessingEvents));
-        logItem("Total Matching Computations (CPU Cost)", format(data.totalMatchingComputations));
-        double avg = (data.totalPublicationProcessingEvents > 0) ? (double) data.totalMatchingComputations / data.totalPublicationProcessingEvents : 0.0;
+        logItem("Total Publications Processed (Compute Load)", format(data.totalPublicationProcessingEvents));
+
+        printFlowControlDetails(data);
+
+        logItem("Total Publications Forwarded (Network Load)", format(data.totalPublicationsForwarded));
+
+        logger.info("   --- Computational Cost ---");
+        logItem("Total Matching Computations (Compute Load)", format(data.totalMatchingComputations));
+        
+        double avg = (data.totalPublicationProcessingEvents > 0) 
+            ? (double) data.totalMatchingComputations / data.totalPublicationProcessingEvents 
+            : 0.0;
         logItem("Avg Comparisons per Message", String.format("%.2f", avg));
         logger.info("");
     }
@@ -76,6 +91,54 @@ public abstract class MetricsPrinter {
         logger.info("");
     }
     
+    protected void printRoutingEfficiency(PerformanceMetricsData data) {
+        logger.info("5. ROUTING OVERHEAD & EFFICIENCY:");
+        
+        // 1. Common Metric: Dead Ends
+        logItem("False Positive Events (Dead Ends)", format(data.totalFalsePositiveEvents));
+        double fpRate = (data.totalPublicationProcessingEvents > 0) 
+                ? ((double) data.totalFalsePositiveEvents / data.totalPublicationProcessingEvents) * 100.0 
+                : 0.0;
+        logItem(" -> Rate (vs Traffic)", String.format("%.2f%%", fpRate));
+        
+        // 2. Hook for specifics (e.g. Region FP Deliveries)
+        printAdditionalRoutingMetrics(data);
+        
+        // 3. Common Metric: Traffic Ratio
+        double tr = (data.totalDeliveriesReceived > 0) 
+                ? (double) data.totalPublicationProcessingEvents / data.totalDeliveriesReceived 
+                : 0.0;
+        logItem("Traffic Ratio (Cost Efficiency)", String.format("%.2f", tr));
+        logger.info("");
+    }
+
+    protected void printAccuracy(PerformanceMetricsData data) {
+        if (!SimConfiguration.get().workload.enableGroundTruth) {
+            return;
+        }
+
+        // Common Guard clause
+        if (data.groundTruthMatches <= 0 && data.totalDeliveriesReceived <= 0) return;
+        
+        logger.info("6. ALGORITHM ACCURACY & CORRECTNESS:");
+        logItem("Necessary Updates (Ground Truth)", format(data.groundTruthMatches));
+        logItem("Actual Notifications Delivered", format(data.totalDeliveriesReceived));
+        
+        long delta = data.totalDeliveriesReceived - data.groundTruthMatches;
+        logItem("Delivery Delta (Actual - GT)", String.format("%+d", delta));
+
+        double acc = (data.groundTruthMatches > 0) 
+                ? ((double) data.totalDeliveriesReceived / data.groundTruthMatches) * 100.0 
+                : 0.0;
+        
+        // Label differs slightly in context (Accuracy vs Recall) but math is identical
+        logItem("Delivery Accuracy (Recall)", String.format("%.6f%%", acc)); 
+
+        // Hook for specifics (e.g. Proximity Stretch)
+        printAdditionalAccuracyMetrics(data);
+    }
+    
+    // --- Helpers ---
     protected void printBanner(String t) { logger.info("==================================================================================\n  " + t + "\n=================================================================================="); }
     protected void printSeparator() { logger.info("----------------------------------------------------------------------------------"); }
     protected void logItem(String k, String v) { logger.info(String.format("%-45s : %s", k, v)); }
