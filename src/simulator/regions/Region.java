@@ -44,6 +44,10 @@ public class Region extends AbstractRegion {
         super(new Location(minLon, minLat, 0), new Location(maxLon, maxLat, 0));
     }
 
+    public Region copy() {
+        return new Region(this);
+    }
+
     // Update Getters to be Null-Safe
     public double getMinLon() {
         return (bottomLeft == null) ? -180.0 : bottomLeft.getX();
@@ -668,6 +672,7 @@ public class Region extends AbstractRegion {
      * Core logic for generating a random location.
      * Uses the provided Random instance for deterministic behavior and performance.
      * * @param rng The seeded Random instance (Dependency Injection).
+     * 
      * @return A random Location within the region boundaries.
      */
     @JsonIgnore
@@ -679,7 +684,7 @@ public class Region extends AbstractRegion {
 
         // 2. Longitude Logic (X Axis)
         // We use getWidth() because it encapsulates the complex "Wrapping" math
-        double width = getWidth(); 
+        double width = getWidth();
         double xOffset = width * rng.nextDouble();
         double x = bottomLeft.getX() + xOffset;
 

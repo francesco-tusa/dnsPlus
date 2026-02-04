@@ -27,7 +27,7 @@ public class ListMultiRegionStore extends AbstractMultiRegionStore {
             }
         }
 
-        Region accumulator = sub.getRegion();
+        Region accumulator = sub.getRegion().copy();
         boolean mergedInPass;
         int absorbedCount = 0;
         int mergedCount = 0;

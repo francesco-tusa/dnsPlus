@@ -4,23 +4,20 @@ import simulator.config.SimConfiguration;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.regions.BoundedBroker;
-import simulator.regions.Region;
 import simulator.topology.random.RandomTopologyGenerator;
 import simulator.topology.random.RegionRandomTopologyConfiguration;
-import simulator.topology.factories.BoundedBrokerFactory;
-import marketplace.agents.HierarchicalOrchestrationBroker;
 import marketplace.agents.MarketplaceClient;
 import marketplace.agents.MarketplaceProvider;
+import marketplace.agents.MarketplaceBroker;
 import marketplace.topology.MarketplaceBrokerFactory;
-import marketplace.common.MultiMetricLocation;
+import marketplace.common.MetricHyperCube;
+import marketplace.common.MetricLocation;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import utils.CustomLogger;
 
 /**
  * Large Scale Simulation of a Cloud-Edge Continuum.
@@ -66,10 +63,10 @@ public class MarketplaceContinuumSimulation {
         System.out.println("=== Starting Large Scale Continuum Simulation ===\n");
 
         // 1. Build Topology
-        HierarchicalOrchestrationBroker root = buildTopology();
-        List<HierarchicalOrchestrationBroker> allBrokers = collectBrokers(root);
-        List<HierarchicalOrchestrationBroker> leafBrokers = filterBrokersByLevel(allBrokers, true); // Leaves
-        List<HierarchicalOrchestrationBroker> intermediateBrokers = filterBrokersByLevel(allBrokers, false); // Fog/Root
+        MarketplaceBroker root = buildTopology();
+        List<MarketplaceBroker> allBrokers = collectBrokers(root);
+        List<MarketplaceBroker> leafBrokers = filterBrokersByLevel(allBrokers, true); // Leaves
+        List<MarketplaceBroker> intermediateBrokers = filterBrokersByLevel(allBrokers, false); // Fog/Root
         // Remove Root from intermediate list to treat it specifically as Cloud
         intermediateBrokers.remove(root);
 
@@ -87,8 +84,6 @@ public class MarketplaceContinuumSimulation {
         // 3. Advertise
         System.out.println("\n--- Phase 1: Advertising ---");
         // Providers advertised during placement logic.
-        // We can double check or re-advertise if we want to refresh.
-        // For now, they are already advertised.
         System.out.println("All " + allProviders.size() + " providers advertised.");
 
         // 4. Place Clients & Generate Workload
@@ -96,13 +91,12 @@ public class MarketplaceContinuumSimulation {
         placeAndRunClients(leafBrokers);
 
         // 5. Oracle Analysis
-        // System.out.println("\n--- Phase 3: Ground Truth Oracle ---");
         runOracleAnalysis();
     }
 
     // --- Topology Building ---
 
-    private static HierarchicalOrchestrationBroker buildTopology() {
+    private static MarketplaceBroker buildTopology() {
         // Create a custom configuration by overriding getters to bypass final field
         // restrictions
         RegionRandomTopologyConfiguration config = new RegionRandomTopologyConfiguration() {
@@ -135,19 +129,18 @@ public class MarketplaceContinuumSimulation {
         MarketplaceBrokerFactory factory = new MarketplaceBrokerFactory();
         RandomTopologyGenerator generator = new RandomTopologyGenerator(factory);
 
-        // Use generateTopology which fits the interface
-        return (HierarchicalOrchestrationBroker) generator.generateTopology(config);
+        return (MarketplaceBroker) generator.generateTopology(config);
     }
 
-    private static List<HierarchicalOrchestrationBroker> collectBrokers(HierarchicalOrchestrationBroker root) {
-        List<HierarchicalOrchestrationBroker> list = new ArrayList<>();
+    private static List<MarketplaceBroker> collectBrokers(MarketplaceBroker root) {
+        List<MarketplaceBroker> list = new ArrayList<>();
         collectRecursive(root, list);
         return list;
     }
 
-    private static void collectRecursive(TreeNode node, List<HierarchicalOrchestrationBroker> list) {
-        if (node instanceof HierarchicalOrchestrationBroker) {
-            HierarchicalOrchestrationBroker hb = (HierarchicalOrchestrationBroker) node;
+    private static void collectRecursive(TreeNode node, List<MarketplaceBroker> list) {
+        if (node instanceof MarketplaceBroker) {
+            MarketplaceBroker hb = (MarketplaceBroker) node;
             list.add(hb);
             for (Object child : hb.getChildren()) {
                 if (child instanceof TreeNode) {
@@ -157,12 +150,10 @@ public class MarketplaceContinuumSimulation {
         }
     }
 
-    private static List<HierarchicalOrchestrationBroker> filterBrokersByLevel(
-            List<HierarchicalOrchestrationBroker> brokers, boolean isLeaf) {
-        List<HierarchicalOrchestrationBroker> result = new ArrayList<>();
-        for (HierarchicalOrchestrationBroker b : brokers) {
-            // A simple heuristic: if it has children that are Brokers, it's intermediate.
-            // If it has NO children that are brokers, it's a leaf.
+    private static List<MarketplaceBroker> filterBrokersByLevel(
+            List<MarketplaceBroker> brokers, boolean isLeaf) {
+        List<MarketplaceBroker> result = new ArrayList<>();
+        for (MarketplaceBroker b : brokers) {
             boolean hasBrokerChild = false;
             for (Object child : b.getChildren()) {
                 if (child instanceof BoundedBroker) {
@@ -182,7 +173,7 @@ public class MarketplaceContinuumSimulation {
 
     // --- Provider Placement ---
 
-    private static void placeCloudProviders(HierarchicalOrchestrationBroker root) {
+    private static void placeCloudProviders(MarketplaceBroker root) {
         for (int i = 0; i < NUM_CLOUD_PROVIDERS; i++) {
             Location loc = root.getRegion().getCenter(); // Cloud is conceptually "Central"
             MarketplaceProvider p = new MarketplaceProvider("Cloud_P" + i, loc);
@@ -191,23 +182,22 @@ public class MarketplaceContinuumSimulation {
             Map<String, Double> metrics = new HashMap<>();
             metrics.put("cost", 0.01); // Cheap
             metrics.put("latency", 100.0); // Slow
-            metrics.put("capacity", 1000.0);
+            metrics.put("capacity", 1000.0); // High Capacity
 
-            // We store description for later re-advertising
             p.advertiseService(SERVICE_ID, metrics);
             allProviders.add(p);
         }
     }
 
-    private static void placeFogProviders(List<HierarchicalOrchestrationBroker> brokers) {
+    private static void placeFogProviders(List<MarketplaceBroker> brokers) {
         if (brokers.isEmpty())
             return;
         for (int i = 0; i < NUM_FOG_PROVIDERS; i++) {
-            HierarchicalOrchestrationBroker b = brokers.get(random.nextInt(brokers.size()));
+            MarketplaceBroker b = brokers.get(random.nextInt(brokers.size()));
             Location loc = b.getRegion().getCenter();
             MarketplaceProvider p = new MarketplaceProvider("Fog_P" + i, loc);
             b.addChild(p);
-            b.updateRegion(p);
+            // No manual updateRegion needed with SpatialMatchBroker
 
             Map<String, Double> metrics = new HashMap<>();
             metrics.put("cost", 0.10); // Moderate
@@ -219,15 +209,14 @@ public class MarketplaceContinuumSimulation {
         }
     }
 
-    private static void placeEdgeProviders(List<HierarchicalOrchestrationBroker> brokers) {
+    private static void placeEdgeProviders(List<MarketplaceBroker> brokers) {
         if (brokers.isEmpty())
             return;
         for (int i = 0; i < NUM_EDGE_PROVIDERS; i++) {
-            HierarchicalOrchestrationBroker b = brokers.get(random.nextInt(brokers.size()));
+            MarketplaceBroker b = brokers.get(random.nextInt(brokers.size()));
             Location loc = b.getRegion().getCenter(); // Or random in region
             MarketplaceProvider p = new MarketplaceProvider("Edge_P" + i, loc);
             b.addChild(p);
-            b.updateRegion(p);
 
             Map<String, Double> metrics = new HashMap<>();
             metrics.put("cost", 0.50); // Expensive
@@ -241,20 +230,25 @@ public class MarketplaceContinuumSimulation {
 
     // --- Client Workload ---
 
-    private static void placeAndRunClients(List<HierarchicalOrchestrationBroker> leafBrokers) {
+    private static void placeAndRunClients(List<MarketplaceBroker> leafBrokers) {
         for (int i = 0; i < NUM_CLIENTS; i++) {
-            HierarchicalOrchestrationBroker leaf = leafBrokers.get(random.nextInt(leafBrokers.size()));
+            MarketplaceBroker leaf = leafBrokers.get(random.nextInt(leafBrokers.size()));
             Location loc = leaf.getRegion().getCenter();
             MarketplaceClient c = new MarketplaceClient("Client_" + i, loc);
             leaf.addChild(c);
             allClients.add(c);
 
             Map<String, Double> req = new HashMap<>();
-            // Random preference: 50% want Speed, 50% want Cost
+            // Random preference: 50% want Speed (Latency < 50), 50% want Cost (Cost < 0.2)
+            // Note: We use thresholds now because we use Containment.
             if (random.nextBoolean()) {
-                req.put("latency", 0.0); // Want 0 latency
+                // Needs FAST response
+                req.put("latency", 15.0); // Strict latency requirement
+                // req.put("cost", 100.0); // Loose cost
             } else {
-                req.put("cost", 0.0); // Want 0 cost
+                // Needs CHEAP response
+                // req.put("latency", 1000.0); // Loose latency
+                req.put("cost", 0.05); // Strict cost requirement
             }
 
             clientRequests.put(c, req);
@@ -266,11 +260,21 @@ public class MarketplaceContinuumSimulation {
 
     private static void runOracleAnalysis() {
         System.out.println("\n--- Phase 3: Comparative Analysis (Oracle vs Actual) ---");
-        System.out.println("| Client          | Preference | Optimal (Oracle) | Actual (Sim)     | Status |");
-        System.out.println("|-----------------|------------|------------------|------------------|--------|");
+        System.out
+                .println("| Client          | Preference | Optimal (Score)   | Actual (Score)    | Gap (%) | Status |");
+        System.out
+                .println("|-----------------|------------|-------------------|-------------------|---------|--------|");
 
         int exactMatches = 0;
         int total = 0;
+        double totalGap = 0.0;
+        int validMatches = 0;
+
+        // Build a lookup map for providers
+        Map<String, MarketplaceProvider> providerMap = new HashMap<>();
+        for (MarketplaceProvider p : allProviders) {
+            providerMap.put(p.getName(), p);
+        }
 
         for (MarketplaceClient c : allClients) {
             Map<String, Double> req = clientRequests.get(c);
@@ -279,47 +283,69 @@ public class MarketplaceContinuumSimulation {
             total++;
 
             ProviderScore best = findBestProvider(c, allProviders, req);
-            String actualProvider = actualMatches.getOrDefault(c.getName(), "NONE");
+            String actualProviderName = actualMatches.getOrDefault(c.getName(), "NONE");
+            MarketplaceProvider actualProvider = providerMap.get(actualProviderName);
 
-            String pref = req.containsKey("latency") ? "Latency" : "Cost   ";
-            String optimalName = (best != null) ? best.p.getName() : "NONE";
+            String pref = req.containsKey("latency") ? "Lat" : "Cost";
+
+            double optimalScore = (best != null) ? best.score : Double.MAX_VALUE;
+            String optimalStr = (best != null) ? String.format("%s (%.1f)", best.p.getName(), optimalScore) : "NONE";
+
+            double actualScore = Double.MAX_VALUE;
+            if (actualProvider != null) {
+                actualScore = calculateScore(c, actualProvider, req);
+            }
+            String actualStr = (actualProvider != null)
+                    ? String.format("%s (%.1f)", actualProvider.getName(), actualScore)
+                    : "NONE";
 
             // Status Check
             String status = "MISMATCH";
-            if (optimalName.equals(actualProvider)) {
+            if (actualProviderName.equals((best != null) ? best.p.getName() : "NONE")) {
                 status = "MATCH";
-                exactMatches++;
-            } else if (actualProvider.equals("NONE") && optimalName.equals("NONE")) {
-                status = "MATCH"; // Both agree no provider found
                 exactMatches++;
             }
 
+            // Gap Calculation
+            String gapStr = "-";
+            if (best != null && actualProvider != null) {
+                double diff = actualScore - optimalScore;
+                double ratio = (optimalScore > 0.0001) ? (diff / optimalScore) * 100.0 : 0.0;
+                gapStr = String.format("%.1f%%", ratio);
+
+                // Only count gap for valid matches
+                if (actualScore < Double.MAX_VALUE) {
+                    totalGap += ratio;
+                    validMatches++;
+                }
+            } else if (best == null && actualProvider == null) {
+                status = "MATCH";
+                exactMatches++;
+                gapStr = "0.0%";
+            }
+
             // Format
-            System.out.println(String.format("| %-15s | %-10s | %-16s | %-16s | %-6s |",
-                    c.getName(), pref, optimalName, actualProvider, status));
+            System.out.println(String.format("| %-15s | %-10s | %-17s | %-17s | %-7s | %-6s |",
+                    c.getName(), pref, optimalStr, actualStr, gapStr, status));
         }
-        System.out.println("---------------------------------------------------------------------------");
-        System.out.println(String.format("Accuracy: %d / %d (%.2f%%)", exactMatches, total,
+        System.out.println("-----------------------------------------------------------------------------------------");
+        System.out.println(String.format("Exact Accuracy: %d / %d (%.2f%%)", exactMatches, total,
                 (total > 0 ? (double) exactMatches / total * 100 : 0)));
+        if (validMatches > 0) {
+            System.out.println(String.format("Avg Optimality Gap: %.2f%% (Lower is better)", totalGap / validMatches));
+        }
     }
 
     private static ProviderScore findBestProvider(MarketplaceClient c, List<MarketplaceProvider> providers,
             Map<String, Double> req) {
         ProviderScore best = null;
         double minScore = Double.MAX_VALUE;
-        // Create a temporary object to perform the distance calculation
-        MultiMetricLocation requestLoc = new MultiMetricLocation(c.getLocation(), req);
 
         for (MarketplaceProvider p : providers) {
-            Map<String, Double> pMetrics = p.getLastAdvertisedMetrics();
-            if (pMetrics == null)
-                continue;
+            double score = calculateScore(c, p, req);
 
-            MultiMetricLocation providerLoc = new MultiMetricLocation(p.getLocation(), pMetrics);
-            double score = requestLoc.distanceSquared(providerLoc);
-
-            // Strict Threshold Check (Matches Simulator)
-            if (score <= MultiMetricLocation.MAX_ACCEPTABLE_DISTANCE) {
+            // Valid Match Check
+            if (score < Double.MAX_VALUE) {
                 if (score < minScore) {
                     minScore = score;
                     best = new ProviderScore(p, score);
@@ -327,6 +353,44 @@ public class MarketplaceContinuumSimulation {
             }
         }
         return best;
+    }
+
+    private static double calculateScore(MarketplaceClient c, MarketplaceProvider p, Map<String, Double> req) {
+        Map<String, Double> pMetrics = p.getLastAdvertisedMetrics();
+        if (pMetrics == null)
+            return Double.MAX_VALUE;
+
+        // 1. Reconstruct MetricHyperCube (Provider)
+        double pLat = pMetrics.getOrDefault("latency", 0.0);
+        double pCost = pMetrics.getOrDefault("cost", 0.0);
+        double[] pValues = new double[] { pLat, pCost };
+        boolean[] flags = new boolean[] { true, true };
+        MetricHyperCube pRegion = new MetricHyperCube(pValues, pValues, flags);
+
+        // 2. Reconstruct MetricLocation (Requirement)
+        double rLat = req.getOrDefault("latency", Double.MAX_VALUE);
+        double rCost = req.getOrDefault("cost", Double.MAX_VALUE);
+        double[] rValues = new double[] { rLat, rCost };
+        MetricLocation rLoc = new MetricLocation(rValues);
+
+        // 3. Check Containment (Validity)
+        if (!pRegion.contains(rLoc)) {
+            return Double.MAX_VALUE; // Not a match
+        }
+
+        // 4. Return Score (Optimization Objective)
+        // If Request specifies Latency < X, we assume they care about Latency
+        // minimization?
+        // Or strictly meeting threshold?
+        // Let's assume implied preference based on the TIGHTEST constraint.
+        // For simplicity: If Latency constraint < 100, optimize Latency. Else optimize
+        // Cost.
+
+        if (rLat < 100.0) {
+            return pLat;
+        } else {
+            return pCost;
+        }
     }
 
     static class ProviderScore {

@@ -12,61 +12,80 @@ import simulator.core.Location;
  */
 public class BaseRegion extends AbstractRegion {
 
-    public BaseRegion() { super(); }
-    public BaseRegion(Location l) { super(l); }
-    public BaseRegion(Location bl, Location tr) { super(bl, tr); }
-    public BaseRegion(SpatialRegion r) { super(r); }
+    public BaseRegion() {
+        super();
+    }
+
+    public BaseRegion(Location l) {
+        super(l);
+    }
+
+    public BaseRegion(Location bl, Location tr) {
+        super(bl, tr);
+    }
+
+    public BaseRegion(SpatialRegion r) {
+        super(r);
+    }
 
     @Override
     public double getWidth() {
-        if (bottomLeft == null || topRight == null) return 0.0;
+        if (bottomLeft == null || topRight == null)
+            return 0.0;
         return topRight.getX() - bottomLeft.getX();
     }
 
     @Override
     public double getHeight() {
-        if (bottomLeft == null || topRight == null) return 0.0;
+        if (bottomLeft == null || topRight == null)
+            return 0.0;
         return topRight.getY() - bottomLeft.getY();
     }
 
     @Override
-    public double getArea() { return getWidth() * getHeight(); }
+    public double getArea() {
+        return getWidth() * getHeight();
+    }
 
     @Override
     public Location getCenter() {
-        if (bottomLeft == null) return new Location(0,0,0);
+        if (bottomLeft == null)
+            return new Location(0, 0, 0);
         return new Location(
-            (bottomLeft.getX() + topRight.getX()) / 2.0,
-            (bottomLeft.getY() + topRight.getY()) / 2.0,
-            (bottomLeft.getZ() + topRight.getZ()) / 2.0
-        );
+                (bottomLeft.getX() + topRight.getX()) / 2.0,
+                (bottomLeft.getY() + topRight.getY()) / 2.0,
+                (bottomLeft.getZ() + topRight.getZ()) / 2.0);
     }
 
     @Override
     public boolean contains(Location l) {
-        if (l == null || bottomLeft == null) return false;
+        if (l == null || bottomLeft == null)
+            return false;
         return l.getX() >= bottomLeft.getX() && l.getX() <= topRight.getX() &&
-               l.getY() >= bottomLeft.getY() && l.getY() <= topRight.getY();
+                l.getY() >= bottomLeft.getY() && l.getY() <= topRight.getY();
     }
 
     @Override
     public boolean contains(SpatialRegion r) {
-        if (r == null || r.getBottomLeft() == null) return false;
+        if (r == null || r.getBottomLeft() == null)
+            return false;
         return contains(r.getBottomLeft()) && contains(r.getTopRight());
     }
 
     @Override
     public boolean intersects(SpatialRegion r) {
-        if (r == null || bottomLeft == null || r.getBottomLeft() == null) return false;
-        return !(topRight.getX() < r.getBottomLeft().getX() || 
-                 bottomLeft.getX() > r.getTopRight().getX() ||
-                 topRight.getY() < r.getBottomLeft().getY() || 
-                 bottomLeft.getY() > r.getTopRight().getY());
+        if (r == null || bottomLeft == null || r.getBottomLeft() == null)
+            return false;
+        return !(topRight.getX() < r.getBottomLeft().getX() ||
+                bottomLeft.getX() > r.getTopRight().getX() ||
+                topRight.getY() < r.getBottomLeft().getY() ||
+                bottomLeft.getY() > r.getTopRight().getY());
     }
 
     @Override
     public boolean expand(Location l) {
-        if (l == null) return false;
+        if (l == null)
+            return false;
         if (bottomLeft == null) {
             bottomLeft = new Location(l);
             topRight = new Location(l);
@@ -77,9 +96,9 @@ public class BaseRegion extends AbstractRegion {
         double minY = Math.min(bottomLeft.getY(), l.getY());
         double maxX = Math.max(topRight.getX(), l.getX());
         double maxY = Math.max(topRight.getY(), l.getY());
-        
+
         if (minX != bottomLeft.getX() || minY != bottomLeft.getY() ||
-            maxX != topRight.getX() || maxY != topRight.getY()) {
+                maxX != topRight.getX() || maxY != topRight.getY()) {
             bottomLeft = new Location(minX, minY, bottomLeft.getZ());
             topRight = new Location(maxX, maxY, topRight.getZ());
             changed = true;
@@ -89,7 +108,8 @@ public class BaseRegion extends AbstractRegion {
 
     @Override
     public boolean expand(SpatialRegion r) {
-        if (r == null || r.getBottomLeft() == null) return false;
+        if (r == null || r.getBottomLeft() == null)
+            return false;
         boolean c1 = expand(r.getBottomLeft());
         boolean c2 = expand(r.getTopRight());
         return c1 || c2;
@@ -97,7 +117,8 @@ public class BaseRegion extends AbstractRegion {
 
     @Override
     public SpatialRegion intersection(SpatialRegion other) {
-        if (!intersects(other)) return null;
+        if (!intersects(other))
+            return null;
         double x1 = Math.max(bottomLeft.getX(), other.getBottomLeft().getX());
         double y1 = Math.max(bottomLeft.getY(), other.getBottomLeft().getY());
         double x2 = Math.min(topRight.getX(), other.getTopRight().getX());
@@ -118,10 +139,13 @@ public class BaseRegion extends AbstractRegion {
 
     @Override
     public List<Location> getKeyPoints() {
-        if (bottomLeft == null) return Collections.emptyList();
+        if (bottomLeft == null)
+            return Collections.emptyList();
         List<Location> points = new ArrayList<>();
-        double minX = bottomLeft.getX(); double maxX = topRight.getX();
-        double minY = bottomLeft.getY(); double maxY = topRight.getY();
+        double minX = bottomLeft.getX();
+        double maxX = topRight.getX();
+        double minY = bottomLeft.getY();
+        double maxY = topRight.getY();
         double midX = (minX + maxX) / 2.0;
         double midY = (minY + maxY) / 2.0;
 
@@ -139,7 +163,8 @@ public class BaseRegion extends AbstractRegion {
 
     @Override
     public Location getRandomLocation() {
-        if (bottomLeft == null) return new Location(0,0,0);
+        if (bottomLeft == null)
+            return new Location(0, 0, 0);
         double x = bottomLeft.getX() + Math.random() * getWidth();
         double y = bottomLeft.getY() + Math.random() * getHeight();
         return new Location(x, y, 0);
@@ -147,10 +172,13 @@ public class BaseRegion extends AbstractRegion {
 
     @Override
     public String toShortString() {
-        if (bottomLeft == null) return "[]";
+        if (bottomLeft == null)
+            return "[]";
         return String.format("[%s,%s]", bottomLeft.toShortString(), topRight.toShortString());
     }
 
     @Override
-    public String toLogString() { return toShortString(); }
+    public String toLogString() {
+        return toShortString();
+    }
 }
