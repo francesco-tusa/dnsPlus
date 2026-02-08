@@ -2,6 +2,7 @@ package marketplace.tests;
 
 import marketplace.tests.scenarios.MarketplaceLogicDecompositionTest;
 import marketplace.tests.scenarios.MarketplaceRoutingSelectionTest;
+import marketplace.tests.scenarios.MarketplaceStrategyTest; // Import the new test
 
 public class MarketplaceTestSuite {
 
@@ -12,21 +13,26 @@ public class MarketplaceTestSuite {
 
         boolean allPassed = true;
 
-        // 1. Run Propagation & Routing Test
+        // 1. Run Propagation & Routing Test (Topological)
         MarketplaceLogicDecompositionTest propagationTest = new MarketplaceLogicDecompositionTest();
         if (!runTest(propagationTest))
             allPassed = false;
 
-        // 2. Run Instantiation Selection Test
+        // 2. Run Basic Selection Test (Sanity Check)
         MarketplaceRoutingSelectionTest selectionTest = new MarketplaceRoutingSelectionTest();
         if (!runTest(selectionTest))
             allPassed = false;
 
+        // 3. Run Strategy Comparison Test (Optimization Logic)
+        MarketplaceStrategyTest strategyTest = new MarketplaceStrategyTest();
+        if (!runTest(strategyTest))
+            allPassed = false;
+
         System.out.println("\n==========================================");
         if (allPassed) {
-            System.out.println("✅ ALL TESTS PASSED");
+            System.out.println("ALL TESTS PASSED");
         } else {
-            System.err.println("❌ SOME TESTS FAILED");
+            System.err.println("SOME TESTS FAILED");
             System.exit(1);
         }
         System.out.println("==========================================");

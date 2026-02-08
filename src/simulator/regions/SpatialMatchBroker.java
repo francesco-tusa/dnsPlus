@@ -52,7 +52,7 @@ public class SpatialMatchBroker extends BoundedBroker {
         return inputStore;
     }
 
-    private RegionSubscriptionStore createStore(boolean forceSingleRegion, double threshold) {
+    protected RegionSubscriptionStore createStore(boolean forceSingleRegion, double threshold) {
         if (forceSingleRegion)
             return new SimpleRegionStore();
         String impl = SimConfiguration.get().broker.storeImplementation;

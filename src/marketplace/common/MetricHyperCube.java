@@ -4,10 +4,9 @@ import simulator.regions.Region;
 import simulator.regions.SpatialRegion;
 import simulator.core.Location;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
-/**
- * Represents a Hyper-Rectangle in N-dimensional metric space.
- */
 public class MetricHyperCube extends Region {
 
     private double[] minValues;
@@ -39,35 +38,39 @@ public class MetricHyperCube extends Region {
         return new MetricHyperCube(this);
     }
 
-    public double[] getMinValues() {
-        return minValues;
-    }
+    public double[] getMinValues() { return minValues; }
+    public double[] getMaxValues() { return maxValues; }
+    public boolean[] getMinimizeFlags() { return minimizeFlags; }
 
-    public double[] getMaxValues() {
-        return maxValues;
-    }
-
-    public boolean[] getMinimizeFlags() {
-        return minimizeFlags;
+    public Map<String, Double> getMetricsMap(String[] dimensionNames) {
+        if (dimensionNames.length != minValues.length) {
+            throw new IllegalArgumentException("Dimension names length mismatch.");
+        }
+        Map<String, Double> map = new HashMap<>();
+        for (int i = 0; i < minValues.length; i++) {
+            double val = minimizeFlags[i] ? minValues[i] : maxValues[i];
+            map.put(dimensionNames[i], val);
+        }
+        return map;
     }
 
     @Override
     public boolean contains(Location location) {
-        if (!(location instanceof MetricLocation))
-            return false;
+        // CRITICAL: Check physical bounds first (inherited from Region)
+        // If the location (10,10) is not within the physical scope [-100, 1100], fail immediately.
+        if (!super.contains(location)) return false;
+
+        if (!(location instanceof MetricLocation)) return false;
         MetricLocation req = (MetricLocation) location;
 
-        if (req.getDimensions() != minValues.length)
-            return false;
+        if (req.getDimensions() != minValues.length) return false;
 
         for (int i = 0; i < minValues.length; i++) {
             double reqValue = req.getMetric(i);
             if (minimizeFlags[i]) {
-                if (reqValue < this.minValues[i])
-                    return false;
+                if (reqValue < this.minValues[i]) return false;
             } else {
-                if (reqValue > this.maxValues[i])
-                    return false;
+                if (reqValue > this.maxValues[i]) return false;
             }
         }
         return true;
@@ -76,8 +79,7 @@ public class MetricHyperCube extends Region {
     @Override
     public boolean expand(SpatialRegion r) {
         boolean physicalChanged = super.expand(r);
-        if (!(r instanceof MetricHyperCube))
-            return physicalChanged;
+        if (!(r instanceof MetricHyperCube)) return physicalChanged;
 
         MetricHyperCube other = (MetricHyperCube) r;
         boolean metricChanged = false;
@@ -94,35 +96,30 @@ public class MetricHyperCube extends Region {
         }
         return physicalChanged || metricChanged;
     }
-
+    
+    // ... (Keep existing intersects/intersection methods unchanged) ...
     @Override
     public boolean intersects(SpatialRegion r) {
-        if (!(r instanceof MetricHyperCube))
-            return super.intersects(r);
-        if (!super.intersects(r))
-            return false;
+        if (!(r instanceof MetricHyperCube)) return super.intersects(r);
+        if (!super.intersects(r)) return false;
 
         MetricHyperCube other = (MetricHyperCube) r;
         for (int i = 0; i < minValues.length; i++) {
             double maxOfMins = Math.max(this.minValues[i], other.minValues[i]);
             double minOfMaxs = Math.min(this.maxValues[i], other.maxValues[i]);
-            if (maxOfMins > minOfMaxs)
-                return false;
+            if (maxOfMins > minOfMaxs) return false;
         }
         return true;
     }
 
     @Override
     public SpatialRegion intersection(SpatialRegion r) {
-        if (!intersects(r))
-            return null;
-        if (!(r instanceof MetricHyperCube))
-            return super.intersection(r);
+        if (!intersects(r)) return null;
+        if (!(r instanceof MetricHyperCube)) return super.intersection(r);
 
         MetricHyperCube other = (MetricHyperCube) r;
         SpatialRegion physicalInt = super.intersection(r);
-        if (physicalInt == null)
-            return null;
+        if (physicalInt == null) return null;
 
         double[] newMin = new double[minValues.length];
         double[] newMax = new double[minValues.length];
@@ -133,7 +130,7 @@ public class MetricHyperCube extends Region {
         }
         return new MetricHyperCube(newMin, newMax, this.minimizeFlags, physicalInt);
     }
-
+    
     @Override
     public String toShortString() {
         return super.toShortString() + " | Metrics: " + Arrays.toString(minValues) + "->" + Arrays.toString(maxValues);

@@ -4,50 +4,62 @@ import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
-import simulator.events.PublicationWithLocation;
 import simulator.regions.Region;
 import simulator.regions.SpatialMatchBroker;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.regions.policy.StrictPropagationPolicy;
+import simulator.regions.store.RegionSubscriptionStore;
+import marketplace.topology.store.MarketplaceRegionStore;
 import marketplace.common.MetricHyperCube;
 import marketplace.events.ServiceOffer;
 import marketplace.events.ServiceRequest;
+import marketplace.optimization.ServiceSelectionStrategy;
+import marketplace.optimization.WeightedUtilityStrategy; // Default
+import marketplace.optimization.LatencyFirstStrategy;   // Alternative
+
 import java.util.List;
 import java.util.ArrayList;
 
 public class MarketplaceBroker extends SpatialMatchBroker {
 
     private final List<TreeNode> matchBuffer = new ArrayList<>();
+    
+    private ServiceSelectionStrategy selectionStrategy;
 
     public MarketplaceBroker(String name) {
         super(name, false, 0.5, new StrictPropagationPolicy());
+        // Default to the new Weighted Strategy
+        this.selectionStrategy = new WeightedUtilityStrategy();
     }
 
     public MarketplaceBroker(String name, Location p1, Location p2) {
         super(name, p1, p2, false, 0.5, new StrictPropagationPolicy());
+        // Default to the new Weighted Strategy
+        this.selectionStrategy = new WeightedUtilityStrategy();
+    }
+    
+    /**
+     * Switch the optimization logic at runtime.
+     * Example: broker.setSelectionStrategy(new LatencyFirstStrategy());
+     */
+    public void setSelectionStrategy(ServiceSelectionStrategy strategy) {
+        this.selectionStrategy = strategy;
     }
 
-    /**
-     * MARKETPLACE OVERRIDE:
-     * Intercepts the creation of propagated subscriptions to ensure
-     * MetricHyperCubes are preserved.
-     */
     @Override
-    protected SubscriptionWithRegion createCandidateSubscription(SubscriptionWithRegion aggregatedState,
-            Region newRegionPayload) {
-        // Check if we are dealing with a MetricHyperCube
+    protected RegionSubscriptionStore createStore(boolean forceSingleRegion, double threshold) {
+        return new MarketplaceRegionStore(threshold);
+    }
+
+    @Override
+    protected SubscriptionWithRegion createCandidateSubscription(SubscriptionWithRegion aggregatedState, Region newRegionPayload) {
         if (aggregatedState.getRegion() instanceof MetricHyperCube mhc) {
-
-            // We must create a NEW MetricHyperCube that inherits the properties of the
-            // aggregated one
-            // but uses the 'newRegionPayload' (which contains the aggregated physical
-            // bounds)
             MetricHyperCube newCube = new MetricHyperCube(mhc);
-            newCube.set(newRegionPayload);
-
+            if (aggregatedState instanceof ServiceOffer offer) {
+                return ServiceOffer.createAggregated(offer.getServiceId(), newCube);
+            }
             return new SubscriptionWithRegion(newCube);
         }
-
         return super.createCandidateSubscription(aggregatedState, newRegionPayload);
     }
 
@@ -59,53 +71,21 @@ public class MarketplaceBroker extends SpatialMatchBroker {
         ServiceRequest req = (ServiceRequest) p;
 
         this.matchBuffer.clear();
+        
+        // 1. Spatial Filter (Physical Layer)
         this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
 
         if (this.matchBuffer.isEmpty())
             return null;
 
-        TreeNode bestNode = null;
-        double bestScore = Double.MAX_VALUE;
+        // 2. Strategy Execution (Logic Layer)
+        TreeNode bestNode = this.selectionStrategy.selectBestProvider(
+            req, 
+            this.matchBuffer, 
+            this.getInputStore()
+        );
 
-        for (TreeNode candidate : this.matchBuffer) {
-            if (candidate == p.getSource())
-                continue;
-
-            List<SimulationSubscription> subs = this.getInputStore().getAllSubscriptions()
-                    .get(candidate);
-
-            if (subs == null)
-                continue;
-
-            for (SimulationSubscription sub : subs) {
-                // Check for ServiceOffer type to safely access service ID
-                if (sub instanceof ServiceOffer offer) {
-                    if (offer.getServiceId() == req.getServiceId()) {
-                        if (offer.getRegion() instanceof MetricHyperCube cap) {
-                            if (cap.contains(req.getLocation())) {
-                                double score = cap.getMinValues()[0];
-                                if (score < bestScore) {
-                                    bestScore = score;
-                                    bestNode = candidate;
-                                }
-                            }
-                        }
-                    }
-                }
-                // Fallback for testing or non-ServiceOffer wrappers
-                else if (sub instanceof SubscriptionWithRegion swr && swr.getRegion() instanceof MetricHyperCube cap) {
-                    if (cap.contains(req.getLocation())) {
-                        double score = cap.getMinValues()[0];
-
-                        if (score < bestScore) {
-                            bestScore = score;
-                            bestNode = candidate;
-                        }
-                    }
-                }
-            }
-        }
-
+        // 3. Forwarding
         if (bestNode != null) {
             forwardPublicationToNode(p, bestNode);
         }

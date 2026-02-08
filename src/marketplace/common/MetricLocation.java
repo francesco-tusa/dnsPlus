@@ -29,6 +29,13 @@ public class MetricLocation extends Location {
     }
 
     /**
+     * @return The raw array of metric coordinates (e.g., [Latency, Cost])
+     */
+    public double[] getCoordinates() {
+        return metrics;
+    }
+
+    /**
      * @param index Dimension index
      * @return The metric value at that index
      */
