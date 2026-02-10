@@ -21,24 +21,18 @@ public class MetricLocation extends Location {
         this.metrics = metrics;
     }
 
-    /**
-     * @return The number of metric dimensions.
-     */
     public int getDimensions() {
         return metrics.length;
     }
 
     /**
-     * @return The raw array of metric coordinates (e.g., [Latency, Cost])
+     * RENAMED: Returns the raw array of metric values (e.g., [Latency, Cost])
+     * distinct from the physical coordinates (X, Y).
      */
-    public double[] getCoordinates() {
+    public double[] getMetricValues() {
         return metrics;
     }
 
-    /**
-     * @param index Dimension index
-     * @return The metric value at that index
-     */
     public double getMetric(int index) {
         if (index < 0 || index >= metrics.length) {
             throw new IndexOutOfBoundsException("Invalid metric dimension: " + index);

@@ -1,6 +1,7 @@
 package marketplace.events;
 
 import java.util.Map;
+import marketplace.common.MarketplaceMetricSchema;
 import marketplace.common.MetricLocation;
 import simulator.core.Location;
 import simulator.events.PublicationWithLocation;
@@ -14,72 +15,76 @@ public class ServiceRequest extends PublicationWithLocation {
 
     private final long serviceId;
     private final Map<String, Double> preferences;
-    // Weights corresponding to [Latency, Cost]
     private final double[] weights; 
+    private final boolean[] minimizeFlags; 
 
-    /**
-     * @param serviceId Unique ID of the service being requested
-     * @param preferences Map of constraints (e.g., "latency" -> 100.0)
-     * @param weightsMap Map of importance weights (e.g., "latency" -> 0.8). Defaults to 1.0 if missing.
-     * @param physicalLoc The physical location of the requester
-     */
-    public ServiceRequest(long serviceId, Map<String, Double> preferences, Map<String, Double> weightsMap, Location physicalLoc) {
-        super(createMetricLocation(preferences, physicalLoc));
+    public ServiceRequest(long serviceId, Map<String, Double> constraints, Map<String, Double> weightsMap, Location physicalLoc) {
+        // We wrap the constraints into a MetricLocation and pass it to super
+        super(createMetricLocation(constraints, physicalLoc));
         this.serviceId = serviceId;
-        this.preferences = preferences;
+        this.preferences = constraints;
         this.weights = createWeightsArray(weightsMap);
+        this.minimizeFlags = createOptimizationFlags();
     }
 
-    /**
-     * Copy Constructor (for propagation cloning)
-     */
     private ServiceRequest(ServiceRequest other) {
         super(other.getLocation());
         this.copyStateFrom(other);
         this.serviceId = other.serviceId;
         this.preferences = other.preferences;
         this.weights = other.weights;
+        this.minimizeFlags = other.minimizeFlags;
     }
 
-    private static MetricLocation createMetricLocation(Map<String, Double> preferences, Location physicalLoc) {
-        // Extract targets (e.g., Latency < 20)
-        double targetLatency = preferences.getOrDefault("latency", Double.MAX_VALUE);
-        double targetCost = preferences.getOrDefault("cost", Double.MAX_VALUE);
+    /**
+     * Helper to safely access the MetricLocation (Constraints) without casting.
+     * Renamed to avoid confusion with LoggableEntity.getMetricLocation().
+     */
+    public MetricLocation getQoSConstraintsLocation() {
+        return (MetricLocation) this.getLocation();
+    }
 
-        // Dimensions: [Latency, Cost]
-        double[] reqValues = new double[] { targetLatency, targetCost };
+    // --- HELPER FACTORIES ---
 
+    private static MetricLocation createMetricLocation(Map<String, Double> constraints, Location physicalLoc) {
+        double[] reqValues = new double[MarketplaceMetricSchema.KEYS.length];
+        for (int i = 0; i < MarketplaceMetricSchema.KEYS.length; i++) {
+            String key = MarketplaceMetricSchema.KEYS[i];
+            boolean isMinimization = MarketplaceMetricSchema.DIRECTIONS.get(key);
+            double defaultVal = isMinimization ? Double.MAX_VALUE : 0.0;
+            reqValues[i] = constraints.getOrDefault(key, defaultVal);
+        }
         return new MetricLocation(reqValues, physicalLoc);
     }
 
     private static double[] createWeightsArray(Map<String, Double> weightsMap) {
-        // Default weight is 1.0 if not specified
-        double wLatency = (weightsMap != null) ? weightsMap.getOrDefault("latency", 1.0) : 1.0;
-        double wCost = (weightsMap != null) ? weightsMap.getOrDefault("cost", 1.0) : 1.0;
+        double[] w = new double[MarketplaceMetricSchema.KEYS.length];
+        for (int i = 0; i < MarketplaceMetricSchema.KEYS.length; i++) {
+            w[i] = (weightsMap != null) ? weightsMap.getOrDefault(MarketplaceMetricSchema.KEYS[i], 0.0) : 0.0;
+        }
+        return w;
+    }
 
-        return new double[] { wLatency, wCost };
+    private static boolean[] createOptimizationFlags() {
+        boolean[] flags = new boolean[MarketplaceMetricSchema.KEYS.length];
+        for (int i = 0; i < MarketplaceMetricSchema.KEYS.length; i++) {
+            flags[i] = MarketplaceMetricSchema.DIRECTIONS.get(MarketplaceMetricSchema.KEYS[i]);
+        }
+        return flags;
     }
 
     @Override
     public SimulationPublication getPublication() {
-        // Return specific type to preserve data during propagation
         return new ServiceRequest(this);
     }
 
-    public long getServiceId() {
-        return serviceId;
-    }
-
-    public Map<String, Double> getPreferences() {
-        return preferences;
-    }
-
-    public double[] getWeights() {
-        return weights;
-    }
-
+    public long getServiceId() { return serviceId; }
+    public Map<String, Double> getPreferences() { return preferences; }
+    public double[] getWeights() { return weights; }
+    public boolean[] getMinimizeFlags() { return minimizeFlags; }
+    
     @Override
     public String toString() {
-        return "ServiceRequest[ID=" + serviceId + ", Prefs=" + preferences + "]";
+        return "ServiceRequest[ID=" + serviceId + "]";
     }
 }

@@ -2,6 +2,7 @@ package marketplace.events;
 
 import java.util.Map;
 import marketplace.common.MetricHyperCube;
+import marketplace.common.MarketplaceMetricSchema; // Import Schema
 import simulator.core.Location;
 import simulator.events.SimulationSubscription;
 import simulator.regions.Region;
@@ -11,7 +12,8 @@ public class ServiceOffer extends SubscriptionWithRegion {
 
     private final long serviceId;
     private final Map<String, Double> qosMetrics;
-    private static final String[] METRIC_KEYS = { "latency", "cost" };
+
+    // REMOVED: private static final String[] METRIC_KEYS = { "latency", "cost" };
 
     public ServiceOffer(long serviceId, Map<String, Double> metrics, Location location, String providerName) {
         super(createMetricRegion(metrics, location, providerName));
@@ -36,7 +38,8 @@ public class ServiceOffer extends SubscriptionWithRegion {
     }
 
     public static Map<String, Double> reconstructMetrics(MetricHyperCube cube) {
-        return cube.getMetricsMap(METRIC_KEYS);
+        // FIX: Use the global Schema Keys
+        return cube.getMetricsMap(MarketplaceMetricSchema.KEYS);
     }
     
     public static ServiceOffer createAggregated(long serviceId, MetricHyperCube aggregatedCube) {
@@ -46,44 +49,57 @@ public class ServiceOffer extends SubscriptionWithRegion {
 
     /**
      * UNIFIED REGION LOGIC:
-     * Assigns spatial scope based on Provider Type.
-     * * hierarchy:
-     * - Cloud/Global: Country/AWS Region size (e.g. +/- 60.0). Not entire world.
-     * - Fog/Regional: Large Radius (e.g. +/- 20.0). Covers multiple cities.
-     * - Edge/Local:   Small Radius (e.g. +/- 5.0). City/District level.
+     * 1. Uses MarketplaceMetricSchema to determine dimensions.
+     * 2. Sets "Interest Intervals" based on optimization direction.
      */
     private static Region createMetricRegion(Map<String, Double> metrics, Location loc, String providerName) {
-        double latency = metrics.getOrDefault("latency", 0.0);
-        double cost = metrics.getOrDefault("cost", 0.0);
         
-        double[] values = new double[] { latency, cost };
-        boolean[] flags = new boolean[] { true, true }; // Minimize both
+        // --- 1. Metric Dimension Setup ---
+        int dim = MarketplaceMetricSchema.KEYS.length;
+        double[] minValues = new double[dim];
+        double[] maxValues = new double[dim];
+        boolean[] flags = new boolean[dim]; 
 
+        for (int i = 0; i < dim; i++) {
+            String key = MarketplaceMetricSchema.KEYS[i];
+            boolean minimize = MarketplaceMetricSchema.DIRECTIONS.get(key);
+            double value = metrics.getOrDefault(key, minimize ? 0.0 : Double.MAX_VALUE);
+            
+            flags[i] = minimize; 
+
+            // Logic:
+            // Minimize (e.g. Latency 20ms): We satisfy requests for >= 20ms. Range: [20, MAX]
+            // Maximize (e.g. Reliability 99%): We satisfy requests for <= 99%. Range: [0, 99]
+            if (minimize) {
+                minValues[i] = value;
+                maxValues[i] = Double.MAX_VALUE;
+            } else {
+                minValues[i] = 0.0;
+                maxValues[i] = value;
+            }
+        }
+
+        // --- 2. Physical Scope Setup ---
         String name = providerName.toLowerCase();
         simulator.regions.Region physicalScope;
 
         if (name.contains("cloud") || name.contains("global")) {
-            // Cloud Scope: A large region (e.g., Country or AWS Region)
-            // Radius 60.0 ensures it covers most of the test map (0-60) 
-            // but is bounded (e.g., doesn't cover the antipodes).
             double r = 60.0;
             physicalScope = new simulator.regions.Region(
                     loc.getX() - r, loc.getY() - r, loc.getX() + r, loc.getY() + r);
         } 
         else if (name.contains("fog") || name.contains("region")) {
-            // Regional Scope: Covers neighboring brokers (e.g., +/- 20 units)
             double r = 20.0;
             physicalScope = new simulator.regions.Region(
                     loc.getX() - r, loc.getY() - r, loc.getX() + r, loc.getY() + r);
         } 
         else {
-            // Edge/City Scope: Strictly local (e.g., +/- 5 units)
             double r = 5.0;
             physicalScope = new simulator.regions.Region(
                     loc.getX() - r, loc.getY() - r, loc.getX() + r, loc.getY() + r);
         }
 
-        return new MetricHyperCube(values, values, flags, physicalScope);
+        return new MetricHyperCube(minValues, maxValues, flags, physicalScope);
     }
 
     public long getServiceId() { return serviceId; }

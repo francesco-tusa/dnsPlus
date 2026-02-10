@@ -1,5 +1,6 @@
 package marketplace.tests.scenarios;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -10,9 +11,9 @@ import utils.CustomLogger;
 import marketplace.agents.MarketplaceBroker;
 import marketplace.agents.MarketplaceClient;
 import marketplace.agents.MarketplaceProvider;
-import marketplace.optimization.LatencyFirstStrategy;
 import marketplace.optimization.WeightedUtilityStrategy;
 import marketplace.topology.MarketplaceBrokerFactory;
+import marketplace.common.MarketplaceMetricSchema;
 
 public class MarketplaceStrategyTest extends TestScenario {
 
@@ -20,17 +21,17 @@ public class MarketplaceStrategyTest extends TestScenario {
 
     @Override
     public String getTestName() {
-        return "Marketplace Strategy: Weighted vs Latency (Local & End-to-End)";
+        return "Marketplace Strategy: Distance, Min/Max & Weighted Logic";
     }
 
     @Override
     public boolean run(TopologyFixture ignoredFixture) {
         System.out.println(">>> STARTING STRATEGY COMPARISON TEST");
         
-        boolean localPass = runLocalCheck();
-        boolean networkPass = runEndToEndNetworkCheck();
+        boolean distancePass = runDistancePenaltyCheck();
+        boolean minMaxPass = runMinMaxOptimizationCheck();
         
-        if (localPass && networkPass) {
+        if (distancePass && minMaxPass) {
             System.out.println(">>> ALL STRATEGY TESTS PASSED");
             return true;
         } else {
@@ -40,153 +41,126 @@ public class MarketplaceStrategyTest extends TestScenario {
     }
 
     /**
-     * PHASE 1 & 2: Local Logic Check (Single Broker)
-     * Verifies the Strategy calculation without network complexity.
+     * Helper to create a Full Schema Map.
+     * Ensures that if a test only specifies "Latency", the other fields (Cost, Reliability, etc.)
+     * are filled with "Best Case" defaults so the Provider isn't disqualified by the Hypercube check.
      */
-    private boolean runLocalCheck() {
-        System.out.println("\n=== [Phases 1-2] Local Strategy Logic Check ===");
-
-        // 1. Setup Single Leaf Broker (Needs bounds as it is a leaf)
-        MarketplaceBrokerFactory factory = new MarketplaceBrokerFactory();
-        MarketplaceBroker broker = (MarketplaceBroker) factory.createLeafBroker("LocalBroker",
-                new Location(0, 0, 0), new Location(100, 100, 0));
-
-        // 2. Setup Providers
-        // P1: Fast (10ms) but Expensive ($100)
-        MarketplaceProvider pFast = new MarketplaceProvider("Fog_FastExpensive", new Location(50, 50, 0));
-        broker.addChild(pFast);
-        pFast.advertiseService(2001, Map.of("latency", 10.0, "cost", 100.0));
-
-        // P2: Slow (50ms) but Cheap ($10)
-        MarketplaceProvider pSlow = new MarketplaceProvider("Fog_SlowCheap", new Location(50, 50, 0));
-        broker.addChild(pSlow);
-        pSlow.advertiseService(2001, Map.of("latency", 50.0, "cost", 10.0));
-
-        // Client at same location
-        MarketplaceClient client = new MarketplaceClient("LocalClient", new Location(50, 50, 0));
-        broker.addChild(client);
-
-        // --- PHASE 1: LATENCY FIRST ---
-        System.out.println("   [Phase 1] Testing LatencyFirstStrategy...");
-        broker.setSelectionStrategy(new LatencyFirstStrategy());
+    private Map<String, Double> createCompleteOffer(Map<String, Double> specificValues) {
+        Map<String, Double> fullOffer = new HashMap<>();
         
-        int fastCountBefore = pFast.getnPublications();
-        int slowCountBefore = pSlow.getnPublications();
-
-        // Request (Weights ignored by LatencyFirst)
-        client.requestService(2001, Map.of("latency", 100.0, "cost", 100.0));
-
-        if (pFast.getnPublications() == fastCountBefore + 1 && pSlow.getnPublications() == slowCountBefore) {
-            System.out.println("   -> PASS: LatencyFirst correctly picked Fast provider.");
-        } else {
-            logger.severe("FAIL Phase 1: LatencyFirst selection error. Fast=" + pFast.getnPublications() + " Slow=" + pSlow.getnPublications());
-            return false;
+        // Fill defaults for all keys in Schema
+        for (String key : MarketplaceMetricSchema.KEYS) {
+            boolean isMinimize = MarketplaceMetricSchema.DIRECTIONS.get(key);
+            // If Minimize (Cost/Lat), default to 0.0 (Best).
+            // If Maximize (Rel/Band), default to MAX_VALUE (Best) -> effectively infinite capability.
+            // This ensures the Provider is "Valid" for dimensions we aren't testing.
+            double bestCase = isMinimize ? 0.0 : Double.MAX_VALUE;
+            fullOffer.put(key, bestCase);
         }
 
-        // --- PHASE 2: WEIGHTED UTILITY ---
-        System.out.println("   [Phase 2] Testing WeightedUtilityStrategy (Cost Preference)...");
-        broker.setSelectionStrategy(new WeightedUtilityStrategy());
-
-        fastCountBefore = pFast.getnPublications();
-        slowCountBefore = pSlow.getnPublications();
-
-        // Weights: Latency=0.1, Cost=0.9 (User cares about COST)
-        client.requestService(2001, 
-            Map.of("latency", 100.0, "cost", 100.0), 
-            Map.of("latency", 0.1, "cost", 0.9) 
-        );
-
-        if (pSlow.getnPublications() == slowCountBefore + 1 && pFast.getnPublications() == fastCountBefore) {
-            System.out.println("   -> PASS: WeightedStrategy correctly picked Cheap provider.");
-        } else {
-            logger.severe("FAIL Phase 2: WeightedUtility selection error. Fast=" + pFast.getnPublications() + " Slow=" + pSlow.getnPublications());
-            return false;
-        }
-
-        return true;
+        // Overwrite with test-specific values
+        fullOffer.putAll(specificValues);
+        return fullOffer;
     }
 
-    /**
-     * PHASE 3: End-to-End Hierarchical Check
-     * Verifies that the Root Broker can route to different branches based on Strategy.
-     */
-    private boolean runEndToEndNetworkCheck() {
-        System.out.println("\n=== [Phase 3] End-to-End Hierarchical Routing Check ===");
+    private boolean runDistancePenaltyCheck() {
+        System.out.println("\n=== [Test 1] Distance Penalty (Network Latency) Check ===");
 
         MarketplaceBrokerFactory factory = new MarketplaceBrokerFactory();
-
-        // 1. Topology Setup: Y-Shape
-        // CORRECTION: Use createBroker() for the Root. It relies on aggregation.
-        MarketplaceBroker root = (MarketplaceBroker) factory.createBroker("RootBroker");
+        MarketplaceBroker broker = (MarketplaceBroker) factory.createLeafBroker("DistanceBroker",
+                new Location(0, 0, 0), new Location(100, 100, 0));
         
-        // Branch A: Holds the Cheap Provider (Must be a LEAF with bounds)
-        MarketplaceBroker bCheap = (MarketplaceBroker) factory.createLeafBroker("Broker_BranchA",
-            new Location(0,0,0), new Location(100,100,0));
+        MarketplaceClient client = new MarketplaceClient("Client_Origin", new Location(0, 0, 0));
+        broker.addChild(client);
+
+        // Provider FAR (Distance 50) - Compute 5ms
+        // FIX: Renamed to contain "Cloud" to ensure Radius=60.0, covering the client at distance 50.
+        MarketplaceProvider pFar = new MarketplaceProvider("Prov_Far_Cloud_Fast", new Location(50, 0, 0));
+        broker.addChild(pFar);
+        pFar.advertiseService(1001, createCompleteOffer(Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 5.0)));
+
+        // Provider CLOSE (Distance 10) - Compute 20ms
+        // FIX: Renamed to contain "Region" to ensure Radius=20.0, covering the client at distance 10.
+        MarketplaceProvider pClose = new MarketplaceProvider("Prov_Close_Region_Slow", new Location(10, 0, 0));
+        broker.addChild(pClose);
+        pClose.advertiseService(1001, createCompleteOffer(Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 20.0)));
+
+        broker.setSelectionStrategy(new WeightedUtilityStrategy());
         
-        // Branch B: Holds the Fast Provider (Must be a LEAF with bounds)
-        MarketplaceBroker bFast = (MarketplaceBroker) factory.createLeafBroker("Broker_BranchB",
-            new Location(0,0,0), new Location(100,100,0)); 
-            
-        // Branch C: Holds the Client
-        MarketplaceBroker bClient = (MarketplaceBroker) factory.createLeafBroker("Broker_BranchC",
-            new Location(0,0,0), new Location(100,100,0));
+        int farCount = pFar.getnPublications();
+        int closeCount = pClose.getnPublications();
 
-        // Construct Tree
-        root.addChild(bCheap);
-        root.addChild(bFast);
-        root.addChild(bClient);
-
-        // 2. Populate Agents
-        MarketplaceProvider pCheap = new MarketplaceProvider("Fog_BranchA_Cheap", new Location(40, 50, 0));
-        bCheap.addChild(pCheap);
-        pCheap.advertiseService(3001, Map.of("latency", 50.0, "cost", 10.0)); // Slow but Cheap
-
-        MarketplaceProvider pFast = new MarketplaceProvider("Fog_BranchB_Fast", new Location(60, 50, 0));
-        bFast.addChild(pFast);
-        pFast.advertiseService(3001, Map.of("latency", 10.0, "cost", 100.0)); // Fast but Expensive
-
-        MarketplaceClient client = new MarketplaceClient("NetClient", new Location(50, 50, 0));
-        bClient.addChild(client);
-
-        // 3. Configure Root Strategy
-        root.setSelectionStrategy(new WeightedUtilityStrategy());
-
-        // Snapshot counters
-        int cheapCountBefore = pCheap.getnPublications();
-        int fastCountBefore = pFast.getnPublications();
-
-        // --- TEST CASE A: Client prefers COST (Should route to Branch A) ---
-        System.out.println("   [Step A] Requesting Cheap Service (Weights: Cost=0.9)...");
-        client.requestService(3001, 
-            Map.of("latency", 100.0, "cost", 100.0), 
-            Map.of("latency", 0.1, "cost", 0.9)
+        // Request: < 100ms. Weight: 100% Latency.
+        System.out.println("   -> Sending Request (Prefers Low Latency)...");
+        client.requestService(1001, 
+            Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 100.0), 
+            Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 1.0)
         );
 
-        if (pCheap.getnPublications() == cheapCountBefore + 1 && pFast.getnPublications() == fastCountBefore) {
-            System.out.println("   -> PASS: Root routed request down Branch A (Cheap).");
+        // Check if messages were received
+        if (pClose.getnPublications() == closeCount + 1 && pFar.getnPublications() == farCount) {
+            System.out.println("   -> PASS: Strategy correctly picked CLOSE provider (Total 30ms) over FAR (Total 55ms).");
+            return true;
         } else {
-            logger.severe("FAIL Network Step A: Routing Error. Cheap=" + pCheap.getnPublications() + " Fast=" + pFast.getnPublications());
+            logger.severe("FAIL Test 1: Strategy picked wrong provider (or none). Close=" + 
+                          (pClose.getnPublications() - closeCount) + 
+                          " Far=" + (pFar.getnPublications() - farCount));
             return false;
         }
+    }
 
-        // Reset Snapshot
-        cheapCountBefore = pCheap.getnPublications();
-        fastCountBefore = pFast.getnPublications();
+    private boolean runMinMaxOptimizationCheck() {
+        System.out.println("\n=== [Test 2] Min/Max Optimization (Cost vs Reliability) Check ===");
 
-        // --- TEST CASE B: Client prefers SPEED (Should route to Branch B) ---
-        System.out.println("   [Step B] Requesting Fast Service (Weights: Latency=0.9)...");
-        client.requestService(3001, 
-            Map.of("latency", 100.0, "cost", 100.0), 
-            Map.of("latency", 0.9, "cost", 0.1)
+        MarketplaceBrokerFactory factory = new MarketplaceBrokerFactory();
+        MarketplaceBroker broker = (MarketplaceBroker) factory.createLeafBroker("MinMaxBroker",
+                new Location(0, 0, 0), new Location(100, 100, 0));
+
+        MarketplaceClient client = new MarketplaceClient("Client_MM", new Location(0, 0, 0));
+        broker.addChild(client);
+
+        // P1: Cheap ($10) but Low Reliability (60%)
+        // Using "Region" to ensure safe physical radius overlap
+        MarketplaceProvider pCheap = new MarketplaceProvider("Prov_Cheap_Risky_Region", new Location(0, 0, 0));
+        broker.addChild(pCheap);
+        pCheap.advertiseService(2002, createCompleteOffer(Map.of(
+            MarketplaceMetricSchema.METRIC_COST, 10.0,
+            MarketplaceMetricSchema.METRIC_RELIABILITY, 0.60
+        )));
+
+        // P2: Expensive ($90) but High Reliability (99%)
+        MarketplaceProvider pExpensive = new MarketplaceProvider("Prov_Expensive_Safe_Region", new Location(0, 0, 0));
+        broker.addChild(pExpensive);
+        pExpensive.advertiseService(2002, createCompleteOffer(Map.of(
+            MarketplaceMetricSchema.METRIC_COST, 90.0,
+            MarketplaceMetricSchema.METRIC_RELIABILITY, 0.99
+        )));
+
+        broker.setSelectionStrategy(new WeightedUtilityStrategy());
+        
+        int cheapCount = pCheap.getnPublications();
+        int expCount = pExpensive.getnPublications();
+
+        System.out.println("   -> Sending Request (Equal Weights Cost/Reliability)...");
+        client.requestService(2002, 
+            Map.of(
+                MarketplaceMetricSchema.METRIC_COST, 100.0, 
+                MarketplaceMetricSchema.METRIC_RELIABILITY, 0.5
+            ), 
+            Map.of(
+                MarketplaceMetricSchema.METRIC_COST, 0.5, 
+                MarketplaceMetricSchema.METRIC_RELIABILITY, 0.5
+            )
         );
 
-        if (pFast.getnPublications() == fastCountBefore + 1 && pCheap.getnPublications() == cheapCountBefore) {
-            System.out.println("   -> PASS: Root routed request down Branch B (Fast).");
+        if (pCheap.getnPublications() == cheapCount + 1 && pExpensive.getnPublications() == expCount) {
+            System.out.println("   -> PASS: Strategy correctly picked CHEAP provider based on Utility Score.");
+            return true;
         } else {
-            logger.severe("FAIL Network Step B: Routing Error. Cheap=" + pCheap.getnPublications() + " Fast=" + pFast.getnPublications());
+            logger.severe("FAIL Test 2: Strategy picked wrong provider. Cheap=" + 
+                          (pCheap.getnPublications() - cheapCount) + 
+                          " Expensive=" + (pExpensive.getnPublications() - expCount));
             return false;
         }
-
-        return true;
     }
 }

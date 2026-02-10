@@ -4,7 +4,9 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.core.Location;
 import simulator.events.SimulationPublication;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import marketplace.events.ServiceOffer;
 import marketplace.events.ServiceRequest;
@@ -12,6 +14,7 @@ import marketplace.events.ServiceRequest;
 public class MarketplaceProvider extends SubscriberWithLocation {
 
     private ServiceOffer lastAdvertisedOffer;
+    private final List<ServiceOffer> activeOffers = new ArrayList<>();
 
     public MarketplaceProvider(String name, Location location) {
         super(name, location);
@@ -23,6 +26,9 @@ public class MarketplaceProvider extends SubscriberWithLocation {
     public void advertiseService(long serviceId, Map<String, Double> performanceMetrics) {
         // Create the specialized ServiceOffer event
         ServiceOffer offer = new ServiceOffer(serviceId, performanceMetrics, this.getLocation(), getName());
+
+        // For ground-truth calculation
+        this.activeOffers.add(offer);
 
         // Store the authoritative object
         this.lastAdvertisedOffer = offer;
@@ -46,6 +52,10 @@ public class MarketplaceProvider extends SubscriberWithLocation {
             return lastAdvertisedOffer.getQosMetrics();
         }
         return Collections.emptyMap();
+    }
+
+    public List<ServiceOffer> getActiveOffers() {
+        return new ArrayList<>(activeOffers);
     }
 
     /**
