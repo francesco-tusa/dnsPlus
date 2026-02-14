@@ -23,6 +23,7 @@ public class RegionWorkloadGenerator implements SubscriptionWorkloadGenerator {
     private List<BoundedBroker> hotspots = null;
     private double hotspotInterestProbability = 0.8; 
 
+    @Override
     public void setHotspots(List<BoundedBroker> hotspots) {
         this.hotspots = hotspots;
     }

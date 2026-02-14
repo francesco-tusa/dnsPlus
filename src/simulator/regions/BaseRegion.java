@@ -138,6 +138,33 @@ public class BaseRegion extends AbstractRegion {
     }
 
     @Override
+    public double distanceSquared(Location p) {
+        if (p == null || bottomLeft == null || topRight == null) return Double.MAX_VALUE;
+        if (this.contains(p)) return 0.0;
+
+        double minX = bottomLeft.getX();
+        double maxX = topRight.getX();
+        double minY = bottomLeft.getY();
+        double maxY = topRight.getY();
+
+        double dx = 0.0;
+        if (p.getX() < minX) {
+            dx = minX - p.getX();
+        } else if (p.getX() > maxX) {
+            dx = p.getX() - maxX;
+        }
+
+        double dy = 0.0;
+        if (p.getY() < minY) {
+            dy = minY - p.getY();
+        } else if (p.getY() > maxY) {
+            dy = p.getY() - maxY;
+        }
+
+        return (dx * dx) + (dy * dy);
+    }
+
+    @Override
     public List<Location> getKeyPoints() {
         if (bottomLeft == null)
             return Collections.emptyList();

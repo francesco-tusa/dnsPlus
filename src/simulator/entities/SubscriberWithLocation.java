@@ -193,7 +193,7 @@ public class SubscriberWithLocation extends TreeNode {
 
         @Override
         public void trace(SubscriberWithLocation sub, PublicationWithLocation pub, boolean matchesInterest) {
-            String result = matchesInterest ? "Delivered" : "FalsePositive";
+            String result = matchesInterest ? "DELIVERED" : "FalsePositive";
             
             CsvMetricWriter.getInstance().logSubscriberPublicationEvent(
                 pub,

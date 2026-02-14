@@ -18,6 +18,7 @@ import simulator.simulations.performance.metrics.groundtruth.ProximityGroundTrut
 import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.workload.LocationWorkloadGenerator;
+import simulator.workload.SubscriptionWorkloadGenerator;
 import simulator.workload.SubscriptionWorkloadOrchestrator;
 import utils.CustomLogger; 
 
@@ -32,6 +33,11 @@ public abstract class AbstractLocationPerformanceSimulation<C extends TopologyCo
     }
 
     // --- Polymorphic Factories ---
+    @Override
+    protected SubscriptionWorkloadGenerator getWorkloadGenerator() {
+        return new LocationWorkloadGenerator();
+    }
+
     @Override
     protected PerformanceMetricsData createMetricsData() {
         return new ProximityPerformanceMetricsData();

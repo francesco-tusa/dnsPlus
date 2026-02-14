@@ -2,7 +2,7 @@ package marketplace.tests;
 
 import marketplace.tests.scenarios.MarketplaceLogicDecompositionTest;
 import marketplace.tests.scenarios.MarketplaceRoutingSelectionTest;
-import marketplace.tests.scenarios.MarketplaceStrategyTest; // Import the new test
+import marketplace.tests.scenarios.MarketplaceStrategyTest;
 
 public class MarketplaceTestSuite {
 

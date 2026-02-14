@@ -8,6 +8,7 @@ import simulator.config.BrokerConfig;
 import simulator.config.SimConfiguration;
 import simulator.config.WorkloadConfig;
 import simulator.core.WorkloadRepository;
+import simulator.entities.PublisherWithLocation;
 import simulator.events.PublicationWithLocation;
 import simulator.regions.BoundedBroker;
 import simulator.simulations.performance.metrics.MetricsPrinter;
@@ -20,6 +21,7 @@ import simulator.topology.AbstractTopologyFactory;
 import simulator.topology.TopologyConfiguration;
 import simulator.topology.analysis.TopologyAnalyser;
 import simulator.workload.RegionWorkloadGenerator;
+import simulator.workload.SubscriptionWorkloadGenerator;
 import simulator.workload.SubscriptionWorkloadOrchestrator;
 import utils.CustomLogger;
 
@@ -27,7 +29,6 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
 
     private static final Logger logger = CustomLogger.getLogger(AbstractRegionPerformanceSimulation.class.getName());
     
-    private final RegionWorkloadGenerator workloadGenerator = new RegionWorkloadGenerator();
     private final SubscriptionWorkloadOrchestrator orchestrator = new SubscriptionWorkloadOrchestrator();
 
     public AbstractRegionPerformanceSimulation() {
@@ -36,6 +37,11 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
     protected abstract List<BoundedBroker> getInterestHotspots(BoundedBroker root);
 
     // --- Polymorphic Factories ---
+    @Override
+    protected SubscriptionWorkloadGenerator getWorkloadGenerator() {
+        return new RegionWorkloadGenerator();
+    }
+
     @Override
     protected PerformanceMetricsData createMetricsData() {
         return new RegionPerformanceMetricsData();
@@ -70,6 +76,26 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
         logConfigItem("Density Skew Enabled", w.enableDensitySkew);
     }
 
+    /**
+     * Generates the list of publications to be used in the simulation.
+     * <p>
+     * Default implementation creates standard PublicationWithLocation events.
+     * Subclasses (like Marketplace) can override this to create specialized events (e.g., ServiceRequests).
+     * </p>
+     * @param publishers The list of active publishers (clients).
+     * @return A list of publication events ready for dispatch.
+     */
+    protected List<PublicationWithLocation> generatePublications(List<PublisherWithLocation> publishers) {
+        logger.info("Pre-generating " + publishers.size() + " publications for Ground Truth context...");
+        List<PublicationWithLocation> pubs = new ArrayList<>();
+        for(var p : publishers) {
+            PublicationWithLocation pub = new PublicationWithLocation(p.getLocation());
+            pub.setSource(p); 
+            pubs.add(pub);
+        }
+        return pubs;
+    }
+
     @Override
     protected void executeScenarios() {
         logSectionHeader("Executing Region-Based Performance Scenario");
@@ -79,20 +105,14 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
         List<BoundedBroker> leafBrokers = TopologyAnalyser.findLeafBrokers(this.rootNode);
         
         List<BoundedBroker> hotspots = getInterestHotspots(this.rootNode);
-        workloadGenerator.setHotspots(hotspots);
+        getWorkloadGenerator().setHotspots(hotspots);
         if (hotspots != null) {
             logger.info("Configured Workload Generator with " + hotspots.size() + " Interest Hotspots.");
         } else {
             logger.info("Configured Workload Generator with NO Hotspots (Pure Random Remote).");
         }
         
-        logger.info("Pre-generating " + allPublishers.size() + " publications for Ground Truth context...");
-        List<PublicationWithLocation> preGeneratedPubs = new ArrayList<>();
-        for(var p : allPublishers) {
-            PublicationWithLocation pub = new PublicationWithLocation(p.getLocation());
-            pub.setSource(p); 
-            preGeneratedPubs.add(pub);
-        }
+        List<PublicationWithLocation> preGeneratedPubs = generatePublications(allPublishers);
 
         logger.info("");
         logger.info(">>> Phase 1: Subscriptions (Streaming Batch Mode) ... <<<");
@@ -100,7 +120,7 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
         orchestrator.generateDispatchAndCalculate(
             allSubscribers, 
             leafBrokers, 
-            workloadGenerator,
+            getWorkloadGenerator(),
             this.metricsData,
             preGeneratedPubs,
             this.truthCalculator 
@@ -110,6 +130,10 @@ public abstract class AbstractRegionPerformanceSimulation<C extends TopologyConf
         logger.info(">>> Phase 2: Publications... <<<");
         
         for (int i = 0; i < preGeneratedPubs.size(); i++) {
+            // Ensure source is set (redundant check for safety)
+            if (preGeneratedPubs.get(i).getSource() == null) {
+                preGeneratedPubs.get(i).setSource(allPublishers.get(i));
+            }
             allPublishers.get(i).send(preGeneratedPubs.get(i));
         }
         

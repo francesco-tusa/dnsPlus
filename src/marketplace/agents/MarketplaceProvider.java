@@ -9,44 +9,82 @@ import java.util.Collections;
 import java.util.List;
 
 import marketplace.events.ServiceOffer;
-import marketplace.events.ServiceRequest;
 
 public class MarketplaceProvider extends SubscriberWithLocation {
 
     private ServiceOffer lastAdvertisedOffer;
     private final List<ServiceOffer> activeOffers = new ArrayList<>();
 
+    // State for deferred offer creation
+    private long configuredServiceId;
+    private Map<String, Double> configuredMetrics;
+    
+    private double configuredRange; 
+    private boolean isConfigured = false;
+
     public MarketplaceProvider(String name, Location location) {
         super(name, location);
     }
 
     /**
-     * Publishes a ServiceOffer (Subscription) to the Marketplace.
+     * Configures the service parameters without sending the offer yet.
+     * @param spatialRange The half-width of the square region (from center to edge).
      */
-    public void advertiseService(long serviceId, Map<String, Double> performanceMetrics) {
-        // Create the specialized ServiceOffer event
-        ServiceOffer offer = new ServiceOffer(serviceId, performanceMetrics, this.getLocation(), getName());
-
-        // For ground-truth calculation
-        this.activeOffers.add(offer);
-
-        // Store the authoritative object
-        this.lastAdvertisedOffer = offer;
-
-        // Propagate it
-        this.send(offer);
+    public void configureService(long serviceId, Map<String, Double> performanceMetrics, double spatialRange) {
+        this.configuredServiceId = serviceId;
+        this.configuredMetrics = performanceMetrics;
+        this.configuredRange = spatialRange;
+        this.isConfigured = true;
     }
 
     /**
-     * Returns the full last offer object.
+     * 1. MAIN OVERLOAD (Explicit Range)
      */
+    public void advertiseService(long serviceId, Map<String, Double> performanceMetrics, double spatialRange) {
+        configureService(serviceId, performanceMetrics, spatialRange);
+        
+        ServiceOffer offer = createServiceOffer();
+        if (offer != null) {
+            this.send(offer);
+        }
+    }
+
+    /**
+     * 2. BACKWARD-COMPATIBLE OVERLOAD (No Range)
+     * Defaults to -1.0 (indicating "Standard/Broker Default").
+     */
+    public void advertiseService(long serviceId, Map<String, Double> performanceMetrics) {
+        this.advertiseService(serviceId, performanceMetrics, -1.0);
+    }
+    
+    /**
+     * Called by MarketplaceWorkloadGenerator to create the actual Subscription object.
+     */
+    public ServiceOffer createServiceOffer() {
+        if (!isConfigured) {
+            return null;
+        }
+
+        // Create the specialized ServiceOffer event
+        // The ServiceOffer constructor will interpret 'configuredRange' as the delta for the HyperCube bounds
+        ServiceOffer offer = new ServiceOffer(
+            configuredServiceId, 
+            configuredMetrics, 
+            this.getLocation(), 
+            getName(), 
+            configuredRange
+        );
+
+        this.activeOffers.add(offer);
+        this.lastAdvertisedOffer = offer;
+
+        return offer;
+    }
+
     public ServiceOffer getLastAdvertisedOffer() {
         return lastAdvertisedOffer;
     }
 
-    /**
-     * Helper to get just the metrics (delegates to the stored offer).
-     */
     public Map<String, Double> getLastAdvertisedMetrics() {
         if (lastAdvertisedOffer != null) {
             return lastAdvertisedOffer.getQosMetrics();
@@ -58,29 +96,8 @@ public class MarketplaceProvider extends SubscriberWithLocation {
         return new ArrayList<>(activeOffers);
     }
 
-    /**
-     * Handles incoming ServiceRequests (Publications) routed by the Broker.
-     */
     @Override
     public void receive(SimulationPublication p) {
         super.receive(p);
-
-        if (p instanceof ServiceRequest req) {
-            long requestedId = req.getServiceId();
-            String clientName = "Unknown";
-
-            if (req.getMetrics() != null && req.getMetrics().getOriginalSourceName() != null) {
-                clientName = req.getMetrics().getOriginalSourceName();
-            }
-
-            System.out.println(String.format(
-                    "[DEBUG] Provider '%s' received Request for ServiceID=%d from Client '%s' | Prefs=%s",
-                    getName(), requestedId, clientName, req.getPreferences()));
-
-        } else if (p instanceof simulator.events.PublicationWithLocation pub) {
-            // Fallback for generic publications
-            String clientName = (pub.getMetrics() != null) ? pub.getMetrics().getOriginalSourceName() : "Unknown";
-            System.out.println("[DEBUG] Provider " + getName() + " received generic publication from " + clientName);
-        }
     }
 }

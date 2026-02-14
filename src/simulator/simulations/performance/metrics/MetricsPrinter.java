@@ -76,7 +76,7 @@ public abstract class MetricsPrinter {
     }
 
     // --- UTILS ---
-    protected void printBanner(String t) { logger.info("==================================================================================\n  " + t + "\n=================================================================================="); }
+    protected void printBanner(String t) { logger.info("\n==================================================================================\n  " + t + "\n=================================================================================="); }
     protected void printSeparator() { logger.info("----------------------------------------------------------------------------------"); }
     protected void logItem(String k, String v) { logger.info(String.format("%-45s : %s", k, v)); }
     protected String format(long v) { return String.format("%,d", v); }

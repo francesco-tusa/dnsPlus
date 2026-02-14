@@ -633,6 +633,33 @@ public class Region extends AbstractRegion {
     }
 
     @Override
+    public double distanceSquared(Location p) {
+        if (p == null) return Double.MAX_VALUE;
+        if (this.contains(p)) return 0.0;
+
+        double dy = 0.0;
+        if (p.getY() < this.getMinLat()) dy = this.getMinLat() - p.getY();
+        else if (p.getY() > this.getMaxLat()) dy = p.getY() - this.getMaxLat();
+
+        double dx = 0.0;
+        double minLon = this.getMinLon();
+        double maxLon = this.getMaxLon();
+        boolean wraps = minLon > maxLon;
+        
+        if (!wraps) {
+            if (p.getX() < minLon) dx = minLon - p.getX();
+            else if (p.getX() > maxLon) dx = p.getX() - maxLon;
+        } else {
+            double d1 = p.getX() - maxLon;
+            double d2 = minLon - p.getX();
+            dx = Math.min(Math.abs(d1), Math.abs(d2));
+        }
+
+        if (dx > 180.0) dx = 360.0 - dx;
+        return (dx * dx) + (dy * dy);
+    }
+
+    @Override
     @JsonIgnore
     public List<Location> getKeyPoints() {
         if (bottomLeft == null)

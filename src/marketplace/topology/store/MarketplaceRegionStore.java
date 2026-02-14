@@ -60,12 +60,26 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
             }
         } while (mergedInPass);
 
-        // 3. Create Result (Using HyperCube to derive Map)
+        // 3. Create Result (Robust Type Preservation)
         SubscriptionWithRegion resultingEntry;
+        
+        // Ensure we don't lose ServiceOffer type if we have the metadata
         if (sub instanceof ServiceOffer offer && accumulator instanceof MetricHyperCube mhc) {
-            // REFACTORED: Derive map from the merged HyperCube
-            resultingEntry = ServiceOffer.createAggregated(offer.getServiceId(), mhc);
+            
+            // If no cross-offer merging occurred, preserve the exact location
+            if (mergedCount == 0 && absorbedCount == 0) {
+                resultingEntry = ServiceOffer.createWithUpdatedRegion(offer, mhc);
+            } else {
+                // Merging occurred (Edge + Fog overlapped). Strip location to force MINDIST.
+                resultingEntry = ServiceOffer.createAggregated(offer.getServiceId(), mhc);
+            }
+            
         } else {
+            // [DEBUG] Warning if we degrade a ServiceOffer to generic
+            if (sub instanceof ServiceOffer) {
+                System.err.println("[MarketplaceRegionStore] WARNING: ServiceOffer degraded to generic Subscription! " 
+                    + "Accumulator type: " + accumulator.getClass().getSimpleName());
+            }
             resultingEntry = new SubscriptionWithRegion(accumulator);
         }
 

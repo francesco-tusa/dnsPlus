@@ -42,7 +42,7 @@ public class MarketplaceRoutingSelectionTest extends TestScenario {
         pMediocre.advertiseService(1001, Map.of("latency", 18.0));
 
         // FIX: Client moved to (15, 15) so it is physically covered by both providers.
-        MarketplaceClient client = new MarketplaceClient("Client", new Location(15, 15, 0));
+        MarketplaceClient client = new MarketplaceClient("Client", new Location(14, 14, 0));
         broker.addChild(client);
 
         System.out.println("   -> Requesting Service < 20ms.");

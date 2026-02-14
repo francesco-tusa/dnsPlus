@@ -56,10 +56,11 @@ public class PublisherWithLocation extends TreeNode {
     public void send(PublicationWithLocation pub) {
         pub.setSource(this);
 
-        long seqId = this.nPublications + 1;
+        //long seqId = this.nPublications + 1;
         // TraceID is always required for latency calculations (GroundTruthCalculator)
-        long traceId = ((long) this.myPublisherId << 32) | (seqId & 0xFFFFFFFFL);
-        
+        //long traceId = ((long) this.myPublisherId << 32) | (seqId & 0xFFFFFFFFL);
+
+        long traceId = pub.getId();
         EventMetrics metrics = new EventMetrics(traceId);
         
         if (SimConfiguration.get().paths.enableEventTracing) {
