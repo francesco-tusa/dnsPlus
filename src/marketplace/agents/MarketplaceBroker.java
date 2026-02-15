@@ -28,13 +28,13 @@ public class MarketplaceBroker extends SpatialMatchBroker {
     private ServiceSelectionStrategy selectionStrategy;
 
     // CONSTRUCTOR OVERRIDES: Explicitly force StrictPropagationPolicy (No Clipping)
-    public MarketplaceBroker(String name) {
-        super(name, false, 0.5, new StrictPropagationPolicy());
+    public MarketplaceBroker(String name, double threshold) {
+        super(name, false, threshold, new StrictPropagationPolicy());
         this.selectionStrategy = new WeightedUtilityStrategy();
     }
 
-    public MarketplaceBroker(String name, Location p1, Location p2) {
-        super(name, p1, p2, false, 0.5, new StrictPropagationPolicy());
+    public MarketplaceBroker(String name, Location p1, Location p2, double threshold) {
+        super(name, p1, p2, false, threshold, new StrictPropagationPolicy());
         this.selectionStrategy = new WeightedUtilityStrategy();
     }
     
@@ -48,12 +48,10 @@ public class MarketplaceBroker extends SpatialMatchBroker {
     }
 
     @Override
-    protected SubscriptionWithRegion createCandidateSubscription(SubscriptionWithRegion aggregatedState,
-            Region newRegionPayload) {
+    protected SubscriptionWithRegion createCandidateSubscription(SubscriptionWithRegion aggregatedState, Region newRegionPayload) {
         if (aggregatedState.getRegion() instanceof MetricHyperCube) {
             MetricHyperCube mhc = (MetricHyperCube) aggregatedState.getRegion();
             
-            // STRATEGY UPDATE: Use 'newRegionPayload' to construct the new Cube.
             MetricHyperCube newCube = new MetricHyperCube(
                     mhc.getMinValues(),
                     mhc.getMaxValues(),
@@ -112,7 +110,7 @@ public class MarketplaceBroker extends SpatialMatchBroker {
                 List<SimulationSubscription> subs = this.getInputStore().getAllSubscriptions().get(bestNode);
                 
                 if (subs != null) {
-                    double bestScore = Double.MAX_VALUE;
+                    double bestScore = WeightedUtilityStrategy.PENALTY_SCORE;
                     double dist = -1.0;
                     
                     for (SimulationSubscription sub : subs) {
@@ -136,8 +134,8 @@ public class MarketplaceBroker extends SpatialMatchBroker {
                              }
                         }
                     }
-                    if (bestScore < Double.MAX_VALUE) {
-                        details += String.format(" (Score: %.3f, Dist: %.1fkm)", bestScore, dist);
+                    if (bestScore < WeightedUtilityStrategy.PENALTY_SCORE) {
+                        details += String.format(" (Score: %.3f, Dist: %.1f)", bestScore, dist);
                     }
                 }
             }
@@ -201,10 +199,14 @@ public class MarketplaceBroker extends SpatialMatchBroker {
                         var result = strategy.inspect(offer, req);
                         
                         double distLinear = (distSq == Double.MAX_VALUE) ? -1.0 : Math.sqrt(distSq);
-                        
-                        // We wrap the reason in square brackets for easy regex parsing in Python
-                        bestAttempt = String.format("BestAttempt=[%s] Reason=[%s] Score=[%.3f] Dist=[%.2fkm]", 
-                                candidate.getName(), result.reason(), result.score(), distLinear);
+
+                        String scoreStr = (result.score() >= WeightedUtilityStrategy.PENALTY_SCORE)
+                                ? "INF"
+                                : String.format("%.3f", result.score());
+
+                        // Use scoreStr in the format
+                        bestAttempt = String.format("BestAttempt=[%s] Reason=[%s] Score=[%s] Dist=[%.2f]",
+                                candidate.getName(), result.reason(), scoreStr, distLinear);
                     }
                 }
             }

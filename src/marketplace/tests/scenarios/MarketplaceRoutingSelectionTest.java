@@ -13,6 +13,7 @@ import marketplace.agents.MarketplaceBroker;
 import marketplace.agents.MarketplaceClient;
 import marketplace.agents.MarketplaceProvider;
 import marketplace.topology.MarketplaceBrokerFactory;
+import marketplace.common.MarketplaceMetricSchema; // Import the schema
 
 public class MarketplaceRoutingSelectionTest extends TestScenario {
 
@@ -34,19 +35,22 @@ public class MarketplaceRoutingSelectionTest extends TestScenario {
         // Provider A: 10ms (Loc 10,10)
         MarketplaceProvider pBest = new MarketplaceProvider("Prov_Best", new Location(10, 10, 0));
         broker.addChild(pBest);
-        pBest.advertiseService(1001, Map.of("latency", 10.0));
+        // FIX: Use proper Schema key and explicitly declare a 10.0 coverage radius
+        pBest.advertiseService(1001, Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 10.0), 10.0);
 
         // Provider B: 18ms (Loc 20,20)
         MarketplaceProvider pMediocre = new MarketplaceProvider("Prov_Mediocre", new Location(20, 20, 0));
         broker.addChild(pMediocre);
-        pMediocre.advertiseService(1001, Map.of("latency", 18.0));
+        // FIX: Use proper Schema key and explicitly declare a 10.0 coverage radius
+        pMediocre.advertiseService(1001, Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 18.0), 10.0);
 
-        // FIX: Client moved to (15, 15) so it is physically covered by both providers.
+        // Client at (14, 14) is physically covered by BOTH providers' 10.0 radius.
         MarketplaceClient client = new MarketplaceClient("Client", new Location(14, 14, 0));
         broker.addChild(client);
 
         System.out.println("   -> Requesting Service < 20ms.");
-        client.requestService(1001, Map.of("latency", 20.0));
+        // FIX: Use proper Schema key
+        client.requestService(1001, Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 20.0));
 
         int countBest = pBest.getnPublications();
         int countMediocre = pMediocre.getnPublications();

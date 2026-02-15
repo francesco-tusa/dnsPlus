@@ -13,66 +13,59 @@ public class ServiceOffer extends SubscriptionWithRegion {
     private final long serviceId;
     private final Map<String, Double> qosMetrics;
     private final Location providerLocation; 
-    
-    // Identity field for Ground Truth attribution
     private final String providerName; 
+    
+    // The explicit, topology-defined physical limit of this offer
+    private final double coverageRadius; 
 
+    // 1. Primary Constructor: Strictly requires the coverageRadius
+    public ServiceOffer(long serviceId, Map<String, Double> metrics, Location location, String providerName, double coverageRadius) {
+        super(createMetricRegion(metrics, location, coverageRadius));
+        this.serviceId = serviceId;
+        this.qosMetrics = metrics;
+        this.providerLocation = location;
+        this.providerName = providerName;
+        this.coverageRadius = coverageRadius; 
+    }
+
+    // 2. Legacy/Fallback Constructor: Defaults to a 0.0 radius (Exact Point Match) if not provided
     public ServiceOffer(long serviceId, Map<String, Double> metrics, Location location, String providerName) {
-        super(createMetricRegion(metrics, location, providerName, 0));
-        this.serviceId = serviceId;
-        this.qosMetrics = metrics;
-        this.providerLocation = location;
-        this.providerName = providerName;
+        this(serviceId, metrics, location, providerName, 0.0);
     }
 
-    public ServiceOffer(long serviceId, Map<String, Double> metrics, Location location, String providerName, double explicitRadius) {
-        super(createMetricRegion(metrics, location, providerName, explicitRadius));
-        this.serviceId = serviceId;
-        this.qosMetrics = metrics;
-        this.providerLocation = location;
-        this.providerName = providerName;
-    }
-
-    // Copy Constructor
+    // 3. Copy Constructor
     public ServiceOffer(ServiceOffer other) {
         super(other);
         this.serviceId = other.serviceId;
         this.qosMetrics = other.qosMetrics;
         this.providerLocation = other.providerLocation;
-        this.providerName = other.providerName; // Copy identity
+        this.providerName = other.providerName; 
+        this.coverageRadius = other.coverageRadius; 
         if (other.getRegion() instanceof MetricHyperCube mhc) {
             this.setRegion(new MetricHyperCube(mhc));
         }
     }
 
-    // Constructor with explicit Provider Name and Region
-    protected ServiceOffer(long serviceId, Map<String, Double> metrics, Region region, Location location, String providerName) {
+    // 4. Internal Expansion/Aggregation Constructor
+    protected ServiceOffer(long serviceId, Map<String, Double> metrics, Region region, Location location, String providerName, double coverageRadius) {
         super(region);
         this.serviceId = serviceId;
         this.qosMetrics = metrics;
         this.providerLocation = location;
         this.providerName = providerName;
+        this.coverageRadius = coverageRadius;
     }
 
-    /**
-     * Creates a copy of the original offer but replaces its Region with the new expanded HyperCube.
-     * Crucially, this PRESERVES the exact provider location and identity.
-     */
     public static ServiceOffer createWithUpdatedRegion(ServiceOffer original, MetricHyperCube newRegion) {
         return new ServiceOffer(
             original.getServiceId(), 
             original.getQosMetrics(), 
             newRegion, 
             original.getLocation(), 
-            original.getProviderName()
+            original.getProviderName(),
+            original.getCoverageRadius() // Preserve the original physical limit
         );
     }
-
-    // Aggregation Constructor (Provider Name is "Aggregated-Cluster")
-    private ServiceOffer(long serviceId, Map<String, Double> metrics, Region region, Location location) {
-        this(serviceId, metrics, region, location, "Aggregated-Cluster");
-    }
-
 
     public static Map<String, Double> reconstructMetrics(MetricHyperCube cube) {
         return cube.getMetricsMap(MarketplaceMetricSchema.KEYS);
@@ -80,10 +73,13 @@ public class ServiceOffer extends SubscriptionWithRegion {
     
     public static ServiceOffer createAggregated(long serviceId, MetricHyperCube aggregatedCube) {
         Map<String, Double> derivedMetrics = reconstructMetrics(aggregatedCube);
-        return new ServiceOffer(serviceId, derivedMetrics, aggregatedCube, null);
+        // Aggregated clusters represent entire tree branches, so they inherently have infinite 
+        // fallback radius to prevent spatial clipping during upward routing.
+        return new ServiceOffer(serviceId, derivedMetrics, aggregatedCube, null, "Aggregated-Cluster", Double.MAX_VALUE);
     }
 
-    private static Region createMetricRegion(Map<String, Double> metrics, Location loc, String providerName, double explicitRadius) {        
+    // Purely mathematical generation based on the explicitly provided radius
+    private static Region createMetricRegion(Map<String, Double> metrics, Location loc, double coverageRadius) {        
         int dim = MarketplaceMetricSchema.KEYS.length;
         double[] minValues = new double[dim];
         double[] maxValues = new double[dim];
@@ -102,22 +98,11 @@ public class ServiceOffer extends SubscriptionWithRegion {
             }
         }
 
-        simulator.regions.Region physicalScope;
-        double r;
+        // Apply the strictly provided radius
+        simulator.regions.Region physicalScope = new simulator.regions.Region(
+                loc.getX() - coverageRadius, loc.getY() - coverageRadius, 
+                loc.getX() + coverageRadius, loc.getY() + coverageRadius);
 
-        if (explicitRadius > 0) {
-            r = explicitRadius;
-        } else {
-            String name = (providerName != null) ? providerName.toLowerCase() : "unknown";
-            if (name.contains("cloud")) r = 60.0;
-            else if (name.contains("fog")) r = 20.0;
-            else r = 5.0;
-        }
-
-        physicalScope = new simulator.regions.Region(
-                loc.getX() - r, loc.getY() - r, loc.getX() + r, loc.getY() + r);
-
-        // Pass boolean flags for optimization direction
         boolean[] flags = new boolean[dim];
         for(int i=0; i<dim; i++) flags[i] = MarketplaceMetricSchema.DIRECTIONS.get(MarketplaceMetricSchema.KEYS[i]);
 
@@ -128,6 +113,7 @@ public class ServiceOffer extends SubscriptionWithRegion {
     public Map<String, Double> getQosMetrics() { return qosMetrics; }
     public Location getLocation() { return providerLocation; }
     public String getProviderName() { return providerName; }
+    public double getCoverageRadius() { return coverageRadius; } 
 
     @Override
     public String toString() {

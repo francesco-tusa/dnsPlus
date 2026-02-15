@@ -36,9 +36,8 @@ public class MarketplaceMetricSchema {
     // Quick Lookup Indices
     public static final int IDX_LATENCY = 0;
     
-    // Simulation Constant: How to convert Distance Units to Time (ms).
-    // Example: 1.0 Distance Unit = 1.0 ms Latency (Simplification)
-    public static final double DISTANCE_TO_TIME_FACTOR = 1.0;
+    // 1.665 ms of network delay per 1 degree of geographical distance
+    public static final double DISTANCE_TO_TIME_FACTOR = 1.665;
 
     /**
      * @return The index of a specific metric key, or -1 if not found.

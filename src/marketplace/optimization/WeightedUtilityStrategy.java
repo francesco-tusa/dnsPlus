@@ -13,9 +13,11 @@ import marketplace.events.ServiceRequest;
 
 public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
 
+    public static final double PENALTY_SCORE = 999.0;
+
     public record EvaluationResult(boolean isFeasible, double score, String reason) {
         public static EvaluationResult fail(String reason) {
-            return new EvaluationResult(false, Double.MAX_VALUE, reason);
+            return new EvaluationResult(false, PENALTY_SCORE, reason);
         }
         public static EvaluationResult success(double score) {
             return new EvaluationResult(true, score, "MATCH");
@@ -25,7 +27,7 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
     @Override
     public TreeNode selectBestProvider(ServiceRequest req, List<TreeNode> candidates, RegionSubscriptionStore store) {
         TreeNode bestNode = null;
-        double bestScore = Double.MAX_VALUE;
+        double bestScore = PENALTY_SCORE;
 
         for (TreeNode candidate : candidates) {
             if (candidate == req.getSource()) continue;
@@ -61,8 +63,10 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
                  // Point-to-Point Exact Distance (Local Edge Provider)
                  distSq = req.getQoSConstraintsLocation().distanceSquared(providerLoc);
              } else {
-                 // MINDIST to Region Boundary (Remote Fog/Cloud Branch)
-                 distSq = cap.distanceSquared(req.getQoSConstraintsLocation());
+                 // EXPECTED DISTANCE to Region Centroid (Remote Fog/Cloud Branch)
+                 // This prevents the "MINDIST = 0.0" trap for clients inside the bounding box
+                 Location center = cap.getCenter();
+                 distSq = center.distanceSquared(req.getQoSConstraintsLocation());
              }
              networkLatency = Math.sqrt(distSq) * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
         }
@@ -72,6 +76,7 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
             return EvaluationResult.fail(rejectionReason);
         }
 
+        // Add the network latency addition explicitly to the generic score calculation
         double score = calculateGenericScore(cap, req, networkLatency);
         return EvaluationResult.success(score);
     }

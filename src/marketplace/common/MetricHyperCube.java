@@ -97,7 +97,6 @@ public class MetricHyperCube extends Region {
         return physicalChanged || metricChanged;
     }
     
-    // ... (Keep existing intersects/intersection methods unchanged) ...
     @Override
     public boolean intersects(SpatialRegion r) {
         if (!(r instanceof MetricHyperCube)) return super.intersects(r);

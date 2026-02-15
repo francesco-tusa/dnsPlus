@@ -31,6 +31,8 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
     
     private final Random random = SimulationRandom.get();
 
+    private final ProviderProfileGenerator profileGenerator = new ProviderProfileGenerator(random);
+
     @Override
     public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {
         logger.info(">>> Generating Marketplace Providers (Continuum Placement)...");
@@ -70,60 +72,32 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
             if (!(targetNode instanceof BoundedBroker)) continue;
             BoundedBroker hostBroker = (BoundedBroker) targetNode;
 
-            // [FIX] Use Region.getCenter()
             Location providerLoc = getBrokerCenter(hostBroker);
-            
-            // [FIX] Use Region.getWidth()/getHeight()
             double adaptiveRange = calculateCoveringRange(hostBroker, depthTag);
 
-            String name = String.format("%s_%d_%s", providerLabel, i, hostBroker.getName());
+            // Sanitize the broker name to prevent log parsers from truncating at spaces
+            String safeRegionName = hostBroker.getName().replaceAll(" ", "_");
+            String name = String.format("%s_%d_%s", providerLabel, i, safeRegionName);
+            
             MarketplaceProvider provider = new MarketplaceProvider(name, providerLoc);
             
             hostBroker.addChild(provider);
             
-            Map<String, Double> qosProfile = generateRandomProfile(tierType);
+            Map<String, Double> qosProfile = profileGenerator.generateProfile(tierType);
 
             provider.configureService(serviceId, qosProfile, adaptiveRange);
             
-            logger.fine(String.format("Attached %s to %s (Range: %.2f) [Lat: %.1fms]", 
+            logger.fine(String.format("Attached %s to %s (Range: %.2f) [Intrinsic Lat: %.1fms]", 
                 name, hostBroker.getName(), adaptiveRange, qosProfile.get(MarketplaceMetricSchema.METRIC_LATENCY)));
         }
     }
-
-    private Map<String, Double> generateRandomProfile(String tierType) {
-        double lat, cost, rel;
-
-        switch (tierType) {
-            case "CLOUD":
-                lat = 10.0 + (random.nextDouble() * 10.0);
-                cost = 2.0 + (random.nextDouble() * 3.0);
-                rel = 0.999 + (random.nextDouble() * 0.0009);
-                break;
-            case "FOG":
-                lat = 30.0 + (random.nextDouble() * 30.0);
-                cost = 15.0 + (random.nextDouble() * 10.0);
-                rel = 0.99 + (random.nextDouble() * 0.009);
-                break;
-            case "EDGE":
-            default:
-                lat = 80.0 + (random.nextDouble() * 60.0);
-                cost = 50.0 + (random.nextDouble() * 30.0);
-                rel = 0.95 + (random.nextDouble() * 0.04);
-                break;
-        }
-
-        return Map.of(
-            MarketplaceMetricSchema.METRIC_LATENCY, lat,
-            MarketplaceMetricSchema.METRIC_COST, cost,
-            MarketplaceMetricSchema.METRIC_RELIABILITY, rel
-        );
-    }
+    
 
     private double calculateCoveringRange(BoundedBroker broker, String depthTag) {
         Region r = broker.getRegion();
-        if (r == null) return 5.0; 
+        if (r == null) return 0.25; // Safe default for unmapped leaf (~27km)
 
-        // [FIX] Delegate to Region class to handle coordinate wrapping correctly
+        // Delegate to Region class to handle coordinate wrapping correctly
         double width = r.getWidth();
         double height = r.getHeight();
         
@@ -132,10 +106,22 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
         double halfSide = maxDimension / 2.0;
 
         switch (depthTag.toUpperCase()) {
-            case "COUNTRY": return Math.max(halfSide * 3.0, 500.0); 
-            case "ADMIN1": return halfSide * 1.5;
-            case "CITY": return 5.0; 
-            default: return halfSide;
+            case "COUNTRY": 
+                // CLOUD: Use a large multiplier to cover the country, 
+                // but strictly CAP it at 20.0 degrees (~2200km) so it doesn't wrap the Earth.
+                return Math.min(halfSide * 1.5, 20.0); 
+                
+            case "ADMIN1": 
+                // FOG: Cover the state/region, CAP at 3.0 degrees (~330km)
+                return Math.min(halfSide * 1.2, 3.0);
+                
+            case "CITY": 
+                // EDGE: Hardcode to 0.25 degrees (~27km) for strict Metropolitan boundaries.
+                // 5.0 was too large (~550km).
+                return 0.25; 
+                
+            default: 
+                return halfSide;
         }
     }
 
@@ -143,7 +129,6 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
         Region r = broker.getRegion();
         if (r == null) return new Location(0,0,0);
         
-        // [FIX] Delegate to Region.getCenter()
         return r.getCenter();
     }
 

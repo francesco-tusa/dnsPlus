@@ -2,45 +2,44 @@ package marketplace.simulations;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-import marketplace.common.MarketplaceMetricSchema;
 import marketplace.config.MarketplaceConfig;
 import marketplace.events.ServiceRequest;
 import marketplace.topology.MarketplaceBrokerFactory;
+import marketplace.workload.ClientDemandGenerator;
+import marketplace.workload.ClientDemandProfile;
 import simulator.config.SimConfiguration;
 import simulator.entities.PublisherWithLocation;
 import simulator.events.PublicationWithLocation;
+import utils.SimulationRandom;
 
-public class MarketplaceContinuumSimulation extends AbstractMarketplaceContinuumSimulation {
+public class SystematicMarketplaceContinuumSimulation extends AbstractMarketplaceContinuumSimulation {
 
     @Override
     protected List<PublicationWithLocation> generatePublications(List<PublisherWithLocation> publishers) {
-        logger.info(">>> Pre-generating Multi-Objective ServiceRequests for " + publishers.size() + " Clients...");
+        logger.info(">>> Generating Systematic Multi-Objective Workload for " + publishers.size() + " Clients...");
         
         List<PublicationWithLocation> requests = new ArrayList<>();
         long serviceId = 9999; 
 
-        for (PublisherWithLocation p : publishers) {
+        // Instantiate the decoupled generator using the global simulation seed
+        ClientDemandGenerator demandGenerator = new ClientDemandGenerator(SimulationRandom.get());
+
+        int total = publishers.size();
+        for (int i = 0; i < total; i++) {
+            PublisherWithLocation p = publishers.get(i);
             
-            // 1. Define Constraints (The "Must Haves")
-            // - Latency: Relaxed to 150ms so Cloud (100ms) is a valid candidate.
-            // - Cost: Set to 100.0 so Edge (80.0) is a valid candidate.
-            Map<String, Double> constraints = Map.of(
-                MarketplaceMetricSchema.METRIC_LATENCY, 50.0, // 150.0
-                MarketplaceMetricSchema.METRIC_COST,    10.0  // 100.0
-            );
+            // 1. Fetch the stratified profile
+            ClientDemandProfile profile = demandGenerator.generateDemand(i);
 
-            // 2. Define Weights (The "Preferences" for Scoring)
-            // - This fixes the 0.000 log issue.
-            // - 50% preference for speed, 50% preference for low price.
-            Map<String, Double> weights = Map.of(
-                MarketplaceMetricSchema.METRIC_LATENCY, 0.3,
-                MarketplaceMetricSchema.METRIC_COST,    0.7
+            // 2. Build the exact ServiceRequest using the profile data
+            ServiceRequest req = new ServiceRequest(
+                serviceId, 
+                profile.constraints(), 
+                profile.weights(), 
+                p.getLocation()
             );
-
-            // 3. Create Request with WEIGHTS
-            ServiceRequest req = new ServiceRequest(serviceId, constraints, weights, p.getLocation());
+            
             req.setSource(p); 
             requests.add(req);
         }
@@ -48,14 +47,13 @@ public class MarketplaceContinuumSimulation extends AbstractMarketplaceContinuum
         return requests;
     }
 
-
     // ==================================================================================
     //  MAIN ENTRY POINT
     // ==================================================================================
 
     public static void main(String[] args) {
         try {
-            logger.info(">>> Initializing Homogeneous Marketplace Simulation...");
+            logger.info(">>> Initializing Systematic Stratified Marketplace Simulation...");
 
             // 1. Initialize Configuration
             SimConfiguration.get(); 
@@ -66,8 +64,8 @@ public class MarketplaceContinuumSimulation extends AbstractMarketplaceContinuum
             MarketplaceBrokerFactory brokerFactory = new MarketplaceBrokerFactory();
             MarketplaceTopologyLoader loader = new MarketplaceTopologyLoader(topoConfig, brokerFactory);
             
-            // 3. Create Self
-            MarketplaceContinuumSimulation simulation = new MarketplaceContinuumSimulation();
+            // 3. Create Self (Using the new Systematic implementation)
+            SystematicMarketplaceContinuumSimulation simulation = new SystematicMarketplaceContinuumSimulation();
             
             // 4. Run It
             simulation.run(loader, topoConfig);

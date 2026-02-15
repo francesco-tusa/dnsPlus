@@ -23,7 +23,7 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
         long totalOptimalMatches = 0;
         CsvMetricWriter writer = CsvMetricWriter.getInstance();
 
-        logger.info(">>> STARTING GROUND TRUTH CALCULATION (Unified Strategy Mode) <<<");
+        logger.info(">>> STARTING GROUND TRUTH CALCULATION (Unified Strategy Mode & Spatial Bounds) <<<");
 
         for (PublicationWithLocation pub : pubs) {
             if (!(pub instanceof ServiceRequest)) {
@@ -45,24 +45,38 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
                     continue;
                 }
 
-                // Use the exact same logic as the Broker to determine feasibility
+                // 1. Calculate Exact Distance (Kept for Latency Math and Output Logs)
+                double currentDist = -1.0;
+                if (offer.getLocation() != null && request.getLocation() != null) {
+                    currentDist = Math.sqrt(offer.getLocation().distanceSquared(request.getLocation()));
+                }
+
+                // 2. SPATIAL ISOLATION CHECK (Square Geometry)
+                // If the client is geographically outside the provider's square bounding box,
+                // we reject it to perfectly align with the simulation's behavior.
+                if (request.getLocation() != null && offer.getRegion() != null) {
+                    if (!offer.getRegion().contains(request.getLocation())) {
+                        continue; 
+                    }
+                } else if (currentDist > offer.getCoverageRadius()) {
+                    // Fallback for any generic subscriptions missing a specific region
+                    continue; 
+                }
+
+                // 3. Multi-Objective Utility Math (Includes the 1.665 ms/deg fiber penalty)
                 var result = strategy.inspect(offer, request);
 
                 if (result.isFeasible()) {
                     if (result.score() < bestScore) {
                         bestScore = result.score();
                         winner = offer;
+                        exactDist = currentDist; // Save the distance of the current winner
                     }
                 }
             }
 
             if (winner != null) {
                 totalOptimalMatches++;
-                
-                // [FIXED] Calculate exact Euclidean distance using distanceSquared + sqrt
-                if (winner.getLocation() != null && request.getLocation() != null) {
-                    exactDist = Math.sqrt(winner.getLocation().distanceSquared(request.getLocation()));
-                }
                 
                 writer.logGroundTruth(
                     request.getId(), 
