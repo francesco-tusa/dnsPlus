@@ -56,11 +56,17 @@ public class MetricHyperCube extends Region {
 
     @Override
     public boolean contains(Location location) {
-        // CRITICAL: Check physical bounds first (inherited from Region)
-        // If the location (10,10) is not within the physical scope [-100, 1100], fail immediately.
+        // Check physical bounds first
         if (!super.contains(location)) return false;
 
-        if (!(location instanceof MetricLocation)) return false;
+        // If a standard Location leaks into a QoS evaluation, it is a fatal routing error.
+        if (!(location instanceof MetricLocation)) {
+            throw new IllegalArgumentException(
+                "Strict Type Enforcement: MetricHyperCube requires a MetricLocation for QoS evaluation. " +
+                "Received plain Location type: " + location.getClass().getName()
+            );
+        }
+
         MetricLocation req = (MetricLocation) location;
 
         if (req.getDimensions() != minValues.length) return false;
@@ -73,6 +79,41 @@ public class MetricHyperCube extends Region {
                 if (reqValue > this.maxValues[i]) return false;
             }
         }
+        return true;
+    }
+
+    @Override
+    public boolean contains(SpatialRegion r) {
+        if (r == null || r.getBottomLeft() == null) return false;
+
+        // 1. Physical Containment
+        // We explicitly use super.contains() to evaluate the corners as raw coordinates, 
+        // completely bypassing our strict QoS type-check above.
+        boolean physicalContains = false;
+        if (this.getWidth() >= 360.0 - 1e-5) {
+            physicalContains = true;
+        } else {
+            physicalContains = super.contains(r.getBottomLeft()) && super.contains(r.getTopRight());
+        }
+        
+        if (!physicalContains) return false;
+
+        // 2. Logical QoS Containment
+        if (!(r instanceof MetricHyperCube)) {
+            // A HyperCube requires exact QoS constraints. It cannot logically "contain" 
+            // an unbounded/plain spatial region.
+            return false;
+        }
+
+        MetricHyperCube other = (MetricHyperCube) r;
+        if (this.minValues.length != other.minValues.length) return false;
+
+        // For `this` to logically contain `other`, `this` must have equal or wider bounds in all dimensions.
+        for (int i = 0; i < minValues.length; i++) {
+            if (this.minValues[i] > other.minValues[i] + 1e-9) return false;
+            if (this.maxValues[i] < other.maxValues[i] - 1e-9) return false;
+        }
+
         return true;
     }
 
@@ -129,7 +170,7 @@ public class MetricHyperCube extends Region {
         }
         return new MetricHyperCube(newMin, newMax, this.minimizeFlags, physicalInt);
     }
-    
+
     @Override
     public String toShortString() {
         return super.toShortString() + " | Metrics: " + Arrays.toString(minValues) + "->" + Arrays.toString(maxValues);

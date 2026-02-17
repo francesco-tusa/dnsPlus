@@ -264,12 +264,6 @@ public class Region extends AbstractRegion {
 
     @Override
     @JsonIgnore
-    public double getArea() {
-        return getWidth() * getHeight();
-    }
-
-    @Override
-    @JsonIgnore
     public Location getCenter() {
         if (bottomLeft == null || topRight == null)
             return new Location(0, 0, 0);
@@ -658,6 +652,32 @@ public class Region extends AbstractRegion {
         if (dx > 180.0) dx = 360.0 - dx;
         return (dx * dx) + (dy * dy);
     }
+
+
+    public double getMergedArea(Region other) {
+        return Region.fastMBRArea(
+            (float) this.getMinLon(), (float) this.getMaxLon(), (float) this.getMinLat(), (float) this.getMaxLat(),
+            (float) other.getMinLon(), (float) other.getMaxLon(), (float) other.getMinLat(), (float) other.getMaxLat()
+        );
+    }
+
+    public double getIntersectionArea(Region other) {
+        return Region.fastIntersectionArea(
+            (float) this.getMinLon(), (float) this.getMaxLon(), (float) this.getMinLat(), (float) this.getMaxLat(),
+            (float) other.getMinLon(), (float) other.getMaxLon(), (float) other.getMinLat(), (float) other.getMaxLat()
+        );
+    }
+
+    @Override
+    @JsonIgnore
+    public double getArea() {
+        // Polymorphic wrapper that reuses the hyper-fast static primitive method
+        return Region.fastArea(
+            (float) this.getMinLon(), (float) this.getMaxLon(), 
+            (float) this.getMinLat(), (float) this.getMaxLat()
+        );
+    }
+
 
     @Override
     @JsonIgnore

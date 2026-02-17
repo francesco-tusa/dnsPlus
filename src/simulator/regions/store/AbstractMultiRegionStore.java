@@ -32,22 +32,24 @@ public abstract class AbstractMultiRegionStore implements RegionSubscriptionStor
         }
     }
 
-    // Shared geometric logic for deciding if a merge should happen
     protected boolean shouldMerge(Region acc, SubscriptionWithRegion existing) {
         if (mergeThreshold <= 0.0) return false;
 
-        double aMinL = acc.getMinLon(), aMaxL = acc.getMaxLon(),
-               aMinT = acc.getMinLat(), aMaxT = acc.getMaxLat();
+        Region extRegion = existing.getRegion();
         
-        // Using Double precision for consistency
-        double interArea = existing.getIntersectionArea((float)aMinL, (float)aMaxL, (float)aMinT, (float)aMaxT);
-        double area1 = Region.fastArea((float)aMinL, (float)aMaxL, (float)aMinT, (float)aMaxT);
-        double area2 = existing.getArea();
-        
-        double geometricUnion = area1 + area2 - interArea;
-        double mbrArea = Region.fastMBRArea((float)aMinL, (float)aMaxL, (float)aMinT, (float)aMaxT,
-                (float)existing.getMinLon(), (float)existing.getMaxLon(), (float)existing.getMinLat(), (float)existing.getMaxLat());
+        // Polymorphic Calls: 
+        // If acc is a MetricHyperCube, these return N-Dim Volume.
+        // If acc is a standard Region, these pass straight through to fastArea/fastMBRArea.
+        double area1 = acc.getArea();
+        double area2 = extRegion.getArea();
+        double interArea = acc.getIntersectionArea(extRegion);
+        double mergedArea = acc.getMergedArea(extRegion);
 
-        return (mbrArea > 0) && ((mbrArea - geometricUnion) / mbrArea < mergeThreshold);
+        if (mergedArea <= 0.0) return true; // Perfect overlap
+
+        double geometricUnion = area1 + area2 - interArea;
+        double fpr = (mergedArea - geometricUnion) / mergedArea;
+
+        return fpr < mergeThreshold;
     }
 }

@@ -1,5 +1,6 @@
 package marketplace.tests;
 
+import marketplace.tests.scenarios.MarketplaceAggregationLogicTest;
 import marketplace.tests.scenarios.MarketplaceLogicDecompositionTest;
 import marketplace.tests.scenarios.MarketplaceRoutingSelectionTest;
 import marketplace.tests.scenarios.MarketplaceStrategyTest;
@@ -26,6 +27,11 @@ public class MarketplaceTestSuite {
         // 3. Run Strategy Comparison Test (Optimization Logic)
         MarketplaceStrategyTest strategyTest = new MarketplaceStrategyTest();
         if (!runTest(strategyTest))
+            allPassed = false;
+
+        // 4. Run N-Dimensional Aggregation Test (Spatial & QoS)
+        MarketplaceAggregationLogicTest aggregationTest = new MarketplaceAggregationLogicTest();
+        if (!runTest(aggregationTest))
             allPassed = false;
 
         System.out.println("\n==========================================");

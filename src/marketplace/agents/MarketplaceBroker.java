@@ -92,52 +92,20 @@ public class MarketplaceBroker extends SpatialMatchBroker {
             return null;
         }
 
-        // 2. Strategy Execution (Logic Layer)
-        TreeNode bestNode = this.selectionStrategy.selectBestProvider(
+        // 2. Strategy Execution (Logic Layer) - Evaluates everything ONCE
+        ServiceSelectionStrategy.SelectionResult selection = this.selectionStrategy.selectBestProvider(
             req, this.matchBuffer, this.getInputStore()
         );
+        TreeNode bestNode = selection.bestNode();
 
-        // Check config once to avoid repeated calls
         boolean tracingEnabled = SimConfiguration.get().paths.enableEventTracing;
 
         // 3. Forwarding & Observability
         if (bestNode != null) {
             String details = "Selected " + bestNode.getName();
             
-            // OPTIMIZATION: Only calculate score/distance if tracing is explicitly enabled.
-            if (tracingEnabled && this.selectionStrategy instanceof WeightedUtilityStrategy) {
-                WeightedUtilityStrategy weightedStrat = (WeightedUtilityStrategy) this.selectionStrategy;
-                List<SimulationSubscription> subs = this.getInputStore().getAllSubscriptions().get(bestNode);
-                
-                if (subs != null) {
-                    double bestScore = WeightedUtilityStrategy.PENALTY_SCORE;
-                    double dist = -1.0;
-                    
-                    for (SimulationSubscription sub : subs) {
-                        if (sub instanceof ServiceOffer) {
-                             ServiceOffer offer = (ServiceOffer) sub;
-                             
-                             var result = weightedStrat.inspect(offer, req);
-                             
-                             if (result.isFeasible()) {
-                                 double s = result.score();
-                                 if (s < bestScore) {
-                                     bestScore = s;
-                                     if (req.getLocation() != null) {
-                                         // REFACTORED: Use Region MINDIST if exact location is null
-                                         double distSq = (offer.getLocation() != null) 
-                                             ? offer.getLocation().distanceSquared(req.getLocation())
-                                             : offer.getRegion().distanceSquared(req.getLocation());
-                                         dist = Math.sqrt(distSq);
-                                     }
-                                 }
-                             }
-                        }
-                    }
-                    if (bestScore < WeightedUtilityStrategy.PENALTY_SCORE) {
-                        details += String.format(" (Score: %.3f, Dist: %.1f)", bestScore, dist);
-                    }
-                }
+            if (tracingEnabled && selection.bestScore() < WeightedUtilityStrategy.PENALTY_SCORE) {
+                details += String.format(" (Score: %.3f, Dist: %.1f)", selection.bestScore(), selection.distance());
             }
 
             CsvMetricWriter.getInstance().logPublication(
@@ -149,9 +117,8 @@ public class MarketplaceBroker extends SpatialMatchBroker {
             this.totalFalsePositiveEvents++;
             
             String reason = "No suitable provider found via Utility Strategy";
-
-            if (tracingEnabled && this.selectionStrategy instanceof WeightedUtilityStrategy) {
-                reason = diagnoseBestReject(req);
+            if (tracingEnabled && selection.diagnosis() != null) {
+                reason = selection.diagnosis(); 
             }
 
             CsvMetricWriter.getInstance().logPublication(
@@ -160,57 +127,5 @@ public class MarketplaceBroker extends SpatialMatchBroker {
         }
 
         return null;
-    }
-
-    /**
-     * Re-inspects the candidates to find the "closest" one that failed.
-     * Extracts its Score and Distance (MINDIST) to allow comparison with Ground Truth.
-     */
-    private String diagnoseBestReject(ServiceRequest req) {
-        if (!(this.selectionStrategy instanceof WeightedUtilityStrategy)) {
-            return "Strategy Reject (Generic)";
-        }
-        WeightedUtilityStrategy strategy = (WeightedUtilityStrategy) this.selectionStrategy;
-
-        String bestAttempt = "No Candidates";
-        double minDistSq = Double.MAX_VALUE;
-
-        // Iterate over all candidates that were spatially matched
-        for (TreeNode candidate : this.matchBuffer) {
-            List<SimulationSubscription> subs = this.getInputStore().getAllSubscriptions().get(candidate);
-            if (subs == null) continue;
-
-            for (SimulationSubscription sub : subs) {
-                if (sub instanceof ServiceOffer) {
-                    ServiceOffer offer = (ServiceOffer) sub;
-                    Location loc = offer.getLocation();
-                    
-                    // REFACTORED: Null-safe point-to-region vs point-to-point calculation
-                    double distSq = Double.MAX_VALUE;
-                    if (req.getLocation() != null) {
-                        distSq = (loc != null) 
-                            ? loc.distanceSquared(req.getLocation()) 
-                            : offer.getRegion().distanceSquared(req.getLocation());
-                    }
-                    
-                    // Prioritize the node that was spatially closest (smallest squared distance)
-                    if (distSq < minDistSq) {
-                        minDistSq = distSq;
-                        var result = strategy.inspect(offer, req);
-                        
-                        double distLinear = (distSq == Double.MAX_VALUE) ? -1.0 : Math.sqrt(distSq);
-
-                        String scoreStr = (result.score() >= WeightedUtilityStrategy.PENALTY_SCORE)
-                                ? "INF"
-                                : String.format("%.3f", result.score());
-
-                        // Use scoreStr in the format
-                        bestAttempt = String.format("BestAttempt=[%s] Reason=[%s] Score=[%s] Dist=[%.2f]",
-                                candidate.getName(), result.reason(), scoreStr, distLinear);
-                    }
-                }
-            }
-        }
-        return bestAttempt;
     }
 }

@@ -15,19 +15,24 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
 
     public static final double PENALTY_SCORE = 999.0;
 
-    public record EvaluationResult(boolean isFeasible, double score, String reason) {
-        public static EvaluationResult fail(String reason) {
-            return new EvaluationResult(false, PENALTY_SCORE, reason);
+    public record EvaluationResult(boolean isFeasible, double score, String reason, double distance) {
+        public static EvaluationResult fail(String reason, double distance) {
+            return new EvaluationResult(false, PENALTY_SCORE, reason, distance);
         }
-        public static EvaluationResult success(double score) {
-            return new EvaluationResult(true, score, "MATCH");
+        public static EvaluationResult success(double score, double distance) {
+            return new EvaluationResult(true, score, "MATCH", distance);
         }
     }
 
     @Override
-    public TreeNode selectBestProvider(ServiceRequest req, List<TreeNode> candidates, RegionSubscriptionStore store) {
+    public SelectionResult selectBestProvider(ServiceRequest req, List<TreeNode> candidates, RegionSubscriptionStore store) {
         TreeNode bestNode = null;
         double bestScore = PENALTY_SCORE;
+        double bestDistance = -1.0;
+
+        // Track variables for the diagnosis
+        String bestAttempt = "No Candidates";
+        double minDist = Double.MAX_VALUE;
 
         for (TreeNode candidate : candidates) {
             if (candidate == req.getSource()) continue;
@@ -38,47 +43,59 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
                 MetricHyperCube cap = extractMetricHyperCube(sub, req.getServiceId());
                 if (cap == null) continue;
                 Location providerLoc = resolveProviderLocation(sub);
+                
                 EvaluationResult result = inspectLogic(cap, req, providerLoc);
 
+                // 1. Check for Winner
                 if (result.isFeasible() && result.score() < bestScore) {
                     bestScore = result.score();
                     bestNode = candidate;
+                    bestDistance = result.distance();
+                }
+                
+                // 2. Track "Best Reject" for Observability/Tracing
+                double currentDist = result.distance() >= 0 ? result.distance() : Double.MAX_VALUE;
+                if (currentDist < minDist) {
+                    minDist = currentDist;
+                    String scoreStr = (result.score() >= PENALTY_SCORE) ? "INF" : String.format("%.3f", result.score());
+                    bestAttempt = String.format("BestAttempt=[%s] Reason=[%s] Score=[%s] Dist=[%.2f]",
+                            candidate.getName(), result.reason(), scoreStr, result.distance());
                 }
             }
         }
-        return bestNode;
+        // Return everything in one neat package
+        return new SelectionResult(bestNode, bestScore, bestDistance, bestAttempt);
     }
 
     public EvaluationResult inspect(ServiceOffer offer, ServiceRequest req) {
         MetricHyperCube cap = (offer.getRegion() instanceof MetricHyperCube mhc) ? mhc : null;
-        if (cap == null) return EvaluationResult.fail("Invalid Offer Region");
+        if (cap == null) return EvaluationResult.fail("Invalid Offer Region", -1.0);
         return inspectLogic(cap, req, offer.getLocation());
     }
 
     private EvaluationResult inspectLogic(MetricHyperCube cap, ServiceRequest req, Location providerLoc) {
         double networkLatency = 0.0;
+        double distance = -1.0;
+        
         if (req.getQoSConstraintsLocation() != null) {
              double distSq;
              if (providerLoc != null) {
-                 // Point-to-Point Exact Distance (Local Edge Provider)
                  distSq = req.getQoSConstraintsLocation().distanceSquared(providerLoc);
              } else {
-                 // EXPECTED DISTANCE to Region Centroid (Remote Fog/Cloud Branch)
-                 // This prevents the "MINDIST = 0.0" trap for clients inside the bounding box
                  Location center = cap.getCenter();
                  distSq = center.distanceSquared(req.getQoSConstraintsLocation());
              }
-             networkLatency = Math.sqrt(distSq) * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
+             distance = Math.sqrt(distSq); // Pre-calculate distance here
+             networkLatency = distance * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
         }
 
         String rejectionReason = checkConstraints(cap, req, networkLatency);
         if (rejectionReason != null) {
-            return EvaluationResult.fail(rejectionReason);
+            return EvaluationResult.fail(rejectionReason, distance); // Pass distance on fail
         }
 
-        // Add the network latency addition explicitly to the generic score calculation
         double score = calculateGenericScore(cap, req, networkLatency);
-        return EvaluationResult.success(score);
+        return EvaluationResult.success(score, distance); // Pass distance on success
     }
 
     private String checkConstraints(MetricHyperCube cap, ServiceRequest req, double networkLatency) {
