@@ -6,7 +6,7 @@ import simulator.entities.SimulationBroker;
 import simulator.tests.framework.TopologyFixture;
 import simulator.topology.factories.BrokerFactory;
 import simulator.topology.factories.BoundedBrokerFactory;
-import marketplace.agents.MarketplaceBroker;
+import marketplace.agents.AbstractMarketplaceBroker;
 
 /**
  * A custom topology fixture that establishes a Cloud-Fog-Edge continuum.
@@ -20,12 +20,12 @@ import marketplace.agents.MarketplaceBroker;
  */
 public class MarketplaceContinuumTopologyFixture implements TopologyFixture {
 
-    private MarketplaceBroker root;
+    private AbstractMarketplaceBroker root;
 
     // We keep references to specific nodes to help debugging or direct access if
     // needed
-    private MarketplaceBroker fog;
-    private MarketplaceBroker edge;
+    private AbstractMarketplaceBroker fog;
+    private AbstractMarketplaceBroker edge;
 
     @Override
     public void setup(BrokerFactory factory) {
@@ -37,17 +37,17 @@ public class MarketplaceContinuumTopologyFixture implements TopologyFixture {
 
         // 1. Cloud Layer (Root)
         // Covers the entire simulation world (0-1000)
-        this.root = (MarketplaceBroker) boundedFactory.createLeafBroker("Cloud_Core",
+        this.root = (AbstractMarketplaceBroker) boundedFactory.createLeafBroker("Cloud_Core",
                 new Location(0, 0, 0), new Location(1000, 1000, 0));
 
         // 2. Fog Layer (Regional)
         // Covers the "City" region (0-500)
-        this.fog = (MarketplaceBroker) boundedFactory.createLeafBroker("Fog_London",
+        this.fog = (AbstractMarketplaceBroker) boundedFactory.createLeafBroker("Fog_London",
                 new Location(0, 0, 0), new Location(500, 500, 0));
 
         // 3. Edge Layer (Local)
         // Covers the "Neighborhood" region (0-100)
-        this.edge = (MarketplaceBroker) boundedFactory.createLeafBroker("Edge_Westminster",
+        this.edge = (AbstractMarketplaceBroker) boundedFactory.createLeafBroker("Edge_Westminster",
                 new Location(0, 0, 0), new Location(100, 100, 0));
 
         // Link the Topology

@@ -8,7 +8,7 @@ import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 import utils.CustomLogger;
 
-import marketplace.agents.MarketplaceBroker;
+import marketplace.agents.AbstractMarketplaceBroker;
 import marketplace.agents.MarketplaceClient;
 import marketplace.agents.MarketplaceProvider;
 
@@ -26,9 +26,9 @@ public class MarketplaceContinuumE2ETest extends TestScenario {
         // --- 1. RETRIEVE TOPOLOGY FROM FIXTURE ---
         // The fixture (MarketplaceContinuumTopologyFixture) has already built the tree.
 
-        MarketplaceBroker cloudBroker = fixture.findNode("Cloud_Core", MarketplaceBroker.class);
-        MarketplaceBroker fogBroker = fixture.findNode("Fog_London", MarketplaceBroker.class);
-        MarketplaceBroker edgeBroker = fixture.findNode("Edge_Westminster", MarketplaceBroker.class);
+        AbstractMarketplaceBroker cloudBroker = fixture.findNode("Cloud_Core", AbstractMarketplaceBroker.class);
+        AbstractMarketplaceBroker fogBroker = fixture.findNode("Fog_London", AbstractMarketplaceBroker.class);
+        AbstractMarketplaceBroker edgeBroker = fixture.findNode("Edge_Westminster", AbstractMarketplaceBroker.class);
 
         if (cloudBroker == null || fogBroker == null || edgeBroker == null) {
             logger.severe("FAIL: Fixture did not provide the expected Cloud-Fog-Edge topology nodes.");

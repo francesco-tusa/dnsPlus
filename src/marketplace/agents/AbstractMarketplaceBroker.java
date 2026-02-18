@@ -11,69 +11,36 @@ import simulator.regions.SubscriptionWithRegion;
 import simulator.regions.policy.StrictPropagationPolicy;
 import simulator.regions.store.RegionSubscriptionStore;
 import utils.CsvMetricWriter;
-import marketplace.topology.store.MarketplaceRegionStore;
-import marketplace.common.MetricHyperCube;
-import marketplace.events.ServiceOffer;
 import marketplace.events.ServiceRequest;
 import marketplace.optimization.ServiceSelectionStrategy;
-import marketplace.optimization.WeightedUtilityStrategy;
 
 import java.util.List;
 import java.util.ArrayList;
 
-public class MarketplaceBroker extends SpatialMatchBroker {
+public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
 
-    private final List<TreeNode> matchBuffer = new ArrayList<>();
+    protected final List<TreeNode> matchBuffer = new ArrayList<>();
+    protected ServiceSelectionStrategy selectionStrategy;
     
-    private ServiceSelectionStrategy selectionStrategy;
+    protected static final double PENALTY_SCORE = 999.0;
 
-    // CONSTRUCTOR OVERRIDES: Explicitly force StrictPropagationPolicy (No Clipping)
-    public MarketplaceBroker(String name, double threshold) {
+    public AbstractMarketplaceBroker(String name, double threshold) {
         super(name, false, threshold, new StrictPropagationPolicy());
-        this.selectionStrategy = new WeightedUtilityStrategy();
     }
 
-    public MarketplaceBroker(String name, Location p1, Location p2, double threshold) {
+    public AbstractMarketplaceBroker(String name, Location p1, Location p2, double threshold) {
         super(name, p1, p2, false, threshold, new StrictPropagationPolicy());
-        this.selectionStrategy = new WeightedUtilityStrategy();
     }
-    
+
     public void setSelectionStrategy(ServiceSelectionStrategy strategy) {
         this.selectionStrategy = strategy;
     }
 
     @Override
-    protected RegionSubscriptionStore createStore(boolean forceSingleRegion, double threshold) {
-        return new MarketplaceRegionStore(threshold);
-    }
-
-    @Override
-    protected SubscriptionWithRegion createCandidateSubscription(SubscriptionWithRegion aggregatedState, Region newRegionPayload) {
-        if (aggregatedState.getRegion() instanceof MetricHyperCube) {
-            MetricHyperCube mhc = (MetricHyperCube) aggregatedState.getRegion();
-            
-            MetricHyperCube newCube = new MetricHyperCube(
-                    mhc.getMinValues(),
-                    mhc.getMaxValues(),
-                    mhc.getMinimizeFlags(),
-                    newRegionPayload
-            );
-
-            if (aggregatedState instanceof ServiceOffer) {
-                ServiceOffer offer = (ServiceOffer) aggregatedState;
-                return ServiceOffer.createAggregated(offer.getServiceId(), newCube);
-            }
-            return new SubscriptionWithRegion(newCube);
-        }
-        return super.createCandidateSubscription(aggregatedState, newRegionPayload);
-    }
-
-    @Override
     public SimulationSubscription matchPublication(SimulationPublication p) {
-        if (!(p instanceof ServiceRequest)) {
+        if (!(p instanceof ServiceRequest req)) {
             return super.matchPublication(p);
         }
-        ServiceRequest req = (ServiceRequest) p;
 
         CsvMetricWriter.getInstance().logPublication(
             p, this.getName(), "RECEIVED", "Level " + this.getNodeLevel()
@@ -92,7 +59,7 @@ public class MarketplaceBroker extends SpatialMatchBroker {
             return null;
         }
 
-        // 2. Strategy Execution (Logic Layer) - Evaluates everything ONCE
+        // 2. Strategy Execution (Logic Layer)
         ServiceSelectionStrategy.SelectionResult selection = this.selectionStrategy.selectBestProvider(
             req, this.matchBuffer, this.getInputStore()
         );
@@ -104,7 +71,7 @@ public class MarketplaceBroker extends SpatialMatchBroker {
         if (bestNode != null) {
             String details = "Selected " + bestNode.getName();
             
-            if (tracingEnabled && selection.bestScore() < WeightedUtilityStrategy.PENALTY_SCORE) {
+            if (tracingEnabled && selection.bestScore() < PENALTY_SCORE) {
                 details += String.format(" (Score: %.3f, Dist: %.1f)", selection.bestScore(), selection.distance());
             }
 
@@ -128,4 +95,8 @@ public class MarketplaceBroker extends SpatialMatchBroker {
 
         return null;
     }
+    
+    // Abstract Factory Methods to be implemented by Concrete Brokers
+    @Override
+    protected abstract RegionSubscriptionStore createStore(boolean forceSingleRegion, double threshold);
 }

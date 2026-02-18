@@ -9,7 +9,7 @@ import simulator.tests.framework.TopologyFixture;
 import utils.CustomLogger;
 import simulator.topology.factories.BoundedBrokerFactory;
 
-import marketplace.agents.MarketplaceBroker;
+import marketplace.agents.AbstractMarketplaceBroker;
 import marketplace.agents.MarketplaceClient;
 import marketplace.agents.MarketplaceProvider;
 import marketplace.topology.MarketplaceBrokerFactory;
@@ -29,7 +29,7 @@ public class MarketplaceRoutingSelectionTest extends TestScenario {
         System.out.println(">>> STARTING LOGIC TEST: INSTANTIATION SELECTION");
 
         BoundedBrokerFactory factory = new MarketplaceBrokerFactory();
-        MarketplaceBroker broker = (MarketplaceBroker) factory.createLeafBroker("CentralBroker",
+        AbstractMarketplaceBroker broker = (AbstractMarketplaceBroker) factory.createLeafBroker("CentralBroker",
                 new Location(0, 0, 0), new Location(100, 100, 0));
 
         // Provider A: 10ms (Loc 10,10)

@@ -13,7 +13,8 @@ import utils.CustomLogger;
 import marketplace.common.MarketplaceMetricSchema;
 import marketplace.common.MetricHyperCube;
 import marketplace.events.ServiceOffer;
-import marketplace.topology.store.MarketplaceRegionStore;
+import marketplace.topology.store.AbstractMarketplaceRegionStore;
+import marketplace.topology.store.HypercubeRegionStore;
 
 public class MarketplaceAggregationLogicTest extends TestScenario {
 
@@ -54,7 +55,7 @@ public class MarketplaceAggregationLogicTest extends TestScenario {
         // TEST 1: SUCCESSFUL MERGE (Tight Spatial, Tight QoS)
         // --------------------------------------------------------------------------------
         System.out.println("   -> Testing Valid Merge (Low Spatial FPR, Low QoS FPR)...");
-        MarketplaceRegionStore relaxedStore = new MarketplaceRegionStore(0.50);
+        AbstractMarketplaceRegionStore relaxedStore = new HypercubeRegionStore(0.50);
         
         // Provider B: Physically overlaps and has very similar QoS metrics
         Location locB = new Location(0.5, 0.5, 0);
@@ -79,7 +80,7 @@ public class MarketplaceAggregationLogicTest extends TestScenario {
         // TEST 2: REJECTED MERGE (SLA Violation / High QoS FPR)
         // --------------------------------------------------------------------------------
         System.out.println("   -> Testing QoS Dilution Rejection (Tight Spatial, Bad QoS)...");
-        MarketplaceRegionStore qosStrictStore = new MarketplaceRegionStore(0.20);
+        AbstractMarketplaceRegionStore qosStrictStore = new HypercubeRegionStore(0.20);
         
         // Provider C: Exact same physical location as A, but Latency jumps to 20ms (High QoS stretch)
         MetricHyperCube cubeC = new MetricHyperCube(
@@ -102,7 +103,7 @@ public class MarketplaceAggregationLogicTest extends TestScenario {
         // TEST 3: REJECTED MERGE (Physical Dead Zone / High Spatial FPR)
         // --------------------------------------------------------------------------------
         System.out.println("   -> Testing Spatial Dilution Rejection (Tight QoS, Bad Spatial)...");
-        MarketplaceRegionStore spaceStrictStore = new MarketplaceRegionStore(0.20);
+        AbstractMarketplaceRegionStore spaceStrictStore = new HypercubeRegionStore(0.20);
         
         // Provider D: Exact same QoS as A, but located far away (Creates a massive physical dead zone)
         Location locD = new Location(100, 100, 0);

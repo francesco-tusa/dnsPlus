@@ -9,7 +9,7 @@ import simulator.tests.framework.TestScenario;
 import simulator.tests.framework.TopologyFixture;
 import simulator.topology.factories.BoundedBrokerFactory;
 
-import marketplace.agents.MarketplaceBroker;
+import marketplace.agents.AbstractMarketplaceBroker;
 import marketplace.agents.MarketplaceClient;
 import marketplace.agents.MarketplaceProvider;
 import marketplace.topology.MarketplaceBrokerFactory;
@@ -40,9 +40,9 @@ public class MarketplaceLogicDecompositionTest extends TestScenario {
     // UNIT 1: OPTIMIZATION
     private boolean verifyPropagationOptimization() {
         System.out.println("\n[Logic Unit 1] Verifying Propagation Optimization (HyperCube Aggregation)...");
-        MarketplaceBroker cloud = createBroker("Cloud_Check", 0, 50);
-        MarketplaceBroker fog   = createBroker("Fog_Check", 0, 25);
-        MarketplaceBroker edge  = createBroker("Edge_Check", 0, 5);
+        AbstractMarketplaceBroker cloud = createBroker("Cloud_Check", 0, 50);
+        AbstractMarketplaceBroker fog   = createBroker("Fog_Check", 0, 25);
+        AbstractMarketplaceBroker edge  = createBroker("Edge_Check", 0, 5);
         cloud.addChild(fog);
         fog.addChild(edge);
 
@@ -71,11 +71,11 @@ public class MarketplaceLogicDecompositionTest extends TestScenario {
     private boolean verifyIntersectionLogic() {
         System.out.println("\n[Logic Unit 2] Verifying Intersection & Propagation Logic (Spatial Isolation)...");
 
-        MarketplaceBroker cloud = createBroker("Cloud_Int", 0, 60);
-        MarketplaceBroker fogLocal = createBroker("Fog_Local", 0, 10);
+        AbstractMarketplaceBroker cloud = createBroker("Cloud_Int", 0, 60);
+        AbstractMarketplaceBroker fogLocal = createBroker("Fog_Local", 0, 10);
         
         // Move Remote Fog closer so a realistic 20-degree Cloud can intersect it
-        MarketplaceBroker fogRemote = createBroker("Fog_Remote", 30, 40); 
+        AbstractMarketplaceBroker fogRemote = createBroker("Fog_Remote", 30, 40); 
         cloud.addChild(fogLocal);
         cloud.addChild(fogRemote);
 
@@ -112,15 +112,15 @@ public class MarketplaceLogicDecompositionTest extends TestScenario {
     private boolean verifyRoutingPaths() {
         System.out.println("\n[Logic Unit 3] Verifying Routing Paths (Cross-Branch Stratification)...");
 
-        MarketplaceBroker cloud = createBroker("Cloud", 0, 50);
+        AbstractMarketplaceBroker cloud = createBroker("Cloud", 0, 50);
         
-        MarketplaceBroker fogWest = createBroker("Fog_West", 0, 10);
-        MarketplaceBroker edgeWest = createBroker("Edge_West", 5, 10);
+        AbstractMarketplaceBroker fogWest = createBroker("Fog_West", 0, 10);
+        AbstractMarketplaceBroker edgeWest = createBroker("Edge_West", 5, 10);
         cloud.addChild(fogWest);
         fogWest.addChild(edgeWest);
 
-        MarketplaceBroker fogEast = createBroker("Fog_East", 10, 30);
-        MarketplaceBroker edgeEast = createBroker("Edge_East", 10, 20);
+        AbstractMarketplaceBroker fogEast = createBroker("Fog_East", 10, 30);
+        AbstractMarketplaceBroker edgeEast = createBroker("Edge_East", 10, 20);
         cloud.addChild(fogEast);
         fogEast.addChild(edgeEast);
 
@@ -179,13 +179,13 @@ public class MarketplaceLogicDecompositionTest extends TestScenario {
         return true;
     }
 
-    private MarketplaceBroker createBroker(String name, double min, double max) {
+    private AbstractMarketplaceBroker createBroker(String name, double min, double max) {
         BoundedBrokerFactory factory = new MarketplaceBrokerFactory();
-        return (MarketplaceBroker) factory.createLeafBroker(name, 
+        return (AbstractMarketplaceBroker) factory.createLeafBroker(name, 
             new Location(min, min, 0), new Location(max, max, 0));
     }
 
-    private boolean probeBrokerState(MarketplaceBroker broker, double expectedMinLatency, Location probeLoc) {
+    private boolean probeBrokerState(AbstractMarketplaceBroker broker, double expectedMinLatency, Location probeLoc) {
         double[] metrics = new double[MarketplaceMetricSchema.KEYS.length];
         for (int i = 0; i < metrics.length; i++) metrics[i] = 99999.0; 
 

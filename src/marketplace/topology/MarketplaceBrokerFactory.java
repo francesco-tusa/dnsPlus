@@ -1,35 +1,43 @@
 package marketplace.topology;
 
-import simulator.config.SimConfiguration;
 import simulator.core.Location;
 import simulator.regions.BoundedBroker;
 import simulator.topology.factories.BoundedBrokerFactory;
+import simulator.config.SimConfiguration;
+import marketplace.config.MarketplaceConfig;
+import marketplace.agents.HypercubeMarketplaceBroker;
+import marketplace.agents.SkylineMarketplaceBroker;
 
 /**
- * A factory for creating brokers that use the Hierarchical Orchestration
- * strategy.
- * Used for Marketplace Simulations.
+ * A factory for creating brokers that use the Hierarchical Orchestration strategy.
+ * Retrieves core thresholds from configuration and dynamically instantiates the 
+ * correct concrete Broker architecture (HyperCube vs Skyline) based on properties.
  */
 public class MarketplaceBrokerFactory implements BoundedBrokerFactory {
-
-    private final double smartThreshold;
-
-    public MarketplaceBrokerFactory() {
-        this.smartThreshold = SimConfiguration.get().broker.getSmartThreshold();
-    }
-
+    
     @Override
     public BoundedBroker createBroker(String name) {
-        return new marketplace.agents.MarketplaceBroker(name, this.smartThreshold);
+        double threshold = SimConfiguration.get().broker.getSmartThreshold();
+        
+        if (MarketplaceConfig.get().aggregationStrategy == MarketplaceConfig.AggregationStrategy.SKYLINE) {
+            return new SkylineMarketplaceBroker(name, threshold);
+        }
+        return new HypercubeMarketplaceBroker(name, threshold);
     }
 
     @Override
     public BoundedBroker createLeafBroker(String name, Location p1, Location p2) {
-        return new marketplace.agents.MarketplaceBroker(name, p1, p2, this.smartThreshold);
+        double threshold = SimConfiguration.get().broker.getSmartThreshold();
+        
+        if (MarketplaceConfig.get().aggregationStrategy == MarketplaceConfig.AggregationStrategy.SKYLINE) {
+            return new SkylineMarketplaceBroker(name, p1, p2, threshold);
+        }
+        return new HypercubeMarketplaceBroker(name, p1, p2, threshold);
     }
 
     @Override
     public BoundedBroker createLeafBroker(String name) {
-        return new marketplace.agents.MarketplaceBroker(name, this.smartThreshold);
+        // Defer to the main parameterless creation method
+        return createBroker(name);
     }
 }

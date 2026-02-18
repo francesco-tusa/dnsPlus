@@ -2,7 +2,7 @@ package marketplace.tests.scenarios;
 
 import java.util.Map;
 
-import marketplace.agents.MarketplaceBroker;
+import marketplace.agents.AbstractMarketplaceBroker;
 import marketplace.agents.MarketplaceProvider;
 import marketplace.common.MarketplaceMetricSchema;
 import marketplace.events.ServiceRequest;
@@ -46,8 +46,8 @@ public class MarketplaceStrategyTest extends TestScenario {
         MarketplaceProvider pFar = new MarketplaceProvider("pFar_Cloud", new Location(50, 0, 0));
 
         // FIX: Add to brokers FIRST
-        fixture.findNode("Edge_Westminster", MarketplaceBroker.class).addChild(pClose);
-        fixture.findNode("Cloud_Core", MarketplaceBroker.class).addChild(pFar);
+        fixture.findNode("Edge_Westminster", AbstractMarketplaceBroker.class).addChild(pClose);
+        fixture.findNode("Cloud_Core", AbstractMarketplaceBroker.class).addChild(pFar);
 
         // THEN Advertise (Now the provider has a parent, so send() will succeed)
         pClose.advertiseService(1, Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 10.0));
@@ -87,7 +87,7 @@ public class MarketplaceStrategyTest extends TestScenario {
         MarketplaceProvider pReliable = new MarketplaceProvider("pReliable_Fog", new Location(0, 0, 0));
 
         // FIX: Add to topology FIRST
-        MarketplaceBroker edge = fixture.findNode("Edge_Westminster", MarketplaceBroker.class);
+        AbstractMarketplaceBroker edge = fixture.findNode("Edge_Westminster", AbstractMarketplaceBroker.class);
         edge.addChild(pCheap);
         edge.addChild(pReliable);
 

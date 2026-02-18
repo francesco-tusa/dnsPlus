@@ -25,6 +25,13 @@ public class MarketplaceConfig {
     public final int fogProviderCount;
     public final int edgeProviderCount;
 
+    // --- NEW: Aggregation Strategy Toggle ---
+    public enum AggregationStrategy {
+        HYPERCUBE, // Uses FPR Dilution (MarketplaceRegionStore + WeightedUtilityStrategy)
+        SKYLINE    // Uses Pareto Frontier (SkylineRegionStore + SkylineUtilityStrategy)
+    }
+    public final AggregationStrategy aggregationStrategy;
+
     public static synchronized MarketplaceConfig get() {
         if (instance == null) {
             instance = new MarketplaceConfig();
@@ -35,13 +42,11 @@ public class MarketplaceConfig {
     private MarketplaceConfig() {
         Properties props = loadProperties();
 
-        // 1. Parse Allowed Countries (Slice)
-        // Default to Trans-Atlantic (US + Major EU) if not specified
         String defaultSlice = "United States";
         String sliceStr = props.getProperty("marketplace.topology.slice", defaultSlice);
         
         if (sliceStr.trim().isEmpty() || sliceStr.equalsIgnoreCase("WORLD")) {
-            this.allowedCountries = new HashSet<>(); // Empty = World
+            this.allowedCountries = new HashSet<>(); 
         } else {
             this.allowedCountries = Arrays.stream(sliceStr.split(","))
                                           .map(String::trim)
@@ -49,12 +54,21 @@ public class MarketplaceConfig {
                                           .collect(Collectors.toSet());
         }
 
-        // 2. Parse Provider Counts
         this.cloudProviderCount = ConfigParser.parseInt(props, "marketplace.providers.cloud.count", 15);
         this.fogProviderCount = ConfigParser.parseInt(props, "marketplace.providers.fog.count", 50);
         this.edgeProviderCount = ConfigParser.parseInt(props, "marketplace.providers.edge.count", 200);
         
-        logger.info("Marketplace Config Loaded. Slice: " + allowedCountries);
+        // Parse the new strategy parameter (Defaults to HYPERCUBE if missing)
+        String strategyStr = props.getProperty("marketplace.aggregation.strategy", "HYPERCUBE").toUpperCase();
+        AggregationStrategy parsedStrategy = AggregationStrategy.HYPERCUBE;
+        try {
+            parsedStrategy = AggregationStrategy.valueOf(strategyStr);
+        } catch (IllegalArgumentException e) {
+            logger.warning("Invalid marketplace.aggregation.strategy: " + strategyStr + ". Defaulting to HYPERCUBE.");
+        }
+        this.aggregationStrategy = parsedStrategy;
+        
+        logger.info("Marketplace Config Loaded. Slice: " + allowedCountries + " | Strategy: " + this.aggregationStrategy);
     }
 
     private Properties loadProperties() {
