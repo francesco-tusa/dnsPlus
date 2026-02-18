@@ -92,10 +92,9 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
         }
     }
     
-
     private double calculateCoveringRange(BoundedBroker broker, String depthTag) {
         Region r = broker.getRegion();
-        if (r == null) return 0.25; // Safe default for unmapped leaf (~27km)
+        if (r == null) return ProviderProfileGenerator.RADIUS_EDGE; // Safe default for unmapped leaf
 
         // Delegate to Region class to handle coordinate wrapping correctly
         double width = r.getWidth();
@@ -107,18 +106,16 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
 
         switch (depthTag.toUpperCase()) {
             case "COUNTRY": 
-                // CLOUD: Use a large multiplier to cover the country, 
-                // but strictly CAP it at 20.0 degrees (~2200km) so it doesn't wrap the Earth.
-                return Math.min(halfSide * 1.5, 20.0); 
+                // CLOUD: Cap at the centralized maximum so it doesn't wrap the Earth.
+                return Math.min(halfSide * 1.5, ProviderProfileGenerator.RADIUS_CLOUD_MAX); 
                 
             case "ADMIN1": 
-                // FOG: Cover the state/region, CAP at 3.0 degrees (~330km)
-                return Math.min(halfSide * 1.2, 3.0);
+                // FOG: Cover the state/region, cap at centralized max.
+                return Math.min(halfSide * 1.2, ProviderProfileGenerator.RADIUS_FOG_MAX);
                 
             case "CITY": 
-                // EDGE: Hardcode to 0.25 degrees (~27km) for strict Metropolitan boundaries.
-                // 5.0 was too large (~550km).
-                return 0.25; 
+                // EDGE: Hardcode to centralized metro boundary.
+                return ProviderProfileGenerator.RADIUS_EDGE; 
                 
             default: 
                 return halfSide;
