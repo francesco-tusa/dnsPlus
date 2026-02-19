@@ -1,6 +1,7 @@
 package marketplace.tests;
 
 import marketplace.tests.scenarios.MarketplaceAggregationLogicTest;
+import marketplace.tests.scenarios.MarketplaceContinuumE2ETest;
 import marketplace.tests.scenarios.MarketplaceLogicDecompositionTest;
 import marketplace.tests.scenarios.MarketplaceRoutingSelectionTest;
 import marketplace.tests.scenarios.MarketplaceStrategyTest;
@@ -30,8 +31,15 @@ public class MarketplaceTestSuite {
             allPassed = false;
 
         // 4. Run N-Dimensional Aggregation Test (Spatial & QoS)
+        // (This validates the HypercubeRegionStore vs SkylineRegionStore logic)
         MarketplaceAggregationLogicTest aggregationTest = new MarketplaceAggregationLogicTest();
         if (!runTest(aggregationTest))
+            allPassed = false;
+            
+        // 5. Run the End-to-End Continuum Test
+        // (This validates both brokers route successfully in a Cloud-Fog-Edge topology)
+        MarketplaceContinuumE2ETest e2eTest = new MarketplaceContinuumE2ETest();
+        if (!runTest(e2eTest))
             allPassed = false;
 
         System.out.println("\n==========================================");

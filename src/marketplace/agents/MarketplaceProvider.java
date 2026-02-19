@@ -54,7 +54,7 @@ public class MarketplaceProvider extends SubscriberWithLocation {
      * Defaults to -1.0 (indicating "Standard/Broker Default").
      */
     public void advertiseService(long serviceId, Map<String, Double> performanceMetrics) {
-        this.advertiseService(serviceId, performanceMetrics, -1.0);
+        this.advertiseService(serviceId, performanceMetrics, 0.0);
     }
     
     /**

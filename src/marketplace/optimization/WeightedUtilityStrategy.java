@@ -76,17 +76,19 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
     private EvaluationResult inspectLogic(MetricHyperCube cap, ServiceRequest req, Location providerLoc) {
         double networkLatency = 0.0;
         double distance = -1.0;
-        
+
         if (req.getQoSConstraintsLocation() != null) {
-             double distSq;
-             if (providerLoc != null) {
-                 distSq = req.getQoSConstraintsLocation().distanceSquared(providerLoc);
-             } else {
-                 Location center = cap.getCenter();
-                 distSq = center.distanceSquared(req.getQoSConstraintsLocation());
-             }
-             distance = Math.sqrt(distSq); // Pre-calculate distance here
-             networkLatency = distance * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
+            double distSq;
+            if (providerLoc != null) {
+                // Physical Request Location vs Physical Provider Location
+                distSq = req.getLocation().distanceSquared(providerLoc);
+            } else {
+                // Fallback if provider location is hidden
+                // Assuming we route towards the broker's spatial region center
+                distSq = req.getLocation().distanceSquared(cap.getCenter());
+            }
+            distance = Math.sqrt(distSq);
+            networkLatency = distance * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
         }
 
         String rejectionReason = checkConstraints(cap, req, networkLatency);
