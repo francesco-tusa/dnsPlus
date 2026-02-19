@@ -50,7 +50,7 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
         // 1. Spatial Filter (Physical Layer)
         this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
 
-        // --- DEBUG INJECTION: SPATIAL MATCH LAYER ---
+        /* // --- DEBUG INJECTION: SPATIAL MATCH LAYER ---
         System.out.println("\n[DEBUG Broker: " + this.getName() + "] Request: " + req.getPreferences() + " at "
                 + req.getLocation());
         System.out.println(
@@ -59,11 +59,11 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
             System.out.println(
                     "   -> Match Candidate: " + node.getName() + " (Class: " + node.getClass().getSimpleName() + ")");
         }
-        // ---------------------------------------------
+        // --------------------------------------------- */
 
         if (this.matchBuffer.isEmpty()) {
             this.totalFalsePositiveEvents++;
-            System.out.println("[DEBUG Broker: " + this.getName() + "] DROP_NO_MATCH: No Spatial Matches.");
+            //System.out.println("[DEBUG Broker: " + this.getName() + "] DROP_NO_MATCH: No Spatial Matches.");
             CsvMetricWriter.getInstance().logPublication(
                     p, this.getName(), "DROP_NO_MATCH", "No Spatial/Content Match");
             return null;
@@ -74,11 +74,11 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
                 req, this.matchBuffer, this.getInputStore());
         TreeNode bestNode = selection.bestNode();
 
-        // --- DEBUG INJECTION: STRATEGY LAYER ---
+        /* // --- DEBUG INJECTION: STRATEGY LAYER ---
         System.out.println("[DEBUG Broker: " + this.getName() + "] Selection Strategy Best Node: " +
                 (bestNode != null ? bestNode.getName() : "NONE") +
                 " | Diagnosis: " + selection.diagnosis());
-        // ---------------------------------------------
+        // --------------------------------------------- */
 
         boolean tracingEnabled = SimConfiguration.get().paths.enableEventTracing;
 

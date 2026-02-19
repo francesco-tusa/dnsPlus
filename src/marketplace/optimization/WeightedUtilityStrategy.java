@@ -135,26 +135,86 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
     }
 
     private double calculateGenericScore(MetricHyperCube cap, ServiceRequest req, double networkLatencyAddition) {
+        double score = 0.0;
+        
+        // 1. Unpack the SLA arrays from the Hypercube
+        double[] bestMinValues = cap.getMinValues(); 
+        double[] bestMaxValues = cap.getMaxValues(); 
+
+        // 2. Unpack the client preferences from the ServiceRequest
         double[] constraints = req.getQoSConstraintsLocation().getMetricValues();
         double[] weights = req.getWeights();
         boolean[] flags = req.getMinimizeFlags();
-        double[] bestMinValues = cap.getMinValues(); 
 
-        double score = 0.0;
         int latIdx = MarketplaceMetricSchema.IDX_LATENCY;
         
         for(int i = 0; i < constraints.length; i++) {
+            // Skip metrics the client doesn't care about
             if (weights[i] == 0.0) continue;
+            
+            // Safety bound for array lengths
             if (i >= bestMinValues.length) break;
 
-            double valToCheck = flags[i] ? bestMinValues[i] : cap.getMaxValues()[i];
-            if (flags[i] && i == latIdx) valToCheck += networkLatencyAddition; 
+            double termScore;
+            double valToCheck;
+
+            if (flags[i]) {
+                // ==========================================
+                // MINIMIZE (Lower actual = lower score = better)
+                // ==========================================
+                valToCheck = bestMinValues[i];
+                if (i == latIdx) valToCheck += networkLatencyAddition; 
+                
+                double actual = (valToCheck > 0) ? valToCheck : 0.001;
+                
+                // FIX: Decouple normalization from hard constraints.
+                double maxAllowed;
+                if (constraints[i] < Double.MAX_VALUE && constraints[i] > 0) {
+                    maxAllowed = constraints[i];
+                } else {
+                    maxAllowed = getSystemMaximumForMetric(i);
+                }
+                
+                termScore = actual / maxAllowed;
+
+            } else {
+                // ==========================================
+                // MAXIMIZE (Higher actual = lower score = better)
+                // ==========================================
+                valToCheck = bestMaxValues[i];
+                double actual = (valToCheck > 0) ? valToCheck : 0.001;
+                
+                // FIX: Decouple normalization from hard constraints.
+                double minRequired;
+                if (constraints[i] > 0) {
+                    minRequired = constraints[i];
+                } else {
+                    minRequired = getSystemMaximumForMetric(i);
+                }
+                
+                termScore = minRequired / actual;
+            }
             
-            double actual = (valToCheck > 0) ? valToCheck : 0.001;
-            double maxAllowed = (constraints[i] > 0) ? constraints[i] : 1.0;
-            score += (flags[i] ? (actual / maxAllowed) : (maxAllowed / actual)) * weights[i];
+            // Apply the client's weight to this metric's penalty
+            score += termScore * weights[i];
         }
+        
         return score;
+    }
+
+    /**
+     * Helper method to map array indices to the System Maximums defined in the schema.
+     * Prevents the utility mathematics from collapsing if a client doesn't provide a constraint.
+     */
+    private double getSystemMaximumForMetric(int index) {
+        return switch (index) {
+            case MarketplaceMetricSchema.IDX_LATENCY -> MarketplaceMetricSchema.SYSTEM_MAX_LATENCY;
+            case 1 /* COST */ -> MarketplaceMetricSchema.SYSTEM_MAX_COST;
+            case 2 /* RELIABILITY */ -> MarketplaceMetricSchema.SYSTEM_MAX_RELIABILITY;
+            case 3 /* BANDWIDTH */ -> MarketplaceMetricSchema.SYSTEM_MAX_BANDWIDTH;
+            case 4 /* ENERGY */ -> MarketplaceMetricSchema.SYSTEM_MAX_ENERGY;
+            default -> 100.0; // Safe fallback
+        };
     }
 
     private Location resolveProviderLocation(SimulationSubscription sub) { 
