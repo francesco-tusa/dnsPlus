@@ -28,61 +28,82 @@ public class HypercubeRegionStore extends AbstractMarketplaceRegionStore {
     protected MergeEvaluation evaluateMerge(Region accumulator, SubscriptionWithRegion existing) {
         if (!(accumulator instanceof MetricHyperCube cubeA) || !(existing.getRegion() instanceof MetricHyperCube cubeB)) {
             boolean result = super.shouldMerge(accumulator, existing);
-            // ADDED: 0.0, 0.0
             return new MergeEvaluation(result, result ? "Merged" : "Threshold Exceeded", 0.0, 0.0); 
         }
 
-        // 2. TIER ISOLATION: Prevent Macro regions from swallowing Micro regions
+        // 1. TIER ISOLATION: Prevent Macro regions from swallowing Micro regions
+        MergeEvaluation isolationCheck = checkTierIsolation(accumulator, existing);
+        if (isolationCheck != null) {
+            return isolationCheck;
+        }
+
+        // 2. SPATIAL FPR (Geographic Dead Space)
+        double spatialFpr = calculateSpatialFpr(accumulator, existing);
+
+        // 3. QoS FPR (Similarity-Based Capability Difference)
+        double qosFpr = calculateQosFpr(cubeA, cubeB);
+        
+        // 4. FINAL DECISION
+        double combinedFpr = Math.max(spatialFpr, qosFpr);
+        boolean canMerge = combinedFpr <= this.mergeThreshold;
+        
+        if (canMerge) {
+            return new MergeEvaluation(true, "Merged", spatialFpr, qosFpr);
+        } else {
+            String bottleneck = (qosFpr > spatialFpr) ? "QoS" : "Spatial";
+            double bottleneckVal = Math.max(qosFpr, spatialFpr);
+            return new MergeEvaluation(false, String.format("%s FPR %.5f > %.5f", bottleneck, bottleneckVal, this.mergeThreshold), spatialFpr, qosFpr);
+        }
+    }
+
+    // ==========================================
+    // HELPER METHODS
+    // ==========================================
+
+    private MergeEvaluation checkTierIsolation(Region accumulator, SubscriptionWithRegion existing) {
         double area1 = Math.max(accumulator.getArea(), 1e-9);
         double area2 = Math.max(existing.getRegion().getArea(), 1e-9);
         double areaRatio = Math.max(area1 / area2, area2 / area1);
 
         if (areaRatio > 25.0) {
-            // ADDED: 0.0, 0.0
             return new MergeEvaluation(false, String.format("Tier Isolation (Ratio %.1f > 25.0)", areaRatio), 0.0, 0.0); 
         }
+        return null; // Passes the check
+    }
 
-        // 3. SPATIAL FPR 
-        double spatialFpr = calculateSpatialFpr(accumulator, existing);
-
-        // 4. QoS FPR (1D overlap math)
+    private double calculateQosFpr(MetricHyperCube cubeA, MetricHyperCube cubeB) {
         double[] minA = cubeA.getMinValues();
         double[] maxA = cubeA.getMaxValues();
         double[] minB = cubeB.getMinValues();
         double[] maxB = cubeB.getMaxValues();
 
-        double totalRelativeExpansion = 0.0;
+        double totalRelativeDifference = 0.0;
         int dimensions = minA.length;
 
         for (int i = 0; i < dimensions; i++) {
-            double currentRange = maxA[i] - minA[i];
-            double newMin = Math.min(minA[i], minB[i]);
-            double newMax = Math.max(maxA[i], maxB[i]);
-            double mergedRange = newMax - newMin;
+            double diffMin = Math.abs(minA[i] - minB[i]);
+            double diffMax = Math.abs(maxA[i] - maxB[i]);
             
-            double expansion = mergedRange - currentRange;
+            // The active difference is whichever bound actually shifted
+            double activeDiff = Math.max(diffMin, diffMax);
             
-            if (expansion > 0) {
-                double scale = Math.max(Math.abs(newMax), 1e-6); 
-                totalRelativeExpansion += (expansion / scale);
+            if (activeDiff > 0) {
+                double scale;
+                if (diffMin > diffMax) {
+                    // Lower-bounded metric (e.g., Latency, Cost) - provider constraints are at the minimum
+                    scale = Math.max(Math.abs(minA[i]), Math.abs(minB[i]));
+                } else {
+                    // Upper-bounded metric (e.g., Reliability, Bandwidth) - provider constraints are at the maximum
+                    scale = Math.max(Math.abs(maxA[i]), Math.abs(maxB[i]));
+                }
+                
+                // Calculate percentage difference relative to the maximum bound (the "worse" node)
+                totalRelativeDifference += (activeDiff / Math.max(scale, 1e-6));
             }
         }
 
-        double qosFpr = totalRelativeExpansion / dimensions;
-        
-        // 5. FINAL DECISION
-        double combinedFpr = Math.max(spatialFpr, qosFpr);
-        boolean canMerge = combinedFpr <= this.mergeThreshold;
-        
-        if (canMerge) {
-            // UPDATED: Pass "Merged" as the reason, and append the raw doubles for the logger to use later
-            return new MergeEvaluation(true, "Merged", spatialFpr, qosFpr);
-        } else {
-            String bottleneck = (qosFpr > spatialFpr) ? "QoS" : "Spatial";
-            double bottleneckVal = Math.max(qosFpr, spatialFpr);
-            // UPDATED: Boosted to %.5f and appended the raw doubles
-            return new MergeEvaluation(false, String.format("%s FPR %.5f > %.5f", bottleneck, bottleneckVal, this.mergeThreshold), spatialFpr, qosFpr);
-        }
+        // Average the FPR across all dimensions
+        return totalRelativeDifference / dimensions;
     }
 
     @Override
