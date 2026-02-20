@@ -16,7 +16,7 @@ public class ServiceRequest extends PublicationWithLocation {
     private final long serviceId;
     private final Map<String, Double> preferences;
     private final double[] weights; 
-    private final boolean[] minimizeFlags; 
+    private final boolean[] minimizeFlags;
 
     public ServiceRequest(long serviceId, Map<String, Double> constraints, Map<String, Double> weightsMap, Location physicalLoc) {
         // We wrap the constraints into a MetricLocation and pass it to super
@@ -82,9 +82,26 @@ public class ServiceRequest extends PublicationWithLocation {
     public Map<String, Double> getPreferences() { return preferences; }
     public double[] getWeights() { return weights; }
     public boolean[] getMinimizeFlags() { return minimizeFlags; }
-    
+
     @Override
     public String toString() {
         return "ServiceRequest[ID=" + serviceId + "]";
+    }
+
+    @Override
+    public String toDisplayString() {
+        StringBuilder sb = new StringBuilder();
+        boolean first = true;
+        for (int i = 0; i < MarketplaceMetricSchema.KEYS.length; i++) {
+            String key = MarketplaceMetricSchema.KEYS[i];
+            if (preferences.containsKey(key)) {
+                if (!first) sb.append("|");
+                sb.append(MarketplaceMetricSchema.SHORT_NAMES.get(key))
+                  .append(":").append(String.format("%.2f", preferences.get(key)))
+                  .append("(w:").append(String.format("%.2f", weights[i])).append(")");
+                first = false;
+            }
+        }
+        return sb.toString();
     }
 }

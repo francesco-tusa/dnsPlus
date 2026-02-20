@@ -33,6 +33,9 @@ public class MarketplaceTopologyLoader extends GeoNamesTopologyLoader {
             logger.info(">>> Recalculating Population Statistics for Sliced Topology...");
             recalculatePopulation(worldRoot);
             logger.info(">>> New Root Population: " + worldRoot.getInternetPopulation());
+            
+            logger.info(">>> Sanitizing broker names to use underscores for log consistency...");
+            sanitizeBrokerNames(worldRoot);
         }
 
         return worldRoot;
@@ -112,5 +115,26 @@ public class MarketplaceTopologyLoader extends GeoNamesTopologyLoader {
         }
 
         return newTotal;
+    }
+
+    /**
+     * Recursively traverses the topology tree and replaces all spaces 
+     * in the broker names with underscores to ensure clean log parsing.
+     */
+    private void sanitizeBrokerNames(TreeNode node) {
+        if (node == null) return;
+        
+        String currentName = node.getName();
+        if (currentName != null && currentName.contains(" ")) {
+            // Replace spaces with underscores
+            node.setName(currentName.replaceAll("\\s+", "_"));
+        }
+        
+        // Recurse for all children in the tree
+        if (node.getChildren() != null) {
+            for (TreeNode child : node.getChildren()) {
+                sanitizeBrokerNames(child);
+            }
+        }
     }
 }

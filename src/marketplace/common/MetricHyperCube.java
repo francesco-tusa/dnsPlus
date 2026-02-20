@@ -173,6 +173,16 @@ public class MetricHyperCube extends Region {
 
     @Override
     public String toShortString() {
-        return super.toShortString() + " | Metrics: " + Arrays.toString(minValues) + "->" + Arrays.toString(maxValues);
+        StringBuilder sb = new StringBuilder();
+        sb.append(super.toShortString()).append(" | QoS[");
+        for (int i = 0; i < minValues.length; i++) {
+            String shortKey = MarketplaceMetricSchema.SHORT_NAMES.get(MarketplaceMetricSchema.KEYS[i]);
+            String minStr = minValues[i] > 1e9 ? "INF" : String.format("%.2f", minValues[i]);
+            String maxStr = maxValues[i] > 1e9 ? "INF" : String.format("%.2f", maxValues[i]);
+            sb.append(shortKey).append(":").append(minStr).append("->").append(maxStr);
+            if (i < minValues.length - 1) sb.append(", ");
+        }
+        sb.append("]");
+        return sb.toString();
     }
 }

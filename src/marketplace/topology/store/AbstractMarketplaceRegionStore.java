@@ -17,15 +17,34 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         super(threshold);
     }
 
+    protected static class MergeEvaluation {
+        public final boolean canMerge;
+        public final String reason;
+        public final double spatFpr; // <-- Added to track Spatial FPR
+        public final double qosFpr;  // <-- Added to track QoS FPR
+
+        public MergeEvaluation(boolean canMerge, String reason, double spatFpr, double qosFpr) {
+            this.canMerge = canMerge;
+            this.reason = reason;
+            this.spatFpr = spatFpr;
+            this.qosFpr = qosFpr;
+        }
+    }
+
+    protected MergeEvaluation evaluateMerge(Region accumulator, SubscriptionWithRegion existing) {
+        boolean result = shouldMerge(accumulator, existing);
+        return new MergeEvaluation(result, result ? "Merged" : "Threshold Exceeded", 0.0, 0.0);
+    }
+
     @Override
     public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         RegionQuadTree tree = map.computeIfAbsent(source, k -> new RegionQuadTree(-180, -90, 180, 90));
 
-        // 1. Filter Check
+        // 1. Filter Check (If it's identical, it interacted with 'existing')
         List<SubscriptionWithRegion> candidates = tree.findCandidatesContaining(sub.getRegion());
         for (SubscriptionWithRegion existing : candidates) {
             if (areCompatible(sub, existing) && existing.contains(sub)) {
-                return new StoreUpdate(StoreOpResult.NO_CHANGE, existing, "Filtered", 0, 0);
+                return new StoreUpdate(StoreOpResult.NO_CHANGE, existing, "Filtered", 0, 0, existing);
             }
         }
 
@@ -35,6 +54,13 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         int absorbedCount = 0;
         int mergedCount = 0;
         double absorbedArea = 0.0;
+        
+        String rejectionReason = "No Overlaps";
+        double maxSpatFpr = 0.0;
+        double maxQosFpr = 0.0;
+        
+        // NEW: Track the existing region we are merging with
+        SubscriptionWithRegion existingTarget = null; 
 
         // 2. Absorb/Merge Loop
         do {
@@ -45,13 +71,20 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
             for (SubscriptionWithRegion existing : overlaps) {
                 if (!areCompatible(sub, existing)) continue;
 
-                // FIX: Gate behind shouldMerge AND ensure both branches restart the loop safely
-                if (shouldMerge(accumulator, existing)) {
+                MergeEvaluation eval = evaluateMerge(accumulator, existing);
+                if (eval.canMerge) {
+                    maxSpatFpr = Math.max(maxSpatFpr, eval.spatFpr);
+                    maxQosFpr = Math.max(maxQosFpr, eval.qosFpr);
+                    
+                    // Track the largest existing region we successfully merged with
+                    if (existingTarget == null) existingTarget = existing;
+                    else if (existing.getArea() > existingTarget.getArea()) existingTarget = existing;
+                    
                     if (accumulator.contains(existing.getRegion())) {
                         absorbedArea += existing.getArea();
                         tree.remove(existing);
                         absorbedCount++;
-                        mergedInPass = true; // CRITICAL: Restart loop to prevent tree corruption
+                        mergedInPass = true; 
                         break;
                     } else {
                         accumulator.expand(existing.getRegion());
@@ -60,11 +93,12 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
                         mergedCount++;
                         break;
                     }
+                } else {
+                    rejectionReason = eval.reason;
                 }
             }
         } while (mergedInPass);
 
-        // 3. Delegate specific wrapper creation to the concrete stores
         SubscriptionWithRegion resultingEntry = wrapAggregatedRegion(sub, accumulator, mergedCount, absorbedCount);
         tree.insert(resultingEntry);
 
@@ -72,11 +106,20 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         boolean isIdenticalReplacement = (mergedCount == 0 && Math.abs(accumArea - (sub.getArea() + absorbedArea)) < 1e-9);
 
         StoreOpResult opResult = determineResult(absorbedCount, mergedCount, isIdenticalReplacement);
-        String explanation = createCleanExplanation(opResult, mergedCount, absorbedCount, isIdenticalReplacement);
-        return new StoreUpdate(opResult, resultingEntry, explanation, absorbedCount, mergedCount);
+        
+        String explanation;
+        if (opResult == StoreOpResult.ADDED) {
+            explanation = "ADDED [" + rejectionReason + "]";
+        } else if (opResult == StoreOpResult.EXPANDED) {
+            explanation = String.format("EXPANDED [MaxSpatFPR: %.5f, MaxQoSFPR: %.5f]", maxSpatFpr, maxQosFpr);
+        } else {
+            explanation = createCleanExplanation(opResult, mergedCount, absorbedCount, isIdenticalReplacement);
+        }
+        
+        // Pass the tracked existingTarget down the pipeline
+        return new StoreUpdate(opResult, resultingEntry, explanation, absorbedCount, mergedCount, existingTarget);
     }
 
-    // Abstract Factory method for specific ServiceOffer wrappers
     protected abstract SubscriptionWithRegion wrapAggregatedRegion(SubscriptionWithRegion originalSub, Region accumulator, int mergedCount, int absorbedCount);
 
     private boolean areCompatible(SubscriptionWithRegion a, SubscriptionWithRegion b) {
@@ -122,7 +165,6 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         return map.isEmpty();
     }
 
-    // Shared Spatial FPR utility perfectly restored to your geometric union logic
     protected double calculateSpatialFpr(Region accumulator, SubscriptionWithRegion existing) {
         float minLonA = (float) accumulator.getMinLon();
         float maxLonA = (float) accumulator.getMaxLon();
@@ -147,7 +189,7 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         return spatialFpr;
     }
 
-    // --- Embedded QuadTree (Exact replica from your original MarketplaceRegionStore) ---
+    // --- Embedded QuadTree ---
     protected static class RegionQuadTree {
         private static final int MAX_ITEMS = 16;
         private static final int MAX_DEPTH = 10;

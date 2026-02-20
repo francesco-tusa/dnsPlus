@@ -75,9 +75,8 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
             Location providerLoc = getBrokerCenter(hostBroker);
             double adaptiveRange = calculateCoveringRange(hostBroker, depthTag);
 
-            // Sanitize the broker name to prevent log parsers from truncating at spaces
-            String safeRegionName = hostBroker.getName().replaceAll(" ", "_");
-            String name = String.format("%s_%d_%s", providerLabel, i, safeRegionName);
+            String regionName = hostBroker.getName();
+            String name = String.format("%s_%d_%s", providerLabel, i, regionName);
             
             MarketplaceProvider provider = new MarketplaceProvider(name, providerLoc);
             

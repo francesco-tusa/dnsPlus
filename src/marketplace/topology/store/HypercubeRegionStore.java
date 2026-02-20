@@ -25,10 +25,11 @@ public class HypercubeRegionStore extends AbstractMarketplaceRegionStore {
     }
 
     @Override
-    protected boolean shouldMerge(Region accumulator, SubscriptionWithRegion existing) {
-
+    protected MergeEvaluation evaluateMerge(Region accumulator, SubscriptionWithRegion existing) {
         if (!(accumulator instanceof MetricHyperCube cubeA) || !(existing.getRegion() instanceof MetricHyperCube cubeB)) {
-            return super.shouldMerge(accumulator, existing);
+            boolean result = super.shouldMerge(accumulator, existing);
+            // ADDED: 0.0, 0.0
+            return new MergeEvaluation(result, result ? "Merged" : "Threshold Exceeded", 0.0, 0.0); 
         }
 
         // 2. TIER ISOLATION: Prevent Macro regions from swallowing Micro regions
@@ -36,9 +37,9 @@ public class HypercubeRegionStore extends AbstractMarketplaceRegionStore {
         double area2 = Math.max(existing.getRegion().getArea(), 1e-9);
         double areaRatio = Math.max(area1 / area2, area2 / area1);
 
-        // Protect cross-tier merging (matching the 25.0 factor we placed in the Abstract subsumption logic)
         if (areaRatio > 25.0) {
-            return false; 
+            // ADDED: 0.0, 0.0
+            return new MergeEvaluation(false, String.format("Tier Isolation (Ratio %.1f > 25.0)", areaRatio), 0.0, 0.0); 
         }
 
         // 3. SPATIAL FPR 
@@ -71,6 +72,21 @@ public class HypercubeRegionStore extends AbstractMarketplaceRegionStore {
         
         // 5. FINAL DECISION
         double combinedFpr = Math.max(spatialFpr, qosFpr);
-        return combinedFpr <= this.mergeThreshold;
+        boolean canMerge = combinedFpr <= this.mergeThreshold;
+        
+        if (canMerge) {
+            // UPDATED: Pass "Merged" as the reason, and append the raw doubles for the logger to use later
+            return new MergeEvaluation(true, "Merged", spatialFpr, qosFpr);
+        } else {
+            String bottleneck = (qosFpr > spatialFpr) ? "QoS" : "Spatial";
+            double bottleneckVal = Math.max(qosFpr, spatialFpr);
+            // UPDATED: Boosted to %.5f and appended the raw doubles
+            return new MergeEvaluation(false, String.format("%s FPR %.5f > %.5f", bottleneck, bottleneckVal, this.mergeThreshold), spatialFpr, qosFpr);
+        }
+    }
+
+    @Override
+    protected boolean shouldMerge(Region accumulator, SubscriptionWithRegion existing) {
+        return evaluateMerge(accumulator, existing).canMerge;
     }
 }

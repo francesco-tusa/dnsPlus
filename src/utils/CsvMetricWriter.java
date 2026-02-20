@@ -21,7 +21,7 @@ public class CsvMetricWriter {
     public interface TraceMetricStrategy {
         String getSubscriptionHeader();
         String formatBrokerSubscriptionEvent(SimulationSubscription sub, Object... args);
-        String formatSubscriberSubscriptionEvent(double x, double y);
+        String formatSubscriberSubscriptionEvent(SimulationSubscription sub, double x, double y);
 
         String getPublicationHeader();
         String formatBrokerPublicationEvent(SimulationPublication pub, Object... args);
@@ -42,10 +42,6 @@ public class CsvMetricWriter {
             return "\"" + incoming + "\",\"" + broker + "\",\"" + stage + "\"";
         }
         @Override
-        public String formatSubscriberSubscriptionEvent(double x, double y) {
-            return "\"( " + String.format("%.4f", x) + ", " + String.format("%.4f", y) + ")\",\"\",\"\"";
-        }
-        @Override
         public String getPublicationHeader() {
             return "TraceID,MsgCount,ReceivedFrom,ProcessingNode,Hops,RegionOrPub,Result\n";
         }
@@ -63,6 +59,10 @@ public class CsvMetricWriter {
             }
             String sLoc = "(" + String.format("%.4f", subX) + ", " + String.format("%.4f", subY) + ")";
             return "\"Pub:" + pLoc + "\",\"Sub:" + sLoc + "\"";
+        }
+        @Override
+        public String formatSubscriberSubscriptionEvent(SimulationSubscription sub, double x, double y) {
+            return "\"( " + String.format("%.4f", x) + ", " + String.format("%.4f", y) + ")\",\"\",\"\"";
         }
     }
 
@@ -82,10 +82,6 @@ public class CsvMetricWriter {
             return "\"" + locStr + "\",\"" + stage + "\"";
         }
         @Override
-        public String formatSubscriberSubscriptionEvent(double x, double y) {
-            return "\"(" + String.format("%.4f", x) + ", " + String.format("%.4f", y) + ")\",\"\"";
-        }
-        @Override
         public String getPublicationHeader() {
             return "TraceID,MsgCount,ReceivedFrom,ProcessingNode,Hops,Distance,UpdateStats,Result\n";
         }
@@ -103,33 +99,47 @@ public class CsvMetricWriter {
             String distStr = (distSq < Double.MAX_VALUE) ? String.format("%.0fkm", Math.sqrt(distSq) * 111.1) : "N/A";
             return "\"" + distStr + "\",\"\"";
         }
+        @Override
+        public String formatSubscriberSubscriptionEvent(SimulationSubscription sub, double x, double y) {
+            return "\"(" + String.format("%.4f", x) + ", " + String.format("%.4f", y) + ")\",\"\"";
+        }
     }
 
     public static class MarketplaceTraceStrategy implements TraceMetricStrategy {
         @Override
         public String getSubscriptionHeader() {
-            return "TraceID,Seq,ReceivedFrom,ProcessingNode,Hops,ServiceID,OfferMetrics,Region,Result\n";
+            // NEW SCHEMA
+            return "TraceID,Seq,ReceivedFrom,ProcessingNode,Hops,ServiceID,IncomingState,ExistingState,ResultingState,Result\n";
         }
 
         @Override
         public String formatBrokerSubscriptionEvent(SimulationSubscription sub, Object... args) {
             String serviceId = "N/A";
-            String metrics = "[]";
-            String region = "";
-
             if (sub instanceof ServiceOffer offer) {
                 serviceId = String.valueOf(offer.getServiceId());
-                metrics = offer.getQosMetrics().toString().replace(",", ";"); 
             }
-            if (args.length > 0 && args[0] instanceof SpatialRegion r) {
-                region = r.toLogString();
-            }
-            return "\"" + serviceId + "\",\"" + metrics + "\",\"" + region + "\"";
+
+            // Extract the 3 chronological states passed from the Broker
+            String incoming = (args.length > 0 && args[0] != null && args[0] instanceof SpatialRegion r) ? r.toLogString().replace(",", ";") : "None";
+            String existing = (args.length > 3 && args[3] != null && args[3] instanceof SpatialRegion r) ? r.toLogString().replace(",", ";") : "None";
+            String resulting = (args.length > 4 && args[4] != null && args[4] instanceof SpatialRegion r) ? r.toLogString().replace(",", ";") : "None";
+
+            return "\"" + serviceId + "\",\"" + incoming + "\",\"" + existing + "\",\"" + resulting + "\"";
         }
 
         @Override
-        public String formatSubscriberSubscriptionEvent(double x, double y) {
-            return "\"\",\"\",\"( " + String.format("%.4f", x) + ", " + String.format("%.4f", y) + ")\",\"\"";
+        public String formatSubscriberSubscriptionEvent(SimulationSubscription sub, double x, double y) {
+            String serviceId = "N/A";
+            String incomingState = "[]";
+            
+            // For the initial hop, IncomingState shows pure hardware capabilities and GPS point
+            if (sub instanceof marketplace.events.ServiceOffer offer) {
+                serviceId = String.valueOf(offer.getServiceId());
+                incomingState = offer.toDisplayString().replace(",", ";") + " (" + String.format("%.4f", x) + "; " + String.format("%.4f", y) + ")";
+            }
+            
+            // Existing and Resulting are inherently blank for the physical node's origin event
+            return "\"" + serviceId + "\",\"" + incomingState + "\",\"None\",\"None\"";
         }
 
         @Override
@@ -239,8 +249,18 @@ public class CsvMetricWriter {
 
     public void logSubscription(SimulationSubscription s, String receiver, String result, Object... args) {
         if (!initialized || !eventTracingEnabled || traceStrategy == null || s.getMetrics() == null) return;
+        
+        String finalResult = result;
+        // The telemetry string is passed as args[2] from SpatialMatchBroker
+        if (args.length > 2 && args[2] != null) {
+            String additionalInfo = String.valueOf(args[2]);
+            if (additionalInfo.startsWith("ADDED [") || additionalInfo.startsWith("EXPANDED") || additionalInfo.startsWith("Tier Isolation") || additionalInfo.startsWith("Filtered")) {
+                finalResult = additionalInfo; 
+            }
+        }
+        
         String formattedData = traceStrategy.formatBrokerSubscriptionEvent(s, args);
-        writeSubscriptionLine(s, receiver, formattedData, result);
+        writeSubscriptionLine(s, receiver, formattedData, finalResult);
     }
 
     public void logPublication(SimulationPublication p, String receiver, String result, Object... args) {
@@ -251,7 +271,7 @@ public class CsvMetricWriter {
     
     public void logSubscriberEvent(SimulationSubscription s, String receiver, double x, double y, String result) {
         if (!initialized || !eventTracingEnabled || traceStrategy == null || s.getMetrics() == null) return;
-        String formattedData = traceStrategy.formatSubscriberSubscriptionEvent(x, y);
+        String formattedData = traceStrategy.formatSubscriberSubscriptionEvent(s, x, y);
         writeSubscriptionLine(s, receiver, formattedData, result);
     }
 

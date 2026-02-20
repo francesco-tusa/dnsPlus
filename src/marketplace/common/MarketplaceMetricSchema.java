@@ -66,6 +66,15 @@ public class MarketplaceMetricSchema {
         METRIC_ENERGY,       true   // Minimize
     );
 
+    // Short labels for compact logging
+    public static final Map<String, String> SHORT_NAMES = Map.of(
+        METRIC_LATENCY, "Lat",
+        METRIC_COST, "Cst",
+        METRIC_RELIABILITY, "Rel",
+        METRIC_BANDWIDTH, "Bw",
+        METRIC_ENERGY, "Erg"
+    );
+
     // Quick Lookup Indices
     public static final int IDX_LATENCY = 0;
     
@@ -80,5 +89,20 @@ public class MarketplaceMetricSchema {
             if (KEYS[i].equals(key)) return i;
         }
         return -1;
+    }
+
+    /**
+     * Retrieves the predefined system maximum bound for a given metric.
+     * This prevents HyperCubes from expanding to Double.MAX_VALUE (Infinity).
+     */
+    public static double getSystemMax(String key) {
+        return switch (key) {
+            case METRIC_LATENCY -> SYSTEM_MAX_LATENCY;
+            case METRIC_COST -> SYSTEM_MAX_COST;
+            case METRIC_RELIABILITY -> SYSTEM_MAX_RELIABILITY;
+            case METRIC_BANDWIDTH -> SYSTEM_MAX_BANDWIDTH;
+            case METRIC_ENERGY -> SYSTEM_MAX_ENERGY;
+            default -> Double.MAX_VALUE;
+        };
     }
 }

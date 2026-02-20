@@ -74,29 +74,33 @@ public class RegionMetricsPrinter extends MetricsPrinter {
         RegionPerformanceMetricsData data = (RegionPerformanceMetricsData) rawData;
         logger.info("5. ROUTING OVERHEAD & EFFICIENCY (Regional/Spatial):");
         
-        // False Positives: Dead ends at the broker level
-        logItem("False Positive Events (Dead Ends)", format(data.totalFalsePositiveEvents));
+        // 1. Total Rejections: Aggregate of early drops and routing failures
+        logItem("Total Global Rejections (Network-wide)", format(data.totalFalsePositiveEvents));
+        
+        // 2. The Breakdown: Distinguishing 'Good' drops from 'Bad' failures
+        logItem(" -> Proactive SLA-Shielding (Upward Filtering)", format(data.totalProactiveShieldedEvents));
+        logItem(" -> Downward Dead-Ends (Routing Failures)", format(data.totalDownwardDeadEndEvents));
         
         double fpRate = (data.totalPublicationProcessingEvents > 0) 
                 ? ((double) data.totalFalsePositiveEvents / data.totalPublicationProcessingEvents) * 100.0 
                 : 0.0;
-        logItem(" -> Rate (vs Traffic)", String.format("%.2f%%", fpRate));
+        logItem(" -> Global Rejection Rate (vs Traffic)", String.format("%.2f%%", fpRate));
         
-        // False Deliveries: Unwanted messages reaching the subscriber
-        logItem("False Positive Deliveries (Unwanted)", format(data.totalFalsePositiveDeliveries));
+        // 3. Endpoint Failures: Messages that reached the subscriber but failed the final SLA
+        logItem("False Positive Deliveries (Endpoint Mismatch)", format(data.totalFalsePositiveDeliveries));
         
         double fpDel = (data.totalDeliveriesReceived > 0) 
                 ? ((double) data.totalFalsePositiveDeliveries / data.totalDeliveriesReceived) * 100.0 
                 : 0.0;
-        logItem(" -> Rate (vs Notifications)", String.format("%.2f%%", fpDel));
+        logItem(" -> Delivery Inaccuracy Rate (vs Notifications)", String.format("%.2f%%", fpDel));
         
-        // Traffic Ratio: Network cost per successful delivery (Multicast efficiency)
+        // 4. Multicast Efficiency
         double tr = (data.totalDeliveriesReceived > 0) 
                 ? (double) data.totalPublicationProcessingEvents / data.totalDeliveriesReceived 
                 : 0.0;
         logItem("Traffic Ratio (Events per Delivery)", String.format("%.2f", tr));
         logger.info("");
-    }
+        }
 
     @Override
     protected void printAccuracy(PerformanceMetricsData rawData) {

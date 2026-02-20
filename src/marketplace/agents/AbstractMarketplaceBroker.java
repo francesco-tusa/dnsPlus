@@ -47,48 +47,34 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
 
         this.matchBuffer.clear();
 
-        // 1. Spatial Filter (Physical Layer)
+        // 1. Spatial Filter
         this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
-
-        /* // --- DEBUG INJECTION: SPATIAL MATCH LAYER ---
-        System.out.println("\n[DEBUG Broker: " + this.getName() + "] Request: " + req.getPreferences() + " at "
-                + req.getLocation());
-        System.out.println(
-                "[DEBUG Broker: " + this.getName() + "] Found " + this.matchBuffer.size() + " spatial matches.");
-        for (TreeNode node : this.matchBuffer) {
-            System.out.println(
-                    "   -> Match Candidate: " + node.getName() + " (Class: " + node.getClass().getSimpleName() + ")");
-        }
-        // --------------------------------------------- */
 
         if (this.matchBuffer.isEmpty()) {
             this.totalFalsePositiveEvents++;
-            //System.out.println("[DEBUG Broker: " + this.getName() + "] DROP_NO_MATCH: No Spatial Matches.");
+            this.totalProactiveShieldedEvents++;
             CsvMetricWriter.getInstance().logPublication(
-                    p, this.getName(), "DROP_NO_MATCH", "No Spatial/Content Match");
+                    p, this.getName(), "DROP_NO_MATCH_SHIELDED", "No Spatial/Content Match");
             return null;
         }
 
-        // 2. Strategy Execution (Logic Layer)
+        // 2. Strategy Execution
         ServiceSelectionStrategy.SelectionResult selection = this.selectionStrategy.selectBestProvider(
                 req, this.matchBuffer, this.getInputStore());
         TreeNode bestNode = selection.bestNode();
 
-        /* // --- DEBUG INJECTION: STRATEGY LAYER ---
-        System.out.println("[DEBUG Broker: " + this.getName() + "] Selection Strategy Best Node: " +
-                (bestNode != null ? bestNode.getName() : "NONE") +
-                " | Diagnosis: " + selection.diagnosis());
-        // --------------------------------------------- */
-
         boolean tracingEnabled = SimConfiguration.get().paths.enableEventTracing;
 
-        // 3. Forwarding & Observability
+        // 3. Forwarding & Observability (INTEGRATION POINT)
         if (bestNode != null) {
             String details = "Selected " + bestNode.getName();
 
             if (tracingEnabled && selection.bestScore() < PENALTY_SCORE) {
                 details += String.format(" (Score: %.3f, Dist: %.1f)", selection.bestScore(), selection.distance());
             }
+
+            // COMMIT: The request is now moving DOWN toward a provider
+            req.markAsRoutingDown();
 
             CsvMetricWriter.getInstance().logPublication(
                     p, this.getName(), "FORWARDED", details);
@@ -97,13 +83,24 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
             // Drop Logic
             this.totalFalsePositiveEvents++;
 
+            String logType;
+            if (req.isRoutingDown()) {
+                // TRUE DEAD END: An upper broker promised a match that this child cannot fulfill.
+                this.totalDownwardDeadEndEvents++;
+                logType = "DROP_STRATEGY_DEAD_END";
+            } else {
+                // PROACTIVE SHIELDING: We blocked an invalid request during the search phase.
+                this.totalProactiveShieldedEvents++;
+                logType = "DROP_STRATEGY_SHIELDED";
+            }
+
             String reason = "No suitable provider found via Utility Strategy";
             if (tracingEnabled && selection.diagnosis() != null) {
                 reason = selection.diagnosis();
             }
 
             CsvMetricWriter.getInstance().logPublication(
-                    p, this.getName(), "DROP_STRATEGY_REJECT", reason);
+                    p, this.getName(), logType, reason);
         }
 
         return null;

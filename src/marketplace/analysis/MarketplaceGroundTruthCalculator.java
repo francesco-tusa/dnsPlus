@@ -25,77 +25,70 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
 
         logger.info(">>> STARTING GROUND TRUTH CALCULATION (Unified Strategy Mode & Spatial Bounds) <<<");
 
+        // Inside the calculate() method:
         for (PublicationWithLocation pub : pubs) {
-            if (!(pub instanceof ServiceRequest)) {
+            if (!(pub instanceof ServiceRequest))
                 continue;
-            }
             ServiceRequest request = (ServiceRequest) pub;
 
             double bestScore = Double.MAX_VALUE;
             ServiceOffer winner = null;
-            double exactDist = -1.0; 
+            double exactDist = -1.0;
+
+            // Add tracking counters
+            int serviceRejects = 0;
+            int spatialRejects = 0;
+            int qosRejects = 0;
 
             for (SimulationSubscription sub : subs) {
-                if (!(sub instanceof ServiceOffer)) {
+                if (!(sub instanceof ServiceOffer))
                     continue;
-                }
                 ServiceOffer offer = (ServiceOffer) sub;
 
                 if (offer.getServiceId() != request.getServiceId()) {
+                    serviceRejects++;
                     continue;
                 }
 
-                // 1. Calculate Exact Distance (Kept for Latency Math and Output Logs)
                 double currentDist = -1.0;
                 if (offer.getLocation() != null && request.getLocation() != null) {
                     currentDist = Math.sqrt(offer.getLocation().distanceSquared(request.getLocation()));
                 }
 
-                // 2. SPATIAL ISOLATION CHECK (Square Geometry)
-                // If the client is geographically outside the provider's square bounding box,
-                // we reject it to perfectly align with the simulation's behavior.
                 if (request.getLocation() != null && offer.getRegion() != null) {
                     if (!offer.getRegion().contains(request.getLocation())) {
-                        continue; 
+                        spatialRejects++;
+                        continue;
                     }
                 } else if (currentDist > offer.getCoverageRadius()) {
-                    // Fallback for any generic subscriptions missing a specific region
-                    continue; 
+                    spatialRejects++;
+                    continue;
                 }
 
-                // 3. Multi-Objective Utility Math (Includes the 1.665 ms/deg fiber penalty)
                 var result = strategy.inspect(offer, request);
-
                 if (result.isFeasible()) {
                     if (result.score() < bestScore) {
                         bestScore = result.score();
                         winner = offer;
-                        exactDist = currentDist; // Save the distance of the current winner
+                        exactDist = currentDist;
                     }
+                } else {
+                    qosRejects++; // Failed Multi-Objective Strategy constraint
                 }
             }
 
             if (winner != null) {
                 totalOptimalMatches++;
-                
-                writer.logGroundTruth(
-                    request.getId(), 
-                    request.getServiceId(), 
-                    winner.getProviderName(), 
-                    bestScore, 
-                    exactDist
-                );
+                writer.logGroundTruth(request.getId(), request.getServiceId(), winner.getProviderName(), bestScore,
+                        exactDist);
             } else {
-                writer.logGroundTruth(
-                    request.getId(), 
-                    request.getServiceId(), 
-                    "NO_MATCH", 
-                    -1.0, 
-                    -1.0
-                );
+                // Log the aggregated rejection reasons
+                String rejectionReason = String.format("NO_MATCH (Svc:%d Spat:%d QoS:%d)", serviceRejects,
+                        spatialRejects, qosRejects);
+                writer.logGroundTruth(request.getId(), request.getServiceId(), rejectionReason, -1.0, -1.0);
             }
         }
-        
+
         logger.info(">>> Ground Truth Calculation Complete. Records written to ground_truth.csv");
         return totalOptimalMatches;
     }

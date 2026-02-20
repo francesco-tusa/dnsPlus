@@ -18,7 +18,10 @@ public abstract class SimulationBroker extends TreeNode
     protected long totalMatchingComputations = 0;        
     
     // Tracks events where a message was processed but forwarded to no one (Dead End)
-    protected long totalFalsePositiveEvents = 0; 
+    protected long totalFalsePositiveEvents = 0;
+
+    protected long totalProactiveShieldedEvents = 0;
+    protected long totalDownwardDeadEndEvents = 0;
 
     public SimulationBroker(String name) {
         super(name);
@@ -102,5 +105,13 @@ public abstract class SimulationBroker extends TreeNode
 
     public long getTotalFalsePositiveEvents() {
         return totalFalsePositiveEvents;
+    }
+
+    public long getTotalProactiveShieldedEvents() {
+        return totalProactiveShieldedEvents;
+    }
+
+    public long getTotalDownwardDeadEndEvents() {
+        return totalDownwardDeadEndEvents;
     }
 }

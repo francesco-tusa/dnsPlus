@@ -31,6 +31,9 @@ public class MetricsCollector {
                 data.totalMatchingComputations += b.getTotalMatchingComputations();
                 data.totalFalsePositiveEvents += b.getTotalFalsePositiveEvents();
 
+                data.totalProactiveShieldedEvents += b.getTotalProactiveShieldedEvents();
+                data.totalDownwardDeadEndEvents += b.getTotalDownwardDeadEndEvents();
+
                 if (data instanceof RegionPerformanceMetricsData rd && b instanceof BoundedBroker bb) {
 
                     // =========================================================

@@ -250,11 +250,15 @@ public class SpatialMatchBroker extends BoundedBroker {
             subscriber.receive(forwardedCopy);
     }
 
-    private void logSubscriptionTrace(SimulationSubscription s, StoreUpdate inputUpdate,
-            SubscriptionWithRegion newSub) {
+    private void logSubscriptionTrace(SimulationSubscription s, StoreUpdate inputUpdate, SubscriptionWithRegion newSub) {
         CsvMetricWriter.getInstance().logSubscription(
-                s, getName(), inputUpdate.getResult().name(), newSub.getRegion(), this.getRegion(),
-                inputUpdate.getAdditionalInfo());
+                s, getName(), inputUpdate.getResult().name(), 
+                newSub.getRegion(),  // args[0] = Incoming Payload
+                this.getRegion(),    // args[1] = Legacy Broker Bounding Box
+                inputUpdate.getAdditionalInfo(), // args[2] = Telemetry string
+                inputUpdate.getExistingTarget() != null ? inputUpdate.getExistingTarget().getRegion() : null, // args[3] = Existing Routing State
+                inputUpdate.getRegion() != null ? inputUpdate.getRegion().getRegion() : null // args[4] = Resulting Routing State
+        );
     }
 
     private void logPublicationTrace(SimulationPublication p, boolean forwardedToAny) {

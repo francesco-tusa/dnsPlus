@@ -107,12 +107,18 @@ public class ServiceOffer extends SubscriptionWithRegion {
         for (int i = 0; i < dim; i++) {
             String key = MarketplaceMetricSchema.KEYS[i];
             boolean minimize = MarketplaceMetricSchema.DIRECTIONS.get(key);
-            double value = metrics.getOrDefault(key, minimize ? 0.0 : Double.MAX_VALUE);
+            
+            // Get the realistic system maximum instead of Infinity
+            double systemMax = MarketplaceMetricSchema.getSystemMax(key);
+            
+            double value = metrics.getOrDefault(key, minimize ? 0.0 : systemMax);
             
             if (minimize) {
+                // Interval: [ProviderValue, RealisticSystemMax]
                 minValues[i] = value;
-                maxValues[i] = Double.MAX_VALUE;
+                maxValues[i] = systemMax; 
             } else {
+                // Interval: [0.0, ProviderValue]
                 minValues[i] = 0.0;
                 maxValues[i] = value;
             }
@@ -138,6 +144,23 @@ public class ServiceOffer extends SubscriptionWithRegion {
     @Override
     public String toString() {
         return "ServiceOffer[ID=" + serviceId + ", Provider=" + providerName + "]";
+    }
+
+    @Override
+    public String toDisplayString() {
+        StringBuilder sb = new StringBuilder();
+        
+        String radStr = (coverageRadius > 1e9) ? "INF" : String.format("%.2f", coverageRadius);
+        sb.append("Rad:").append(radStr);
+        
+        for (String key : MarketplaceMetricSchema.KEYS) {
+            if (qosMetrics.containsKey(key)) {
+                double val = qosMetrics.get(key);
+                String valStr = (val > 1e9) ? "INF" : String.format("%.2f", val);
+                sb.append("|").append(MarketplaceMetricSchema.SHORT_NAMES.get(key)).append(":").append(valStr);
+            }
+        }
+        return sb.toString();
     }
     
     @Override

@@ -72,6 +72,18 @@ public abstract class PerformanceMetricsData {
      * Common in Regional simulations due to aggregation "corners" (MBR) covering empty space.
      */
     public long totalFalsePositiveDeliveries = 0;
+
+    /**
+     * Count of proactive rejections during upward discovery.
+     * Prevents invalid requests from polluting the core network.
+     */
+    public long totalProactiveShieldedEvents = 0;
+
+    /**
+     * Count of actual routing failures during downward delivery.
+     * Represents a mismatch between hierarchy promises and reality.
+     */
+    public long totalDownwardDeadEndEvents = 0;
     
     // --- Common: Hops (Network Latency Proxy) ---
 

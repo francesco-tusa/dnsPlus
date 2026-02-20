@@ -76,10 +76,10 @@ public abstract class AbstractPerformanceSimulation<
         
         printBanner("SIMULATION CONFIGURATION");
         logConfigItem("Run ID", this.simulationTimestamp);
+        logConfigItem("Simulation Seed", SimConfiguration.get().simulationSeed);
         logConfigItem("Topology Factory", factory.getClass().getSimpleName());
         config.logDetails(logger);
         
-        // REPLACED hardcoded block with this method call:
         logWorkloadConfiguration(); 
         
         logSpecificConfiguration();

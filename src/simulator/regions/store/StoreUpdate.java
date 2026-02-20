@@ -7,20 +7,27 @@ public class StoreUpdate {
     private final SubscriptionWithRegion region;
     private final String additionalInfo;
     
-    // New granular metrics
     private final int absorbedCount;
     private final int mergedCount;
+    
+    // NEW: Track the existing routing table entry we interacted with
+    private final SubscriptionWithRegion existingTarget;
 
     public StoreUpdate(StoreOpResult result, SubscriptionWithRegion region, String additionalInfo) {
-        this(result, region, additionalInfo, 0, 0);
+        this(result, region, additionalInfo, 0, 0, null);
     }
 
     public StoreUpdate(StoreOpResult result, SubscriptionWithRegion region, String additionalInfo, int absorbedCount, int mergedCount) {
+        this(result, region, additionalInfo, absorbedCount, mergedCount, null);
+    }
+
+    public StoreUpdate(StoreOpResult result, SubscriptionWithRegion region, String additionalInfo, int absorbedCount, int mergedCount, SubscriptionWithRegion existingTarget) {
         this.result = result;
         this.region = region;
         this.additionalInfo = additionalInfo;
         this.absorbedCount = absorbedCount;
         this.mergedCount = mergedCount;
+        this.existingTarget = existingTarget;
     }
 
     public StoreOpResult getResult() {
@@ -41,6 +48,10 @@ public class StoreUpdate {
 
     public int getMergedCount() {
         return mergedCount;
+    }
+
+    public SubscriptionWithRegion getExistingTarget() { 
+        return existingTarget; 
     }
 
     public boolean isChange() {
