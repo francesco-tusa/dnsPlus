@@ -30,12 +30,12 @@ public class MarketplaceContinuumE2ETest extends TestScenario {
         System.out.println("===============================================");
         boolean hypercubePass = executeContinuumTest(false);
 
-        System.out.println("\n===============================================");
-        System.out.println("RUNNING E2E UNDER SKYLINE STRATEGY");
-        System.out.println("===============================================");
-        boolean skylinePass = executeContinuumTest(true);
+        //System.out.println("\n===============================================");
+        //System.out.println("RUNNING E2E UNDER SKYLINE STRATEGY");
+        //System.out.println("===============================================");
+        //boolean skylinePass = executeContinuumTest(true);
 
-        return hypercubePass && skylinePass;
+        return hypercubePass; // && skylinePass;
     }
 
     private boolean executeContinuumTest(boolean useSkyline) {

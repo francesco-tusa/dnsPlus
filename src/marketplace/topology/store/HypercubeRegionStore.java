@@ -3,6 +3,7 @@ package marketplace.topology.store;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import marketplace.common.MetricHyperCube;
+import marketplace.common.MarketplaceMetricSchema;
 import marketplace.events.ServiceOffer;
 
 public class HypercubeRegionStore extends AbstractMarketplaceRegionStore {
@@ -31,79 +32,77 @@ public class HypercubeRegionStore extends AbstractMarketplaceRegionStore {
             return new MergeEvaluation(result, result ? "Merged" : "Threshold Exceeded", 0.0, 0.0); 
         }
 
-        // 1. TIER ISOLATION: Prevent Macro regions from swallowing Micro regions
-        MergeEvaluation isolationCheck = checkTierIsolation(accumulator, existing);
-        if (isolationCheck != null) {
-            return isolationCheck;
-        }
-
-        // 2. SPATIAL FPR (Geographic Dead Space)
-        double spatialFpr = calculateSpatialFpr(accumulator, existing);
-
-        // 3. QoS FPR (Similarity-Based Capability Difference)
-        double qosFpr = calculateQosFpr(cubeA, cubeB);
+        // Calculate the Unified L-infinity Norm using SLA-Projected Spatial Dilation
+        double maxSlaProjectedPenalty = calculateSlaProjectedDilation(cubeA, cubeB);
         
-        // 4. FINAL DECISION
-        double combinedFpr = Math.max(spatialFpr, qosFpr);
-        boolean canMerge = combinedFpr <= this.mergeThreshold;
+        boolean canMerge = maxSlaProjectedPenalty <= this.mergeThreshold;
         
         if (canMerge) {
-            return new MergeEvaluation(true, "Merged", spatialFpr, qosFpr);
+            return new MergeEvaluation(true, "Merged", maxSlaProjectedPenalty, maxSlaProjectedPenalty);
         } else {
-            String bottleneck = (qosFpr > spatialFpr) ? "QoS" : "Spatial";
-            double bottleneckVal = Math.max(qosFpr, spatialFpr);
-            return new MergeEvaluation(false, String.format("%s FPR %.5f > %.5f", bottleneck, bottleneckVal, this.mergeThreshold), spatialFpr, qosFpr);
+            return new MergeEvaluation(false, String.format("SLA-Projected Dilation %.5f > %.5f", maxSlaProjectedPenalty, this.mergeThreshold), maxSlaProjectedPenalty, maxSlaProjectedPenalty);
         }
     }
 
-    // ==========================================
-    // HELPER METHODS
-    // ==========================================
+    /**
+     * Calculates the aggregation penalty by linking absolute SLA error with 
+     * the geographic spatial dilation of the node providing the better capability.
+     * Evaluates across all dimensions using the Chebyshev Distance (L-infinity norm).
+     */
+    private double calculateSlaProjectedDilation(MetricHyperCube cubeA, MetricHyperCube cubeB) {
+        double areaA = Math.max(cubeA.getArea(), 1e-9);
+        double areaB = Math.max(cubeB.getArea(), 1e-9);
+        
+        // 1. Calculate the physical area of the hypothetical merged bounding box
+        double minX = Math.min(cubeA.getBottomLeft().getX(), cubeB.getBottomLeft().getX());
+        double minY = Math.min(cubeA.getBottomLeft().getY(), cubeB.getBottomLeft().getY());
+        double maxX = Math.max(cubeA.getTopRight().getX(), cubeB.getTopRight().getX());
+        double maxY = Math.max(cubeA.getTopRight().getY(), cubeB.getTopRight().getY());
+        double areaMerged = Math.max((maxX - minX) * (maxY - minY), 1e-9);
 
-    private MergeEvaluation checkTierIsolation(Region accumulator, SubscriptionWithRegion existing) {
-        double area1 = Math.max(accumulator.getArea(), 1e-9);
-        double area2 = Math.max(existing.getRegion().getArea(), 1e-9);
-        double areaRatio = Math.max(area1 / area2, area2 / area1);
-
-        if (areaRatio > 25.0) {
-            return new MergeEvaluation(false, String.format("Tier Isolation (Ratio %.1f > 25.0)", areaRatio), 0.0, 0.0); 
-        }
-        return null; // Passes the check
-    }
-
-    private double calculateQosFpr(MetricHyperCube cubeA, MetricHyperCube cubeB) {
+        // Track the worst-case projected penalty across all dimensions (L-infinity norm)
+        double maxPenalty = 0.0;
+        
         double[] minA = cubeA.getMinValues();
         double[] maxA = cubeA.getMaxValues();
         double[] minB = cubeB.getMinValues();
         double[] maxB = cubeB.getMaxValues();
 
-        double totalRelativeDifference = 0.0;
-        int dimensions = minA.length;
-
-        for (int i = 0; i < dimensions; i++) {
+        for (int i = 0; i < minA.length; i++) {
+            String dimKey = MarketplaceMetricSchema.KEYS[i];
+            
+            // Step A: Calculate Absolute Shift
             double diffMin = Math.abs(minA[i] - minB[i]);
             double diffMax = Math.abs(maxA[i] - maxB[i]);
-            
-            // The active difference is whichever bound actually shifted
             double activeDiff = Math.max(diffMin, diffMax);
-            
-            if (activeDiff > 0) {
-                double scale;
+
+            if (activeDiff > 1e-9) {
+                // Step B: Normalize against Global System Max (Base SLA Error)
+                double systemMax = MarketplaceMetricSchema.getSystemMax(dimKey);
+                double baseSlaError = activeDiff / Math.max(systemMax, 1e-9);
+
+                // Step C: Identify the area of the node that provided the strictly "better" bound
+                double bestNodeArea;
                 if (diffMin > diffMax) {
-                    // Lower-bounded metric (e.g., Latency, Cost) - provider constraints are at the minimum
-                    scale = Math.max(Math.abs(minA[i]), Math.abs(minB[i]));
+                    bestNodeArea = (minA[i] < minB[i]) ? areaA : areaB;
                 } else {
-                    // Upper-bounded metric (e.g., Reliability, Bandwidth) - provider constraints are at the maximum
-                    scale = Math.max(Math.abs(maxA[i]), Math.abs(maxB[i]));
+                    bestNodeArea = (maxA[i] > maxB[i]) ? areaA : areaB;
                 }
+
+                // Step D: Calculate Spatial Dilation multiplier
+                double spatialDilation = areaMerged / bestNodeArea;
                 
-                // Calculate percentage difference relative to the maximum bound (the "worse" node)
-                totalRelativeDifference += (activeDiff / Math.max(scale, 1e-6));
+                // Step E: Projected Penalty
+                double projectedPenalty = baseSlaError * spatialDilation;
+                maxPenalty = Math.max(maxPenalty, projectedPenalty);
             }
         }
 
-        // Average the FPR across all dimensions
-        return totalRelativeDifference / dimensions;
+        // Geometric Fallback: Also check pure geographic dilation just in case QoS is identical 
+        // but the nodes are physically extremely far apart.
+        double pureSpatialDilation = Math.max(0.0, (areaMerged / (areaA + areaB)) - 1.0);
+        
+        return Math.max(maxPenalty, pureSpatialDilation);
     }
 
     @Override

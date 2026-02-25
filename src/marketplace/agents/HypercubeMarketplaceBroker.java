@@ -38,7 +38,9 @@ public class HypercubeMarketplaceBroker extends AbstractMarketplaceBroker {
             );
 
             if (aggregatedState instanceof ServiceOffer offer) {
-                return ServiceOffer.createAggregated(offer.getServiceId(), newCube);
+                // Preserve the specific Provider's identity, physical limit, and location 
+                // when propagating upward. Do not prematurely strip it into an Aggregated-Cluster.
+                return ServiceOffer.createWithUpdatedRegion(offer, newCube);
             }
             return new SubscriptionWithRegion(newCube);
         }

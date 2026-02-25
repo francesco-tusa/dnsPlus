@@ -185,10 +185,20 @@ public class MarketplaceLogicDecompositionTest extends TestScenario {
             new Location(min, min, 0), new Location(max, max, 0));
     }
 
+    // REFACTORED: src.zip/marketplace/tests/scenarios/MarketplaceLogicDecompositionTest.java
+
     private boolean probeBrokerState(AbstractMarketplaceBroker broker, double expectedMinLatency, Location probeLoc) {
         double[] metrics = new double[MarketplaceMetricSchema.KEYS.length];
-        for (int i = 0; i < metrics.length; i++) metrics[i] = 99999.0; 
+        
+        // Fill un-probed dimensions with exact defaults so they fall inside the interval bounds
+        for (int i = 0; i < metrics.length; i++) {
+            String key = MarketplaceMetricSchema.KEYS[i];
+            boolean minimize = MarketplaceMetricSchema.DIRECTIONS.get(key);
+            // Default to the extreme bounds of the System Limits
+            metrics[i] = minimize ? MarketplaceMetricSchema.getSystemMax(key) : 0.0;
+        }
 
+        // Apply the specific latency probe we are testing for
         int latIdx = MarketplaceMetricSchema.getIndexOf(MarketplaceMetricSchema.METRIC_LATENCY);
         if (latIdx != -1) {
             metrics[latIdx] = expectedMinLatency + 0.0001; 
