@@ -1,6 +1,8 @@
 package marketplace.optimization;
 
 import java.util.List;
+import java.util.Map;
+
 import simulator.core.TreeNode;
 import simulator.core.Location;
 import simulator.events.SimulationSubscription;
@@ -24,36 +26,33 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
         }
     }
 
-    @Override
-    public SelectionResult selectBestProvider(ServiceRequest req, List<TreeNode> candidates, RegionSubscriptionStore store) {
+   @Override
+    public SelectionResult selectBestProvider(ServiceRequest req, Map<TreeNode, List<SimulationSubscription>> candidates) {
         TreeNode bestNode = null;
         double bestScore = PENALTY_SCORE;
         double bestDistance = -1.0;
 
-        // Track variables for the diagnosis
         String bestAttempt = "No Candidates";
         double minDist = Double.MAX_VALUE;
 
-        for (TreeNode candidate : candidates) {
+        // Iterate strictly over the pre-filtered matches
+        for (Map.Entry<TreeNode, List<SimulationSubscription>> entry : candidates.entrySet()) {
+            TreeNode candidate = entry.getKey();
             if (candidate == req.getSource()) continue;
-            List<SimulationSubscription> subs = store.getAllSubscriptions().get(candidate);
-            if (subs == null) continue;
 
-            for (SimulationSubscription sub : subs) {
+            for (SimulationSubscription sub : entry.getValue()) {
                 MetricHyperCube cap = extractMetricHyperCube(sub, req.getServiceId());
                 if (cap == null) continue;
+
                 Location providerLoc = resolveProviderLocation(sub);
-                
                 EvaluationResult result = inspectLogic(cap, req, providerLoc);
 
-                // 1. Check for Winner
                 if (result.isFeasible() && result.score() < bestScore) {
                     bestScore = result.score();
                     bestNode = candidate;
                     bestDistance = result.distance();
                 }
                 
-                // 2. Track "Best Reject" for Observability/Tracing
                 double currentDist = result.distance() >= 0 ? result.distance() : Double.MAX_VALUE;
                 if (currentDist < minDist) {
                     minDist = currentDist;
@@ -63,7 +62,6 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
                 }
             }
         }
-        // Return everything in one neat package
         return new SelectionResult(bestNode, bestScore, bestDistance, bestAttempt);
     }
 

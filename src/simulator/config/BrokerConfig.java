@@ -29,9 +29,6 @@ public class BrokerConfig {
         // Smart Threshold Loading
         if (this.strategy == StrategyType.SMART) {
             this.smartThreshold = ConfigParser.parseDouble(props, "broker.smartThreshold", 0.25);
-            if (this.smartThreshold < 0.0 || this.smartThreshold > 1.0) {
-                throw new IllegalArgumentException("Config Error: broker.smartThreshold must be between 0.0 and 1.0.");
-            }
             this.storeImplementation = props.getProperty("broker.strategy.implementation", "TREE");
         } else {
             this.smartThreshold = -1.0; // Sentinel for SIMPLE

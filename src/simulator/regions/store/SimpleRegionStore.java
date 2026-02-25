@@ -39,16 +39,17 @@ public class SimpleRegionStore implements RegionSubscriptionStore {
     }
     
     @Override
-    public int findMatches(Location loc, List<TreeNode> resultsBuffer) {
+    public int findMatches(Location loc, Map<TreeNode, List<SimulationSubscription>> resultsBuffer) {
         if (map.isEmpty()) {
             return 0;
         }
 
         int ops = 0;
         for (Map.Entry<TreeNode, SubscriptionWithRegion> entry : map.entrySet()) {
-            ops++;
+            ops++; // Counting the geometric bounding-box check
             if (entry.getValue().getRegion().contains(loc)) {
-                resultsBuffer.add(entry.getKey());
+                // Return the specific aggregated subscription that successfully matched the QoS/Spatial constraints
+                resultsBuffer.put(entry.getKey(), Collections.singletonList(entry.getValue()));
             }
         }
         return ops;

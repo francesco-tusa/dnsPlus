@@ -212,8 +212,6 @@ public class MarketplaceLogicDecompositionTest extends TestScenario {
                 if (sub instanceof simulator.regions.SubscriptionWithRegion swr) {
                     if (swr.getRegion() instanceof marketplace.common.MetricHyperCube mhc) {
                         if (mhc.contains(probe)) return true;
-                    } else if (swr.getRegion() instanceof marketplace.common.SkylineHyperCube shc) {
-                        if (shc.contains(probe)) return true;
                     }
                 }
             }

@@ -29,18 +29,16 @@ public class HypercubeRegionStore extends AbstractMarketplaceRegionStore {
     protected MergeEvaluation evaluateMerge(Region accumulator, SubscriptionWithRegion existing) {
         if (!(accumulator instanceof MetricHyperCube cubeA) || !(existing.getRegion() instanceof MetricHyperCube cubeB)) {
             boolean result = super.shouldMerge(accumulator, existing);
-            return new MergeEvaluation(result, result ? "Merged" : "Threshold Exceeded", 0.0, 0.0); 
+            return new MergeEvaluation(result, result ? "Merged" : "Threshold Exceeded", 0.0); 
         }
 
-        // Calculate the Unified L-infinity Norm using SLA-Projected Spatial Dilation
         double maxSlaProjectedPenalty = calculateSlaProjectedDilation(cubeA, cubeB);
-        
         boolean canMerge = maxSlaProjectedPenalty <= this.mergeThreshold;
         
         if (canMerge) {
-            return new MergeEvaluation(true, "Merged", maxSlaProjectedPenalty, maxSlaProjectedPenalty);
+            return new MergeEvaluation(true, "Merged", maxSlaProjectedPenalty);
         } else {
-            return new MergeEvaluation(false, String.format("SLA-Projected Dilation %.5f > %.5f", maxSlaProjectedPenalty, this.mergeThreshold), maxSlaProjectedPenalty, maxSlaProjectedPenalty);
+            return new MergeEvaluation(false, String.format("SLA-Projected Dilation %.5f > %.5f", maxSlaProjectedPenalty, this.mergeThreshold), maxSlaProjectedPenalty);
         }
     }
 

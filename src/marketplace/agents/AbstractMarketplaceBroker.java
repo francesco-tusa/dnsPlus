@@ -15,11 +15,13 @@ import marketplace.events.ServiceRequest;
 import marketplace.optimization.ServiceSelectionStrategy;
 
 import java.util.List;
+import java.util.Map;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
 
-    protected final List<TreeNode> matchBuffer = new ArrayList<>();
+    protected final Map<TreeNode, List<SimulationSubscription>> matchBuffer = new HashMap<>();
     protected ServiceSelectionStrategy selectionStrategy;
 
     protected static final double PENALTY_SCORE = 999.0;
@@ -58,9 +60,9 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
             return null;
         }
 
-        // 2. Strategy Execution
+        // 2. Strategy Execution (No longer requires passing the store)
         ServiceSelectionStrategy.SelectionResult selection = this.selectionStrategy.selectBestProvider(
-                req, this.matchBuffer, this.getInputStore());
+                req, this.matchBuffer);
         TreeNode bestNode = selection.bestNode();
 
         boolean tracingEnabled = SimConfiguration.get().paths.enableEventTracing;

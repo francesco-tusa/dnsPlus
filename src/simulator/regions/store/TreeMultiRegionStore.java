@@ -67,22 +67,19 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
     }
 
     @Override
-    public int findMatches(Location loc, List<TreeNode> resultsBuffer) {
-        // 1. Setup a lightweight counter (allocated once by caller if optimized,
-        // or we use a temp array here if the signature returns int)
+    public int findMatches(Location loc, Map<TreeNode, List<SimulationSubscription>> resultsBuffer) {
         int[] opsCounter = new int[1];
 
         for (Map.Entry<TreeNode, RegionQuadTree> entry : map.entrySet()) {
             RegionQuadTree tree = entry.getValue();
-
-            // 2. Call the counting version
-            // This updates opsCounter[0] in-place
-            if (tree.containsPoint(loc, opsCounter)) {
-                resultsBuffer.add(entry.getKey());
+            List<SimulationSubscription> hits = new ArrayList<>();
+            
+            tree.findMatches(loc, hits, opsCounter);
+            
+            if (!hits.isEmpty()) {
+                resultsBuffer.put(entry.getKey(), hits);
             }
         }
-
-        // 3. Return the total geometric operations performed
         return opsCounter[0];
     }
 
@@ -236,32 +233,26 @@ public class TreeMultiRegionStore extends AbstractMultiRegionStore {
             return count;
         }
 
-        public boolean containsPoint(Location loc, int[] ops) {
+        public void findMatches(Location loc, List<SimulationSubscription> hits, int[] ops) {
             // 1. MBR Check Cost (1 Op)
             ops[0]++;
-            if (cachedMBR == null || !cachedMBR.contains(loc))
-                return false;
+            if (cachedMBR == null || !cachedMBR.contains(loc)) return;
 
             // 2. Items Check Cost (N Ops)
-            // Iterate list to find if any subscription covers the point
             for (SubscriptionWithRegion s : items) {
                 ops[0]++;
                 if (s.getRegion().contains(loc)) {
-                    return true; // Match found! Stop counting and return.
+                    hits.add(s);
                 }
             }
 
             // 3. Child Traversal (Recursion)
             if (children != null) {
-                // Calculating index is pure math (very cheap), usually not counted as a
-                // "geometric check"
                 int index = getPointIndex(loc.getX(), loc.getY());
                 if (index != -1) {
-                    // Recurse down the tree, passing the SAME counter array
-                    return children[index].containsPoint(loc, ops);
+                    children[index].findMatches(loc, hits, ops);
                 }
             }
-            return false;
         }
 
         public List<SubscriptionWithRegion> findCandidatesContaining(Region query) {

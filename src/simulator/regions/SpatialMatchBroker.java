@@ -1,6 +1,7 @@
 package simulator.regions;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -30,7 +31,7 @@ public class SpatialMatchBroker extends BoundedBroker {
     private final RegionSubscriptionStore outputStore;
     private final PropagationRegionPolicy downwardPolicy;
 
-    private final List<TreeNode> matchBuffer = new ArrayList<>();
+    private final Map<TreeNode, List<SimulationSubscription>> matchBuffer = new HashMap<>();
 
     public SpatialMatchBroker(String name, boolean forceSingleRegion, double threshold,
             PropagationRegionPolicy policy) {
@@ -222,8 +223,8 @@ public class SpatialMatchBroker extends BoundedBroker {
             this.totalMatchingComputations += actualOps;
 
             boolean forwardedToAny = false;
-            for (int i = 0; i < matchBuffer.size(); i++) {
-                TreeNode target = matchBuffer.get(i);
+            // >>> ITERATE MAP KEYS
+            for (TreeNode target : matchBuffer.keySet()) {
                 if (target == p.getSource())
                     continue;
                 forwardPublicationToNode(p, target);

@@ -10,7 +10,6 @@ import utils.CustomLogger;
 
 import marketplace.agents.AbstractMarketplaceBroker;
 import marketplace.agents.HypercubeMarketplaceBroker;
-import marketplace.agents.SkylineMarketplaceBroker;
 import marketplace.agents.MarketplaceClient;
 import marketplace.agents.MarketplaceProvider;
 
@@ -30,34 +29,20 @@ public class MarketplaceContinuumE2ETest extends TestScenario {
         System.out.println("===============================================");
         boolean hypercubePass = executeContinuumTest(false);
 
-        //System.out.println("\n===============================================");
-        //System.out.println("RUNNING E2E UNDER SKYLINE STRATEGY");
-        //System.out.println("===============================================");
-        //boolean skylinePass = executeContinuumTest(true);
-
-        return hypercubePass; // && skylinePass;
+        return hypercubePass;
     }
 
     private boolean executeContinuumTest(boolean useSkyline) {
         // --- 1. AGENT DEPLOYMENT ---
         double threshold = 0.2;
 
-        AbstractMarketplaceBroker cloudBroker = useSkyline
-                ? new SkylineMarketplaceBroker("Cloud_Core", new Location(0, 0, 0), new Location(1000, 1000, 0),
-                        threshold)
-                : new HypercubeMarketplaceBroker("Cloud_Core", new Location(0, 0, 0), new Location(1000, 1000, 0),
+        AbstractMarketplaceBroker cloudBroker = new HypercubeMarketplaceBroker("Cloud_Core", new Location(0, 0, 0), new Location(1000, 1000, 0),
                         threshold);
 
-        AbstractMarketplaceBroker fogBroker = useSkyline
-                ? new SkylineMarketplaceBroker("Fog_London", new Location(0, 0, 0), new Location(500, 500, 0),
-                        threshold)
-                : new HypercubeMarketplaceBroker("Fog_London", new Location(0, 0, 0), new Location(500, 500, 0),
+        AbstractMarketplaceBroker fogBroker = new HypercubeMarketplaceBroker("Fog_London", new Location(0, 0, 0), new Location(500, 500, 0),
                         threshold);
 
-        AbstractMarketplaceBroker edgeBroker = useSkyline
-                ? new SkylineMarketplaceBroker("Edge_Westminster", new Location(0, 0, 0), new Location(100, 100, 0),
-                        threshold)
-                : new HypercubeMarketplaceBroker("Edge_Westminster", new Location(0, 0, 0), new Location(100, 100, 0),
+        AbstractMarketplaceBroker edgeBroker = new HypercubeMarketplaceBroker("Edge_Westminster", new Location(0, 0, 0), new Location(100, 100, 0),
                         threshold);
 
         cloudBroker.addChild(fogBroker);

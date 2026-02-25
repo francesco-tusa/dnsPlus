@@ -2,7 +2,6 @@ package marketplace.events;
 
 import java.util.Map;
 import marketplace.common.MetricHyperCube;
-import marketplace.common.SkylineHyperCube;
 import marketplace.common.MarketplaceMetricSchema; 
 import simulator.core.Location;
 import simulator.events.SimulationSubscription;
@@ -78,17 +77,6 @@ public class ServiceOffer extends SubscriptionWithRegion {
         // infinite fallback radius to prevent spatial clipping during upward routing.
         return new ServiceOffer(serviceId, derivedMetrics, aggregatedCube, null, "Aggregated-Cluster",
                 Double.MAX_VALUE);
-    }
-
-    public static ServiceOffer createSkylineOffer(ServiceOffer original, SkylineHyperCube newRegion) {
-        return new ServiceOffer(
-            original.getServiceId(), 
-            original.getQosMetrics(), 
-            newRegion, 
-            original.getLocation(), 
-            original.getProviderName(),
-            original.getCoverageRadius()
-        );
     }
 
     public static ServiceOffer createSkylineAggregated(long serviceId, Map<String, Double> metrics,

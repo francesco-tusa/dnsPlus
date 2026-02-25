@@ -27,9 +27,9 @@ public class MarketplaceConfig {
 
     // --- NEW: Aggregation Strategy Toggle ---
     public enum AggregationStrategy {
-        HYPERCUBE, // Uses FPR Dilution (MarketplaceRegionStore + WeightedUtilityStrategy)
-        SKYLINE    // Uses Pareto Frontier (SkylineRegionStore + SkylineUtilityStrategy)
+        HYPERCUBE
     }
+    
     public final AggregationStrategy aggregationStrategy;
 
     public static synchronized MarketplaceConfig get() {

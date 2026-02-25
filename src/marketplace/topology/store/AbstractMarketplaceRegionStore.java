@@ -20,20 +20,18 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
     protected static class MergeEvaluation {
         public final boolean canMerge;
         public final String reason;
-        public final double spatFpr; // <-- Added to track Spatial FPR
-        public final double qosFpr;  // <-- Added to track QoS FPR
+        public final double penalty;
 
-        public MergeEvaluation(boolean canMerge, String reason, double spatFpr, double qosFpr) {
+        public MergeEvaluation(boolean canMerge, String reason, double penalty) {
             this.canMerge = canMerge;
             this.reason = reason;
-            this.spatFpr = spatFpr;
-            this.qosFpr = qosFpr;
+            this.penalty = penalty;
         }
     }
 
     protected MergeEvaluation evaluateMerge(Region accumulator, SubscriptionWithRegion existing) {
         boolean result = shouldMerge(accumulator, existing);
-        return new MergeEvaluation(result, result ? "Merged" : "Threshold Exceeded", 0.0, 0.0);
+        return new MergeEvaluation(result, result ? "Merged" : "Threshold Exceeded", 0.0);
     }
 
     @Override
@@ -56,10 +54,9 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         double absorbedArea = 0.0;
         
         String rejectionReason = "No Overlaps";
-        double maxSpatFpr = 0.0;
-        double maxQosFpr = 0.0;
+        double maxExpansionPenalty = 0.0;
         
-        // NEW: Track the existing region we are merging with
+        // Track the existing region we are merging with
         SubscriptionWithRegion existingTarget = null; 
 
         // 2. Absorb/Merge Loop
@@ -73,8 +70,7 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
 
                 MergeEvaluation eval = evaluateMerge(accumulator, existing);
                 if (eval.canMerge) {
-                    maxSpatFpr = Math.max(maxSpatFpr, eval.spatFpr);
-                    maxQosFpr = Math.max(maxQosFpr, eval.qosFpr);
+                    maxExpansionPenalty = Math.max(maxExpansionPenalty, eval.penalty);
                     
                     // Track the largest existing region we successfully merged with
                     if (existingTarget == null) existingTarget = existing;
@@ -111,7 +107,8 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         if (opResult == StoreOpResult.ADDED) {
             explanation = "ADDED [" + rejectionReason + "]";
         } else if (opResult == StoreOpResult.EXPANDED) {
-            explanation = String.format("EXPANDED [MaxSpatFPR: %.5f, MaxQoSFPR: %.5f]", maxSpatFpr, maxQosFpr);
+            // Update the log string to match the new unified metric
+            explanation = String.format("EXPANDED [Max Expansion Penalty: %.5f]", maxExpansionPenalty);
         } else {
             explanation = createCleanExplanation(opResult, mergedCount, absorbedCount, isIdenticalReplacement);
         }
@@ -130,11 +127,16 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
     }
 
     @Override
-    public int findMatches(Location loc, List<TreeNode> resultsBuffer) {
+    public int findMatches(Location loc, Map<TreeNode, List<SimulationSubscription>> resultsBuffer) {
         int[] opsCounter = new int[1];
         for (Map.Entry<TreeNode, RegionQuadTree> entry : map.entrySet()) {
-            if (entry.getValue().containsPoint(loc, opsCounter)) {
-                resultsBuffer.add(entry.getKey());
+            RegionQuadTree tree = entry.getValue();
+            List<SimulationSubscription> hits = new ArrayList<>();
+            
+            tree.findMatches(loc, hits, opsCounter);
+            
+            if (!hits.isEmpty()) {
+                resultsBuffer.put(entry.getKey(), hits);
             }
         }
         return opsCounter[0];
@@ -276,18 +278,26 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
             return c;
         }
 
-        public boolean containsPoint(Location loc, int[] ops) {
+        public void findMatches(Location loc, List<SimulationSubscription> hits, int[] ops) {
+            // 1. MBR Check Cost (1 Op)
             ops[0]++;
-            if (cachedMBR == null || !cachedMBR.contains(loc)) return false;
+            if (cachedMBR == null || !cachedMBR.contains(loc)) return;
+
+            // 2. Items Check Cost (N Ops)
             for (SubscriptionWithRegion s : items) {
                 ops[0]++;
-                if (s.getRegion().contains(loc)) return true;
+                if (s.getRegion().contains(loc)) {
+                    hits.add(s);
+                }
             }
+
+            // 3. Child Traversal (Recursion)
             if (children != null) {
                 int idx = getPointIndex(loc.getX(), loc.getY());
-                if (idx != -1) return children[idx].containsPoint(loc, ops);
+                if (idx != -1) {
+                    children[idx].findMatches(loc, hits, ops);
+                }
             }
-            return false;
         }
 
         public List<SubscriptionWithRegion> findCandidatesContaining(Region query) {

@@ -57,7 +57,7 @@ public class SystematicMarketplaceContinuumSimulation extends AbstractMarketplac
 
             // 1. Initialize Configuration
             SimConfiguration.get(); 
-            MarketplaceConfig.get(); 
+            MarketplaceConfig.get();
 
             // 2. Setup Topology Components
             MarketplaceTopologyConfiguration topoConfig = new MarketplaceTopologyConfiguration();

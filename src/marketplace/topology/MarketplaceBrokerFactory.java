@@ -6,7 +6,6 @@ import simulator.topology.factories.BoundedBrokerFactory;
 import simulator.config.SimConfiguration;
 import marketplace.config.MarketplaceConfig;
 import marketplace.agents.HypercubeMarketplaceBroker;
-import marketplace.agents.SkylineMarketplaceBroker;
 
 /**
  * A factory for creating brokers that use the Hierarchical Orchestration strategy.
@@ -19,9 +18,6 @@ public class MarketplaceBrokerFactory implements BoundedBrokerFactory {
     public BoundedBroker createBroker(String name) {
         double threshold = SimConfiguration.get().broker.getSmartThreshold();
         
-        if (MarketplaceConfig.get().aggregationStrategy == MarketplaceConfig.AggregationStrategy.SKYLINE) {
-            return new SkylineMarketplaceBroker(name, threshold);
-        }
         return new HypercubeMarketplaceBroker(name, threshold);
     }
 
@@ -29,9 +25,6 @@ public class MarketplaceBrokerFactory implements BoundedBrokerFactory {
     public BoundedBroker createLeafBroker(String name, Location p1, Location p2) {
         double threshold = SimConfiguration.get().broker.getSmartThreshold();
         
-        if (MarketplaceConfig.get().aggregationStrategy == MarketplaceConfig.AggregationStrategy.SKYLINE) {
-            return new SkylineMarketplaceBroker(name, p1, p2, threshold);
-        }
         return new HypercubeMarketplaceBroker(name, p1, p2, threshold);
     }
 

@@ -81,7 +81,7 @@ public class ListMultiRegionStore extends AbstractMultiRegionStore {
     }
 
     @Override
-    public int findMatches(Location loc, List<TreeNode> resultsBuffer) {
+    public int findMatches(Location loc, Map<TreeNode, List<SimulationSubscription>> resultsBuffer) {
         int ops = 0;
         for (var entry : map.entrySet()) {
             // 1. Summary Check
@@ -90,12 +90,15 @@ public class ListMultiRegionStore extends AbstractMultiRegionStore {
                 ops++; // Count summary check
                 if (summary.contains(loc)) {
                     // 2. Detailed Checks
+                    List<SimulationSubscription> hits = new ArrayList<>();
                     for (SubscriptionWithRegion sub : entry.getValue()) {
                         ops++; // Count item check
                         if (sub.getRegion().contains(loc)) {
-                            resultsBuffer.add(entry.getKey());
-                            break; // Optimization: Stop after first match for this neighbor
+                            hits.add(sub);
                         }
+                    }
+                    if (!hits.isEmpty()) {
+                        resultsBuffer.put(entry.getKey(), hits);
                     }
                 }
             }
