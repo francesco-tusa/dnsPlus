@@ -27,19 +27,23 @@ public class HypercubeMarketplaceBroker extends AbstractMarketplaceBroker {
     }
 
     @Override
-    protected SubscriptionWithRegion createCandidateSubscription(SubscriptionWithRegion aggregatedState, Region newRegionPayload) {
+    protected SubscriptionWithRegion createCandidateSubscription(SubscriptionWithRegion aggregatedState,
+            Region newRegionPayload) {
         if (aggregatedState.getRegion() instanceof MetricHyperCube mhc) {
-            
+
+            // Extract the true center of mass from the aggregated state before wrapping it
+            Location centroid = mhc.getDensityCentroid();
+
             MetricHyperCube newCube = new MetricHyperCube(
                     mhc.getMinValues(),
                     mhc.getMaxValues(),
                     mhc.getMinimizeFlags(),
-                    newRegionPayload
-            );
+                    newRegionPayload,
+                    mhc.getProviderWeight(),
+                    centroid.getX(),
+                    centroid.getY());
 
             if (aggregatedState instanceof ServiceOffer offer) {
-                // Preserve the specific Provider's identity, physical limit, and location 
-                // when propagating upward. Do not prematurely strip it into an Aggregated-Cluster.
                 return ServiceOffer.createWithUpdatedRegion(offer, newCube);
             }
             return new SubscriptionWithRegion(newCube);

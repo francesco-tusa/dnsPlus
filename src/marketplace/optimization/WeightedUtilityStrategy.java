@@ -78,12 +78,12 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
         if (req.getQoSConstraintsLocation() != null) {
             double distSq;
             if (providerLoc != null) {
-                // Physical Request Location vs Physical Provider Location
+                // Physical Request Location vs Physical Provider Location (Leaf Node Match)
                 distSq = req.getLocation().distanceSquared(providerLoc);
             } else {
-                // Fallback if provider location is hidden
-                // Assuming we route towards the broker's spatial region center
-                distSq = req.getLocation().distanceSquared(cap.getCenter());
+                // Fallback relies on the Density-Aware Centroid of the FaaS cluster
+                // Prevents remote outliers from skewing the geographic routing penalty.
+                distSq = req.getLocation().distanceSquared(cap.getDensityCentroid());
             }
             distance = Math.sqrt(distSq);
             networkLatency = distance * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
@@ -91,11 +91,11 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
 
         String rejectionReason = checkConstraints(cap, req, networkLatency);
         if (rejectionReason != null) {
-            return EvaluationResult.fail(rejectionReason, distance); // Pass distance on fail
+            return EvaluationResult.fail(rejectionReason, distance);
         }
 
         double score = calculateGenericScore(cap, req, networkLatency);
-        return EvaluationResult.success(score, distance); // Pass distance on success
+        return EvaluationResult.success(score, distance);
     }
 
     private String checkConstraints(MetricHyperCube cap, ServiceRequest req, double networkLatency) {

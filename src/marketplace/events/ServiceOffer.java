@@ -79,13 +79,6 @@ public class ServiceOffer extends SubscriptionWithRegion {
                 Double.MAX_VALUE);
     }
 
-    public static ServiceOffer createSkylineAggregated(long serviceId, Map<String, Double> metrics,
-            Region skylineRegion) {
-        // Aggregated clusters represent entire tree branches, infinite fallback radius
-        // to prevent spatial clipping
-        return new ServiceOffer(serviceId, metrics, skylineRegion, null, "Aggregated-Skyline", Double.MAX_VALUE);
-    }
-
     // Purely mathematical generation based on the explicitly provided radius
     private static Region createMetricRegion(Map<String, Double> metrics, Location loc, double coverageRadius) {        
         int dim = MarketplaceMetricSchema.KEYS.length;
@@ -120,7 +113,7 @@ public class ServiceOffer extends SubscriptionWithRegion {
         boolean[] flags = new boolean[dim];
         for(int i=0; i<dim; i++) flags[i] = MarketplaceMetricSchema.DIRECTIONS.get(MarketplaceMetricSchema.KEYS[i]);
 
-        return new MetricHyperCube(minValues, maxValues, flags, physicalScope);
+        return new MetricHyperCube(minValues, maxValues, flags, physicalScope, loc);
     }
 
     public long getServiceId() { return serviceId; }
