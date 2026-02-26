@@ -135,11 +135,9 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
     private double calculateGenericScore(MetricHyperCube cap, ServiceRequest req, double networkLatencyAddition) {
         double score = 0.0;
         
-        // 1. Unpack the SLA arrays from the Hypercube
-        double[] bestMinValues = cap.getMinValues(); 
-        double[] bestMaxValues = cap.getMaxValues(); 
+        // Extract the decoupled statistical center for utility evaluation
+        double[] expectedYields = cap.getQosCenterOfMass(); 
 
-        // 2. Unpack the client preferences from the ServiceRequest
         double[] constraints = req.getQoSConstraintsLocation().getMetricValues();
         double[] weights = req.getWeights();
         boolean[] flags = req.getMinimizeFlags();
@@ -147,53 +145,30 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
         int latIdx = MarketplaceMetricSchema.IDX_LATENCY;
         
         for(int i = 0; i < constraints.length; i++) {
-            // Skip metrics the client doesn't care about
             if (weights[i] == 0.0) continue;
-            
-            // Safety bound for array lengths
-            if (i >= bestMinValues.length) break;
+            if (i >= expectedYields.length) break;
 
             double termScore;
-            double valToCheck;
+            
+            // Score strictly against the Expected Yield, not the absolute boundaries
+            double valToCheck = expectedYields[i];
 
             if (flags[i]) {
-                // ==========================================
-                // MINIMIZE (Lower actual = lower score = better)
-                // ==========================================
-                valToCheck = bestMinValues[i];
+                // MINIMIZE
                 if (i == latIdx) valToCheck += networkLatencyAddition; 
                 
                 double actual = (valToCheck > 0) ? valToCheck : 0.001;
-                
-                // FIX: Decouple normalization from hard constraints.
-                double maxAllowed;
-                if (constraints[i] < Double.MAX_VALUE && constraints[i] > 0) {
-                    maxAllowed = constraints[i];
-                } else {
-                    maxAllowed = getSystemMaximumForMetric(i);
-                }
+                double maxAllowed = (constraints[i] < Double.MAX_VALUE && constraints[i] > 0) ? constraints[i] : getSystemMaximumForMetric(i);
                 
                 termScore = actual / maxAllowed;
-
             } else {
-                // ==========================================
-                // MAXIMIZE (Higher actual = lower score = better)
-                // ==========================================
-                valToCheck = bestMaxValues[i];
+                // MAXIMIZE
                 double actual = (valToCheck > 0) ? valToCheck : 0.001;
-                
-                // FIX: Decouple normalization from hard constraints.
-                double minRequired;
-                if (constraints[i] > 0) {
-                    minRequired = constraints[i];
-                } else {
-                    minRequired = getSystemMaximumForMetric(i);
-                }
+                double minRequired = (constraints[i] > 0) ? constraints[i] : getSystemMaximumForMetric(i);
                 
                 termScore = minRequired / actual;
             }
             
-            // Apply the client's weight to this metric's penalty
             score += termScore * weights[i];
         }
         

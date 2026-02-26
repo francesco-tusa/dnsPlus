@@ -18,6 +18,8 @@ public class MetricHyperCube extends Region {
     private double densityCenterX;
     private double densityCenterY;
 
+    private double[] qosCenterOfMass;
+
     /**
      * CONSTRUCTOR 1: The Unified Master Constructor.
      * @param physicalScope The geographic coverage area (Bounding Box) used for R-Tree routing.
@@ -29,15 +31,14 @@ public class MetricHyperCube extends Region {
         this.maxValues = Arrays.copyOf(max, max.length);
         this.minimizeFlags = Arrays.copyOf(minimizeFlags, minimizeFlags.length);
         
-        // Initialize the FaaS node mass
-        this.providerWeight = 1;
+        // At Day-Zero, the expected yield is exactly the absolute capabilities
+        this.qosCenterOfMass = Arrays.copyOf(min, min.length); 
         
+        this.providerWeight = 1;
         if (anchorLocation != null) {
-            // Day-Zero Truth: Anchor the mass exactly to the hardware
             this.densityCenterX = anchorLocation.getX();
             this.densityCenterY = anchorLocation.getY();
         } else {
-            // Fallback for abstract mathematical regions
             Location center = physicalScope.getCenter();
             this.densityCenterX = center.getX();
             this.densityCenterY = center.getY();
@@ -69,6 +70,7 @@ public class MetricHyperCube extends Region {
         this.minValues = Arrays.copyOf(other.minValues, other.minValues.length);
         this.maxValues = Arrays.copyOf(other.maxValues, other.maxValues.length);
         this.minimizeFlags = Arrays.copyOf(other.minimizeFlags, other.minimizeFlags.length);
+        this.qosCenterOfMass = Arrays.copyOf(other.qosCenterOfMass, other.qosCenterOfMass.length);
         
         this.providerWeight = other.providerWeight;
         this.densityCenterX = other.densityCenterX;
@@ -77,21 +79,21 @@ public class MetricHyperCube extends Region {
 
     /**
      * CONSTRUCTOR 5: Propagation Constructor.
-     * Updates the physical R-Tree boundaries while strictly preserving the FaaS
-     * population density.
+     * Preserves Density and QoS Center of Mass during upward topology construction.
      */
-    public MetricHyperCube(double[] min, double[] max, boolean[] minimizeFlags, SpatialRegion physicalScope,
-            int preservedMass, double preservedCX, double preservedCY) {
+    public MetricHyperCube(double[] min, double[] max, boolean[] minimizeFlags, SpatialRegion physicalScope, int preservedMass, double preservedCX, double preservedCY, double[] preservedQosCenter) {
         super(physicalScope);
         this.minValues = Arrays.copyOf(min, min.length);
         this.maxValues = Arrays.copyOf(max, max.length);
         this.minimizeFlags = Arrays.copyOf(minimizeFlags, minimizeFlags.length);
-
-        // Preserve the actual FaaS Node Gravity
+        this.qosCenterOfMass = Arrays.copyOf(preservedQosCenter, preservedQosCenter.length);
+        
         this.providerWeight = preservedMass;
         this.densityCenterX = preservedCX;
         this.densityCenterY = preservedCY;
     }
+
+    public double[] getQosCenterOfMass() { return qosCenterOfMass; }
 
     @Override
     public Region copy() {
@@ -170,20 +172,28 @@ public class MetricHyperCube extends Region {
 
     @Override
     public boolean expand(SpatialRegion r) {
-        // 1. Expand the geographic bounding box (R-Tree mechanics)
         boolean physicalChanged = super.expand(r);
         if (!(r instanceof MetricHyperCube other)) return physicalChanged;
 
-        // 2. Shift the Center of Mass based on provider density
         double totalWeight = this.providerWeight + other.providerWeight;
         this.densityCenterX = ((this.densityCenterX * this.providerWeight) + 
                                (other.densityCenterX * other.providerWeight)) / totalWeight;
         this.densityCenterY = ((this.densityCenterY * this.providerWeight) + 
                                (other.densityCenterY * other.providerWeight)) / totalWeight;
-        this.providerWeight = (int) totalWeight;
 
-        // 3. Maintain strict L-Infinity bounds for SLA guarantees
         boolean metricChanged = false;
+        
+        // 1. DENSITY-WEIGHTED QoS (Expected Yield for Utility Routing)
+        for (int i = 0; i < qosCenterOfMass.length; i++) {
+            double newQos = ((this.qosCenterOfMass[i] * this.providerWeight) + 
+                             (other.qosCenterOfMass[i] * other.providerWeight)) / totalWeight;
+            if (Math.abs(newQos - this.qosCenterOfMass[i]) > 1e-9) {
+                this.qosCenterOfMass[i] = newQos;
+                metricChanged = true;
+            }
+        }
+
+        // 2. PURE R-TREE BOUNDING BOX (Absolute bounds for Feasibility Pruning)
         for (int i = 0; i < minValues.length; i++) {
             double newMin = Math.min(this.minValues[i], other.minValues[i]);
             double newMax = Math.max(this.maxValues[i], other.maxValues[i]);
@@ -194,6 +204,8 @@ public class MetricHyperCube extends Region {
                 metricChanged = true;
             }
         }
+        
+        this.providerWeight = (int) totalWeight;
         return physicalChanged || metricChanged;
     }
     
