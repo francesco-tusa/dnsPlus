@@ -4,7 +4,6 @@ import simulator.core.Location;
 import simulator.regions.BoundedBroker;
 import simulator.topology.factories.BoundedBrokerFactory;
 import simulator.config.SimConfiguration;
-import marketplace.config.MarketplaceConfig;
 import marketplace.agents.HypercubeMarketplaceBroker;
 
 /**

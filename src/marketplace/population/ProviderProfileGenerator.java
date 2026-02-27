@@ -12,7 +12,6 @@ import marketplace.common.MarketplaceMetricSchema;
 public class ProviderProfileGenerator {
 
     // --- CENTRALIZED TOPOLOGY TIER RADII ---
-    // Shared between placement strategy and the Skyline Area Ratio limits
     public static final double RADIUS_CLOUD_MAX = 20.0; // ~2200km
     public static final double RADIUS_FOG_MAX   = 3.0;  // ~330km
     public static final double RADIUS_EDGE      = 0.25; // ~27km

@@ -25,13 +25,6 @@ public class MarketplaceConfig {
     public final int fogProviderCount;
     public final int edgeProviderCount;
 
-    // --- NEW: Aggregation Strategy Toggle ---
-    public enum AggregationStrategy {
-        HYPERCUBE
-    }
-    
-    public final AggregationStrategy aggregationStrategy;
-
     public static synchronized MarketplaceConfig get() {
         if (instance == null) {
             instance = new MarketplaceConfig();
@@ -58,17 +51,9 @@ public class MarketplaceConfig {
         this.fogProviderCount = ConfigParser.parseInt(props, "marketplace.providers.fog.count", 50);
         this.edgeProviderCount = ConfigParser.parseInt(props, "marketplace.providers.edge.count", 200);
         
-        // Parse the new strategy parameter (Defaults to HYPERCUBE if missing)
-        String strategyStr = props.getProperty("marketplace.aggregation.strategy", "HYPERCUBE").toUpperCase();
-        AggregationStrategy parsedStrategy = AggregationStrategy.HYPERCUBE;
-        try {
-            parsedStrategy = AggregationStrategy.valueOf(strategyStr);
-        } catch (IllegalArgumentException e) {
-            logger.warning("Invalid marketplace.aggregation.strategy: " + strategyStr + ". Defaulting to HYPERCUBE.");
-        }
-        this.aggregationStrategy = parsedStrategy;
+       
         
-        logger.info("Marketplace Config Loaded. Slice: " + allowedCountries + " | Strategy: " + this.aggregationStrategy);
+        logger.info("Marketplace Config Loaded. Slice: " + allowedCountries + " | Strategy: ");
     }
 
     private Properties loadProperties() {

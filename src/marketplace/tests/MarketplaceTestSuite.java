@@ -31,7 +31,6 @@ public class MarketplaceTestSuite {
             allPassed = false;
 
         // 4. Run N-Dimensional Aggregation Test (Spatial & QoS)
-        // (This validates the HypercubeRegionStore vs SkylineRegionStore logic)
         MarketplaceAggregationLogicTest aggregationTest = new MarketplaceAggregationLogicTest();
         if (!runTest(aggregationTest))
             allPassed = false;

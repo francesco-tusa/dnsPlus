@@ -2,6 +2,7 @@ package marketplace.agents;
 
 import simulator.core.Location;
 import simulator.regions.Region;
+import simulator.regions.SpatialRegion;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.regions.store.RegionSubscriptionStore;
 import marketplace.topology.store.HypercubeRegionStore;
@@ -26,23 +27,21 @@ public class HypercubeMarketplaceBroker extends AbstractMarketplaceBroker {
         return new HypercubeRegionStore(threshold);
     }
 
-    // Inside HypercubeMarketplaceBroker.java
-
     @Override
     protected SubscriptionWithRegion createCandidateSubscription(SubscriptionWithRegion aggregatedState, Region newRegionPayload) {
-        if (aggregatedState.getRegion() instanceof MetricHyperCube mhc) {
+        if (aggregatedState.getRegion() instanceof MetricHyperCube mhc && newRegionPayload instanceof SpatialRegion newSpatialRegion) {
             
-            Location centroid = mhc.getDensityCentroid();
-            
-            // Utilize the new Propagation Constructor to carry the probabilistic state upward
+            // Utilize the Tri-State Propagation Constructor to carry the probabilistic state upward
             MetricHyperCube newCube = new MetricHyperCube(
-                    mhc.getMinValues(),
-                    mhc.getMaxValues(),
+                    mhc.getRoutingMinValues(),
+                    mhc.getRoutingMaxValues(),
+                    mhc.getCapabilityMinValues(),
+                    mhc.getCapabilityMaxValues(),
                     mhc.getMinimizeFlags(),
-                    newRegionPayload,
-                    mhc.getProviderWeight(), 
-                    centroid.getX(), 
-                    centroid.getY(),
+                    newSpatialRegion,
+                    mhc.getProviderWeight(),
+                    mhc.getDensityCenterX(),     
+                    mhc.getDensityCenterY(),     
                     mhc.getQosCenterOfMass()
             );
 

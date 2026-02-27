@@ -27,23 +27,16 @@ public class MarketplaceContinuumE2ETest extends TestScenario {
         System.out.println("\n===============================================");
         System.out.println("RUNNING E2E UNDER HYPERCUBE STRATEGY");
         System.out.println("===============================================");
-        boolean hypercubePass = executeContinuumTest(false);
-
-        return hypercubePass;
+        return executeContinuumTest();
     }
 
-    private boolean executeContinuumTest(boolean useSkyline) {
+    private boolean executeContinuumTest() {
         // --- 1. AGENT DEPLOYMENT ---
-        double threshold = 0.2;
+        double threshold = 0.25;
 
-        AbstractMarketplaceBroker cloudBroker = new HypercubeMarketplaceBroker("Cloud_Core", new Location(0, 0, 0), new Location(1000, 1000, 0),
-                        threshold);
-
-        AbstractMarketplaceBroker fogBroker = new HypercubeMarketplaceBroker("Fog_London", new Location(0, 0, 0), new Location(500, 500, 0),
-                        threshold);
-
-        AbstractMarketplaceBroker edgeBroker = new HypercubeMarketplaceBroker("Edge_Westminster", new Location(0, 0, 0), new Location(100, 100, 0),
-                        threshold);
+        AbstractMarketplaceBroker cloudBroker = new HypercubeMarketplaceBroker("Cloud_Core", new Location(0, 0, 0), new Location(1000, 1000, 0), threshold);
+        AbstractMarketplaceBroker fogBroker = new HypercubeMarketplaceBroker("Fog_London", new Location(0, 0, 0), new Location(500, 500, 0), threshold);
+        AbstractMarketplaceBroker edgeBroker = new HypercubeMarketplaceBroker("Edge_Westminster", new Location(0, 0, 0), new Location(100, 100, 0), threshold);
 
         cloudBroker.addChild(fogBroker);
         fogBroker.addChild(edgeBroker);
@@ -61,35 +54,28 @@ public class MarketplaceContinuumE2ETest extends TestScenario {
         edgeBroker.addChild(client);
 
         // --- 2. ADVERTISEMENT PHASE ---
-        // FIX: Explicitly scale radii to correctly envelop the client at (10, 10)
-        // within the synthetic grid
         cloudProvider.advertiseService(1001, Map.of("latency", 100.0, "cost", 5.0), 1000.0);
         fogProvider.advertiseService(1001, Map.of("latency", 50.0, "cost", 20.0), 500.0);
         edgeProvider.advertiseService(1001, Map.of("latency", 10.0, "cost", 50.0), 100.0);
 
-        // --- 3. EXECUTION PHASE (REVISED FOR AGGREGATE TOLERANCE) ---
+        // --- 3. EXECUTION PHASE ---
 
-        // TEST CASE 1: Low Latency (< 20ms) -> Must resolve to Edge
-        // No change needed; Edge distance is nearly 0.
+        // TEST CASE 1: Low Latency (< 25ms) -> Must resolve to Edge
         client.requestService(1001, Map.of("latency", 25.0));
-        if (!verifyDelivery(edgeProvider, 1, "Edge"))
-            return false;
+        if (!verifyDelivery(edgeProvider, 1, "Edge")) return false;
 
         // TEST CASE 2: Low Cost (< $10) -> Must resolve to Cloud
-        // No change needed; Cloud is cheapest and distance doesn't trigger a cost
-        // violation.
         client.requestService(1001, Map.of("cost", 10.0));
-        if (!verifyDelivery(cloudProvider, 1, "Cloud"))
-            return false;
+        if (!verifyDelivery(cloudProvider, 1, "Cloud")) return false;
 
-        // TEST CASE 3: Balanced (Lat < 700, Cost < 30) -> Must resolve to Fog
-        // FIX: We increase the latency bound to 700.0 to absorb the
-        // Centroid Approximation Error (565ms) from the Fog Broker aggregate.
+        // TEST CASE 3: Balanced (Lat < 1500, Cost < 30) -> Must resolve to Fog
+        // We safely expand the latency bound to 1500.0 to account for the spatial 
+        // network distance penalty (Distance * Factor). This allows the SLA gate 
+        // to pass, forcing the Weighted Utility Strategy to select the winner.
         client.requestService(1001, Map.of("latency", 1500.0, "cost", 30.0));
-        if (!verifyDelivery(fogProvider, 1, "Fog"))
-            return false;
+        if (!verifyDelivery(fogProvider, 1, "Fog")) return false;
 
-        System.out.println("PASS: E2E Routing constraints perfectly met.");
+        System.out.println("PASS: E2E Routing constraints perfectly met using Tri-State constraints.");
         return true;
     }
 

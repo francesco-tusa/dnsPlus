@@ -7,7 +7,6 @@ import simulator.core.TreeNode;
 import simulator.core.Location;
 import simulator.events.SimulationSubscription;
 import simulator.regions.SubscriptionWithRegion;
-import simulator.regions.store.RegionSubscriptionStore;
 import marketplace.common.MetricHyperCube;
 import marketplace.common.MarketplaceMetricSchema;
 import marketplace.events.ServiceOffer;
@@ -44,8 +43,8 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
                 MetricHyperCube cap = extractMetricHyperCube(sub, req.getServiceId());
                 if (cap == null) continue;
 
-                Location providerLoc = resolveProviderLocation(sub);
-                EvaluationResult result = inspectLogic(cap, req, providerLoc);
+                // The logic natively handles whether this is a leaf or a branch
+                EvaluationResult result = inspectLogic(cap, req);
 
                 if (result.isFeasible() && result.score() < bestScore) {
                     bestScore = result.score();
@@ -68,34 +67,36 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
     public EvaluationResult inspect(ServiceOffer offer, ServiceRequest req) {
         MetricHyperCube cap = (offer.getRegion() instanceof MetricHyperCube mhc) ? mhc : null;
         if (cap == null) return EvaluationResult.fail("Invalid Offer Region", -1.0);
-        return inspectLogic(cap, req, offer.getLocation());
+        return inspectLogic(cap, req);
     }
 
-    private EvaluationResult inspectLogic(MetricHyperCube cap, ServiceRequest req, Location providerLoc) {
-        double networkLatency = 0.0;
-        double distance = -1.0;
+    private EvaluationResult inspectLogic(MetricHyperCube cap, ServiceRequest req) {
+        double optimisticNetworkLatency = 0.0;
+        double barycenterNetworkLatency = 0.0;
+        double optimisticDistance = -1.0;
 
         if (req.getQoSConstraintsLocation() != null) {
-            double distSq;
-            if (providerLoc != null) {
-                // Physical Request Location vs Physical Provider Location (Leaf Node Match)
-                distSq = req.getLocation().distanceSquared(providerLoc);
-            } else {
-                // Fallback relies on the Density-Aware Centroid of the FaaS cluster
-                // Prevents remote outliers from skewing the geographic routing penalty.
-                distSq = req.getLocation().distanceSquared(cap.getDensityCentroid());
-            }
-            distance = Math.sqrt(distSq);
-            networkLatency = distance * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
+            // 1. SLA Pruning Distance (Optimistic Edge Distance)
+            // MetricHyperCube IS a Region, so we call distanceSquared() natively.
+            // Returns 0.0 if the client is physically inside the region
+            optimisticDistance = Math.sqrt(cap.distanceSquared(req.getLocation()));
+            optimisticNetworkLatency = optimisticDistance * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
+            
+            // 2. Utility Scoring Distance (Density Barycenter)
+            // Evaluates FaaS cluster's actual center of mass for accurate marketplace competition
+            double barycenterDist = Math.sqrt(req.getLocation().distanceSquared(cap.getDensityCentroid()));
+            barycenterNetworkLatency = barycenterDist * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
         }
 
-        String rejectionReason = checkConstraints(cap, req, networkLatency);
+        // STRICT GATE: Use the Optimistic latency strictly for SLA pruning
+        String rejectionReason = checkConstraints(cap, req, optimisticNetworkLatency); 
         if (rejectionReason != null) {
-            return EvaluationResult.fail(rejectionReason, distance);
+            return EvaluationResult.fail(rejectionReason, optimisticDistance);
         }
 
-        double score = calculateGenericScore(cap, req, networkLatency);
-        return EvaluationResult.success(score, distance);
+        // UTILITY MATCHING: Use the Barycenter latency strictly for Utility Scoring
+        double score = calculateGenericScore(cap, req, barycenterNetworkLatency);
+        return EvaluationResult.success(score, optimisticDistance);
     }
 
     private String checkConstraints(MetricHyperCube cap, ServiceRequest req, double networkLatency) {
@@ -104,15 +105,19 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
         double[] minVals = cap.getMinValues();
         int latIdx = MarketplaceMetricSchema.IDX_LATENCY;
         
-        // Epsilon handles the Centroid Approximation error (approx. 10 meters of distance)
+        // Epsilon handles float precision and minor spatial approximations
         double epsilon = 1e-4; 
 
         for (int i = 0; i < constraints.length; i++) {
             if (i >= minVals.length) break;
 
+            // Bypass unconstrained dimensions to prevent false SLA violations
+            if (req.getWeights()[i] == 0.0) continue;
+
             double bestPromise = flags[i] ? minVals[i] : cap.getMaxValues()[i];
             double intrinsic = bestPromise;
 
+            // Apply the mathematically safe Optimistic Network Latency
             if (i == latIdx) {
                 bestPromise += networkLatency;
             }
@@ -175,10 +180,6 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
         return score;
     }
 
-    /**
-     * Helper method to map array indices to the System Maximums defined in the schema.
-     * Prevents the utility mathematics from collapsing if a client doesn't provide a constraint.
-     */
     private double getSystemMaximumForMetric(int index) {
         return switch (index) {
             case MarketplaceMetricSchema.IDX_LATENCY -> MarketplaceMetricSchema.SYSTEM_MAX_LATENCY;
@@ -188,10 +189,6 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
             case 4 /* ENERGY */ -> MarketplaceMetricSchema.SYSTEM_MAX_ENERGY;
             default -> 100.0; // Safe fallback
         };
-    }
-
-    private Location resolveProviderLocation(SimulationSubscription sub) { 
-        if (sub instanceof ServiceOffer offer) return offer.getLocation(); return null; 
     }
 
     private MetricHyperCube extractMetricHyperCube(SimulationSubscription sub, long targetServiceId) { 

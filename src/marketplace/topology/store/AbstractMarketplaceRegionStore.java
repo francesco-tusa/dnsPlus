@@ -7,6 +7,7 @@ import simulator.events.SimulationSubscription;
 import simulator.regions.Region;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.regions.store.*;
+import marketplace.common.MetricHyperCube;
 import marketplace.events.ServiceOffer;
 
 public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegionStore {
@@ -32,6 +33,18 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
     protected MergeEvaluation evaluateMerge(Region accumulator, SubscriptionWithRegion existing) {
         boolean result = shouldMerge(accumulator, existing);
         return new MergeEvaluation(result, result ? "Merged" : "Threshold Exceeded", 0.0);
+    }
+
+    protected SubscriptionWithRegion wrapAggregatedRegion(SubscriptionWithRegion sub, Region accumulator, int mergedCount, int absorbedCount) {
+        if (sub instanceof ServiceOffer offer && accumulator instanceof MetricHyperCube mhc) {
+            if (mergedCount == 0 && absorbedCount == 0) {
+                return ServiceOffer.createWithUpdatedRegion(offer, mhc);
+            } else {
+                return ServiceOffer.createAggregated(offer.getServiceId(), mhc);
+            }
+        } else {
+            return new SubscriptionWithRegion(accumulator);
+        }
     }
 
     @Override
@@ -116,8 +129,6 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         // Pass the tracked existingTarget down the pipeline
         return new StoreUpdate(opResult, resultingEntry, explanation, absorbedCount, mergedCount, existingTarget);
     }
-
-    protected abstract SubscriptionWithRegion wrapAggregatedRegion(SubscriptionWithRegion originalSub, Region accumulator, int mergedCount, int absorbedCount);
 
     private boolean areCompatible(SubscriptionWithRegion a, SubscriptionWithRegion b) {
         if (a instanceof ServiceOffer oa && b instanceof ServiceOffer ob) {

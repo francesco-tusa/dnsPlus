@@ -79,33 +79,48 @@ public class ServiceOffer extends SubscriptionWithRegion {
                 Double.MAX_VALUE);
     }
 
+    // Inside ServiceOffer.java
+    
     // Purely mathematical generation based on the explicitly provided radius
     private static Region createMetricRegion(Map<String, Double> metrics, Location loc, double coverageRadius) {        
         int dim = MarketplaceMetricSchema.KEYS.length;
-        double[] minValues = new double[dim];
-        double[] maxValues = new double[dim];
+        double[] rMinValues = new double[dim];
+        double[] rMaxValues = new double[dim];
+        
+        // NEW: Strict bounds to hold the operational volume
+        double[] cMinValues = new double[dim]; 
+        double[] cMaxValues = new double[dim];
+        double[] rawCapabilities = new double[dim]; 
+
+        // Define the SLA Flexibility (e.g., 10% tolerance for clustering)
+        double SLA_FLEXIBILITY = 0.10; 
 
         for (int i = 0; i < dim; i++) {
             String key = MarketplaceMetricSchema.KEYS[i];
             boolean minimize = MarketplaceMetricSchema.DIRECTIONS.get(key);
-            
-            // Get the realistic system maximum instead of Infinity
             double systemMax = MarketplaceMetricSchema.getSystemMax(key);
             
-            double value = metrics.getOrDefault(key, minimize ? 0.0 : systemMax);
+            // Missing metrics must default to the WORST case scenario
+            double value = metrics.getOrDefault(key, minimize ? systemMax : 0.0);
+            rawCapabilities[i] = value;
             
+            // =========================================================
+            // INJECT VOLUME: Create a mathematical capability band
+            // =========================================================
+            double variance = Math.max(value * SLA_FLEXIBILITY, 1.0); // Ensure at least a small absolute volume
+            cMinValues[i] = Math.max(0.0, value - variance);
+            cMaxValues[i] = value + variance;
+            
+            // Smear the routing bounds for the QuadTree
             if (minimize) {
-                // Interval: [ProviderValue, RealisticSystemMax]
-                minValues[i] = value;
-                maxValues[i] = systemMax; 
+                rMinValues[i] = value;
+                rMaxValues[i] = systemMax; 
             } else {
-                // Interval: [0.0, ProviderValue]
-                minValues[i] = 0.0;
-                maxValues[i] = value;
+                rMinValues[i] = 0.0;
+                rMaxValues[i] = value;
             }
         }
 
-        // Apply the strictly provided radius
         simulator.regions.Region physicalScope = new simulator.regions.Region(
                 loc.getX() - coverageRadius, loc.getY() - coverageRadius, 
                 loc.getX() + coverageRadius, loc.getY() + coverageRadius);
@@ -113,7 +128,8 @@ public class ServiceOffer extends SubscriptionWithRegion {
         boolean[] flags = new boolean[dim];
         for(int i=0; i<dim; i++) flags[i] = MarketplaceMetricSchema.DIRECTIONS.get(MarketplaceMetricSchema.KEYS[i]);
 
-        return new MetricHyperCube(minValues, maxValues, flags, physicalScope, loc);
+        // Pass the new cMin and cMax arrays to the updated constructor
+        return new MetricHyperCube(rMinValues, rMaxValues, cMinValues, cMaxValues, rawCapabilities, flags, physicalScope, loc);
     }
 
     public long getServiceId() { return serviceId; }

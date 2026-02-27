@@ -9,30 +9,38 @@ import java.util.Map;
 
 public class MetricHyperCube extends Region {
 
-    private double[] minValues;
-    private double[] maxValues;
+    // STATE 1: Homomorphic Routing Envelope (Smeared to System Limits)
+    private double[] routingMinValues;
+    private double[] routingMaxValues;
+    
+    // STATE 2: Strict Capability Envelope (Used for Tri-State FPR)
+    private double[] capabilityMinValues;
+    private double[] capabilityMaxValues;
+    
+    // STATE 3: Utility Expected Yield
+    private double[] qosCenterOfMass;
+
     private boolean[] minimizeFlags;
     
-    // --- DENSITY TRACKING FIELDS ---
+    // Density Tracking
     private int providerWeight; 
     private double densityCenterX;
     private double densityCenterY;
 
-    private double[] qosCenterOfMass;
-
     /**
-     * CONSTRUCTOR 1: The Unified Master Constructor.
-     * @param physicalScope The geographic coverage area (Bounding Box) used for R-Tree routing.
-     * @param anchorLocation The exact physical location of the hardware. If null, defaults to the scope's center.
+     * Primary Constructor for Base Providers (Leaf Nodes).
      */
-    public MetricHyperCube(double[] min, double[] max, boolean[] minimizeFlags, SpatialRegion physicalScope, Location anchorLocation) {
+    public MetricHyperCube(double[] rMin, double[] rMax, double[] cMin, double[] cMax, double[] rawCapabilities, boolean[] minimizeFlags, SpatialRegion physicalScope, Location anchorLocation) {
         super(physicalScope);
-        this.minValues = Arrays.copyOf(min, min.length);
-        this.maxValues = Arrays.copyOf(max, max.length);
+        this.routingMinValues = Arrays.copyOf(rMin, rMin.length);
+        this.routingMaxValues = Arrays.copyOf(rMax, rMax.length);
+        
+        // ACCEPT the calculated SLA Flexibility volume
+        this.capabilityMinValues = Arrays.copyOf(cMin, cMin.length);
+        this.capabilityMaxValues = Arrays.copyOf(cMax, cMax.length);
         this.minimizeFlags = Arrays.copyOf(minimizeFlags, minimizeFlags.length);
         
-        // At Day-Zero, the expected yield is exactly the absolute capabilities
-        this.qosCenterOfMass = Arrays.copyOf(min, min.length); 
+        this.qosCenterOfMass = Arrays.copyOf(rawCapabilities, rawCapabilities.length); 
         
         this.providerWeight = 1;
         if (anchorLocation != null) {
@@ -46,29 +54,14 @@ public class MetricHyperCube extends Region {
     }
 
     /**
-     * CONSTRUCTOR 2: Legacy/Fallback Constructor.
-     * Retained for backward compatibility with brokers that only pass a physical scope.
-     */
-    public MetricHyperCube(double[] min, double[] max, boolean[] minimizeFlags, SpatialRegion physicalScope) {
-        this(min, max, minimizeFlags, physicalScope, null);
-    }
-
-    /**
-     * CONSTRUCTOR 3: Abstract Default Constructor.
-     * Used mainly for unit tests where spatial geography is irrelevant.
-     */
-    public MetricHyperCube(double[] min, double[] max, boolean[] minimizeFlags) {
-        this(min, max, minimizeFlags, new Region(0, 0, 0, 0), new Location(0, 0, 0));
-    }
-
-    /**
-     * CONSTRUCTOR 4: Copy Constructor.
-     * Deep copies the absolute SLA bounds and the density state.
+     * Copy Constructor.
      */
     public MetricHyperCube(MetricHyperCube other) {
         super(other);
-        this.minValues = Arrays.copyOf(other.minValues, other.minValues.length);
-        this.maxValues = Arrays.copyOf(other.maxValues, other.maxValues.length);
+        this.routingMinValues = Arrays.copyOf(other.routingMinValues, other.routingMinValues.length);
+        this.routingMaxValues = Arrays.copyOf(other.routingMaxValues, other.routingMaxValues.length);
+        this.capabilityMinValues = Arrays.copyOf(other.capabilityMinValues, other.capabilityMinValues.length);
+        this.capabilityMaxValues = Arrays.copyOf(other.capabilityMaxValues, other.capabilityMaxValues.length);
         this.minimizeFlags = Arrays.copyOf(other.minimizeFlags, other.minimizeFlags.length);
         this.qosCenterOfMass = Arrays.copyOf(other.qosCenterOfMass, other.qosCenterOfMass.length);
         
@@ -78,50 +71,58 @@ public class MetricHyperCube extends Region {
     }
 
     /**
-     * CONSTRUCTOR 5: Propagation Constructor.
-     * Preserves Density and QoS Center of Mass during upward topology construction.
+     * INTERNAL AGGREGATION CONSTRUCTOR for Topological Upward Propagation.
      */
-    public MetricHyperCube(double[] min, double[] max, boolean[] minimizeFlags, SpatialRegion physicalScope, int preservedMass, double preservedCX, double preservedCY, double[] preservedQosCenter) {
-        super(physicalScope);
-        this.minValues = Arrays.copyOf(min, min.length);
-        this.maxValues = Arrays.copyOf(max, max.length);
-        this.minimizeFlags = Arrays.copyOf(minimizeFlags, minimizeFlags.length);
-        this.qosCenterOfMass = Arrays.copyOf(preservedQosCenter, preservedQosCenter.length);
-        
-        this.providerWeight = preservedMass;
-        this.densityCenterX = preservedCX;
-        this.densityCenterY = preservedCY;
+    public MetricHyperCube(double[] rMin, double[] rMax, double[] cMin, double[] cMax, boolean[] flags, SpatialRegion phys, int weight, double cx, double cy, double[] qos) {
+        super(phys);
+        this.routingMinValues = Arrays.copyOf(rMin, rMin.length);
+        this.routingMaxValues = Arrays.copyOf(rMax, rMax.length);
+        this.capabilityMinValues = Arrays.copyOf(cMin, cMin.length);
+        this.capabilityMaxValues = Arrays.copyOf(cMax, cMax.length);
+        this.minimizeFlags = Arrays.copyOf(flags, flags.length);
+        this.qosCenterOfMass = Arrays.copyOf(qos, qos.length);
+        this.providerWeight = weight;
+        this.densityCenterX = cx;
+        this.densityCenterY = cy;
     }
-
-    public double[] getQosCenterOfMass() { return qosCenterOfMass; }
 
     @Override
-    public Region copy() {
-        return new MetricHyperCube(this);
-    }
+    public Region copy() { return new MetricHyperCube(this); }
 
-    // --- GETTERS ---
+    // =========================================================
+    // --- TRI-STATE GETTERS ---
+    // =========================================================
     
-    public double[] getMinValues() { return minValues; }
-    public double[] getMaxValues() { return maxValues; }
-    public boolean[] getMinimizeFlags() { return minimizeFlags; }
+    public double[] getRoutingMinValues() { return routingMinValues; }
+    public double[] getRoutingMaxValues() { return routingMaxValues; }
+    public double[] getCapabilityMinValues() { return capabilityMinValues; }
+    public double[] getCapabilityMaxValues() { return capabilityMaxValues; }
+    public double[] getQosCenterOfMass() { return qosCenterOfMass; }
     public int getProviderWeight() { return providerWeight; }
+    public boolean[] getMinimizeFlags() { return minimizeFlags; }
+    public double getDensityCenterX() { return densityCenterX; }
+    public double getDensityCenterY() { return densityCenterY; }
 
     /**
-     * Exposes the true FaaS population center for accurate utility routing.
+     * Encapsulates the Density Barycenter into a Location object.
+     * Heavily utilized by WeightedUtilityStrategy and Broker logic.
      */
     public Location getDensityCentroid() {
-        return new Location(densityCenterX, densityCenterY, 0); 
+        return new Location(densityCenterX, densityCenterY, 0.0);
     }
 
+    /**
+     * LEGACY ALIASES: Guarantees backward compatibility with standard 
+     * DNS++ Substrate logic that expects getMinValues/getMaxValues.
+     * We return the Smeared Routing Bounds to ensure R-Tree intersection succeeds.
+     */
+    public double[] getMinValues() { return routingMinValues; }
+    public double[] getMaxValues() { return routingMaxValues; }
+
     public Map<String, Double> getMetricsMap(String[] dimensionNames) {
-        if (dimensionNames.length != minValues.length) {
-            throw new IllegalArgumentException("Dimension names length mismatch.");
-        }
         Map<String, Double> map = new HashMap<>();
-        for (int i = 0; i < minValues.length; i++) {
-            double val = minimizeFlags[i] ? minValues[i] : maxValues[i];
-            map.put(dimensionNames[i], val);
+        for (int i = 0; i < qosCenterOfMass.length; i++) {
+            map.put(dimensionNames[i], qosCenterOfMass[i]); 
         }
         return map;
     }
@@ -131,44 +132,20 @@ public class MetricHyperCube extends Region {
     @Override
     public boolean contains(Location location) {
         if (!super.contains(location)) return false;
+        if (!(location instanceof MetricLocation req)) return false;
 
-        if (!(location instanceof MetricLocation req)) {
-            throw new IllegalArgumentException("MetricHyperCube requires a MetricLocation for QoS evaluation.");
-        }
-
-        if (req.getDimensions() != minValues.length) return false;
-
-        for (int i = 0; i < minValues.length; i++) {
+        for (int i = 0; i < routingMinValues.length; i++) {
             double reqValue = req.getMetric(i);
             if (minimizeFlags[i]) {
-                if (reqValue < this.minValues[i]) return false;
+                if (reqValue < this.routingMinValues[i]) return false;
             } else {
-                if (reqValue > this.maxValues[i]) return false;
+                if (reqValue > this.routingMaxValues[i]) return false;
             }
         }
         return true;
     }
 
-    @Override
-    public boolean contains(SpatialRegion r) {
-        if (r == null || r.getBottomLeft() == null) return false;
-
-        boolean physicalContains = (this.getWidth() >= 360.0 - 1e-5) || 
-                                   (super.contains(r.getBottomLeft()) && super.contains(r.getTopRight()));
-        
-        if (!physicalContains) return false;
-        if (!(r instanceof MetricHyperCube other)) return false;
-        if (this.minValues.length != other.minValues.length) return false;
-
-        for (int i = 0; i < minValues.length; i++) {
-            if (this.minValues[i] > other.minValues[i] + 1e-9) return false;
-            if (this.maxValues[i] < other.maxValues[i] - 1e-9) return false;
-        }
-
-        return true;
-    }
-
-    // --- AGGREGATION LOGIC ---
+    // --- TRI-STATE AGGREGATION LOGIC ---
 
     @Override
     public boolean expand(SpatialRegion r) {
@@ -176,84 +153,39 @@ public class MetricHyperCube extends Region {
         if (!(r instanceof MetricHyperCube other)) return physicalChanged;
 
         double totalWeight = this.providerWeight + other.providerWeight;
-        this.densityCenterX = ((this.densityCenterX * this.providerWeight) + 
-                               (other.densityCenterX * other.providerWeight)) / totalWeight;
-        this.densityCenterY = ((this.densityCenterY * this.providerWeight) + 
-                               (other.densityCenterY * other.providerWeight)) / totalWeight;
+        this.densityCenterX = ((this.densityCenterX * this.providerWeight) + (other.densityCenterX * other.providerWeight)) / totalWeight;
+        this.densityCenterY = ((this.densityCenterY * this.providerWeight) + (other.densityCenterY * other.providerWeight)) / totalWeight;
 
         boolean metricChanged = false;
         
-        // 1. DENSITY-WEIGHTED QoS (Expected Yield for Utility Routing)
-        for (int i = 0; i < qosCenterOfMass.length; i++) {
-            double newQos = ((this.qosCenterOfMass[i] * this.providerWeight) + 
-                             (other.qosCenterOfMass[i] * other.providerWeight)) / totalWeight;
+        for (int i = 0; i < routingMinValues.length; i++) {
+            // 1. UPDATE EXPECTED YIELD (Center of Mass)
+            double newQos = ((this.qosCenterOfMass[i] * this.providerWeight) + (other.qosCenterOfMass[i] * other.providerWeight)) / totalWeight;
             if (Math.abs(newQos - this.qosCenterOfMass[i]) > 1e-9) {
                 this.qosCenterOfMass[i] = newQos;
                 metricChanged = true;
             }
-        }
 
-        // 2. PURE R-TREE BOUNDING BOX (Absolute bounds for Feasibility Pruning)
-        for (int i = 0; i < minValues.length; i++) {
-            double newMin = Math.min(this.minValues[i], other.minValues[i]);
-            double newMax = Math.max(this.maxValues[i], other.maxValues[i]);
+            // 2. UPDATE CAPABILITY ENVELOPE (For FPR Thresholding)
+            double newCapMin = Math.min(this.capabilityMinValues[i], other.capabilityMinValues[i]);
+            double newCapMax = Math.max(this.capabilityMaxValues[i], other.capabilityMaxValues[i]);
+            if (Math.abs(newCapMin - this.capabilityMinValues[i]) > 1e-9 || Math.abs(newCapMax - this.capabilityMaxValues[i]) > 1e-9) {
+                this.capabilityMinValues[i] = newCapMin;
+                this.capabilityMaxValues[i] = newCapMax;
+                metricChanged = true;
+            }
 
-            if (Math.abs(newMin - this.minValues[i]) > 1e-9 || Math.abs(newMax - this.maxValues[i]) > 1e-9) {
-                this.minValues[i] = newMin;
-                this.maxValues[i] = newMax;
+            // 3. UPDATE ROUTING ENVELOPE (For Blind Matching Intersection)
+            double newRMin = Math.min(this.routingMinValues[i], other.routingMinValues[i]);
+            double newRMax = Math.max(this.routingMaxValues[i], other.routingMaxValues[i]);
+            if (Math.abs(newRMin - this.routingMinValues[i]) > 1e-9 || Math.abs(newRMax - this.routingMaxValues[i]) > 1e-9) {
+                this.routingMinValues[i] = newRMin;
+                this.routingMaxValues[i] = newRMax;
                 metricChanged = true;
             }
         }
         
         this.providerWeight = (int) totalWeight;
         return physicalChanged || metricChanged;
-    }
-    
-    @Override
-    public boolean intersects(SpatialRegion r) {
-        if (!(r instanceof MetricHyperCube other)) return super.intersects(r);
-        if (!super.intersects(r)) return false;
-
-        for (int i = 0; i < minValues.length; i++) {
-            double maxOfMins = Math.max(this.minValues[i], other.minValues[i]);
-            double minOfMaxs = Math.min(this.maxValues[i], other.maxValues[i]);
-            if (maxOfMins > minOfMaxs) return false;
-        }
-        return true;
-    }
-
-    @Override
-    public SpatialRegion intersection(SpatialRegion r) {
-        if (!intersects(r)) return null;
-        if (!(r instanceof MetricHyperCube other)) return super.intersection(r);
-
-        SpatialRegion physicalInt = super.intersection(r);
-        if (physicalInt == null) return null;
-
-        double[] newMin = new double[minValues.length];
-        double[] newMax = new double[minValues.length];
-
-        for (int i = 0; i < minValues.length; i++) {
-            newMin[i] = Math.max(this.minValues[i], other.minValues[i]);
-            newMax[i] = Math.min(this.maxValues[i], other.maxValues[i]);
-        }
-        
-        // When computing intersections mathematically, we fallback to the geometric center
-        return new MetricHyperCube(newMin, newMax, this.minimizeFlags, physicalInt, null);
-    }
-
-    @Override
-    public String toShortString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(super.toShortString()).append(" | Mass:").append(providerWeight).append(" | QoS[");
-        for (int i = 0; i < minValues.length; i++) {
-            String shortKey = MarketplaceMetricSchema.SHORT_NAMES.get(MarketplaceMetricSchema.KEYS[i]);
-            String minStr = minValues[i] > 1e9 ? "INF" : String.format("%.2f", minValues[i]);
-            String maxStr = maxValues[i] > 1e9 ? "INF" : String.format("%.2f", maxValues[i]);
-            sb.append(shortKey).append(":").append(minStr).append("->").append(maxStr);
-            if (i < minValues.length - 1) sb.append(", ");
-        }
-        sb.append("]");
-        return sb.toString();
     }
 }

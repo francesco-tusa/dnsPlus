@@ -23,7 +23,7 @@ public class ServiceRequest extends PublicationWithLocation {
         super(createMetricLocation(constraints, physicalLoc));
         this.serviceId = serviceId;
         this.preferences = constraints;
-        this.weights = createWeightsArray(weightsMap);
+        this.weights = createWeightsArray(weightsMap, constraints);
         this.minimizeFlags = createOptimizationFlags();
     }
 
@@ -36,15 +36,9 @@ public class ServiceRequest extends PublicationWithLocation {
         this.minimizeFlags = other.minimizeFlags;
     }
 
-    /**
-     * Helper to safely access the MetricLocation (Constraints) without casting.
-     * Renamed to avoid confusion with LoggableEntity.getMetricLocation().
-     */
     public MetricLocation getQoSConstraintsLocation() {
         return (MetricLocation) this.getLocation();
     }
-
-    // --- HELPER FACTORIES ---
 
     private static MetricLocation createMetricLocation(Map<String, Double> constraints, Location physicalLoc) {
         double[] reqValues = new double[MarketplaceMetricSchema.KEYS.length];
@@ -57,10 +51,20 @@ public class ServiceRequest extends PublicationWithLocation {
         return new MetricLocation(reqValues, physicalLoc);
     }
 
-    private static double[] createWeightsArray(Map<String, Double> weightsMap) {
+    // Dynamically ignore metrics that the client does not care about.
+    private static double[] createWeightsArray(Map<String, Double> weightsMap, Map<String, Double> constraints) {
         double[] w = new double[MarketplaceMetricSchema.KEYS.length];
         for (int i = 0; i < MarketplaceMetricSchema.KEYS.length; i++) {
-            w[i] = (weightsMap != null) ? weightsMap.getOrDefault(MarketplaceMetricSchema.KEYS[i], 0.0) : 0.0;
+            String key = MarketplaceMetricSchema.KEYS[i];
+            if (weightsMap != null && weightsMap.containsKey(key)) {
+                w[i] = weightsMap.get(key);
+            } else if (constraints != null && constraints.containsKey(key)) {
+                // Apply a balanced weight ONLY to dimensions the client explicitly requests
+                w[i] = 1.0; 
+            } else {
+                // Ignore missing dimensions entirely to prevent utility math inflation
+                w[i] = 0.0; 
+            }
         }
         return w;
     }
