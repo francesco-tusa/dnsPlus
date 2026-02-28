@@ -49,7 +49,13 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
         // 1. Spatial Filter
         this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
 
-        this.totalMatchingComputations += this.matchBuffer.size();
+        // We must count the total number of individual ServiceOffers we have to evaluate,
+        // not just the number of topological branches (keys) that contain them.
+        int evaluatedCandidates = 0;
+        for (List<SimulationSubscription> candidates : this.matchBuffer.values()) {
+            evaluatedCandidates += candidates.size();
+        }
+        this.totalMatchingComputations += evaluatedCandidates;
 
         if (this.matchBuffer.isEmpty()) {
             this.totalFalsePositiveEvents++;

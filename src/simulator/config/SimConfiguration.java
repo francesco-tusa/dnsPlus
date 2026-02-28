@@ -17,6 +17,7 @@ public class SimConfiguration {
     private static Properties programmedOverrides = null;
 
     public final long simulationSeed;
+    
     public final PathsConfig paths;
     public final TopologyConfig topology;
     public final BrokerConfig broker;

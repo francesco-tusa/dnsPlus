@@ -130,18 +130,33 @@ public class MetricHyperCube extends Region {
     // --- SPATIAL AND LOGICAL EVALUATION ---
 
     @Override
-    public boolean contains(Location location) {
-        if (!super.contains(location)) return false;
-        if (!(location instanceof MetricLocation req)) return false;
+    public boolean contains(simulator.regions.SpatialRegion r) {
+        // 1. Must be spatially contained (Inherited from Region's 2D GPS check)
+        if (!super.contains(r)) return false;
 
-        for (int i = 0; i < routingMinValues.length; i++) {
-            double reqValue = req.getMetric(i);
-            if (minimizeFlags[i]) {
-                if (reqValue < this.routingMinValues[i]) return false;
-            } else {
-                if (reqValue > this.routingMaxValues[i]) return false;
+        // 2. Must be dimensionally dominated in the N-Dimensional QoS Space
+        if (r instanceof MetricHyperCube other) {
+            for (int i = 0; i < this.routingMinValues.length; i++) {
+                if (this.minimizeFlags[i]) {
+                    // For metrics like Latency or Cost, we want LOWER values.
+                    // If the new offer has a BETTER (lower) minimum than what our hypercube 
+                    // currently provides, it expands our capabilities. It is NOT contained.
+                    if (other.routingMinValues[i] < this.routingMinValues[i]) {
+                        return false; 
+                    }
+                } else {
+                    // For metrics like Reliability or CPU shares, we want HIGHER values.
+                    // If the new offer has a BETTER (higher) maximum than what our hypercube 
+                    // currently provides, it expands our capabilities. It is NOT contained.
+                    if (other.routingMaxValues[i] > this.routingMaxValues[i]) {
+                        return false;
+                    }
+                }
             }
         }
+        
+        // If we reach here, the new offer provides absolutely no multi-objective benefit 
+        // over our existing aggregated state. It is Pareto-dominated and contained.
         return true;
     }
 

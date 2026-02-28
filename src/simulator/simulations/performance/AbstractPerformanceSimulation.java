@@ -46,6 +46,10 @@ public abstract class AbstractPerformanceSimulation<
     protected abstract GroundTruthCalculator createGroundTruthCalculator();
     protected abstract PublishersPlacementStrategy getPublisherPlacementStrategy();
 
+    public String getSimulationId() {
+        return this.simulationTimestamp;
+    }
+
     protected SubscribersPlacementStrategy getSubscriberPlacementStrategy() {
         return new PopulationBasedSubscribersPlacement();
     }
