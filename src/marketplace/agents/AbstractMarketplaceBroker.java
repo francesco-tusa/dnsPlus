@@ -5,9 +5,7 @@ import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.events.SimulationPublication;
 import simulator.events.SimulationSubscription;
-import simulator.regions.Region;
 import simulator.regions.SpatialMatchBroker;
-import simulator.regions.SubscriptionWithRegion;
 import simulator.regions.policy.StrictPropagationPolicy;
 import simulator.regions.store.RegionSubscriptionStore;
 import utils.CsvMetricWriter;
@@ -16,7 +14,6 @@ import marketplace.optimization.ServiceSelectionStrategy;
 
 import java.util.List;
 import java.util.Map;
-import java.util.ArrayList;
 import java.util.HashMap;
 
 public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
@@ -52,6 +49,8 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
         // 1. Spatial Filter
         this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
 
+        this.totalMatchingComputations += this.matchBuffer.size();
+
         if (this.matchBuffer.isEmpty()) {
             this.totalFalsePositiveEvents++;
             this.totalProactiveShieldedEvents++;
@@ -60,14 +59,14 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
             return null;
         }
 
-        // 2. Strategy Execution (No longer requires passing the store)
+        // 2. Strategy Execution 
         ServiceSelectionStrategy.SelectionResult selection = this.selectionStrategy.selectBestProvider(
                 req, this.matchBuffer);
         TreeNode bestNode = selection.bestNode();
 
         boolean tracingEnabled = SimConfiguration.get().paths.enableEventTracing;
 
-        // 3. Forwarding & Observability (INTEGRATION POINT)
+        // 3. Forwarding & Observability 
         if (bestNode != null) {
             String details = "Selected " + bestNode.getName();
 

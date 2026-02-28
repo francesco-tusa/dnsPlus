@@ -15,34 +15,38 @@ import utils.CsvMetricWriter;
 public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
 
     private static final Logger logger = CustomLogger.getLogger(MarketplaceGroundTruthCalculator.class.getName());
-    // Ensure we use the same strategy logic as the Broker
     private final WeightedUtilityStrategy strategy = new WeightedUtilityStrategy();
+
+    // --- NEW MARKETPLACE METRICS STATE ---
+    private double cumulativeUtilityScore = 0.0;
+    private long totalQosRejects = 0;
+    private long totalSpatialRejects = 0;
+    private long actualOptimalMatches = 0;
 
     @Override
     public long calculate(List<? extends SimulationSubscription> subs, List<PublicationWithLocation> pubs) {
-        long totalOptimalMatches = 0;
+        actualOptimalMatches = 0;
+        cumulativeUtilityScore = 0.0;
+        totalQosRejects = 0;
+        totalSpatialRejects = 0;
+        
         CsvMetricWriter writer = CsvMetricWriter.getInstance();
-
         logger.info(">>> STARTING GROUND TRUTH CALCULATION (Unified Strategy Mode & Spatial Bounds) <<<");
 
-        // Inside the calculate() method:
         for (PublicationWithLocation pub : pubs) {
-            if (!(pub instanceof ServiceRequest))
-                continue;
+            if (!(pub instanceof ServiceRequest)) continue;
             ServiceRequest request = (ServiceRequest) pub;
 
             double bestScore = Double.MAX_VALUE;
             ServiceOffer winner = null;
             double exactDist = -1.0;
 
-            // Add tracking counters
             int serviceRejects = 0;
             int spatialRejects = 0;
             int qosRejects = 0;
 
             for (SimulationSubscription sub : subs) {
-                if (!(sub instanceof ServiceOffer))
-                    continue;
+                if (!(sub instanceof ServiceOffer)) continue;
                 ServiceOffer offer = (ServiceOffer) sub;
 
                 if (offer.getServiceId() != request.getServiceId()) {
@@ -73,23 +77,30 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
                         exactDist = currentDist;
                     }
                 } else {
-                    qosRejects++; // Failed Multi-Objective Strategy constraint
+                    qosRejects++; 
                 }
             }
 
             if (winner != null) {
-                totalOptimalMatches++;
-                writer.logGroundTruth(request.getId(), request.getServiceId(), winner.getProviderName(), bestScore,
-                        exactDist);
+                actualOptimalMatches++;
+                cumulativeUtilityScore += bestScore; // Accumulate utility for the batch average
+                writer.logGroundTruth(request.getId(), request.getServiceId(), winner.getProviderName(), bestScore, exactDist);
             } else {
-                // Log the aggregated rejection reasons
-                String rejectionReason = String.format("NO_MATCH (Svc:%d Spat:%d QoS:%d)", serviceRejects,
-                        spatialRejects, qosRejects);
+                totalSpatialRejects += spatialRejects;
+                totalQosRejects += qosRejects;
+                String rejectionReason = String.format("NO_MATCH (Svc:%d Spat:%d QoS:%d)", serviceRejects, spatialRejects, qosRejects);
                 writer.logGroundTruth(request.getId(), request.getServiceId(), rejectionReason, -1.0, -1.0);
             }
         }
 
-        logger.info(">>> Ground Truth Calculation Complete. Records written to ground_truth.csv");
-        return totalOptimalMatches;
+        logger.info(">>> Ground Truth Calculation Complete.");
+        return actualOptimalMatches;
     }
+
+    // --- GETTERS FOR CSV EXPORT ---
+    public double getAverageUtilityScore() {
+        return actualOptimalMatches == 0 ? 0.0 : cumulativeUtilityScore / actualOptimalMatches;
+    }
+    public long getTotalQosRejects() { return totalQosRejects; }
+    public long getTotalSpatialRejects() { return totalSpatialRejects; }
 }
