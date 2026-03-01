@@ -94,15 +94,18 @@ public class MarketplaceAggregationLogicTest extends TestScenario {
 
         // TEST 2: REJECTED MERGE (Capability FPR Violation)
         AbstractMarketplaceRegionStore qosStrictStore = new HypercubeRegionStore(0.25);
-        // Cluster C: Latency [150, 160]. Merged with A [5, 10] leaves gap of 140 over a span of 155 (90% FPR).
+        
+        // FIXED: Make Cluster C cheaper [10, 15] so it is not Pareto-dominated by A.
+        // It will now bypass the filter and correctly fail the Merge evaluation due to the Latency gap.
         MetricHyperCube cubeC = createTestCluster(
-                new double[]{150.0, 50.0, 99.9, 100.0, 10.0}, 
-                new double[]{160.0, 55.0, 99.9, 100.0, 10.0}, 
+                new double[]{150.0, 10.0, 99.9, 100.0, 10.0}, 
+                new double[]{160.0, 15.0, 99.9, 100.0, 10.0}, 
                 flags, physA, locA);
         ServiceOffer offerC = new ServiceOffer(1001L, metrics, cubeC, locA, "Provider_C", 1.0) {};
 
         qosStrictStore.addOrUpdate(broker, offerA);
         qosStrictStore.addOrUpdate(broker, offerC);
+        
         if (qosStrictStore.size() != 2) {
             logger.severe("FAIL (Hypercube Standard): Falsely merged bad QoS, violating strict FPR limit.");
             return false;

@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.List;
 
 import marketplace.events.ServiceOffer;
+import marketplace.events.ServiceRequest;
 
 public class MarketplaceProvider extends SubscriberWithLocation {
 
@@ -21,6 +22,8 @@ public class MarketplaceProvider extends SubscriberWithLocation {
     
     private double configuredRange; 
     private boolean isConfigured = false;
+
+    private final List<ServiceRequest> deliveredRequests = new ArrayList<>();
 
     public MarketplaceProvider(String name, Location location) {
         super(name, location);
@@ -98,6 +101,16 @@ public class MarketplaceProvider extends SubscriberWithLocation {
 
     @Override
     public void receive(SimulationPublication p) {
-        super.receive(p);
+        super.receive(p); // Maintains Level 1 truth (counters)
+        
+        // Ledger: Track exact requests routed to this provider
+        if (p instanceof ServiceRequest req) {
+            deliveredRequests.add(req);
+        }
+    }
+
+    // Add a getter for the metric collector
+    public List<ServiceRequest> getDeliveredRequests() {
+        return deliveredRequests;
     }
 }

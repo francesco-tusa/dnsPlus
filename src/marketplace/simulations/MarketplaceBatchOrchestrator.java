@@ -18,7 +18,7 @@ public class MarketplaceBatchOrchestrator extends AbstractBatchOrchestrator {
 
     private static final Logger logger = CustomLogger.getLogger(MarketplaceBatchOrchestrator.class.getName());
 
-    private final int[] clientPopulations = {5000}; 
+    private final int[] clientPopulations = {1000000}; 
     private final ProviderScale[] providerScales = {
         new ProviderScale(1000, 5000, 25000) // Baseline: Cloud, Fog, Edge
     };

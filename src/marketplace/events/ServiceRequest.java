@@ -7,20 +7,17 @@ import simulator.core.Location;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 
-/**
- * Represents a specific Service Request (Demand) in the Marketplace.
- * Encapsulates the Service ID, QoS preferences (Metrics), and Utility Weights.
- */
 public class ServiceRequest extends PublicationWithLocation {
 
+    private final long originalRequestId; // NEW: Persistent reference to the Oracle's ID
     private final long serviceId;
     private final Map<String, Double> preferences;
     private final double[] weights; 
     private final boolean[] minimizeFlags;
 
     public ServiceRequest(long serviceId, Map<String, Double> constraints, Map<String, Double> weightsMap, Location physicalLoc) {
-        // We wrap the constraints into a MetricLocation and pass it to super
         super(createMetricLocation(constraints, physicalLoc));
+        this.originalRequestId = this.getId(); // Capture the root ID
         this.serviceId = serviceId;
         this.preferences = constraints;
         this.weights = createWeightsArray(weightsMap, constraints);
@@ -30,10 +27,15 @@ public class ServiceRequest extends PublicationWithLocation {
     private ServiceRequest(ServiceRequest other) {
         super(other.getLocation());
         this.copyStateFrom(other);
+        this.originalRequestId = other.originalRequestId; // Preserve the root ID during broker cloning
         this.serviceId = other.serviceId;
         this.preferences = other.preferences;
         this.weights = other.weights;
         this.minimizeFlags = other.minimizeFlags;
+    }
+
+    public long getOriginalRequestId() {
+        return originalRequestId;
     }
 
     public MetricLocation getQoSConstraintsLocation() {

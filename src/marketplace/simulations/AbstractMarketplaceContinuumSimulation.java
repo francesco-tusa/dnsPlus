@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import marketplace.analysis.MarketplaceGroundTruthCalculator;
+import marketplace.analysis.MarketplaceMetricsCollector;
+import marketplace.analysis.MarketplaceMetricsPrinter;
 import marketplace.config.MarketplaceConfig;
 import marketplace.population.MarketplaceProviderPlacementStrategy;
 import marketplace.workload.MarketplaceWorkloadGenerator;
@@ -16,6 +18,8 @@ import simulator.population.PublishersPlacementStrategy;
 import simulator.population.SubscribersPlacementStrategy;
 import simulator.regions.BoundedBroker;
 import simulator.simulations.performance.GeoNamesBasedRegionPerformanceSimulation;
+import simulator.simulations.performance.metrics.MetricsPrinter;
+import simulator.simulations.performance.metrics.PerformanceMetricsData;
 import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
 import simulator.workload.SubscriptionWorkloadGenerator;
 import utils.CsvMetricWriter;
@@ -60,6 +64,11 @@ public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBas
     @Override
     protected GroundTruthCalculator createGroundTruthCalculator() {
         return new MarketplaceGroundTruthCalculator();
+    }
+
+    @Override
+    protected MetricsPrinter createMetricsPrinter() {
+        return new MarketplaceMetricsPrinter(logger);
     }
 
     @Override
@@ -128,5 +137,16 @@ public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBas
     protected void logSpecificConfiguration() {
         super.logSpecificConfiguration(); 
         logConfigItem("Marketplace Strategy", "Utility Maximization (Latency/Cost)");
+    }
+
+    @Override
+    protected void collectAndPrintMetrics() {
+        // Inject the Oracle into the newly created Collector
+        MarketplaceMetricsCollector collector = new MarketplaceMetricsCollector((MarketplaceGroundTruthCalculator) truthCalculator);
+        
+        PerformanceMetricsData collected = collector.collect(this.rootNode, allSubscribers, allPublishers);
+        this.lastRunMetrics = collected;
+        
+        createMetricsPrinter().print(collected);        
     }
 }

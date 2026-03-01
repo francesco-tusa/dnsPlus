@@ -29,7 +29,7 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
     
     private final WeightedUtilityStrategy strategy = new WeightedUtilityStrategy();
 
-    // --- CROSS-BATCH GLOBAL STATE ---
+    // --- CROSS-BATCH GLOBAL STATE & ORACLE CACHE ---
     private final Set<Long> resolvedRequests = new HashSet<>();
     private final Map<Long, Double> globalBestScores = new HashMap<>();
     private final Map<Long, ServiceOffer> globalBestOffers = new HashMap<>();
@@ -39,20 +39,14 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
     private long totalSpatialRejects = 0;
     private boolean isCsvFlushed = false;
 
-    // --- IMMUTABLE RESULT RECORD FOR THREAD SAFETY ---
     private record RequestMatchResult(
-        long reqId, 
-        double bestScore, 
-        ServiceOffer winner, 
-        double exactDist, 
-        int spatialRejects, 
-        int qosRejects
+        long reqId, double bestScore, ServiceOffer winner, 
+        double exactDist, int spatialRejects, int qosRejects
     ) {}
 
     @Override
     public long calculate(List<? extends SimulationSubscription> subs, List<PublicationWithLocation> pubs) {
         if (subs.isEmpty() || pubs.isEmpty()) return 0;
-        
         logger.info(">>> STARTING GROUND TRUTH CALCULATION BATCH (Parallel & Global State Bounds) <<<");
 
         int numThreads = Runtime.getRuntime().availableProcessors();
@@ -79,26 +73,18 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
         return newMatchesInThisBatch;
     }
 
-    private long executePublisherParallel(ExecutorService executor,
-                                          List<? extends SimulationSubscription> subs,
-                                          List<PublicationWithLocation> pubs,
-                                          int numThreads) throws InterruptedException, ExecutionException {
-                                              
+    private long executePublisherParallel(ExecutorService executor, List<? extends SimulationSubscription> subs, List<PublicationWithLocation> pubs, int numThreads) throws InterruptedException, ExecutionException {
         List<Callable<List<RequestMatchResult>>> tasks = new ArrayList<>();
         int batchSize = (int) Math.ceil((double) pubs.size() / numThreads);
-
-        // Snapshot of best scores for thread-safe reading
         Map<Long, Double> currentBestScoresSnapshot = new HashMap<>(globalBestScores);
 
         for (int i = 0; i < pubs.size(); i += batchSize) {
             int end = Math.min(i + batchSize, pubs.size());
             List<PublicationWithLocation> pubBatch = pubs.subList(i, end);
-            
             tasks.add(() -> {
                 List<RequestMatchResult> batchResults = new ArrayList<>();
                 for (PublicationWithLocation pub : pubBatch) {
                     if (!(pub instanceof ServiceRequest request)) continue;
-                    
                     double initialBestScore = currentBestScoresSnapshot.getOrDefault(request.getId(), Double.MAX_VALUE);
                     batchResults.add(evaluateSingleRequest(request, subs, initialBestScore));
                 }
@@ -129,10 +115,8 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
 
     private long calculateSequential(List<? extends SimulationSubscription> subs, List<PublicationWithLocation> pubs) {
         long newMatchesInThisBatch = 0;
-        
         for (PublicationWithLocation pub : pubs) {
             if (!(pub instanceof ServiceRequest request)) continue;
-            
             double initialBestScore = globalBestScores.getOrDefault(request.getId(), Double.MAX_VALUE);
             RequestMatchResult res = evaluateSingleRequest(request, subs, initialBestScore);
             
@@ -143,7 +127,6 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
                 globalBestScores.put(res.reqId(), res.bestScore());
                 globalBestOffers.put(res.reqId(), res.winner());
                 globalBestDistances.put(res.reqId(), res.exactDist());
-                
                 if (!resolvedRequests.contains(res.reqId())) {
                     resolvedRequests.add(res.reqId());
                     newMatchesInThisBatch++;
@@ -162,8 +145,6 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
 
         for (SimulationSubscription sub : subs) {
             if (!(sub instanceof ServiceOffer offer)) continue;
-            
-            // Fast fail: Ignore mismatching service IDs
             if (offer.getServiceId() != request.getServiceId()) continue;
 
             double currentDist = -1.0;
@@ -192,11 +173,14 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
                 qosRejects++; 
             }
         }
-        
         return new RequestMatchResult(request.getId(), bestScore, winner, exactDist, spatialRejects, qosRejects);
     }
 
-    // --- GETTERS FOR CSV EXPORT ---
+    // --- EXPOSED STATE FOR METRICS COLLECTOR ---
+    public Map<Long, Double> getOracleOptimalScores() {
+        return globalBestScores;
+    }
+
     public double getAverageUtilityScore() {
         flushCsvOnce(); 
         if (globalBestScores.isEmpty()) return 0.0;
@@ -211,7 +195,6 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
     private synchronized void flushCsvOnce() {
         if (isCsvFlushed) return;
         isCsvFlushed = true;
-        
         CsvMetricWriter writer = CsvMetricWriter.getInstance();
         for (Map.Entry<Long, ServiceOffer> entry : globalBestOffers.entrySet()) {
             long reqId = entry.getKey();
