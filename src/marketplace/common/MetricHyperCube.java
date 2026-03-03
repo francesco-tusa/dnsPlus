@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import marketplace.common.aggregation.AggregationStrategy;
+
 public class MetricHyperCube extends Region {
 
     // STATE 1: Homomorphic Routing Envelope (Smeared to System Limits)
@@ -167,15 +169,31 @@ public class MetricHyperCube extends Region {
         boolean physicalChanged = super.expand(r);
         if (!(r instanceof MetricHyperCube other)) return physicalChanged;
 
+        AggregationStrategy strategy = marketplace.config.MarketplaceConfig.getAggregationStrategy();
+
+        // assume the spatial aggregation is always weighted for now
+
+        // 1. Delegate Spatial Density Calculation
+        // this.densityCenterX = strategy.calculateAggregatedValue(
+        //         this.densityCenterX, this.providerWeight,
+        //         other.densityCenterX, other.providerWeight);
+
+        // this.densityCenterY = strategy.calculateAggregatedValue(
+        //         this.densityCenterY, this.providerWeight,
+        //         other.densityCenterY, other.providerWeight);
+
         double totalWeight = this.providerWeight + other.providerWeight;
         this.densityCenterX = ((this.densityCenterX * this.providerWeight) + (other.densityCenterX * other.providerWeight)) / totalWeight;
         this.densityCenterY = ((this.densityCenterY * this.providerWeight) + (other.densityCenterY * other.providerWeight)) / totalWeight;
 
         boolean metricChanged = false;
-        
+    
         for (int i = 0; i < routingMinValues.length; i++) {
-            // 1. UPDATE EXPECTED YIELD (Center of Mass)
-            double newQos = ((this.qosCenterOfMass[i] * this.providerWeight) + (other.qosCenterOfMass[i] * other.providerWeight)) / totalWeight;
+            // 2. Delegate QoS Expected Yield (Center of Mass) Calculation
+            double newQos = strategy.calculateAggregatedValue(
+                    this.qosCenterOfMass[i], this.providerWeight,
+                    other.qosCenterOfMass[i], other.providerWeight);
+
             if (Math.abs(newQos - this.qosCenterOfMass[i]) > 1e-9) {
                 this.qosCenterOfMass[i] = newQos;
                 metricChanged = true;

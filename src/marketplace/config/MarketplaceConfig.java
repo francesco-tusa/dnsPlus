@@ -9,6 +9,9 @@ import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import marketplace.common.aggregation.AggregationStrategy;
+import marketplace.common.aggregation.UnweightedAggregationStrategy;
+import marketplace.common.aggregation.WeightedAggregationStrategy;
 import simulator.config.ConfigParser;
 import utils.CustomLogger;
 
@@ -25,6 +28,8 @@ public class MarketplaceConfig {
     public final int cloudProviderCount;
     public final int fogProviderCount;
     public final int edgeProviderCount;
+
+    private static AggregationStrategy activeAggregationStrategy;
 
     /**
      * Resets the configuration and applies overrides for batch parameter sweeps.
@@ -65,9 +70,24 @@ public class MarketplaceConfig {
         this.cloudProviderCount = ConfigParser.parseInt(props, "marketplace.providers.cloud.count", 15);
         this.fogProviderCount = ConfigParser.parseInt(props, "marketplace.providers.fog.count", 50);
         this.edgeProviderCount = ConfigParser.parseInt(props, "marketplace.providers.edge.count", 200);
+
+        String strategyType = ConfigParser.parseString(props, "marketplace.aggregation.strategy", "WEIGHTED");
         
-        logger.info(String.format("Marketplace Config Loaded. Slice: %s | Providers [C:%d, F:%d, E:%d]", 
-                allowedCountries, cloudProviderCount, fogProviderCount, edgeProviderCount));
+        if ("UNWEIGHTED".equalsIgnoreCase(strategyType)) {
+            activeAggregationStrategy = new UnweightedAggregationStrategy();
+        } else {
+            activeAggregationStrategy = new WeightedAggregationStrategy();
+        }
+        
+        logger.info(String.format("Marketplace Config Loaded. Slice: %s | Providers [C:%d, F:%d, E:%d] | Aggregation: %s", 
+                allowedCountries, cloudProviderCount, fogProviderCount, edgeProviderCount, strategyType));
+    }
+
+    public static AggregationStrategy getAggregationStrategy() {
+        if (activeAggregationStrategy == null) {
+            activeAggregationStrategy = new WeightedAggregationStrategy(); // Default fallback
+        }
+        return activeAggregationStrategy;
     }
 
     private Properties loadProperties() {

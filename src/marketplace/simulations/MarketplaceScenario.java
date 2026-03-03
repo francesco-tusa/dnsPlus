@@ -16,6 +16,7 @@ public class MarketplaceScenario extends AbstractSimulationScenario {
     @Override
     public String[] getKnobValues() {
         return new String[] { "0.0", "0.05", "0.10", "0.15", "0.20", "0.25", "0.30", "0.40", "0.50", "0.60", "0.75", "1.00" };
+        //return new String[] {"0.0"};
     }
 
     @Override

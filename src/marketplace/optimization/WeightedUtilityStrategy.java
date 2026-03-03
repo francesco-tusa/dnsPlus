@@ -186,7 +186,6 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
             case 1 /* COST */ -> MarketplaceMetricSchema.SYSTEM_MAX_COST;
             case 2 /* RELIABILITY */ -> MarketplaceMetricSchema.SYSTEM_MAX_RELIABILITY;
             case 3 /* BANDWIDTH */ -> MarketplaceMetricSchema.SYSTEM_MAX_BANDWIDTH;
-            case 4 /* ENERGY */ -> MarketplaceMetricSchema.SYSTEM_MAX_ENERGY;
             default -> 100.0; // Safe fallback
         };
     }

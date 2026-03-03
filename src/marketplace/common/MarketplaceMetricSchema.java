@@ -13,7 +13,6 @@ public class MarketplaceMetricSchema {
     public static final String METRIC_COST = "cost";
     public static final String METRIC_RELIABILITY = "reliability";
     public static final String METRIC_BANDWIDTH = "bandwidth";
-    public static final String METRIC_ENERGY = "energy";
 
     // =========================================================================
     // SYSTEM MAXIMUMS (Operational SLA Limits for Hybrid Normalization)
@@ -33,16 +32,12 @@ public class MarketplaceMetricSchema {
     // BANDWIDTH (Maximize): 1000.0 (Megabits per second - Mbps)
     public static final double SYSTEM_MAX_BANDWIDTH = 1000.0;
 
-    // ENERGY (Minimize): 100.0 (Joules per Megabyte processed)
-    public static final double SYSTEM_MAX_ENERGY = 100.0;
-
     // 1. The Fixed Order of Dimensions in the Hypercube/Vector
     public static final String[] KEYS = {
         METRIC_LATENCY,      // Index 0
         METRIC_COST,         // Index 1
         METRIC_RELIABILITY,  // Index 2
         METRIC_BANDWIDTH,    // Index 3
-        METRIC_ENERGY        // Index 4
     };
 
     // 2. Optimization Direction: True = Minimize, False = Maximize
@@ -50,8 +45,7 @@ public class MarketplaceMetricSchema {
         METRIC_LATENCY,      true,  // Minimize (Lower is better)
         METRIC_COST,         true,  // Minimize
         METRIC_RELIABILITY,  false, // Maximize (Higher is better)
-        METRIC_BANDWIDTH,    false, // Maximize
-        METRIC_ENERGY,       true   // Minimize
+        METRIC_BANDWIDTH,    false // Maximize
     );
 
     // Short labels for compact logging
@@ -59,8 +53,7 @@ public class MarketplaceMetricSchema {
         METRIC_LATENCY, "Lat",
         METRIC_COST, "Cst",
         METRIC_RELIABILITY, "Rel",
-        METRIC_BANDWIDTH, "Bw",
-        METRIC_ENERGY, "Erg"
+        METRIC_BANDWIDTH, "Bw"
     );
 
     // Quick Lookup Indices
@@ -89,7 +82,6 @@ public class MarketplaceMetricSchema {
             case METRIC_COST -> SYSTEM_MAX_COST;
             case METRIC_RELIABILITY -> SYSTEM_MAX_RELIABILITY;
             case METRIC_BANDWIDTH -> SYSTEM_MAX_BANDWIDTH;
-            case METRIC_ENERGY -> SYSTEM_MAX_ENERGY;
             default -> Double.MAX_VALUE;
         };
     }
