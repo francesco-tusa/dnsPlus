@@ -24,14 +24,14 @@ public class MarketplaceBatchOrchestrator extends AbstractBatchOrchestrator {
     };
     private final int STATISTICAL_RUNS = 1;
 
-    public void runMarketplaceBatch(SimulationScenario scenario, String csvFilename) {
+
+    public void runMarketplaceBatch(SimulationScenario scenario, String csvFilename, String batchId) {
         
         long configuredSeed = SimConfiguration.get().simulationSeed;
         String batchSeed = (configuredSeed == -1) ? "123456789" : String.valueOf(configuredSeed);
 
-        String batchId = String.valueOf(System.currentTimeMillis());
         String batchDirPath = "output" + File.separator + "batch_marketplace_" + batchId;
-        File batchDir = new File(batchDirPath);
+        File batchDir = new java.io.File(batchDirPath);
         
         if (!batchDir.exists()) {
             batchDir.mkdirs();

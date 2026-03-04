@@ -13,8 +13,7 @@ import utils.CustomLogger;
 import marketplace.common.MarketplaceMetricSchema;
 import marketplace.common.MetricHyperCube;
 import marketplace.events.ServiceOffer;
-import marketplace.topology.store.AbstractMarketplaceRegionStore;
-import marketplace.topology.store.HypercubeRegionStore;
+import marketplace.topology.store.MarketplaceRegionStore;
 
 public class MarketplaceAggregationLogicTest extends TestScenario {
 
@@ -75,7 +74,7 @@ public class MarketplaceAggregationLogicTest extends TestScenario {
 
         // TEST 1: SUCCESSFUL MERGE (Tight Spatial, Overlapping QoS)
         // Store allows 25% False Positive Rate (Dead Space)
-        AbstractMarketplaceRegionStore relaxedStore = new HypercubeRegionStore(0.25);
+        MarketplaceRegionStore relaxedStore = new MarketplaceRegionStore(0.25);
         Location locB = new Location(0.5, 0.5, 0);
         Region physB = new Region(locB, new Location(1.5, 1.5, 0));
         // Cluster B: Latency [8, 12], Cost [52, 58] -> Merged Latency [5,12] with 0 dead space.
@@ -93,7 +92,7 @@ public class MarketplaceAggregationLogicTest extends TestScenario {
         }
 
         // TEST 2: REJECTED MERGE (Capability FPR Violation)
-        AbstractMarketplaceRegionStore qosStrictStore = new HypercubeRegionStore(0.25);
+        MarketplaceRegionStore qosStrictStore = new MarketplaceRegionStore(0.25);
         
         // FIXED: Make Cluster C cheaper [10, 15] so it is not Pareto-dominated by A.
         // It will now bypass the filter and correctly fail the Merge evaluation due to the Latency gap.
@@ -117,7 +116,7 @@ public class MarketplaceAggregationLogicTest extends TestScenario {
 
     private boolean testHypercubeCornerCases(TreeNode broker, Map<String, Double> metrics, boolean[] flags) {
         System.out.println("\n--- TESTING HYPERCUBE STORE (GEOMETRIC CORNER CASES) ---");
-        AbstractMarketplaceRegionStore store = new HypercubeRegionStore(0.25);
+        MarketplaceRegionStore store = new MarketplaceRegionStore(0.25);
 
         // CORNER CASE A: The "Identical Twins, Oceans Apart" (Pure Spatial Rejection)
         // Two nodes have identical capability ranges, but are 100 geographic units apart.
@@ -142,7 +141,7 @@ public class MarketplaceAggregationLogicTest extends TestScenario {
         System.out.println("   -> Corner Case A (Pure Spatial FPR Fragmentation): PASS");
 
         // CORNER CASE B: The "Multi-Dimensional Unicorn" (Cross-Metric Asymmetry)
-        store = new HypercubeRegionStore(0.25);
+        store = new MarketplaceRegionStore(0.25);
         Location locUni1 = new Location(0, 0, 0);
         Region physUni1 = new Region(locUni1, new Location(2, 2, 0));
         // Node 1: Fast (5-10ms) but Expensive ($90-100)
@@ -166,7 +165,7 @@ public class MarketplaceAggregationLogicTest extends TestScenario {
         System.out.println("   -> Corner Case B (L-Infinity Multi-Dimensional Unicorn): PASS");
 
         // CORNER CASE C: The "Trojan Horse" (Macro Swallows Micro / Tier Isolation)
-        store = new HypercubeRegionStore(0.50); // Highly relaxed 50% threshold
+        store = new MarketplaceRegionStore(0.50); // Highly relaxed 50% threshold
         Location locCloud = new Location(0, 0, 0);
         Region physCloud = new Region(locCloud, new Location(100, 100, 0)); // Area 10,000
         // Cloud: Slow [30, 100], Cheap [10, 20]

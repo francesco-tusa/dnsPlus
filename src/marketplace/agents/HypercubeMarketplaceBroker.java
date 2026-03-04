@@ -5,10 +5,10 @@ import simulator.regions.Region;
 import simulator.regions.SpatialRegion;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.regions.store.RegionSubscriptionStore;
-import marketplace.topology.store.HypercubeRegionStore;
 import marketplace.common.MetricHyperCube;
 import marketplace.events.ServiceOffer;
 import marketplace.optimization.WeightedUtilityStrategy;
+import marketplace.topology.store.MarketplaceRegionStore;
 
 public class HypercubeMarketplaceBroker extends AbstractMarketplaceBroker {
 
@@ -24,7 +24,7 @@ public class HypercubeMarketplaceBroker extends AbstractMarketplaceBroker {
 
     @Override
     protected RegionSubscriptionStore createStore(boolean forceSingleRegion, double threshold) {
-        return new HypercubeRegionStore(threshold);
+        return new MarketplaceRegionStore(threshold);
     }
 
     @Override

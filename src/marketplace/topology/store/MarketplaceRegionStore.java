@@ -9,12 +9,17 @@ import simulator.regions.SubscriptionWithRegion;
 import simulator.regions.store.*;
 import marketplace.common.MetricHyperCube;
 import marketplace.events.ServiceOffer;
+import marketplace.common.aggregation.AggregationStrategy;
 
-public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegionStore {
+/**
+ * Unified Region Store for the Marketplace.
+ * Exclusively handles MetricHyperCubes, evaluating both Spatial and QoS Multi-Objective FPR.
+ */
+public class MarketplaceRegionStore extends AbstractMultiRegionStore {
 
     protected final Map<TreeNode, RegionQuadTree> map = new HashMap<>();
 
-    public AbstractMarketplaceRegionStore(double threshold) {
+    public MarketplaceRegionStore(double threshold) {
         super(threshold);
     }
 
@@ -30,10 +35,83 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         }
     }
 
+    // =========================================================================
+    // THE UNIFIED EVALUATION PIPELINE
+    // =========================================================================
+
     protected MergeEvaluation evaluateMerge(Region accumulator, SubscriptionWithRegion existing) {
-        boolean result = shouldMerge(accumulator, existing);
-        return new MergeEvaluation(result, result ? "Merged" : "Threshold Exceeded", 0.0);
+        if (!(accumulator instanceof MetricHyperCube cubeA) || !(existing.getRegion() instanceof MetricHyperCube cubeB)) {
+            boolean result = super.shouldMerge(accumulator, existing);
+            return new MergeEvaluation(result, result ? "Merged (Spatial)" : "Threshold Exceeded", 0.0); 
+        }
+
+        double maxFpr = calculateMaxFprPenalty(cubeA, cubeB);
+        
+        if (maxFpr <= this.mergeThreshold) {
+            return new MergeEvaluation(true, "Merged", maxFpr);
+        } else {
+            return new MergeEvaluation(false, String.format("Max FPR %.2f > %.2f", maxFpr, this.mergeThreshold), maxFpr);
+        }
     }
+
+    private double calculateMaxFprPenalty(MetricHyperCube cubeA, MetricHyperCube cubeB) {
+        // 1. Calculate Spatial FPR
+        double maxFpr = calculateSpatialFpr(cubeA, cubeB);
+
+        // 2. Calculate QoS Dimensional FPR
+        double[] lowA = cubeA.getCapabilityMinValues();
+        double[] highA = cubeA.getCapabilityMaxValues();
+        double[] meanA = cubeA.getQosCenterOfMass();
+        double weightA = cubeA.getProviderWeight();
+
+        double[] lowB = cubeB.getCapabilityMinValues();
+        double[] highB = cubeB.getCapabilityMaxValues();
+        double[] meanB = cubeB.getQosCenterOfMass();
+        double weightB = cubeB.getProviderWeight();
+
+        double epsilon = 1e-9;
+        AggregationStrategy strategy = marketplace.config.MarketplaceConfig.getAggregationStrategy();
+
+        for (int i = 0; i < lowA.length; i++) {
+            double spanA = highA[i] - lowA[i];
+            double spanB = highB[i] - lowB[i];
+            double minLow = Math.min(lowA[i], lowB[i]);
+            double maxHigh = Math.max(highA[i], highB[i]);
+            double spanAgg = maxHigh - minLow;
+
+            // Gate 1: 1D Gap Penalty
+            double gap = Math.max(0.0, Math.max(lowA[i], lowB[i]) - Math.min(highA[i], highB[i]));
+            double gapFpr = gap / Math.max(spanAgg, epsilon);
+            maxFpr = Math.max(maxFpr, gapFpr);
+
+            // Gate 2: Mean Similarity Penalty
+            double meanAgg = strategy.calculateAggregatedValue(meanA[i], (int)weightA, meanB[i], (int)weightB);
+            double shiftA = Math.abs(meanAgg - meanA[i]);
+            double shiftB = Math.abs(meanAgg - meanB[i]);
+            double aggregatedShift = strategy.calculateAggregatedValue(shiftA, (int)weightA, shiftB, (int)weightB);
+            
+            double aggregatedDenominator = strategy.calculateAggregatedValue(spanA, (int)weightA, spanB, (int)weightB);
+            if (aggregatedDenominator < epsilon) {
+                aggregatedDenominator = spanAgg;
+            }
+
+            double meanShiftFpr = aggregatedShift / Math.max(aggregatedDenominator, epsilon);
+            maxFpr = Math.max(maxFpr, meanShiftFpr);
+        }
+        return maxFpr;
+    }
+
+    private double calculateSpatialFpr(Region cubeA, Region cubeB) {
+        double mergedArea = cubeA.getMergedArea(cubeB);
+        if (mergedArea <= 1e-9) return 0.0;
+        double unionArea = cubeA.getArea() + cubeB.getArea() - cubeA.getIntersectionArea(cubeB);
+        double spatialDeadSpace = Math.max(0.0, mergedArea - unionArea);
+        return spatialDeadSpace / mergedArea;
+    }
+
+    // =========================================================================
+    // STORE LOGIC
+    // =========================================================================
 
     protected SubscriptionWithRegion wrapAggregatedRegion(SubscriptionWithRegion sub, Region accumulator, int mergedCount, int absorbedCount) {
         if (sub instanceof ServiceOffer offer && accumulator instanceof MetricHyperCube mhc) {
@@ -47,11 +125,17 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         }
     }
 
+    private boolean areCompatible(SubscriptionWithRegion a, SubscriptionWithRegion b) {
+        if (a instanceof ServiceOffer oa && b instanceof ServiceOffer ob) {
+            return oa.getServiceId() == ob.getServiceId();
+        }
+        return !(a instanceof ServiceOffer) && !(b instanceof ServiceOffer);
+    }
+
     @Override
     public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
         RegionQuadTree tree = map.computeIfAbsent(source, k -> new RegionQuadTree(-180, -90, 180, 90));
 
-        // 1. Filter Check (If it's identical, it interacted with 'existing')
         List<SubscriptionWithRegion> candidates = tree.findCandidatesContaining(sub.getRegion());
         for (SubscriptionWithRegion existing : candidates) {
             if (areCompatible(sub, existing) && existing.contains(sub)) {
@@ -60,7 +144,6 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         }
 
         Region accumulator = sub.getRegion().copy();
-
         boolean mergedInPass;
         int absorbedCount = 0;
         int mergedCount = 0;
@@ -68,11 +151,8 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         
         String rejectionReason = "No Overlaps";
         double maxExpansionPenalty = 0.0;
-        
-        // Track the existing region we are merging with
         SubscriptionWithRegion existingTarget = null; 
 
-        // 2. Absorb/Merge Loop
         do {
             mergedInPass = false;
             Region spatialQuery = new Region(accumulator);
@@ -85,7 +165,6 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
                 if (eval.canMerge) {
                     maxExpansionPenalty = Math.max(maxExpansionPenalty, eval.penalty);
                     
-                    // Track the largest existing region we successfully merged with
                     if (existingTarget == null) existingTarget = existing;
                     else if (existing.getArea() > existingTarget.getArea()) existingTarget = existing;
                     
@@ -120,21 +199,12 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         if (opResult == StoreOpResult.ADDED) {
             explanation = "ADDED [" + rejectionReason + "]";
         } else if (opResult == StoreOpResult.EXPANDED) {
-            // Update the log string to match the new unified metric
             explanation = String.format("EXPANDED [Max Expansion Penalty: %.5f]", maxExpansionPenalty);
         } else {
             explanation = createCleanExplanation(opResult, mergedCount, absorbedCount, isIdenticalReplacement);
         }
         
-        // Pass the tracked existingTarget down the pipeline
         return new StoreUpdate(opResult, resultingEntry, explanation, absorbedCount, mergedCount, existingTarget);
-    }
-
-    private boolean areCompatible(SubscriptionWithRegion a, SubscriptionWithRegion b) {
-        if (a instanceof ServiceOffer oa && b instanceof ServiceOffer ob) {
-            return oa.getServiceId() == ob.getServiceId();
-        }
-        return !(a instanceof ServiceOffer) && !(b instanceof ServiceOffer);
     }
 
     @Override
@@ -143,9 +213,7 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         for (Map.Entry<TreeNode, RegionQuadTree> entry : map.entrySet()) {
             RegionQuadTree tree = entry.getValue();
             List<SimulationSubscription> hits = new ArrayList<>();
-            
             tree.findMatches(loc, hits, opsCounter);
-            
             if (!hits.isEmpty()) {
                 resultsBuffer.put(entry.getKey(), hits);
             }
@@ -178,31 +246,9 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         return map.isEmpty();
     }
 
-    protected double calculateSpatialFpr(Region accumulator, SubscriptionWithRegion existing) {
-        float minLonA = (float) accumulator.getMinLon();
-        float maxLonA = (float) accumulator.getMaxLon();
-        float minLatA = (float) accumulator.getMinLat();
-        float maxLatA = (float) accumulator.getMaxLat();
-        
-        float minLonB = (float) existing.getRegion().getMinLon();
-        float maxLonB = (float) existing.getRegion().getMaxLon();
-        float minLatB = (float) existing.getRegion().getMinLat();
-        float maxLatB = (float) existing.getRegion().getMaxLat();
-
-        float areaA = Region.fastArea(minLonA, maxLonA, minLatA, maxLatA);
-        float areaB = Region.fastArea(minLonB, maxLonB, minLatB, maxLatB);
-        float interArea = Region.fastIntersectionArea(minLonA, maxLonA, minLatA, maxLatA, minLonB, maxLonB, minLatB, maxLatB);
-        float mergedArea = Region.fastMBRArea(minLonA, maxLonA, minLatA, maxLatA, minLonB, maxLonB, minLatB, maxLatB);
-
-        double spatialFpr = 0.0;
-        if (mergedArea > 1e-9) {
-            double geometricUnion = areaA + areaB - interArea;
-            spatialFpr = (mergedArea - geometricUnion) / mergedArea;
-        }
-        return spatialFpr;
-    }
-
-    // --- Embedded QuadTree ---
+    // =========================================================================
+    // RegionQuadTree 
+    // =========================================================================
     protected static class RegionQuadTree {
         private static final int MAX_ITEMS = 16;
         private static final int MAX_DEPTH = 10;
@@ -290,19 +336,14 @@ public abstract class AbstractMarketplaceRegionStore extends AbstractMultiRegion
         }
 
         public void findMatches(Location loc, List<SimulationSubscription> hits, int[] ops) {
-            // 1. MBR Check Cost (1 Op)
             ops[0]++;
             if (cachedMBR == null || !cachedMBR.contains(loc)) return;
-
-            // 2. Items Check Cost (N Ops)
             for (SubscriptionWithRegion s : items) {
                 ops[0]++;
                 if (s.getRegion().contains(loc)) {
                     hits.add(s);
                 }
             }
-
-            // 3. Child Traversal (Recursion)
             if (children != null) {
                 int idx = getPointIndex(loc.getX(), loc.getY());
                 if (idx != -1) {

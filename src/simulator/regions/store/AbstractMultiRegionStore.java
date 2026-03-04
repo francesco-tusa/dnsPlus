@@ -36,10 +36,7 @@ public abstract class AbstractMultiRegionStore implements RegionSubscriptionStor
         if (mergeThreshold <= 0.0) return false;
 
         Region extRegion = existing.getRegion();
-        
-        // Polymorphic Calls: 
-        // If acc is a MetricHyperCube, these return N-Dim Volume.
-        // If acc is a standard Region, these pass straight through to fastArea/fastMBRArea.
+
         double area1 = acc.getArea();
         double area2 = extRegion.getArea();
         double interArea = acc.getIntersectionArea(extRegion);

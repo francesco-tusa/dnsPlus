@@ -174,17 +174,17 @@ public class MetricHyperCube extends Region {
         // assume the spatial aggregation is always weighted for now
 
         // 1. Delegate Spatial Density Calculation
-        // this.densityCenterX = strategy.calculateAggregatedValue(
-        //         this.densityCenterX, this.providerWeight,
-        //         other.densityCenterX, other.providerWeight);
+        this.densityCenterX = strategy.calculateAggregatedValue(
+                this.densityCenterX, this.providerWeight,
+                other.densityCenterX, other.providerWeight);
 
-        // this.densityCenterY = strategy.calculateAggregatedValue(
-        //         this.densityCenterY, this.providerWeight,
-        //         other.densityCenterY, other.providerWeight);
+        this.densityCenterY = strategy.calculateAggregatedValue(
+                this.densityCenterY, this.providerWeight,
+                other.densityCenterY, other.providerWeight);
 
         double totalWeight = this.providerWeight + other.providerWeight;
-        this.densityCenterX = ((this.densityCenterX * this.providerWeight) + (other.densityCenterX * other.providerWeight)) / totalWeight;
-        this.densityCenterY = ((this.densityCenterY * this.providerWeight) + (other.densityCenterY * other.providerWeight)) / totalWeight;
+        // this.densityCenterX = ((this.densityCenterX * this.providerWeight) + (other.densityCenterX * other.providerWeight)) / totalWeight;
+        // this.densityCenterY = ((this.densityCenterY * this.providerWeight) + (other.densityCenterY * other.providerWeight)) / totalWeight;
 
         boolean metricChanged = false;
     
