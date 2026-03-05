@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Map;
 
 import simulator.core.TreeNode;
-import simulator.core.Location;
 import simulator.events.SimulationSubscription;
 import simulator.regions.SubscriptionWithRegion;
 import marketplace.common.MetricHyperCube;
@@ -137,7 +136,7 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
         return null;
     }
 
-    private double calculateGenericScore(MetricHyperCube cap, ServiceRequest req, double networkLatencyAddition) {
+    public double calculateGenericScore(MetricHyperCube cap, ServiceRequest req, double networkLatencyAddition) {
         double score = 0.0;
         
         // Extract the decoupled statistical center for utility evaluation

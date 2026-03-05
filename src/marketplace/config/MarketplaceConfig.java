@@ -19,8 +19,6 @@ public class MarketplaceConfig {
     private static final Logger logger = CustomLogger.getLogger(MarketplaceConfig.class.getName());
     
     private static MarketplaceConfig instance;
-    
-    // Storage for batch overrides (Parallel to SimConfiguration)
     private static Properties programmedOverrides = null;
 
     // --- Configuration Fields ---
@@ -28,12 +26,16 @@ public class MarketplaceConfig {
     public final int cloudProviderCount;
     public final int fogProviderCount;
     public final int edgeProviderCount;
+    
+    // --- Routing Strategy Configuration ---
+    public final String routingStrategy;
+    public final String baselineVendorPrefix;
 
-    private static AggregationStrategy activeAggregationStrategy;
+    public final double strictBudgetProbability;
+    public final double edgeWorkloadProbability;
 
-    /**
-     * Resets the configuration and applies overrides for batch parameter sweeps.
-     */
+    public final AggregationStrategy activeAggregationStrategy;
+
     public static synchronized void resetAndOverride(Properties overrides) {
         programmedOverrides = overrides;
         instance = new MarketplaceConfig();
@@ -49,12 +51,10 @@ public class MarketplaceConfig {
     private MarketplaceConfig() {
         Properties props = loadProperties();
 
-        // 1. Apply Overrides
         if (programmedOverrides != null) {
             props.putAll(programmedOverrides);
         }
 
-        // 2. Parse Properties
         String defaultSlice = "United States";
         String sliceStr = props.getProperty("marketplace.topology.slice", defaultSlice);
         
@@ -71,23 +71,21 @@ public class MarketplaceConfig {
         this.fogProviderCount = ConfigParser.parseInt(props, "marketplace.providers.fog.count", 50);
         this.edgeProviderCount = ConfigParser.parseInt(props, "marketplace.providers.edge.count", 200);
 
-        String strategyType = ConfigParser.parseString(props, "marketplace.aggregation.strategy", "WEIGHTED");
-        
-        if ("UNWEIGHTED".equalsIgnoreCase(strategyType)) {
-            activeAggregationStrategy = new UnweightedAggregationStrategy();
-        } else {
-            activeAggregationStrategy = new WeightedAggregationStrategy();
-        }
-        
-        logger.info(String.format("Marketplace Config Loaded. Slice: %s | Providers [C:%d, F:%d, E:%d] | Aggregation: %s", 
-                allowedCountries, cloudProviderCount, fogProviderCount, edgeProviderCount, strategyType));
-    }
+        this.strictBudgetProbability = ConfigParser.parseDouble(props, "marketplace.workload.strict_budget.probability", 0.5);
+        this.edgeWorkloadProbability = ConfigParser.parseDouble(props, "marketplace.workload.edge.probability", 0.35);
 
-    public static AggregationStrategy getAggregationStrategy() {
-        if (activeAggregationStrategy == null) {
-            activeAggregationStrategy = new WeightedAggregationStrategy(); // Default fallback
+        String strategyType = ConfigParser.parseString(props, "marketplace.aggregation.strategy", "WEIGHTED");
+        if ("UNWEIGHTED".equalsIgnoreCase(strategyType)) {
+            this.activeAggregationStrategy = new UnweightedAggregationStrategy();
+        } else {
+            this.activeAggregationStrategy = new WeightedAggregationStrategy();
         }
-        return activeAggregationStrategy;
+        
+        this.routingStrategy = ConfigParser.parseString(props, "marketplace.routing.strategy", "WEIGHTED_UTILITY");
+        this.baselineVendorPrefix = ConfigParser.parseString(props, "marketplace.baseline.vendor", "AWS_Cloud");
+        
+        logger.info(String.format("Marketplace Config Loaded. Slice: %s | Providers [C:%d, F:%d, E:%d] | Aggregation: %s | Routing: %s", 
+                allowedCountries, cloudProviderCount, fogProviderCount, edgeProviderCount, strategyType, routingStrategy));
     }
 
     private Properties loadProperties() {

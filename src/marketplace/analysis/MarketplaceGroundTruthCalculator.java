@@ -26,6 +26,7 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
 
     private static final Logger logger = CustomLogger.getLogger(MarketplaceGroundTruthCalculator.class.getName());
     private static final long MIN_WORKLOAD_THRESHOLD = 1_000_000;
+    private static final double Massive_SLA_PENALTY = 99999.0;
     
     private final WeightedUtilityStrategy strategy = new WeightedUtilityStrategy();
 
@@ -199,9 +200,14 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
         for (Map.Entry<Long, ServiceOffer> entry : globalBestOffers.entrySet()) {
             long reqId = entry.getKey();
             ServiceOffer offer = entry.getValue();
-            double score = globalBestScores.get(reqId);
+
+            // Apply massive penalty score if the initial Double.MAX_VALUE wasn't properly resolved
+            double rawScore = globalBestScores.get(reqId);
+            double score = (rawScore == Double.MAX_VALUE) ? Massive_SLA_PENALTY : rawScore;
+
             double dist = globalBestDistances.get(reqId);
             writer.logGroundTruth(reqId, offer.getServiceId(), offer.getProviderName(), score, dist);
         }
-    }
+        logger.info(String.format("Flushed Ground Truth CSV. Total QoS Rejects: %d", totalQosRejects));
+    }  
 }

@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import marketplace.common.aggregation.AggregationStrategy;
+import marketplace.config.MarketplaceConfig;
 
 public class MetricHyperCube extends Region {
 
@@ -169,9 +170,7 @@ public class MetricHyperCube extends Region {
         boolean physicalChanged = super.expand(r);
         if (!(r instanceof MetricHyperCube other)) return physicalChanged;
 
-        AggregationStrategy strategy = marketplace.config.MarketplaceConfig.getAggregationStrategy();
-
-        // assume the spatial aggregation is always weighted for now
+        AggregationStrategy strategy = MarketplaceConfig.get().activeAggregationStrategy;
 
         // 1. Delegate Spatial Density Calculation
         this.densityCenterX = strategy.calculateAggregatedValue(
@@ -181,10 +180,6 @@ public class MetricHyperCube extends Region {
         this.densityCenterY = strategy.calculateAggregatedValue(
                 this.densityCenterY, this.providerWeight,
                 other.densityCenterY, other.providerWeight);
-
-        double totalWeight = this.providerWeight + other.providerWeight;
-        // this.densityCenterX = ((this.densityCenterX * this.providerWeight) + (other.densityCenterX * other.providerWeight)) / totalWeight;
-        // this.densityCenterY = ((this.densityCenterY * this.providerWeight) + (other.densityCenterY * other.providerWeight)) / totalWeight;
 
         boolean metricChanged = false;
     
@@ -218,7 +213,7 @@ public class MetricHyperCube extends Region {
             }
         }
         
-        this.providerWeight = (int) totalWeight;
+        this.providerWeight = (int) (this.providerWeight + other.providerWeight);
         return physicalChanged || metricChanged;
     }
 }

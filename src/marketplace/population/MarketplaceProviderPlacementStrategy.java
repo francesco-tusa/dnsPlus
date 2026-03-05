@@ -18,19 +18,11 @@ import simulator.regions.Region;
 import utils.CustomLogger;
 import utils.SimulationRandom;
 
-/**
- * STRATEGY UPDATE:
- * 1. Uses SimulationRandom for global reproducibility.
- * 2. Generates UNIQUE QoS profiles for every single provider.
- * 3. Models "Processing Latency" (Cloud=Fast, Edge=Slow).
- * 4. Uses Region class methods for dimension and center calculations.
- */
 public class MarketplaceProviderPlacementStrategy implements SubscribersPlacementStrategy {
     
     private static final Logger logger = CustomLogger.getLogger(MarketplaceProviderPlacementStrategy.class.getName());
     
     private final Random random = SimulationRandom.get();
-
     private final ProviderProfileGenerator profileGenerator = new ProviderProfileGenerator(random);
 
     @Override
@@ -69,63 +61,76 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
         for (int i = 0; i < count; i++) {
             TreeNode targetNode = candidates.get(random.nextInt(candidates.size()));
             
-            if (!(targetNode instanceof BoundedBroker)) continue;
-            BoundedBroker hostBroker = (BoundedBroker) targetNode;
+            if (!(targetNode instanceof BoundedBroker hostBroker)) continue;
 
-            Location providerLoc = getBrokerCenter(hostBroker);
-            double adaptiveRange = calculateCoveringRange(hostBroker, depthTag);
+            // --- NATIVE GEOGRAPHIC DISPERSION ---
+            // Utilizing the native Region class to deterministically scatter 
+            // providers across the broker's bounding box.
+            Location providerLoc = new Location(0, 0, 0); // Safe default
+            if (hostBroker.getRegion() != null) {
+                if (hostBroker.getRegion() instanceof Region trueRegion) {
+                    providerLoc = trueRegion.getRandomLocation(this.random);
+                } else {
+                    providerLoc = hostBroker.getRegion().getRandomLocation();
+                }
+            }
+            
+            // --- HETEROGENEOUS RADII ---
+            // Calculate base range, then apply a +/- 25% stochastic jitter 
+            double baseRange = calculateCoveringRange(hostBroker, depthTag);
+            double jitterMultiplier = 0.75 + (random.nextDouble() * 0.50); 
+            double finalAdaptiveRange = baseRange * jitterMultiplier;
 
             String regionName = hostBroker.getName();
             String name = String.format("%s_%d_%s", providerLabel, i, regionName);
             
             MarketplaceProvider provider = new MarketplaceProvider(name, providerLoc);
-            
             hostBroker.addChild(provider);
             
-            Map<String, Double> qosProfile = profileGenerator.generateProfile(tierType);
+            ProviderProfileGenerator.ProviderPolicy policy = assignPolicyForTier(tierType);
+            Map<String, Double> qosProfile = profileGenerator.generateProfile(tierType, policy);
 
-            provider.configureService(serviceId, qosProfile, adaptiveRange);
+            provider.configureService(serviceId, qosProfile, finalAdaptiveRange);
             
-            logger.fine(String.format("Attached %s to %s (Range: %.2f) [Intrinsic Lat: %.1fms]", 
-                name, hostBroker.getName(), adaptiveRange, qosProfile.get(MarketplaceMetricSchema.METRIC_LATENCY)));
+            logger.fine(String.format("Attached %s to %s (Range: %.2f) [Lat: %.1fms, Policy: %s]", 
+                name, hostBroker.getName(), finalAdaptiveRange, qosProfile.get(MarketplaceMetricSchema.METRIC_LATENCY), policy.name()));
         }
     }
     
-    private double calculateCoveringRange(BoundedBroker broker, String depthTag) {
-        Region r = broker.getRegion();
-        if (r == null) return ProviderProfileGenerator.RADIUS_EDGE; // Safe default for unmapped leaf
+    private ProviderProfileGenerator.ProviderPolicy assignPolicyForTier(String tierType) {
+        double probability = this.random.nextDouble(); 
 
-        // Delegate to Region class to handle coordinate wrapping correctly
+        return switch (tierType.toUpperCase()) {
+            case "CLOUD" -> (probability < 0.80) ? 
+                    ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED : 
+                    ProviderProfileGenerator.ProviderPolicy.BALANCED;
+            case "FOG" -> {
+                if (probability < 0.50) yield ProviderProfileGenerator.ProviderPolicy.BALANCED;
+                if (probability < 0.80) yield ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED;
+                yield ProviderProfileGenerator.ProviderPolicy.COST_OPTIMIZED;
+            }
+            case "EDGE" -> (probability < 0.70) ? 
+                    ProviderProfileGenerator.ProviderPolicy.COST_OPTIMIZED : 
+                    ProviderProfileGenerator.ProviderPolicy.BALANCED;
+            default -> ProviderProfileGenerator.ProviderPolicy.BALANCED;
+        };
+    }
+
+    private double calculateCoveringRange(BoundedBroker broker, String depthTag) {
+        simulator.regions.SpatialRegion r = broker.getRegion();
+        if (r == null) return ProviderProfileGenerator.RADIUS_EDGE; 
+
         double width = r.getWidth();
         double height = r.getHeight();
-        
-        // Use Max Dimension (Square Logic) to ensure coverage
         double maxDimension = Math.max(width, height);
         double halfSide = maxDimension / 2.0;
 
-        switch (depthTag.toUpperCase()) {
-            case "COUNTRY": 
-                // CLOUD: Cap at the centralized maximum so it doesn't wrap the Earth.
-                return Math.min(halfSide * 1.5, ProviderProfileGenerator.RADIUS_CLOUD_MAX); 
-                
-            case "ADMIN1": 
-                // FOG: Cover the state/region, cap at centralized max.
-                return Math.min(halfSide * 1.2, ProviderProfileGenerator.RADIUS_FOG_MAX);
-                
-            case "CITY": 
-                // EDGE: Hardcode to centralized metro boundary.
-                return ProviderProfileGenerator.RADIUS_EDGE; 
-                
-            default: 
-                return halfSide;
-        }
-    }
-
-    private Location getBrokerCenter(BoundedBroker broker) {
-        Region r = broker.getRegion();
-        if (r == null) return new Location(0,0,0);
-        
-        return r.getCenter();
+        return switch (depthTag.toUpperCase()) {
+            case "COUNTRY" -> Math.min(halfSide * 1.5, ProviderProfileGenerator.RADIUS_CLOUD_MAX);
+            case "ADMIN1" -> Math.min(halfSide * 1.2, ProviderProfileGenerator.RADIUS_FOG_MAX);
+            case "CITY" -> ProviderProfileGenerator.RADIUS_EDGE;
+            default -> halfSide;
+        };
     }
 
     private List<TreeNode> findCandidatesByDepth(TreeNode node, String depthTag) {
@@ -148,12 +153,12 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
     }
 
     private int parseDepth(String tag) {
-        switch (tag.toUpperCase()) {
-            case "CONTINENT": return 1;
-            case "COUNTRY": return 2;
-            case "ADMIN1": return 3;
-            case "CITY": return 4;
-            default: return 4;
-        }
+        return switch (tag.toUpperCase()) {
+            case "CONTINENT" -> 1;
+            case "COUNTRY" -> 2;
+            case "ADMIN1" -> 3;
+            case "CITY" -> 4;
+            default -> 4;
+        };
     }
 }

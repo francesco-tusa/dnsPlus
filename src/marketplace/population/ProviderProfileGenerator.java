@@ -5,63 +5,85 @@ import java.util.Random;
 import marketplace.common.MarketplaceMetricSchema;
 
 /**
- * Generates stratified QoS profiles for Marketplace Providers based on their tier.
- * Models intrinsic processing capabilities (Compute) and pricing models.
- * Network latency is NOT modeled here; it is dynamically calculated at runtime by the Strategy.
+ * Generates stratified QoS profiles for Marketplace Providers based on tier and operational policy.
+ * Models intrinsic processing capabilities (Compute), pricing models, and cold/warm start dynamics.
+ * Network latency is dynamically calculated at runtime by the Routing Strategy.
  */
 public class ProviderProfileGenerator {
 
-    // --- CENTRALIZED TOPOLOGY TIER RADII ---
-    public static final double RADIUS_CLOUD_MAX = 20.0; // ~2200km
+    public static final double RADIUS_CLOUD_MAX = 8.0; // ~900km
     public static final double RADIUS_FOG_MAX   = 3.0;  // ~330km
     public static final double RADIUS_EDGE      = 0.25; // ~27km
     
+    public enum ProviderPolicy { WARM_OPTIMIZED, COST_OPTIMIZED, BALANCED }
+
     private final Random random;
 
     public ProviderProfileGenerator(Random seededRandom) {
         this.random = seededRandom;
     }
 
-    public Map<String, Double> generateProfile(String tierType) {
-        double intrinsicLatency, cost, reliability;
+    public Map<String, Double> generateProfile(String tierType, ProviderPolicy policy) {
+        double computeLatency, cost, reliability, bandwidth;
 
-        switch (tierType.toUpperCase()) {
-            case "CLOUD":
-                // 1. CLOUD (AWS)
-                // Compute: High orchestration overhead (API Gateway/MicroVMs).
-                intrinsicLatency = 20.0 + (random.nextDouble() * 10.0); // 20ms - 30ms
-                // Cost: Economies of scale -> Lowest cost.
-                cost = 1.0 + (random.nextDouble() * 4.0);               // $1.0 - $5.0
-                // Reliability: Massive redundancy.
-                reliability = 0.999 + (random.nextDouble() * 0.0009);   // 99.9% - 99.99%
+        // 1. Base hardware capabilities (Compute Latency)
+        double baseComputeLatency = switch (tierType.toUpperCase()) {
+            case "CLOUD" -> 2.0 + (random.nextDouble() * 3.0);   // 2-5ms intrinsic
+            case "FOG"   -> 10.0 + (random.nextDouble() * 10.0); // 10-20ms intrinsic
+            default      -> 25.0 + (random.nextDouble() * 25.0); // EDGE: 25-50ms intrinsic
+        };
+
+        // 2. Base Bandwidth (Mbps)
+        bandwidth = switch (tierType.toUpperCase()) {
+            case "CLOUD" -> 1000.0;
+            case "FOG"   -> 200.0 + (random.nextDouble() * 300.0);
+            default      -> 50.0 + (random.nextDouble() * 50.0); // EDGE
+        };
+
+        // 3. Apply Warm/Cold Start Policy Modifiers
+        switch (policy) {
+            case WARM_OPTIMIZED:
+                computeLatency = baseComputeLatency * 1.0; 
+                cost = getBaseCost(tierType) * 2.5; // Premium for idle memory retention
+                reliability = getBaseReliability(tierType) + 0.005; 
                 break;
-
-            case "FOG":
-                // 2. FOG (Telco/Regional)
-                // Compute: Moderate orchestration (K8s/Containers).
-                intrinsicLatency = 10.0 + (random.nextDouble() * 10.0); // 10ms - 20ms
-                // Cost: Moderate infrastructure costs.
-                cost = 10.0 + (random.nextDouble() * 10.0);             // $10.0 - $20.0
-                // Reliability: Standard redundancy.
-                reliability = 0.99 + (random.nextDouble() * 0.009);     // 99.0% - 99.9%
+            case COST_OPTIMIZED:
+                computeLatency = baseComputeLatency + 200.0; // Simulated amortized cold-start penalty
+                cost = getBaseCost(tierType) * 0.5; 
+                reliability = Math.max(0.90, getBaseReliability(tierType) - 0.02); // Startup failures
                 break;
-
-            case "EDGE":
+            case BALANCED:
             default:
-                // 3. EDGE (Metro/Street-level)
-                // Compute: Ultra-lightweight WASM isolates -> Near-zero overhead.
-                intrinsicLatency = 2.0 + (random.nextDouble() * 5.0);   // 2ms - 7ms
-                // Cost: Premium for physical real estate and maintenance -> Highest cost.
-                cost = 40.0 + (random.nextDouble() * 20.0);             // $40.0 - $60.0
-                // Reliability: Susceptible to local failures/power drops.
-                reliability = 0.95 + (random.nextDouble() * 0.04);      // 95.0% - 99.0%
+                computeLatency = baseComputeLatency + 50.0; // Average penalty mix
+                cost = getBaseCost(tierType) * 1.0;
+                reliability = getBaseReliability(tierType);
                 break;
         }
 
+        // Bound reliability to max 1.0
+        reliability = Math.min(1.0, reliability);
+
         return Map.of(
-            MarketplaceMetricSchema.METRIC_LATENCY, intrinsicLatency,
+            MarketplaceMetricSchema.METRIC_LATENCY, computeLatency,
             MarketplaceMetricSchema.METRIC_COST, cost,
-            MarketplaceMetricSchema.METRIC_RELIABILITY, reliability
+            MarketplaceMetricSchema.METRIC_RELIABILITY, reliability,
+            MarketplaceMetricSchema.METRIC_BANDWIDTH, bandwidth
         );
+    }
+
+    private double getBaseCost(String tierType) {
+        return switch (tierType.toUpperCase()) {
+            case "CLOUD" -> 5.0;  // Economies of scale
+            case "FOG"   -> 12.0;
+            default      -> 25.0; // EDGE: Premium real estate, low scale
+        };
+    }
+
+    private double getBaseReliability(String tierType) {
+        return switch (tierType.toUpperCase()) {
+            case "CLOUD" -> 0.999;
+            case "FOG"   -> 0.99;
+            default      -> 0.95; // EDGE: local power/network drops
+        };
     }
 }

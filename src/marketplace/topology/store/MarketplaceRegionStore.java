@@ -10,6 +10,7 @@ import simulator.regions.store.*;
 import marketplace.common.MetricHyperCube;
 import marketplace.events.ServiceOffer;
 import marketplace.common.aggregation.AggregationStrategy;
+import marketplace.config.MarketplaceConfig;
 
 /**
  * Unified Region Store for the Marketplace.
@@ -70,7 +71,7 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
         double weightB = cubeB.getProviderWeight();
 
         double epsilon = 1e-9;
-        AggregationStrategy strategy = marketplace.config.MarketplaceConfig.getAggregationStrategy();
+        AggregationStrategy strategy = MarketplaceConfig.get().activeAggregationStrategy;
 
         for (int i = 0; i < lowA.length; i++) {
             double spanA = highA[i] - lowA[i];

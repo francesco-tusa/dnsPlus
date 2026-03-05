@@ -6,27 +6,7 @@ import simulator.simulations.performance.metrics.PerformanceMetricsData;
 import marketplace.analysis.MarketplacePerformanceMetricsData;
 import marketplace.topology.MarketplaceBrokerFactory;
 
-public class MarketplaceScenario extends AbstractSimulationScenario {
-
-    @Override
-    public String getKnobKey() {
-        return "broker.smartThreshold";
-    }
-
-    @Override
-    public String[] getKnobValues() {
-        return new String[] { "0.0", "0.05", "0.10", "0.15", "0.20", "0.25", "0.30", "0.40", "0.50", "0.60", "0.75", "1.00" };
-        //return new String[] {"0.0"};
-    }
-
-    @Override
-    public String getCsvHeader() {
-        return getCommonCsvHeader() + ",threshold,cloud_nodes,fog_nodes,edge_nodes,rep_id," +
-               "table_size_avg,state_added,state_expanded,state_suppressed," +
-               "processed_requests_load,qos_evaluations,shielded_requests,dead_ends," +
-               "ground_truth_matches,deliveries,accuracy," + 
-               "true_optimal_deliveries,suboptimal_deliveries,avg_optimality_gap";
-    }
+public abstract class AbstractMarketplaceScenario extends AbstractSimulationScenario {
 
     @Override
     protected void configureSpecific(Properties props) {
@@ -45,8 +25,17 @@ public class MarketplaceScenario extends AbstractSimulationScenario {
     }
 
     @Override
+    public String getCsvHeader() {
+        return getCommonCsvHeader() + ",strategy,sweep_value,cloud_nodes,fog_nodes,edge_nodes,rep_id," +
+               "table_size_avg,state_added,state_expanded,state_suppressed," +
+               "processed_requests_load,qos_evaluations,shielded_requests,dead_ends," +
+               "ground_truth_matches,deliveries,accuracy," + 
+               "true_optimal_deliveries,suboptimal_deliveries,sla_violations,avg_optimality_gap," + 
+               "avg_delivered_utility";
+    }
+
+    @Override
     public String getCsvRow(PerformanceMetricsData data, Properties props) {
-        // Upgrade the cast to our new Marketplace container
         if (!(data instanceof MarketplacePerformanceMetricsData marketData)) {
             return "";
         }
@@ -54,12 +43,10 @@ public class MarketplaceScenario extends AbstractSimulationScenario {
         double avgTableSize = (marketData.inputTableStats.getCount() > 0) 
             ? marketData.inputTableStats.getAverage() : 0.0;
 
-        // --- DECOUPLED CONTROL PLANE METRICS (State) ---
         long stateAdded = marketData.totalPropagatedAdded;
         long stateExpanded = marketData.totalPropagatedExpanded;
         long stateSuppressed = marketData.totalPropagatedCovered;
 
-        // --- DECOUPLED DATA PLANE METRICS (Requests) ---
         long pubEvents = marketData.totalPublicationProcessingEvents;
         long totalQosEvaluations = marketData.totalMatchingComputations; 
         long shieldedRequests = marketData.totalProactiveShieldedEvents;
@@ -70,14 +57,17 @@ public class MarketplaceScenario extends AbstractSimulationScenario {
         
         double accuracy = safeDiv(deliveries, (double) groundTruthMatches);
 
-        // --- NEW MULTI-OBJECTIVE METRICS (Deferred Utility Synthesis) ---
         long trueOptimalDeliveries = marketData.optimalDeliveries;
         long suboptimalDeliveries = marketData.suboptimalDeliveries;
+        long slaViolations = marketData.slaViolations;
         double avgOptimalityGap = marketData.getAverageUtilityDegradation();
+        double avgDeliveredUtility = marketData.getAverageDeliveredUtility();
 
-        // Ensure formatting sequence matches the new header exactly (20 elements)
-        return String.format("%s,%s,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%s",
+        String strategy = props.getProperty("marketplace.routing.strategy", "WEIGHTED_UTILITY");
+
+        return String.format("%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d,%s,%s",
                 getCommonCsvPrefix(props),
+                strategy,
                 props.getProperty(getKnobKey(), "0.0"),
                 props.getProperty("marketplace.providers.cloud.count", "0"),
                 props.getProperty("marketplace.providers.fog.count", "0"),
@@ -96,7 +86,9 @@ public class MarketplaceScenario extends AbstractSimulationScenario {
                 formatDouble(accuracy),
                 trueOptimalDeliveries,
                 suboptimalDeliveries,
-                formatDouble(avgOptimalityGap)
+                slaViolations,
+                formatDouble(avgOptimalityGap),
+                formatDouble(avgDeliveredUtility)
         );
     }
 }

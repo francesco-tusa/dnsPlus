@@ -1,4 +1,3 @@
-// File: src/marketplace/analysis/MarketplaceMetricsCollector.java
 package marketplace.analysis;
 
 import java.util.List;
@@ -25,13 +24,9 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
     @Override
     public PerformanceMetricsData collect(TreeNode root, List<SubscriberWithLocation> subs, List<PublisherWithLocation> pubs) {
         
-        // 1. Create the specialized Level 2 Marketplace Data Container
         MarketplacePerformanceMetricsData marketData = new MarketplacePerformanceMetricsData();
-        
-        // 2. Delegate to the Level 3 base class to populate ALL routing & subscription metrics into it
         super.populateMetrics(root, subs, pubs, marketData);
 
-        // 3. Deferred Utility Error Calculation (Level 2 Multi-Objective Error)
         Map<Long, Double> optimalScores = oracle.getOracleOptimalScores();
         marketData.groundTruthMatches = optimalScores.size();
 
@@ -40,18 +35,23 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
             
             for (ServiceRequest req : provider.getDeliveredRequests()) {
                 Double optimalScore = optimalScores.get(req.getOriginalRequestId());
-                if (optimalScore == null) continue; // Safety check
+                if (optimalScore == null) continue; 
 
                 // Compute the utility score of the actual provider chosen by the decentralized network
                 var actualResult = strategy.inspect(provider.getLastAdvertisedOffer(), req);
+                
+                // Accumulate Absolute Utility
+                marketData.cumulativeDeliveredUtility += actualResult.score();
+                
+                if (!actualResult.isFeasible()) {
+                    marketData.slaViolations++;
+                }
                 
                 // Floating point epsilon comparison (1e-5)
                 if (Math.abs(actualResult.score() - optimalScore) < 1e-5) {
                     marketData.optimalDeliveries++;
                 } else {
                     marketData.suboptimalDeliveries++;
-                    
-                    // FIXED: Calculate the Relative Optimality Gap (Stretch Factor)
                     double optimalityGap = (actualResult.score() - optimalScore) / optimalScore;
                     marketData.cumulativeUtilityDegradation += optimalityGap;
                 }
