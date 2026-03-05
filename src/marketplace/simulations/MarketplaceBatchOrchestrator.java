@@ -22,13 +22,13 @@ public class MarketplaceBatchOrchestrator extends AbstractBatchOrchestrator {
     
     // Topologies to test: Cloud-only and Continuum
     private final ProviderScale[] providerScales = {
-        new ProviderScale(100, 0, 0),     // Legacy Cloud Baseline
+        //new ProviderScale(100, 0, 0),     // Legacy Cloud Baseline
         new ProviderScale(100, 500, 2500)   // FaaS Marketplace Continuum
     };
     
     // Sweeping across algorithms
     private final String[] routingStrategies = {
-        "BASELINE",
+        //"BASELINE",
         "WEIGHTED_UTILITY"
     };
     
