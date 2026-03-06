@@ -12,8 +12,6 @@ public class SimulationPublication extends AbstractPublication {
     
     private int hops = 0;
     protected EventMetrics metrics;
-    protected boolean isRoutingDown = false;
-
 
     public SimulationPublication() {
         this.id = ++ID_COUNTER;
@@ -29,9 +27,6 @@ public class SimulationPublication extends AbstractPublication {
 
     public int getHops() { return hops; }
     public void setHops(int hops) { this.hops = hops; }
-
-    public void markAsRoutingDown() { this.isRoutingDown = true; }
-    public boolean isRoutingDown() { return isRoutingDown; }
     
     public void incrementHops() { 
         this.hops++; 
@@ -40,7 +35,6 @@ public class SimulationPublication extends AbstractPublication {
     public void copyStateFrom(SimulationPublication other) {
         this.hops = other.hops;
         this.metrics = other.metrics;
-        this.isRoutingDown = other.isRoutingDown;
     }
 
     public SimulationPublication getPublication() {

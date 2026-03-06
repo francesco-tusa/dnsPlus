@@ -49,8 +49,6 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
         // 1. Spatial Filter
         this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
 
-        // We must count the total number of individual ServiceOffers we have to evaluate,
-        // not just the number of topological branches (keys) that contain them.
         int evaluatedCandidates = 0;
         for (List<SimulationSubscription> candidates : this.matchBuffer.values()) {
             evaluatedCandidates += candidates.size();
@@ -79,24 +77,23 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
             if (tracingEnabled && selection.bestScore() < PENALTY_SCORE) {
                 details += String.format(" (Score: %.3f, Dist: %.1f)", selection.bestScore(), selection.distance());
             }
-
-            // COMMIT: The request is now moving DOWN toward a provider
-            req.markAsRoutingDown();
-
+            
             CsvMetricWriter.getInstance().logPublication(
                     p, this.getName(), "FORWARDED", details);
             forwardPublicationToNode(p, bestNode);
         } else {
             // Drop Logic
             this.totalFalsePositiveEvents++;
-
             String logType;
-            if (req.isRoutingDown()) {
-                // TRUE DEAD END: An upper broker promised a match that this child cannot fulfill.
+
+            // STATELESS PROVENANCE CHECK: 
+            // Is this broker the topological entry point (Ingress) for this request?
+            if (!isIngressNode(req)) {
+                // TRUE DEAD END: An upstream broker promised a match via a Hypercube that this child cannot fulfill.
                 this.totalDownwardDeadEndEvents++;
                 logType = "DROP_STRATEGY_DEAD_END";
             } else {
-                // PROACTIVE SHIELDING: We blocked an invalid request during the search phase.
+                // PROACTIVE SHIELDING: We blocked an unresolvable intent right at the edge/entry point.
                 this.totalProactiveShieldedEvents++;
                 logType = "DROP_STRATEGY_SHIELDED";
             }
@@ -113,7 +110,15 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
         return null;
     }
 
-    // Abstract Factory Methods to be implemented by Concrete Brokers
+    /**
+     * Determines if this broker is the first topological hop for the publication.
+     */
+    private boolean isIngressNode(ServiceRequest req) {
+
+        
+        return req.getHops() == 0;
+    }
+
     @Override
     protected abstract RegionSubscriptionStore createStore(boolean forceSingleRegion, double threshold);
 }

@@ -120,23 +120,40 @@ public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBas
     }
 
     // ==================================================================================
-    //  LOGGING
+    //  LOGGING & DIAGNOSTICS
     // ==================================================================================
 
     @Override
     protected void logWorkloadConfiguration() {
         MarketplaceConfig config = MarketplaceConfig.get();
+        
+        // Print a specialized banner for the FaaS topology and workload
+        printBanner("MARKETPLACE TOPOLOGY & WORKLOAD");
+        
         logConfigItem("Marketplace Slice", config.allowedCountries);
         logConfigItem("Cloud Providers", config.cloudProviderCount);
         logConfigItem("Fog Providers", config.fogProviderCount);
         logConfigItem("Edge Providers", config.edgeProviderCount);
         logConfigItem("Marketplace Clients", SimConfiguration.get().workload.numberOfReplicas);
+        
+        // New FaaS Workload Parameters
+        logConfigItem("Edge Workload Probability", String.format("%.2f", config.edgeWorkloadProbability));
+        logConfigItem("Strict Budget Probability", String.format("%.2f", config.strictBudgetProbability));
     }
 
     @Override
     protected void logSpecificConfiguration() {
+        // 1. Let the parent classes print their standard network routing configs (Smart Broker, etc.)
         super.logSpecificConfiguration(); 
-        logConfigItem("Marketplace Strategy", "Utility Maximization (Latency/Cost)");
+        
+        MarketplaceConfig config = MarketplaceConfig.get();
+        
+        // 2. Print a specialized banner for the Multi-Objective FaaS logic
+        printBanner("MARKETPLACE ROUTING LOGIC");
+        
+        logConfigItem("Marketplace Routing Strategy", config.routingStrategy);
+        logConfigItem("Aggregation Strategy", config.activeAggregationStrategy.getClass().getSimpleName());
+        logConfigItem("Baseline Vendor Target", config.baselineVendorPrefix);
     }
 
     @Override

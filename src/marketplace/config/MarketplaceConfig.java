@@ -83,9 +83,6 @@ public class MarketplaceConfig {
         
         this.routingStrategy = ConfigParser.parseString(props, "marketplace.routing.strategy", "WEIGHTED_UTILITY");
         this.baselineVendorPrefix = ConfigParser.parseString(props, "marketplace.baseline.vendor", "AWS_Cloud");
-        
-        logger.info(String.format("Marketplace Config Loaded. Slice: %s | Providers [C:%d, F:%d, E:%d] | Aggregation: %s | Routing: %s", 
-                allowedCountries, cloudProviderCount, fogProviderCount, edgeProviderCount, strategyType, routingStrategy));
     }
 
     private Properties loadProperties() {
