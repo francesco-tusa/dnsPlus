@@ -14,7 +14,7 @@ public class BudgetProbabilityScenario extends AbstractMarketplaceScenario {
 
     @Override
     public String[] getKnobValues() {
-        // Sweeping from 0% strict budget requests up to 90%
-        return new String[] { "0.0", "0.10", "0.30", "0.50", "0.70", "0.90" };
+        // Sweeping from 0% strict budget requests up to 100%
+        return new String[] { "0.0", "0.10", "0.30", "0.50", "0.70", "0.90", "1.0"};
     }
 }

@@ -30,11 +30,11 @@ public class ProviderProfileGenerator {
     public Map<String, Double> generateProfile(String tierType, ProviderPolicy policy) {
         double computeLatency, cost, reliability;
 
-        // 1. Base Hardware Compute Latency (Intrinsic container spin-up capability)
+        // 1. Base hardware capabilities (Compute Latency)
         double baseComputeLatency = switch (tierType.toUpperCase()) {
-            case "CLOUD" -> 2.0 + (random.nextDouble() * 3.0);   // 2-5ms
-            case "FOG"   -> 10.0 + (random.nextDouble() * 10.0); // 10-20ms
-            default      -> 25.0 + (random.nextDouble() * 25.0); // EDGE: 25-50ms
+            case "CLOUD" -> 2.0 + (random.nextDouble() * 5.0);   // Extremely fast compute (2-7ms)
+            case "FOG"   -> 10.0 + (random.nextDouble() * 5.0);  // Moderate (10-15ms)
+            default      -> 15.0 + (random.nextDouble() * 10.0); // EDGE: Slower compute (15-25ms)
         };
 
         // 2. Base Bandwidth (Mbps) - Driven strictly by physical tier infrastructure
@@ -47,19 +47,19 @@ public class ProviderProfileGenerator {
         // 3. Apply Warm/Cold Start Policy Modifiers (Economics & SLAs)
         switch (policy) {
             case WARM_OPTIMIZED:
-                computeLatency = baseComputeLatency * 1.0;          // Zero cold-start penalty
-                cost = getBaseCost(tierType) * 5.0;                 // 5x Premium for Provisioned Concurrency
+                computeLatency = baseComputeLatency;    // Zero cold-start penalty
+                cost = getBaseCost(tierType) * 2.5;     // 2.5x Premium for Provisioned Concurrency  
                 reliability = getBaseReliability(tierType) + 0.005; 
                 break;
             case COST_OPTIMIZED:
-                computeLatency = baseComputeLatency + 200.0;        // Simulated amortized cold-start penalty
-                cost = getBaseCost(tierType) * 1.0;                 // Standard on-demand pricing
-                reliability = Math.max(0.90, getBaseReliability(tierType) - 0.02); // Factor in startup failures
+                computeLatency = baseComputeLatency + 150.0;    // Simulated amortized     
+                cost = getBaseCost(tierType) * 0.5; // get discount for waiting
+                reliability = Math.max(0.90, getBaseReliability(tierType) - 0.02);
                 break;
             case BALANCED:
             default:
-                computeLatency = baseComputeLatency + 50.0;         // Average penalty mix (container reuse)
-                cost = getBaseCost(tierType) * 2.0;                 // Moderate pricing
+                computeLatency = baseComputeLatency + 25.0; // Moderate queueing/startup delay
+                cost = getBaseCost(tierType); // price stays as it is
                 reliability = getBaseReliability(tierType);
                 break;
         }

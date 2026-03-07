@@ -9,6 +9,7 @@ public class EdgeProbabilityScenario extends AbstractMarketplaceScenario {
 
     @Override
     public String[] getKnobValues() {
-        return new String[] { "0.10", "0.30", "0.50", "0.70", "0.90" };
+        //return new String[] { "0.0", "0.10", "0.30", "0.50", "0.70", "0.90", "1.0" };
+        return new String[] { "0.3" };
     }
 }

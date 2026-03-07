@@ -22,7 +22,7 @@ public class ClientDemandGenerator {
         // 1. Dynamic Probabilistic Class Distribution
         double edgeProb = config.edgeWorkloadProbability;
         double remainingProb = 1.0 - edgeProb;
-        double fogProb = remainingProb * 0.60; 
+        double fogProb = (edgeProb == 0.0) ? 0.0 : remainingProb * 0.40;
 
         double rand = random.nextDouble();
         int classType;
@@ -35,61 +35,70 @@ public class ClientDemandGenerator {
             classType = 1; // CLASS 1: CLOUD (Budget/Compute Heavy, High Data)
         }
 
-        // 2. Assign Constraints and SLA Weights (Weights MUST sum to 1.0)
+        // 2. Assign constraints and SLA weights based on the chosen class
         switch (classType) {
-            case 0: // EDGE (e.g., Drone Telemetry / Industrial IoT)
+            case 0: // EDGE 
                 constraints = Map.of(
-                    MarketplaceMetricSchema.METRIC_LATENCY, 55.0 + (random.nextDouble() * 10.0), 
-                    MarketplaceMetricSchema.METRIC_COST, 90.0 + (random.nextDouble() * 20.0), // Can afford edge premiums
+                    // ORGANIC LATENCY WALL: 30.0ms
+                    // Edge: ~20ms compute + ~2ms local network = ~22ms -> PASSES
+                    // Cloud: ~5ms compute + ~45ms long-haul network = ~50ms -> FAILS
+                    MarketplaceMetricSchema.METRIC_LATENCY, 30.0, 
+                    MarketplaceMetricSchema.METRIC_COST, 150.0,
                     MarketplaceMetricSchema.METRIC_RELIABILITY, 0.90,
-                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 15.0 // Minimal bandwidth required for telemetry
+                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 15.0 
                 );
+                // Weights heavily favor latency
                 weights = Map.of(
-                    MarketplaceMetricSchema.METRIC_LATENCY, 0.65, 
-                    MarketplaceMetricSchema.METRIC_COST, 0.15,
+                    MarketplaceMetricSchema.METRIC_LATENCY, 0.80, // Increased weight
+                    MarketplaceMetricSchema.METRIC_COST, 0.05,
                     MarketplaceMetricSchema.METRIC_RELIABILITY, 0.10,
-                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 0.10
+                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 0.05
                 );
                 break;
 
             case 1: // CLOUD (e.g., Big Data ETL / ML Inference)
-                double maxLatency = 400.0 + (random.nextDouble() * 200.0); // Relaxed latency
+                double maxLatency = 500.0; // Very relaxed latency
                 double maxCost;
                 
-                // --- BUDGET SENSITIVITY SWEEP CONTROL ---
-                if (random.nextDouble() <= config.strictBudgetProbability) {
-                    maxCost = 10.0; // Strict Budget (Forces selection of COST_OPTIMIZED hyperscale nodes)
+                // --- BUDGET SENSITIVITY SWEEP ---
+                double strictBudgetProb = config.strictBudgetProbability;
+                
+                if (random.nextDouble() <= strictBudgetProb) {
+                    maxCost = 4.5; // STRICT BUDGET: Forces routing to Cloud COST/BALANCED nodes. Edge will fail.
                 } else {
-                    maxCost = 50.0; // Relaxed Budget (Can afford Provisioned Concurrency)
+                    maxCost = 80.0; // Relaxed Budget
                 }
 
                 constraints = Map.of(
                     MarketplaceMetricSchema.METRIC_LATENCY, maxLatency, 
                     MarketplaceMetricSchema.METRIC_COST, maxCost,
                     MarketplaceMetricSchema.METRIC_RELIABILITY, 0.99,
-                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 100.0 // Requires high throughput
+                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 100.0 
                 );
+                
+                // Weights overwhelmingly favor cost optimization
                 weights = Map.of(
                     MarketplaceMetricSchema.METRIC_LATENCY, 0.05,
-                    MarketplaceMetricSchema.METRIC_COST, 0.70, // Overwhelming bias toward financial optimization
-                    MarketplaceMetricSchema.METRIC_RELIABILITY, 0.15,
-                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 0.10
+                    MarketplaceMetricSchema.METRIC_COST, 0.80, // Increased weight
+                    MarketplaceMetricSchema.METRIC_RELIABILITY, 0.10,
+                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 0.05
                 );
                 break;
 
             case 2: // FOG (e.g., Real-Time Video Analytics / AR Rendering)
             default:
                 constraints = Map.of(
-                    MarketplaceMetricSchema.METRIC_LATENCY, 90.0 + (random.nextDouble() * 30.0),
-                    MarketplaceMetricSchema.METRIC_COST, 30.0 + (random.nextDouble() * 10.0),
+                    MarketplaceMetricSchema.METRIC_LATENCY, 80.0,
+                    MarketplaceMetricSchema.METRIC_COST, 40.0,
                     MarketplaceMetricSchema.METRIC_RELIABILITY, 0.95,
-                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 50.0 // Video feeds require strict minimum bandwidth
+                    // STRICT BANDWIDTH: Only Fog/Cloud nodes can process video streams
+                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 80.0 
                 );
                 weights = Map.of(
-                    MarketplaceMetricSchema.METRIC_LATENCY, 0.30, 
-                    MarketplaceMetricSchema.METRIC_COST, 0.30,   
-                    MarketplaceMetricSchema.METRIC_RELIABILITY, 0.20,
-                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 0.20 // Bandwidth is highly prioritized
+                    MarketplaceMetricSchema.METRIC_LATENCY, 0.25, 
+                    MarketplaceMetricSchema.METRIC_COST, 0.25,   
+                    MarketplaceMetricSchema.METRIC_RELIABILITY, 0.25,
+                    MarketplaceMetricSchema.METRIC_BANDWIDTH, 0.25
                 );
                 break;
         }

@@ -8,14 +8,16 @@ public class MarketplaceBatchRunner {
 
     public static void main(String[] args) {
         //ExperimentType activeExperiment = ExperimentType.BUDGET_SENSITIVITY_SWEEP;
+        //ExperimentType activeExperiment = ExperimentType.EDGE_WORKLOAD_SWEEP;
         ExperimentType activeExperiment = ExperimentType.AGGREGATION_SWEEP;
+        
         
         SimulationScenario activeScenario;
         String csvFilename;
 
         if (activeExperiment == ExperimentType.EDGE_WORKLOAD_SWEEP) {
             activeScenario = new EdgeProbabilityScenario();
-            csvFilename = "workload_probability_results_";
+            csvFilename = "edge_workload_results_";
         } else if (activeExperiment == ExperimentType.AGGREGATION_SWEEP) {
             activeScenario = new AggregationThresholdScenario();
             csvFilename = "aggregation_threshold_results_";

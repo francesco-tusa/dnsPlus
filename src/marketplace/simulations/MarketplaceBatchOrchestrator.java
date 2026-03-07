@@ -22,8 +22,8 @@ public class MarketplaceBatchOrchestrator extends AbstractBatchOrchestrator {
     
     // Topologies to test: Cloud-only and Continuum
     private final ProviderScale[] providerScales = {
-        //new ProviderScale(100, 0, 0),     // Legacy Cloud Baseline
-        new ProviderScale(100, 500, 2500)   // FaaS Marketplace Continuum
+        //new ProviderScale(25, 0, 0),     // Legacy Cloud Baseline
+        new ProviderScale(25, 250, 2500)   // FaaS Marketplace Continuum
     };
     
     // Sweeping across algorithms
@@ -32,7 +32,7 @@ public class MarketplaceBatchOrchestrator extends AbstractBatchOrchestrator {
         "WEIGHTED_UTILITY"
     };
     
-    private final int STATISTICAL_RUNS = 1;
+    private final int STATISTICAL_RUNS = 30;
 
     public void runMarketplaceBatch(SimulationScenario scenario, String csvFilename, String batchId) {
         
