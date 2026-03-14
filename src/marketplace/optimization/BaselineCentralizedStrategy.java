@@ -75,23 +75,16 @@ public class BaselineCentralizedStrategy implements ServiceSelectionStrategy {
 
         // 2. EVALUATION PHASE: Calculate the ACTUAL utility of the blindly chosen offer
         double finalUtilityScore = WeightedUtilityStrategy.PENALTY_SCORE;
-        
+
         if (bestNode != null && blindlyChosenOffer != null) {
             // First, run standard inspection to check for feasibility
             WeightedUtilityStrategy.EvaluationResult eval = scoringStrategy.inspect(blindlyChosenOffer, request);
-            
+
             if (eval.isFeasible()) {
                 finalUtilityScore = eval.score();
             } else {
                 diagnosis += " [WARNING: Strict SLA Violation - " + eval.reason() + "]";
-                
-                // Calculate the *actual* suboptimal score
-                // so the CSV gap reflects the true magnitude of the error.
-                MetricHyperCube cap = (blindlyChosenOffer.getRegion() instanceof MetricHyperCube mhc) ? mhc : null;
-                if (cap != null) {
-                    // Extract the raw utility score calculation logic
-                    finalUtilityScore = scoringStrategy.calculateGenericScore(cap, request, minDistance);
-                }
+                finalUtilityScore = eval.score();
             }
         }
 

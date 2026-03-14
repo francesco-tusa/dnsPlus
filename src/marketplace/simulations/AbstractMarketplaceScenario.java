@@ -31,7 +31,9 @@ public abstract class AbstractMarketplaceScenario extends AbstractSimulationScen
                "processed_requests_load,qos_evaluations,shielded_requests,dead_ends," +
                "ground_truth_matches,deliveries,accuracy," + 
                "true_optimal_deliveries,suboptimal_deliveries,sla_violations,avg_optimality_gap," + 
-               "avg_delivered_utility";
+               "avg_delivered_utility," +
+               "feasible_sla_violations,unfeasible_sla_violations,avg_sla_gap," +
+               "unified_system_degradation";
     }
 
     @Override
@@ -62,10 +64,16 @@ public abstract class AbstractMarketplaceScenario extends AbstractSimulationScen
         long slaViolations = marketData.slaViolations;
         double avgOptimalityGap = marketData.getAverageUtilityDegradation();
         double avgDeliveredUtility = marketData.getAverageDeliveredUtility();
+        
+        long feasibleSlaViolations = marketData.feasibleSlaViolations;
+        long unfeasibleDeadEnds = marketData.unfeasibleSlaViolations;
+        double avgSlaGap = marketData.getAverageSlaViolationDegradation();
+        double unifiedDegradation = marketData.getUnifiedSystemDegradation();
 
         String strategy = props.getProperty("marketplace.routing.strategy", "WEIGHTED_UTILITY");
 
-        return String.format("%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d,%s,%s",
+        // Format string updated to include: %d (long), %d (long), %s (double formatted as string) at the end
+        return String.format("%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d,%s,%s,%d,%d,%s,%s",
                 getCommonCsvPrefix(props),
                 strategy,
                 props.getProperty(getKnobKey(), "0.0"),
@@ -88,7 +96,11 @@ public abstract class AbstractMarketplaceScenario extends AbstractSimulationScen
                 suboptimalDeliveries,
                 slaViolations,
                 formatDouble(avgOptimalityGap),
-                formatDouble(avgDeliveredUtility)
+                formatDouble(avgDeliveredUtility),
+                feasibleSlaViolations,
+                unfeasibleDeadEnds,
+                formatDouble(avgSlaGap),
+                formatDouble(unifiedDegradation)
         );
     }
 }

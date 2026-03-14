@@ -35,19 +35,29 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
             
             for (ServiceRequest req : provider.getDeliveredRequests()) {
                 Double optimalScore = optimalScores.get(req.getOriginalRequestId());
-                if (optimalScore == null) continue; 
-
-                // Compute the utility score of the actual provider chosen by the decentralized network
                 var actualResult = strategy.inspect(provider.getLastAdvertisedOffer(), req);
-                
-                // Accumulate Absolute Utility
-                marketData.cumulativeDeliveredUtility += actualResult.score();
-                
+
+                if (optimalScore == null) {
+                    marketData.slaViolations++;
+                    marketData.unfeasibleSlaViolations++;
+                    continue;
+                }
+
                 if (!actualResult.isFeasible()) {
                     marketData.slaViolations++;
+                    marketData.feasibleSlaViolations++;
+
+                    // Read the actual raw score directly from the result! No recalculation needed.
+                    marketData.cumulativeDeliveredUtility += actualResult.score();
+                    double slaGap = (actualResult.score() - optimalScore) / optimalScore;
+                    marketData.cumulativeSlaViolationDegradation += slaGap;
+                    continue;
                 }
+
+                // Accumulate standard score for feasible deliveries
+                marketData.cumulativeDeliveredUtility += actualResult.score();
                 
-                // Floating point epsilon comparison (1e-5)
+                // CATEGORY 3 & 4: Feasible Deliveries (Optimal vs Suboptimal)
                 if (Math.abs(actualResult.score() - optimalScore) < 1e-5) {
                     marketData.optimalDeliveries++;
                 } else {

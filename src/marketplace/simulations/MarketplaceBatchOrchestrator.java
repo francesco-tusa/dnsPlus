@@ -28,7 +28,7 @@ public class MarketplaceBatchOrchestrator extends AbstractBatchOrchestrator {
     
     // Sweeping across algorithms
     private final String[] routingStrategies = {
-        //"BASELINE",
+        "BASELINE",
         "WEIGHTED_UTILITY"
     };
     

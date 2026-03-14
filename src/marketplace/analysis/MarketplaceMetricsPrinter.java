@@ -1,4 +1,3 @@
-// File: src/marketplace/analysis/metrics/MarketplaceMetricsPrinter.java
 package marketplace.analysis;
 
 import java.util.logging.Logger;
@@ -25,13 +24,19 @@ public class MarketplaceMetricsPrinter extends RegionMetricsPrinter {
             logItem("Optimal Deliveries (Hit Oracle)", format(data.optimalDeliveries));
             logItem("Suboptimal Deliveries (Feasible but Missed)", format(data.suboptimalDeliveries));
             
+            logItem("Feasible SLA Violations (Bad Routing)", format(data.feasibleSlaViolations));
+            logItem("Unfeasible Dead Ends (No Global Match)", format(data.unfeasibleSlaViolations));
+            
             double optimalPercentage = (data.totalDeliveriesReceived > 0) 
                 ? ((double) data.optimalDeliveries / data.totalDeliveriesReceived) * 100.0 : 0.0;
             
             logItem("Optimal Match Rate (vs Deliveries)", String.format("%.2f%%", optimalPercentage));
             
             double gapPercentage = data.getAverageUtilityDegradation() * 100.0;
-            logItem("Average Optimality Gap (Stretch)", String.format("%.2f%% worse than optimal", gapPercentage));
+            logItem("Average Optimality Gap (Valid)", String.format("%.2f%% worse than optimal", gapPercentage));
+            
+            double slaGapPercentage = data.getAverageSlaViolationDegradation() * 100.0;
+            logItem("Average SLA Violation Gap (Magnitude)", String.format("%.2f%% worse than optimal", slaGapPercentage));
         }
     }
 }

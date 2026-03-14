@@ -8,8 +8,8 @@ public class MarketplaceBatchRunner {
 
     public static void main(String[] args) {
         //ExperimentType activeExperiment = ExperimentType.BUDGET_SENSITIVITY_SWEEP;
-        //ExperimentType activeExperiment = ExperimentType.EDGE_WORKLOAD_SWEEP;
-        ExperimentType activeExperiment = ExperimentType.AGGREGATION_SWEEP;
+        ExperimentType activeExperiment = ExperimentType.EDGE_WORKLOAD_SWEEP;
+        //ExperimentType activeExperiment = ExperimentType.AGGREGATION_SWEEP;
         
         
         SimulationScenario activeScenario;

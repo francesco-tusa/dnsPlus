@@ -82,20 +82,24 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
             optimisticNetworkLatency = optimisticDistance * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
             
             // 2. Utility Scoring Distance (Density Barycenter)
-            // Evaluates FaaS cluster's actual center of mass for accurate marketplace competition
+            // Evaluates FaaS cluster's actual center of mass for accurate marketplace
+            // competition
             double barycenterDist = Math.sqrt(req.getLocation().distanceSquared(cap.getDensityCentroid()));
             barycenterNetworkLatency = barycenterDist * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
         }
 
         // STRICT GATE: Use the Optimistic latency strictly for SLA pruning
-        String rejectionReason = checkConstraints(cap, req, optimisticNetworkLatency); 
+        String rejectionReason = checkConstraints(cap, req, optimisticNetworkLatency);
+
+        // ALWAYS calculate the raw utility score, even for invalid nodes
+        double rawScore = calculateGenericScore(cap, req, barycenterNetworkLatency);
+
         if (rejectionReason != null) {
-            return EvaluationResult.fail(rejectionReason, optimisticDistance);
+            // Return the raw score, but strictly flag it as unfeasible
+            return new EvaluationResult(false, rawScore, rejectionReason, optimisticDistance);
         }
 
-        // UTILITY MATCHING: Use the Barycenter latency strictly for Utility Scoring
-        double score = calculateGenericScore(cap, req, barycenterNetworkLatency);
-        return EvaluationResult.success(score, optimisticDistance);
+        return new EvaluationResult(true, rawScore, "MATCH", optimisticDistance);
     }
 
     private String checkConstraints(MetricHyperCube cap, ServiceRequest req, double networkLatency) {
