@@ -11,3 +11,4 @@ resources/simulation.properties
 .vscode/launch.json
 resources/simulation.properties
 data_processing/graphs/*
+resources/azurefunctions-dataset2019/*
