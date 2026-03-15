@@ -8,10 +8,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import marketplace.common.identifiers.RoutingIdentifierFactory;
+import marketplace.common.identifiers.ServiceIdentifier;
+import marketplace.config.MarketplaceConfig;
 import marketplace.events.ServiceOffer;
 import marketplace.events.ServiceRequest;
 
 public class MarketplaceProvider extends SubscriberWithLocation {
+
+    private final RoutingIdentifierFactory cryptographyFactory;
 
     private ServiceOffer lastAdvertisedOffer;
     private final List<ServiceOffer> activeOffers = new ArrayList<>();
@@ -27,6 +32,7 @@ public class MarketplaceProvider extends SubscriberWithLocation {
 
     public MarketplaceProvider(String name, Location location) {
         super(name, location);
+        this.cryptographyFactory = MarketplaceConfig.get().routingCryptography;
     }
 
     /**
@@ -54,7 +60,7 @@ public class MarketplaceProvider extends SubscriberWithLocation {
 
     /**
      * 2. BACKWARD-COMPATIBLE OVERLOAD (No Range)
-     * Defaults to -1.0 (indicating "Standard/Broker Default").
+     * Defaults to 0.0 (Exact Point Match / Infinite Fallback).
      */
     public void advertiseService(long serviceId, Map<String, Double> performanceMetrics) {
         this.advertiseService(serviceId, performanceMetrics, 0.0);
@@ -68,10 +74,14 @@ public class MarketplaceProvider extends SubscriberWithLocation {
             return null;
         }
 
-        // Create the specialized ServiceOffer event
-        // The ServiceOffer constructor will interpret 'configuredRange' as the delta for the HyperCube bounds
+        long oracleId = this.configuredServiceId;
+        
+        // 2. Delegate to the locally cached strategy to wrap the Oracle ID
+        ServiceIdentifier routingId = this.cryptographyFactory.createIdentifier(oracleId);
+
         ServiceOffer offer = new ServiceOffer(
-            configuredServiceId, 
+            oracleId, // Ground Truth Artifact
+            routingId, // Opaque Network Payload
             configuredMetrics, 
             this.getLocation(), 
             getName(), 
@@ -103,13 +113,12 @@ public class MarketplaceProvider extends SubscriberWithLocation {
     public void receive(SimulationPublication p) {
         super.receive(p); // Maintains Level 1 truth (counters)
         
-        // Ledger: Track exact requests routed to this provider
+        // Ledger: Track exact requests routed to this provider for SLA evaluation
         if (p instanceof ServiceRequest req) {
             deliveredRequests.add(req);
         }
     }
 
-    // Add a getter for the metric collector
     public List<ServiceRequest> getDeliveredRequests() {
         return deliveredRequests;
     }

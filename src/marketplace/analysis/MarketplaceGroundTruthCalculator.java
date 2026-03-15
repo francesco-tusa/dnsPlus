@@ -146,7 +146,7 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
 
         for (SimulationSubscription sub : subs) {
             if (!(sub instanceof ServiceOffer offer)) continue;
-            if (offer.getServiceId() != request.getServiceId()) continue;
+            if (offer.getOracleServiceId() != request.getOracleServiceId()) continue;
 
             double currentDist = -1.0;
             if (offer.getLocation() != null && request.getLocation() != null) {
@@ -179,11 +179,11 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
 
     // --- EXPOSED STATE FOR METRICS COLLECTOR ---
     public Map<Long, Double> getOracleOptimalScores() {
+        flushCsvOnce(); 
         return globalBestScores;
     }
 
     public double getAverageUtilityScore() {
-        flushCsvOnce(); 
         if (globalBestScores.isEmpty()) return 0.0;
         double sum = 0.0;
         for (double score : globalBestScores.values()) sum += score;
@@ -206,7 +206,7 @@ public class MarketplaceGroundTruthCalculator implements GroundTruthCalculator {
             double score = (rawScore == Double.MAX_VALUE) ? Massive_SLA_PENALTY : rawScore;
 
             double dist = globalBestDistances.get(reqId);
-            writer.logGroundTruth(reqId, offer.getServiceId(), offer.getProviderName(), score, dist);
+            writer.logGroundTruth(reqId, offer.getOracleServiceId(), offer.getProviderName(), score, dist);
         }
         logger.info(String.format("Flushed Ground Truth CSV. Total QoS Rejects: %d", totalQosRejects));
     }  

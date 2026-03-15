@@ -7,13 +7,13 @@ import marketplace.analysis.MarketplaceGroundTruthCalculator;
 import marketplace.analysis.MarketplaceMetricsCollector;
 import marketplace.analysis.MarketplaceMetricsPrinter;
 import marketplace.config.MarketplaceConfig;
+import marketplace.population.MarketplaceClientPopulationPlacement;
 import marketplace.population.MarketplaceProviderPlacementStrategy;
 import marketplace.workload.MarketplaceWorkloadGenerator;
 import simulator.config.SimConfiguration;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SubscriberWithLocation;
-import simulator.population.PopulationBasedPublishersPlacement;
 import simulator.population.PublishersPlacementStrategy;
 import simulator.population.SubscribersPlacementStrategy;
 import simulator.regions.BoundedBroker;
@@ -48,7 +48,7 @@ public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBas
 
     @Override
     protected PublishersPlacementStrategy getPublisherPlacementStrategy() {
-        return new PopulationBasedPublishersPlacement();
+        return new MarketplaceClientPopulationPlacement();
     }
 
     @Override

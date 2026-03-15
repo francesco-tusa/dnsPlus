@@ -30,25 +30,24 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
         logger.info(">>> Generating Marketplace Providers (Continuum Placement)...");
         
         MarketplaceConfig config = MarketplaceConfig.get();
-        long serviceID = 9999;
 
         // 1. CLOUD TIER
         if (config.cloudProviderCount > 0) {
-            placeTier(rootNode, "COUNTRY", config.cloudProviderCount, serviceID, "CLOUD", "AWS_Cloud");
+            placeTier(rootNode, "COUNTRY", config.cloudProviderCount, "CLOUD", "AWS_Cloud");
         }
 
         // 2. FOG TIER
         if (config.fogProviderCount > 0) {
-            placeTier(rootNode, "ADMIN1", config.fogProviderCount, serviceID, "FOG", "Telco_Fog");
+            placeTier(rootNode, "ADMIN1", config.fogProviderCount, "FOG", "Telco_Fog");
         }
 
         // 3. EDGE TIER
         if (config.edgeProviderCount > 0) {
-            placeTier(rootNode, "CITY", config.edgeProviderCount, serviceID, "EDGE", "Metro_Edge");
+            placeTier(rootNode, "CITY", config.edgeProviderCount, "EDGE", "Metro_Edge");
         }
     }
 
-    private void placeTier(BoundedBroker root, String depthTag, int count, long serviceId, String tierType, String providerLabel) {
+    private void placeTier(BoundedBroker root, String depthTag, int count, String tierType, String providerLabel) {
         List<TreeNode> candidates = findCandidatesByDepth(root, depthTag);
         
         if (candidates.isEmpty()) {
@@ -90,7 +89,8 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
             ProviderProfileGenerator.ProviderPolicy policy = assignPolicyForTier(tierType);
             Map<String, Double> qosProfile = profileGenerator.generateProfile(tierType, policy);
 
-            provider.configureService(serviceId, qosProfile, finalAdaptiveRange);
+            long assignedOracleId = MarketplaceConfig.get().functionDistribution.selectProviderFunction();
+            provider.configureService(assignedOracleId, qosProfile, finalAdaptiveRange);
             
             logger.fine(String.format("Attached %s to %s (Range: %.2f) [Lat: %.1fms, Policy: %s]", 
                 name, hostBroker.getName(), finalAdaptiveRange, qosProfile.get(MarketplaceMetricSchema.METRIC_LATENCY), policy.name()));

@@ -2,6 +2,7 @@ package marketplace.events;
 
 import java.util.Map;
 import marketplace.common.MetricHyperCube;
+import marketplace.common.identifiers.ServiceIdentifier;
 import marketplace.common.MarketplaceMetricSchema; 
 import simulator.core.Location;
 import simulator.events.SimulationSubscription;
@@ -10,7 +11,9 @@ import simulator.regions.SubscriptionWithRegion;
 
 public class ServiceOffer extends SubscriptionWithRegion {
 
-    private final long serviceId;
+    private final long oracleServiceId;
+    private final ServiceIdentifier routingIdentifier;
+
     private final Map<String, Double> qosMetrics;
     private final Location providerLocation; 
     private final String providerName; 
@@ -19,9 +22,10 @@ public class ServiceOffer extends SubscriptionWithRegion {
     private final double coverageRadius; 
 
     // 1. Primary Constructor: Strictly requires the coverageRadius
-    public ServiceOffer(long serviceId, Map<String, Double> metrics, Location location, String providerName, double coverageRadius) {
+    public ServiceOffer(long oracleServiceId, ServiceIdentifier routingIdentifier, Map<String, Double> metrics, Location location, String providerName, double coverageRadius) {
         super(createMetricRegion(metrics, location, coverageRadius));
-        this.serviceId = serviceId;
+        this.oracleServiceId = oracleServiceId;
+        this.routingIdentifier = routingIdentifier;
         this.qosMetrics = metrics;
         this.providerLocation = location;
         this.providerName = providerName;
@@ -29,14 +33,15 @@ public class ServiceOffer extends SubscriptionWithRegion {
     }
 
     // 2. Legacy/Fallback Constructor: Defaults to a 0.0 radius (Exact Point Match) if not provided
-    public ServiceOffer(long serviceId, Map<String, Double> metrics, Location location, String providerName) {
-        this(serviceId, metrics, location, providerName, 0.0);
+    public ServiceOffer(long oracleServiceId, ServiceIdentifier routingIdentifier, Map<String, Double> metrics, Location location, String providerName) {
+        this(oracleServiceId, routingIdentifier, metrics, location, providerName, 0.0);
     }
 
     // 3. Copy Constructor
     public ServiceOffer(ServiceOffer other) {
         super(other);
-        this.serviceId = other.serviceId;
+        this.oracleServiceId = other.oracleServiceId;
+        this.routingIdentifier = other.routingIdentifier;
         this.qosMetrics = other.qosMetrics;
         this.providerLocation = other.providerLocation;
         this.providerName = other.providerName; 
@@ -47,9 +52,10 @@ public class ServiceOffer extends SubscriptionWithRegion {
     }
 
     // 4. Internal Expansion/Aggregation Constructor
-    protected ServiceOffer(long serviceId, Map<String, Double> metrics, Region region, Location location, String providerName, double coverageRadius) {
+    protected ServiceOffer(long oracleServiceId, ServiceIdentifier routingIdentifier, Map<String, Double> metrics, Region region, Location location, String providerName, double coverageRadius) {
         super(region);
-        this.serviceId = serviceId;
+        this.oracleServiceId = oracleServiceId;
+        this.routingIdentifier = routingIdentifier;
         this.qosMetrics = metrics;
         this.providerLocation = location;
         this.providerName = providerName;
@@ -58,7 +64,8 @@ public class ServiceOffer extends SubscriptionWithRegion {
 
     public static ServiceOffer createWithUpdatedRegion(ServiceOffer original, MetricHyperCube newRegion) {
         return new ServiceOffer(
-            original.getServiceId(), 
+            original.getOracleServiceId(), 
+            original.getIdentifier(),
             original.getQosMetrics(), 
             newRegion, 
             original.getLocation(), 
@@ -71,15 +78,21 @@ public class ServiceOffer extends SubscriptionWithRegion {
         return cube.getMetricsMap(MarketplaceMetricSchema.KEYS);
     }
     
-    public static ServiceOffer createAggregated(long serviceId, MetricHyperCube aggregatedCube) {
+    public static ServiceOffer createAggregated(long oracleServiceId, ServiceIdentifier routingIdentifier, MetricHyperCube aggregatedCube) {
         Map<String, Double> derivedMetrics = reconstructMetrics(aggregatedCube);
         // Aggregated clusters represent entire tree branches, so they inherently have
         // infinite fallback radius to prevent spatial clipping during upward routing.
-        return new ServiceOffer(serviceId, derivedMetrics, aggregatedCube, null, "Aggregated-Cluster",
-                Double.MAX_VALUE);
+        
+        return new ServiceOffer(
+                oracleServiceId, 
+                routingIdentifier, 
+                derivedMetrics, 
+                aggregatedCube, 
+                null, 
+                "Aggregated-Cluster",
+                Double.MAX_VALUE
+        );
     }
-
-    // Inside ServiceOffer.java
     
     // Purely mathematical generation based on the explicitly provided radius
     private static Region createMetricRegion(Map<String, Double> metrics, Location loc, double coverageRadius) {        
@@ -132,7 +145,8 @@ public class ServiceOffer extends SubscriptionWithRegion {
         return new MetricHyperCube(rMinValues, rMaxValues, cMinValues, cMaxValues, rawCapabilities, flags, physicalScope, loc);
     }
 
-    public long getServiceId() { return serviceId; }
+    public long getOracleServiceId() { return oracleServiceId; }
+    public ServiceIdentifier getIdentifier() { return routingIdentifier; }
     public Map<String, Double> getQosMetrics() { return qosMetrics; }
     public Location getLocation() { return providerLocation; }
     public String getProviderName() { return providerName; }
@@ -140,7 +154,7 @@ public class ServiceOffer extends SubscriptionWithRegion {
 
     @Override
     public String toString() {
-        return "ServiceOffer[ID=" + serviceId + ", Provider=" + providerName + "]";
+        return "ServiceOffer[ID=" + oracleServiceId + ", Provider=" + providerName + "]";
     }
 
     @Override

@@ -39,8 +39,7 @@ public class BaselineCentralizedStrategy implements ServiceSelectionStrategy {
 
             for (SimulationSubscription sub : entry.getValue()) {
                 if (sub instanceof ServiceOffer offer) {
-                    if (offer.getServiceId() != request.getServiceId()) continue;
-
+                    
                     boolean isTargetBranch = false;
 
                     if (offer.getProviderName() != null && offer.getProviderName().startsWith(lockedInVendorPrefix)) {

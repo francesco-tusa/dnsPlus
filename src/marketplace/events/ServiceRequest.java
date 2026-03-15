@@ -3,22 +3,27 @@ package marketplace.events;
 import java.util.Map;
 import marketplace.common.MarketplaceMetricSchema;
 import marketplace.common.MetricLocation;
+import marketplace.common.identifiers.ServiceIdentifier;
 import simulator.core.Location;
 import simulator.events.PublicationWithLocation;
 import simulator.events.SimulationPublication;
 
 public class ServiceRequest extends PublicationWithLocation {
 
-    private final long originalRequestId; // NEW: Persistent reference to the Oracle's ID
-    private final long serviceId;
+    private final long originalRequestId; // Persistent reference to track the request across broker hops
+    
+    private final long oracleServiceId; // SIMULATION ARTIFACT: For GroundTruthCalculator only
+    private final ServiceIdentifier routingIdentifier; // ROUTING PAYLOAD: For Broker/Directory routing
+    
     private final Map<String, Double> preferences;
     private final double[] weights; 
     private final boolean[] minimizeFlags;
 
-    public ServiceRequest(long serviceId, Map<String, Double> constraints, Map<String, Double> weightsMap, Location physicalLoc) {
+    public ServiceRequest(long oracleServiceId, ServiceIdentifier routingIdentifier, Map<String, Double> constraints, Map<String, Double> weightsMap, Location physicalLoc) {
         super(createMetricLocation(constraints, physicalLoc));
         this.originalRequestId = this.getId(); // Capture the root ID
-        this.serviceId = serviceId;
+        this.oracleServiceId = oracleServiceId;
+        this.routingIdentifier = routingIdentifier;
         this.preferences = constraints;
         this.weights = createWeightsArray(weightsMap, constraints);
         this.minimizeFlags = createOptimizationFlags();
@@ -28,7 +33,8 @@ public class ServiceRequest extends PublicationWithLocation {
         super(other.getLocation());
         this.copyStateFrom(other);
         this.originalRequestId = other.originalRequestId; // Preserve the root ID during broker cloning
-        this.serviceId = other.serviceId;
+        this.oracleServiceId = other.oracleServiceId;
+        this.routingIdentifier = other.routingIdentifier;
         this.preferences = other.preferences;
         this.weights = other.weights;
         this.minimizeFlags = other.minimizeFlags;
@@ -84,14 +90,16 @@ public class ServiceRequest extends PublicationWithLocation {
         return new ServiceRequest(this);
     }
 
-    public long getServiceId() { return serviceId; }
+    public long getOracleServiceId() { return oracleServiceId; }
+    public ServiceIdentifier getIdentifier() { return routingIdentifier; }
+    
     public Map<String, Double> getPreferences() { return preferences; }
     public double[] getWeights() { return weights; }
     public boolean[] getMinimizeFlags() { return minimizeFlags; }
 
     @Override
     public String toString() {
-        return "ServiceRequest[ID=" + serviceId + "]";
+        return "ServiceRequest[OracleID=" + oracleServiceId + "]";
     }
 
     @Override

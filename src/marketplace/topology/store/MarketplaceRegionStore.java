@@ -9,6 +9,7 @@ import simulator.regions.SubscriptionWithRegion;
 import simulator.regions.store.*;
 import marketplace.common.MetricHyperCube;
 import marketplace.events.ServiceOffer;
+import marketplace.events.ServiceRequest;
 import marketplace.common.aggregation.AggregationStrategy;
 import marketplace.config.MarketplaceConfig;
 
@@ -18,10 +19,21 @@ import marketplace.config.MarketplaceConfig;
  */
 public class MarketplaceRegionStore extends AbstractMultiRegionStore {
 
-    protected final Map<TreeNode, RegionQuadTree> map = new HashMap<>();
+    // THE NEW TWO-TIER ROUTING TABLE
+    // TreeNode (Interface) -> FunctionDirectory (Topic Resolver) -> RegionQuadTree (Capabilities)
+    protected final Map<TreeNode, FunctionDirectory> routingTable = new HashMap<>();
 
     public MarketplaceRegionStore(double threshold) {
         super(threshold);
+    }
+
+    /**
+     * Polymorphic Factory Method. 
+     * Override this in cryptographic subclasses (e.g., PaillierRegionStore) 
+     * to inject a different directory implementation.
+     */
+    protected FunctionDirectory createFunctionDirectory() {
+        return new PlaintextFunctionDirectory();
     }
 
     protected static class MergeEvaluation {
@@ -119,7 +131,7 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
             if (mergedCount == 0 && absorbedCount == 0) {
                 return ServiceOffer.createWithUpdatedRegion(offer, mhc);
             } else {
-                return ServiceOffer.createAggregated(offer.getServiceId(), mhc);
+                return ServiceOffer.createAggregated(offer.getOracleServiceId(), offer.getIdentifier(), mhc);
             }
         } else {
             return new SubscriptionWithRegion(accumulator);
@@ -128,15 +140,23 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
 
     private boolean areCompatible(SubscriptionWithRegion a, SubscriptionWithRegion b) {
         if (a instanceof ServiceOffer oa && b instanceof ServiceOffer ob) {
-            return oa.getServiceId() == ob.getServiceId();
+            return oa.getOracleServiceId() == ob.getOracleServiceId();
         }
         return !(a instanceof ServiceOffer) && !(b instanceof ServiceOffer);
     }
 
     @Override
     public StoreUpdate addOrUpdate(TreeNode source, SubscriptionWithRegion sub) {
-        RegionQuadTree tree = map.computeIfAbsent(source, k -> new RegionQuadTree(-180, -90, 180, 90));
+        if (!(sub instanceof ServiceOffer offer)) {
+            return new StoreUpdate(StoreOpResult.NO_CHANGE, sub, "Invalid Type", 0, 0, null);
+        }
 
+        // 1. Get the interface/neighbor's directory
+        FunctionDirectory directory = routingTable.computeIfAbsent(source, k -> createFunctionDirectory());
+
+        // 2. Delegate identifier resolution to the generic directory
+        RegionQuadTree tree = directory.getOrCreateOfferIndex(offer);
+        
         List<SubscriptionWithRegion> candidates = tree.findCandidatesContaining(sub.getRegion());
         for (SubscriptionWithRegion existing : candidates) {
             if (areCompatible(sub, existing) && existing.contains(sub)) {
@@ -208,15 +228,49 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
         return new StoreUpdate(opResult, resultingEntry, explanation, absorbedCount, mergedCount, existingTarget);
     }
 
+    /**
+     * NEW: Dual-Key Resolution. Matches strictly against the required Service ID Topic
+     * before evaluating the Spatial QoS criteria.
+     */
+    public int findMatchesForRequest(ServiceRequest req, Map<TreeNode, List<SimulationSubscription>> resultsBuffer) {
+        int[] opsCounter = new int[1];
+
+        for (Map.Entry<TreeNode, FunctionDirectory> entry : routingTable.entrySet()) {
+            TreeNode interfaceNode = entry.getKey();
+            FunctionDirectory directory = entry.getValue();
+
+            // 1. Topic Match (Delegated to the polymorphic directory implementation)
+            RegionQuadTree tree = directory.getOfferIndex(req);
+
+            if (tree != null) {
+                List<SimulationSubscription> hits = new ArrayList<>();
+                // 2. Spatial Match (Search only the specific function's tree)
+                tree.findMatches(req.getLocation(), hits, opsCounter);
+                
+                if (!hits.isEmpty()) {
+                    resultsBuffer.put(interfaceNode, hits);
+                }
+            }
+        }
+        return opsCounter[0];
+    }
+
+    /**
+     * Legacy Fallback: Iterates across ALL function trees for a pure Spatial Match.
+     */
     @Override
     public int findMatches(Location loc, Map<TreeNode, List<SimulationSubscription>> resultsBuffer) {
         int[] opsCounter = new int[1];
-        for (Map.Entry<TreeNode, RegionQuadTree> entry : map.entrySet()) {
-            RegionQuadTree tree = entry.getValue();
+        for (Map.Entry<TreeNode, FunctionDirectory> entry : routingTable.entrySet()) {
+            TreeNode interfaceNode = entry.getKey();
             List<SimulationSubscription> hits = new ArrayList<>();
-            tree.findMatches(loc, hits, opsCounter);
+            
+            for (RegionQuadTree tree : entry.getValue().getAllOfferIndexes()) {
+                tree.findMatches(loc, hits, opsCounter);
+            }
+            
             if (!hits.isEmpty()) {
-                resultsBuffer.put(entry.getKey(), hits);
+                resultsBuffer.put(interfaceNode, hits);
             }
         }
         return opsCounter[0];
@@ -224,33 +278,48 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
 
     @Override
     public List<SimulationSubscription> getOutputFor(TreeNode target) {
-        RegionQuadTree tree = map.get(target);
-        return tree != null ? new ArrayList<>(tree.getAll()) : Collections.emptyList();
+        FunctionDirectory dir = routingTable.get(target);
+        if (dir == null) return Collections.emptyList();
+        
+        List<SimulationSubscription> all = new ArrayList<>();
+        for (RegionQuadTree tree : dir.getAllOfferIndexes()) {
+            all.addAll(tree.getAll());
+        }
+        return all;
     }
 
     @Override
     public Map<TreeNode, List<SimulationSubscription>> getAllSubscriptions() {
         Map<TreeNode, List<SimulationSubscription>> result = new HashMap<>();
-        for (Map.Entry<TreeNode, RegionQuadTree> entry : map.entrySet()) {
-            result.put(entry.getKey(), new ArrayList<>(entry.getValue().getAll()));
+        for (Map.Entry<TreeNode, FunctionDirectory> entry : routingTable.entrySet()) {
+            List<SimulationSubscription> all = new ArrayList<>();
+            for (RegionQuadTree tree : entry.getValue().getAllOfferIndexes()) {
+                all.addAll(tree.getAll());
+            }
+            if (!all.isEmpty()) {
+                result.put(entry.getKey(), all);
+            }
         }
         return result;
     }
 
     @Override
     public int size() {
-        return map.values().stream().mapToInt(RegionQuadTree::size).sum();
+        return routingTable.values().stream()
+                .flatMap(dir -> dir.getAllOfferIndexes().stream())
+                .mapToInt(RegionQuadTree::size)
+                .sum();
     }
 
     @Override
     public boolean isEmpty() {
-        return map.isEmpty();
+        return size() == 0;
     }
 
     // =========================================================================
     // RegionQuadTree 
     // =========================================================================
-    protected static class RegionQuadTree {
+    public static class RegionQuadTree {
         private static final int MAX_ITEMS = 16;
         private static final int MAX_DEPTH = 10;
         private final double minLon, minLat, maxLon, maxLat;
@@ -325,11 +394,13 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
         }
 
         public Region getMBR() { return cachedMBR; }
+        
         public List<SubscriptionWithRegion> getAll() {
             List<SubscriptionWithRegion> all = new ArrayList<>(items);
             if (children != null) for (RegionQuadTree c : children) all.addAll(c.getAll());
             return all;
         }
+        
         public int size() {
             int c = items.size();
             if (children != null) for (RegionQuadTree child : children) c += child.size();

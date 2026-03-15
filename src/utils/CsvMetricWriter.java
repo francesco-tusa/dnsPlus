@@ -108,7 +108,6 @@ public class CsvMetricWriter {
     public static class MarketplaceTraceStrategy implements TraceMetricStrategy {
         @Override
         public String getSubscriptionHeader() {
-            // NEW SCHEMA
             return "TraceID,Seq,ReceivedFrom,ProcessingNode,Hops,ServiceID,IncomingState,ExistingState,ResultingState,Result\n";
         }
 
@@ -116,7 +115,7 @@ public class CsvMetricWriter {
         public String formatBrokerSubscriptionEvent(SimulationSubscription sub, Object... args) {
             String serviceId = "N/A";
             if (sub instanceof ServiceOffer offer) {
-                serviceId = String.valueOf(offer.getServiceId());
+                serviceId = String.valueOf(offer.getOracleServiceId());
             }
 
             // Extract the 3 chronological states passed from the Broker
@@ -134,7 +133,7 @@ public class CsvMetricWriter {
             
             // For the initial hop, IncomingState shows pure hardware capabilities and GPS point
             if (sub instanceof marketplace.events.ServiceOffer offer) {
-                serviceId = String.valueOf(offer.getServiceId());
+                serviceId = String.valueOf(offer.getOracleServiceId());
                 incomingState = offer.toDisplayString().replace(",", ";") + " (" + String.format("%.4f", x) + "; " + String.format("%.4f", y) + ")";
             }
             
@@ -151,7 +150,7 @@ public class CsvMetricWriter {
         public String formatBrokerPublicationEvent(SimulationPublication pub, Object... args) {
             String serviceId = "N/A";
             if (pub instanceof ServiceRequest req) {
-                serviceId = String.valueOf(req.getServiceId());
+                serviceId = String.valueOf(req.getOracleServiceId());
             }
 
             String details = (args.length > 0) ? String.valueOf(args[0]).replace(",", ";") : "";
@@ -161,7 +160,7 @@ public class CsvMetricWriter {
 
         @Override
         public String formatSubscriberPublicationEvent(SimulationPublication p, double subX, double subY, double distSq) {
-            String serviceId = (p instanceof ServiceRequest req) ? String.valueOf(req.getServiceId()) : "N/A";
+            String serviceId = (p instanceof ServiceRequest req) ? String.valueOf(req.getOracleServiceId()) : "N/A";
             return "\"" + serviceId + "\",\"DELIVERED TO SUB at (" + String.format("%.4f", subX) + ";" + String.format("%.4f", subY) + ")\"";
         }
     }

@@ -11,6 +11,7 @@ import simulator.regions.store.RegionSubscriptionStore;
 import utils.CsvMetricWriter;
 import marketplace.events.ServiceRequest;
 import marketplace.optimization.ServiceSelectionStrategy;
+import marketplace.topology.store.MarketplaceRegionStore;
 
 import java.util.List;
 import java.util.Map;
@@ -46,8 +47,14 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
 
         this.matchBuffer.clear();
 
-        // 1. Spatial Filter
-        this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
+        // 1. Dual-Key Spatial & Topic Filter
+        if (this.getInputStore() instanceof MarketplaceRegionStore store) {
+            // Triggers the polymorphic directory resolution
+            store.findMatchesForRequest(req, this.matchBuffer);
+        } else {
+            // Legacy fallback
+            this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
+        }
 
         int evaluatedCandidates = 0;
         for (List<SimulationSubscription> candidates : this.matchBuffer.values()) {

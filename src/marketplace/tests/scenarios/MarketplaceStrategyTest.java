@@ -3,8 +3,10 @@ package marketplace.tests.scenarios;
 import java.util.Map;
 
 import marketplace.agents.AbstractMarketplaceBroker;
+import marketplace.agents.MarketplaceClient;
 import marketplace.agents.MarketplaceProvider;
 import marketplace.common.MarketplaceMetricSchema;
+import marketplace.config.MarketplaceConfig;
 import marketplace.events.ServiceRequest;
 import marketplace.optimization.WeightedUtilityStrategy;
 import marketplace.tests.fixtures.MarketplaceContinuumTopologyFixture;
@@ -23,6 +25,11 @@ public class MarketplaceStrategyTest extends TestScenario {
     @Override
     public boolean run(TopologyFixture ignoredFixture) {
         System.out.println(">>> STARTING STRATEGY COMPARISON TEST");
+        
+        // BOOTSTRAP: Wake up the configuration singleton so the Agents can 
+        // safely cache their cryptographic strategies upon instantiation.
+        MarketplaceConfig.get();
+        
         try {
             testDistancePenalty();
             testUtilityWeighting();
@@ -42,22 +49,23 @@ public class MarketplaceStrategyTest extends TestScenario {
         
         Location clientLoc = new Location(0, 0, 0);
 
+        // 1. Instantiate our encapsulated agents
+        MarketplaceClient dummyClient = new MarketplaceClient("test_client", clientLoc);
         MarketplaceProvider pClose = new MarketplaceProvider("pClose_Fog", new Location(10, 0, 0));
         MarketplaceProvider pFar = new MarketplaceProvider("pFar_Cloud", new Location(50, 0, 0));
 
-        // FIX: Add to brokers FIRST
         fixture.findNode("Edge_Westminster", AbstractMarketplaceBroker.class).addChild(pClose);
         fixture.findNode("Cloud_Core", AbstractMarketplaceBroker.class).addChild(pFar);
 
-        // THEN Advertise (Now the provider has a parent, so send() will succeed)
-        pClose.advertiseService(1, Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 10.0));
-        pFar.advertiseService(1, Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 10.0));
+        // 2. Providers handle their own cryptographic wrapping internally
+        pClose.advertiseService(1L, Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 10.0));
+        pFar.advertiseService(1L, Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 10.0));
 
-        // Request preferences
         Map<String, Double> constraints = Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 100.0);
         Map<String, Double> weights = Map.of(MarketplaceMetricSchema.METRIC_LATENCY, 1.0);
         
-        ServiceRequest req = new ServiceRequest(1, constraints, weights, clientLoc);
+        // 3. Client handles its own cryptographic wrapping internally
+        ServiceRequest req = dummyClient.createServiceRequest(1L, constraints, weights);
 
         WeightedUtilityStrategy strategy = new WeightedUtilityStrategy();
         
@@ -77,34 +85,31 @@ public class MarketplaceStrategyTest extends TestScenario {
     private void testUtilityWeighting() throws Exception {
         System.out.println("\n=== [Test 2] Min/Max Optimization (Cost vs Reliability) Check ===");
         
-        // Use a basic fixture or create a temporary broker just to satisfy the "send()" requirement
         MarketplaceContinuumTopologyFixture fixture = new MarketplaceContinuumTopologyFixture();
         fixture.setup(new MarketplaceBrokerFactory());
 
         Location clientLoc = new Location(0, 0, 0);
 
+        // 1. Instantiate our encapsulated agents
+        MarketplaceClient dummyClient = new MarketplaceClient("test_client", clientLoc);
         MarketplaceProvider pCheap = new MarketplaceProvider("pCheap_Fog", new Location(0, 0, 0));
         MarketplaceProvider pReliable = new MarketplaceProvider("pReliable_Fog", new Location(0, 0, 0));
 
-        // FIX: Add to topology FIRST
         AbstractMarketplaceBroker edge = fixture.findNode("Edge_Westminster", AbstractMarketplaceBroker.class);
         edge.addChild(pCheap);
         edge.addChild(pReliable);
 
-        // THEN Advertise
-        // pCheap: Cheap ($10) but lower Reliability (0.90)
-        pCheap.advertiseService(1, Map.of(
+        // 2. Providers handle their own cryptographic wrapping internally
+        pCheap.advertiseService(1L, Map.of(
             MarketplaceMetricSchema.METRIC_COST, 10.0,
             MarketplaceMetricSchema.METRIC_RELIABILITY, 0.90
         ));
 
-        // pReliable: Expensive ($50) but higher Reliability (0.99)
-        pReliable.advertiseService(1, Map.of(
+        pReliable.advertiseService(1L, Map.of(
             MarketplaceMetricSchema.METRIC_COST, 50.0,
             MarketplaceMetricSchema.METRIC_RELIABILITY, 0.99
         ));
 
-        // Request
         Map<String, Double> constraints = Map.of(
             MarketplaceMetricSchema.METRIC_COST, 100.0,
             MarketplaceMetricSchema.METRIC_RELIABILITY, 0.8
@@ -114,7 +119,9 @@ public class MarketplaceStrategyTest extends TestScenario {
             MarketplaceMetricSchema.METRIC_RELIABILITY, 0.5
         );
 
-        ServiceRequest req = new ServiceRequest(1, constraints, weights, clientLoc);
+        // 3. Client handles its own cryptographic wrapping internally
+        ServiceRequest req = dummyClient.createServiceRequest(1L, constraints, weights);
+        
         WeightedUtilityStrategy strategy = new WeightedUtilityStrategy();
 
         double scoreCheap = strategy.inspect(pCheap.getLastAdvertisedOffer(), req).score();

@@ -39,7 +39,7 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
             if (candidate == req.getSource()) continue;
 
             for (SimulationSubscription sub : entry.getValue()) {
-                MetricHyperCube cap = extractMetricHyperCube(sub, req.getServiceId());
+                MetricHyperCube cap = extractMetricHyperCube(sub);
                 if (cap == null) continue;
 
                 // The logic natively handles whether this is a leaf or a branch
@@ -193,10 +193,12 @@ public class WeightedUtilityStrategy implements ServiceSelectionStrategy {
         };
     }
 
-    private MetricHyperCube extractMetricHyperCube(SimulationSubscription sub, long targetServiceId) { 
-        if (sub instanceof ServiceOffer offer) {
-            if (offer.getServiceId() == targetServiceId && offer.getRegion() instanceof MetricHyperCube mhc) return mhc;
-        } else if (sub instanceof SubscriptionWithRegion swr && swr.getRegion() instanceof MetricHyperCube mhc) return mhc;
+    private MetricHyperCube extractMetricHyperCube(SimulationSubscription sub) { 
+        if (sub instanceof ServiceOffer offer && offer.getRegion() instanceof MetricHyperCube mhc) {
+            return mhc;
+        } else if (sub instanceof SubscriptionWithRegion swr && swr.getRegion() instanceof MetricHyperCube mhc) {
+            return mhc;
+        }
         return null;
     }
 }

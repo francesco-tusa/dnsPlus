@@ -3,6 +3,8 @@ package marketplace.simulations;
 import java.util.ArrayList;
 import java.util.List;
 
+import marketplace.agents.MarketplaceClient;
+
 import marketplace.config.MarketplaceConfig;
 import marketplace.events.ServiceRequest;
 import marketplace.topology.MarketplaceBrokerFactory;
@@ -17,30 +19,27 @@ public class SystematicMarketplaceContinuumSimulation extends AbstractMarketplac
 
     @Override
     protected List<PublicationWithLocation> generatePublications(List<PublisherWithLocation> publishers) {
-        logger.info(">>> Generating Systematic Multi-Objective Workload for " + publishers.size() + " Clients...");
+        logger.info(">>> Generating Marketplace Multi-Objective Workload...");
         
         List<PublicationWithLocation> requests = new ArrayList<>();
-        long serviceId = 9999; 
-
-        // Instantiate the decoupled generator using the global simulation seed
         ClientDemandGenerator demandGenerator = new ClientDemandGenerator(SimulationRandom.get());
 
-        int total = publishers.size();
-        for (int i = 0; i < total; i++) {
-            PublisherWithLocation p = publishers.get(i);
+        marketplace.workload.topics.FunctionDistributionStrategy distribution = 
+            MarketplaceConfig.get().functionDistribution;
+
+        for (int i = 0; i < publishers.size(); i++) {
+            // Safely cast to our specialized agent
+            MarketplaceClient client = (MarketplaceClient) publishers.get(i);
             
-            // 1. Fetch the stratified profile
+            // 1. Ask the Workload Distribution which function this client needs
+            long oracleId = distribution.selectClientFunction();
+            
+            // 2. Fetch the stratified QoS profile
             ClientDemandProfile profile = demandGenerator.generateDemand(i);
 
-            // 2. Build the exact ServiceRequest using the profile data
-            ServiceRequest req = new ServiceRequest(
-                serviceId, 
-                profile.constraints(), 
-                profile.weights(), 
-                p.getLocation()
-            );
+            // 3. Delegate the cryptographic wrapping and object creation to the agent itself
+            ServiceRequest req = client.createServiceRequest(oracleId, profile.constraints(), profile.weights());
             
-            req.setSource(p); 
             requests.add(req);
         }
         

@@ -15,8 +15,6 @@ public abstract class AbstractPublisherGenerator {
 
     protected final Random random = SimulationRandom.get();
     
-    // Removed: publisherIdCounter (Now handled inside PublisherWithLocation)
-
     /**
      * Abstract method that must be implemented by concrete generator classes.
      */

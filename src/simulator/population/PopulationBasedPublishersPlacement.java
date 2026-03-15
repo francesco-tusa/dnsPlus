@@ -5,7 +5,6 @@ import java.util.logging.Logger;
 import simulator.core.Location;
 import simulator.entities.PublisherWithLocation;
 import simulator.regions.BoundedBroker;
-import simulator.regions.Region;
 import utils.CustomLogger;
 
 public class PopulationBasedPublishersPlacement extends AbstractPublisherGenerator implements PublishersPlacementStrategy {
@@ -14,6 +13,10 @@ public class PopulationBasedPublishersPlacement extends AbstractPublisherGenerat
 
     public PopulationBasedPublishersPlacement() {
         super();
+    }
+
+    protected PublisherWithLocation createPublisher(Location loc) {
+        return new PublisherWithLocation(loc); // Default behavior
     }
 
     @Override
@@ -38,7 +41,7 @@ public class PopulationBasedPublishersPlacement extends AbstractPublisherGenerat
             if (chosenBroker != null && chosenBroker.getRegion() != null) {
                 Location pubLocation = generateLocationInRegion(chosenBroker.getRegion());
                 
-                PublisherWithLocation publisher = new PublisherWithLocation(pubLocation);
+                PublisherWithLocation publisher = this.createPublisher(pubLocation);
                 
                 chosenBroker.addChild(publisher);
                 publishersCreated++;
