@@ -1,13 +1,24 @@
-package marketplace.simulations;
+package marketplace.simulations.batch;
 
 import java.util.Properties;
+import java.util.function.Supplier;
+
 import simulator.experimentation.AbstractSimulationScenario;
 import simulator.simulations.performance.metrics.PerformanceMetricsData;
 import marketplace.analysis.MarketplacePerformanceMetricsData;
+import marketplace.simulations.MarketplaceTopologyConfiguration;
+import marketplace.simulations.MarketplaceTopologyLoader;
+import marketplace.simulations.MarketplaceContinuumSimulation;
 import marketplace.topology.MarketplaceBrokerFactory;
 
 public abstract class AbstractMarketplaceScenario extends AbstractSimulationScenario {
 
+    protected final Supplier<MarketplaceContinuumSimulation> simulationFactory;
+
+    public AbstractMarketplaceScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+        this.simulationFactory = simulationFactory;
+    }
+    
     @Override
     protected void configureSpecific(Properties props) {
         props.setProperty("broker.brake.strategy", "simulator.regions.policy.NoOpBrakeStrategy");
@@ -15,12 +26,17 @@ public abstract class AbstractMarketplaceScenario extends AbstractSimulationScen
 
     @Override
     public PerformanceMetricsData runSimulation() {
-        var sim = new SystematicMarketplaceContinuumSimulation();
+        // 1. Fetch a fresh polymorphic instance (Azure or Legacy)
+        MarketplaceContinuumSimulation sim = simulationFactory.get();
+        
+        // 2. Setup standard topology constraints
         MarketplaceTopologyConfiguration config = new MarketplaceTopologyConfiguration();
         MarketplaceTopologyLoader factory = new MarketplaceTopologyLoader(config, new MarketplaceBrokerFactory());
         
+        // 3. Execute the simulation
         sim.run(factory, config);
         this.currentExperimentId = sim.getSimulationId();
+        
         return sim.getLastRunMetrics();
     }
 

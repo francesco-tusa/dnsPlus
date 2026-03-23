@@ -1,6 +1,14 @@
-package marketplace.simulations;
+package marketplace.simulations.batch;
+
+import java.util.function.Supplier;
+
+import marketplace.simulations.MarketplaceContinuumSimulation;
 
 public class AggregationThresholdScenario extends AbstractMarketplaceScenario {
+
+    public AggregationThresholdScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+        super(simulationFactory);
+    }
 
     @Override
     public String getKnobKey() {

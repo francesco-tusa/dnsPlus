@@ -1,4 +1,4 @@
-package marketplace.simulations;
+package marketplace.simulations.batch;
 
 import simulator.experimentation.AbstractBatchOrchestrator;
 import simulator.experimentation.SimulationScenario;

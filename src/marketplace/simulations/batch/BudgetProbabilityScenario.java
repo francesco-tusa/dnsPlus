@@ -1,4 +1,8 @@
-package marketplace.simulations;
+package marketplace.simulations.batch;
+
+import java.util.function.Supplier;
+
+import marketplace.simulations.MarketplaceContinuumSimulation;
 
 /**
  * Sweeps the probability of a client request having a strict ($10) budget constraint.
@@ -6,6 +10,10 @@ package marketplace.simulations;
  * dealing with multi-objective QoS constraints in a Cloud-Only topology.
  */
 public class BudgetProbabilityScenario extends AbstractMarketplaceScenario {
+
+    public BudgetProbabilityScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+        super(simulationFactory);
+    }
 
     @Override
     public String getKnobKey() {

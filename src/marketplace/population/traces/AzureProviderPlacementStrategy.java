@@ -1,20 +1,21 @@
-package marketplace.population;
+package marketplace.population.traces;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import marketplace.agents.MarketplaceProvider;
-import marketplace.common.MarketplaceMetricSchema;
 import marketplace.config.MarketplaceConfig;
+import marketplace.population.ProviderProfileGenerator;
 import marketplace.population.tiers.CloudProviderTier;
 import marketplace.population.tiers.EdgeProviderTier;
 import marketplace.population.tiers.FogProviderTier;
 import marketplace.population.tiers.ProviderTierStrategy;
-import marketplace.workload.topics.FunctionDistributionStrategy;
-import marketplace.workload.topics.SingleFunctionDistribution;
+import marketplace.workload.traces.AzureTraceRecord;
+import marketplace.workload.traces.AzureTraceRepository;
 import simulator.core.Location;
 import simulator.core.TreeNode;
 import simulator.entities.SimulationBroker;
@@ -24,33 +25,21 @@ import simulator.regions.Region;
 import utils.CustomLogger;
 import utils.SimulationRandom;
 
-public class MarketplaceProviderPlacementStrategy implements SubscribersPlacementStrategy {
+public class AzureProviderPlacementStrategy implements SubscribersPlacementStrategy {
     
-    private static final Logger logger = CustomLogger.getLogger(MarketplaceProviderPlacementStrategy.class.getName());
+    private static final Logger logger = CustomLogger.getLogger(AzureProviderPlacementStrategy.class.getName());
     
     private final Random random = SimulationRandom.get();
     private final ProviderProfileGenerator profileGenerator;
-    private final FunctionDistributionStrategy functionDistribution; // Add this field
+    private final AzureTraceRepository traceRepo = AzureTraceRepository.getInstance();
 
-    // Backwards-Compatible Default Constructor
-    public MarketplaceProviderPlacementStrategy() {
-        this(
-            new StandardProviderProfileGenerator(utils.SimulationRandom.get()),
-            new SingleFunctionDistribution() // Inject the fallback default here
-        );
-    }
-
-    // Constructor Injection from the Factory
-    public MarketplaceProviderPlacementStrategy(
-            ProviderProfileGenerator profileGenerator, 
-            FunctionDistributionStrategy functionDistribution) { // Inject here
+    public AzureProviderPlacementStrategy(ProviderProfileGenerator profileGenerator) {
         this.profileGenerator = profileGenerator;
-        this.functionDistribution = functionDistribution;
     }
 
     @Override
     public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {
-        logger.info(">>> Generating Legacy Marketplace Providers (Single-Function Uniform)...");
+        logger.info(">>> Generating Azure Trace-Driven Providers (Knapsack Constrained)...");
         MarketplaceConfig config = MarketplaceConfig.get();
 
         if (config.cloudProviderCount > 0) placeTier(rootNode, "COUNTRY", config.cloudProviderCount, new CloudProviderTier(), "AWS_Cloud");
@@ -62,30 +51,56 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
         List<TreeNode> candidates = findCandidatesByDepth(root, depthTag);
         if (candidates.isEmpty()) return;
 
+        // 1. Memory-Aware FaaS Hardware Constraint Filtering
+        List<AzureTraceRecord> eligibleFunctions = traceRepo.getAllRecords().values().stream()
+            .filter(rec -> isFunctionEligibleForTier(rec, tierStrategy))
+            .collect(Collectors.toList());
+
+        if (eligibleFunctions.isEmpty()) {
+            logger.warning("No eligible Azure functions found for tier " + providerLabel + " based on memory constraints!");
+            return;
+        }
+
         for (int i = 0; i < count; i++) {
             TreeNode targetNode = candidates.get(random.nextInt(candidates.size()));
             if (!(targetNode instanceof BoundedBroker hostBroker)) continue;
 
-            // 1. Extract Location & Calculate Range (Consumes RNG)
             Location providerLoc = extractLocation(hostBroker);
-            double baseRange = calculateCoveringRange(hostBroker, tierStrategy);
-            double finalAdaptiveRange = baseRange * (0.75 + (random.nextDouble() * 0.50));
+            double finalAdaptiveRange = tierStrategy.getCoverageRadius() * (0.75 + (random.nextDouble() * 0.50));
 
             MarketplaceProvider provider = new MarketplaceProvider(providerLabel + "_" + i + "_" + hostBroker.getName(), providerLoc);
             hostBroker.addChild(provider);
+
+            // 2. Assign a strictly eligible empirical Azure Function
+            AzureTraceRecord assignedRecord = eligibleFunctions.get(random.nextInt(eligibleFunctions.size()));
             
-            // 2. Assign Policy (Consumes RNG)
+            // 3. Generate Profile (AzureTraceProfileGenerator will automatically scale cost by memory)
             ProviderProfileGenerator.ProviderPolicy policy = assignPolicyForTier(tierStrategy);
+            Map<String, Double> qosProfile = profileGenerator.generateProfile(tierStrategy, policy, assignedRecord.functionId());
             
-            // 3. FETCH THE REAL ID FIRST (No longer relies on global config)
-            long assignedOracleId = this.functionDistribution.selectProviderFunction();
-            
-            // 4. GENERATE PROFILE WITH REAL ID
-            Map<String, Double> qosProfile = profileGenerator.generateProfile(tierStrategy, policy, assignedOracleId);
-            
-            // 5. Finalize configuration
-            provider.configureService(assignedOracleId, qosProfile, finalAdaptiveRange);
+            provider.configureService(assignedRecord.functionId(), qosProfile, finalAdaptiveRange);
         }
+    }
+
+    private boolean isFunctionEligibleForTier(AzureTraceRecord record, ProviderTierStrategy tier) {
+        // Deep Edge: Highly constrained (Max 128MB). Only hosts the most heavily invoked Top 10%.
+        if (tier instanceof EdgeProviderTier) return record.memory() <= 128.0 && record.functionId() <= 100;
+        
+        // Fog: Moderately constrained (Max 512MB).
+        if (tier instanceof FogProviderTier) return record.memory() <= 512.0;
+        
+        // Cloud: Unconstrained. Hosts the universal fallback state.
+        return true; 
+    }
+
+    private ProviderProfileGenerator.ProviderPolicy assignPolicyForTier(ProviderTierStrategy tier) {
+        double p = this.random.nextDouble(); 
+        if (tier instanceof CloudProviderTier) return (p < 0.80) ? ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED : ProviderProfileGenerator.ProviderPolicy.BALANCED;
+        if (tier instanceof EdgeProviderTier)  return (p < 0.70) ? ProviderProfileGenerator.ProviderPolicy.COST_OPTIMIZED : ProviderProfileGenerator.ProviderPolicy.BALANCED;
+        
+        if (p < 0.50) return ProviderProfileGenerator.ProviderPolicy.BALANCED;
+        if (p < 0.80) return ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED;
+        return ProviderProfileGenerator.ProviderPolicy.COST_OPTIMIZED;
     }
 
     private Location extractLocation(BoundedBroker hostBroker) {
@@ -94,39 +109,6 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
             else return hostBroker.getRegion().getRandomLocation();
         }
         return new Location(0, 0, 0);
-    }
-
-    private double calculateCoveringRange(BoundedBroker broker, ProviderTierStrategy tier) {
-        simulator.regions.SpatialRegion r = broker.getRegion();
-        
-        // Fallback to the tier's static radius if no bounding box exists
-        if (r == null) return tier.getCoverageRadius(); 
-
-        double width = r.getWidth();
-        double height = r.getHeight();
-        double maxDimension = Math.max(width, height);
-        double halfSide = maxDimension / 2.0;
-
-        // Restore the geometric bounding constraints relative to the node's physical dimensions
-        if (tier instanceof marketplace.population.tiers.CloudProviderTier) {
-            return Math.min(halfSide * 1.5, tier.getCoverageRadius());
-        } else if (tier instanceof marketplace.population.tiers.FogProviderTier) {
-            return Math.min(halfSide * 1.2, tier.getCoverageRadius());
-        } else {
-            // EDGE tiers are hyper-localized and ignore parent bounds
-            return tier.getCoverageRadius();
-        }
-    }
-
-    private ProviderProfileGenerator.ProviderPolicy assignPolicyForTier(ProviderTierStrategy tier) {
-        double p = this.random.nextDouble(); 
-        if (tier instanceof CloudProviderTier) return (p < 0.80) ? ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED : ProviderProfileGenerator.ProviderPolicy.BALANCED;
-        if (tier instanceof EdgeProviderTier)  return (p < 0.70) ? ProviderProfileGenerator.ProviderPolicy.COST_OPTIMIZED : ProviderProfileGenerator.ProviderPolicy.BALANCED;
-        
-        // FOG
-        if (p < 0.50) return ProviderProfileGenerator.ProviderPolicy.BALANCED;
-        if (p < 0.80) return ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED;
-        return ProviderProfileGenerator.ProviderPolicy.COST_OPTIMIZED;
     }
 
     private List<TreeNode> findCandidatesByDepth(TreeNode node, String depthTag) {

@@ -7,6 +7,7 @@ import marketplace.analysis.MarketplaceGroundTruthCalculator;
 import marketplace.analysis.MarketplaceMetricsCollector;
 import marketplace.analysis.MarketplaceMetricsPrinter;
 import marketplace.config.MarketplaceConfig;
+import marketplace.config.factories.MarketplaceComponentFactory;
 import marketplace.population.MarketplaceClientPopulationPlacement;
 import marketplace.population.MarketplaceProviderPlacementStrategy;
 import marketplace.workload.MarketplaceWorkloadGenerator;
@@ -42,6 +43,14 @@ public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBas
 
     protected static final Logger logger = CustomLogger.getLogger(AbstractMarketplaceContinuumSimulation.class.getName());
 
+    // 1. Centralize the Factory instance for all continuum simulations
+    protected final MarketplaceComponentFactory componentFactory;
+
+    // Force subclasses to provide the factory
+    public AbstractMarketplaceContinuumSimulation(MarketplaceComponentFactory factory) {
+        this.componentFactory = factory;
+    }
+
     // ==================================================================================
     //  MARKETPLACE WIRING (Common to all scenarios)
     // ==================================================================================
@@ -53,7 +62,7 @@ public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBas
 
     @Override
     protected SubscribersPlacementStrategy getSubscriberPlacementStrategy() {
-        return new MarketplaceProviderPlacementStrategy();
+        return componentFactory.createProviderPlacementStrategy();
     }
     
     @Override
