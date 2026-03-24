@@ -67,7 +67,7 @@ def analyze_subscriptions(run_id, base_dir="output"):
     
     print("Analyzing Subscription Lifecycles & Broker State Evolutions...")
     
-    # FIX 1: Prevent "NA" from becoming NaN in Subscriptions
+    # Prevent "NA" from becoming NaN in Subscriptions
     df_list = [pd.read_csv(f, header=0, skipinitialspace=True, keep_default_na=False) for f in sub_files]
     df = pd.concat(df_list, ignore_index=True)
     
@@ -91,7 +91,10 @@ def analyze_subscriptions(run_id, base_dir="output"):
         
         grouped = df_trace.groupby('TraceID')
         for trace_id, group in grouped:
-            f.write(f"Trace {trace_id}:\n")
+            # Extract the ServiceID (Function ID) for this trace
+            service_id = group['ServiceID'].iloc[0] if 'ServiceID' in group.columns else "Unknown"
+            
+            f.write(f"Trace {trace_id} [Azure Function ID: {service_id}]:\n")
             
             for _, row in group.iterrows():
                 seq = row['Seq']
@@ -136,11 +139,13 @@ def analyze_subscriptions(run_id, base_dir="output"):
             event_counter = 1
             for _, row in group.iterrows():
                 result = row['Result'].strip()
+                service_id = row.get('ServiceID', 'Unknown')
+                
                 inc = format_state(row.get('IncomingState', 'None'))
                 exs = format_state(row.get('ExistingState', 'None'))
                 res = format_state(row.get('ResultingState', 'None'))
                 
-                f.write(f"  Event {event_counter} (from Trace {row['TraceID']} - Sent by: {row['ReceivedFrom']})\n")
+                f.write(f"  Event {event_counter} (Trace {row['TraceID']} | Function ID: {service_id} | Sent by: {row['ReceivedFrom']})\n")
                 f.write(f"    Action   : {result}\n")
                 f.write(f"    Incoming : {inc}\n")
                 f.write(f"    Existing : {exs}\n")
@@ -150,6 +155,63 @@ def analyze_subscriptions(run_id, base_dir="output"):
             f.write("-" * 100 + "\n\n")
             
     print(f"-> Broker-Centric Report generated at: {broker_report_path}")
+
+    # ---------------------------------------------------------
+    # REPORT 3: FINAL ROUTING TABLE STATE (Directory Snapshot)
+    # ---------------------------------------------------------
+    final_state_path = os.path.join(run_path, "broker_final_directory_state.txt")
+    
+    with open(final_state_path, "w") as f:
+        f.write("=== FAAS MARKETPLACE: BROKER FINAL FUNCTION DIRECTORY ===\n")
+        f.write("This report reconstructs the exact final routing state of each broker\n")
+        f.write("by replaying the chronological ledger of ADDED and EXPANDED events.\n")
+        f.write("="*100 + "\n\n")
+        
+        # State Machine Dictionary: broker -> service_id -> set(active MetricHyperCubes)
+        broker_states = {}
+        
+        for _, row in df_broker.iterrows():
+            broker = row['ProcessingNode']
+            action = row['Result'].strip()
+            service_id = str(row.get('ServiceID', 'Unknown'))
+            
+            exs = format_state(row.get('ExistingState', 'None'))
+            res = format_state(row.get('ResultingState', 'None'))
+            
+            if broker not in broker_states:
+                broker_states[broker] = {}
+            if service_id not in broker_states[broker]:
+                broker_states[broker][service_id] = set()
+                
+            if action.startswith('ADDED'):
+                broker_states[broker][service_id].add(res)
+                
+            elif action.startswith('EXPANDED'):
+                if exs in broker_states[broker][service_id]:
+                    broker_states[broker][service_id].remove(exs)
+                broker_states[broker][service_id].add(res)
+                
+        for broker in sorted(broker_states.keys()):
+            f.write(f"Broker: {broker}\n")
+            f.write("-" * 50 + "\n")
+            
+            topics = broker_states[broker]
+            if not topics:
+                f.write("  [Directory is Empty]\n\n")
+                continue
+                
+            for service_id in sorted(topics.keys(), key=lambda x: int(x) if x.isdigit() else 0):
+                f.write(f"  Topic [Azure Function ID: {service_id}]\n")
+                active_cubes = topics[service_id]
+                
+                if not active_cubes:
+                    f.write("    -> [Empty Spatial Index]\n")
+                else:
+                    for idx, cube in enumerate(active_cubes, 1):
+                        f.write(f"    -> Cube {idx}: {cube}\n")
+            f.write("\n" + "="*100 + "\n\n")
+            
+    print(f"-> Final State Report generated at:    {final_state_path}")
 
 
 # ==========================================
@@ -164,7 +226,6 @@ def analyze_publications(run_id, base_dir="output"):
         print(f"Skipping Publications: Ground truth file not found at {gt_path}")
         return
         
-    # FIX 2: Prevent "NA" from becoming NaN in Ground Truth Targets/Sources
     gt_df = pd.read_csv(gt_path, header=0, keep_default_na=False)
     gt_df['RequestID'] = gt_df['RequestID'].astype(str)
     
@@ -178,7 +239,6 @@ def analyze_publications(run_id, base_dir="output"):
     
     sim_data = []
     for f in sim_files:
-        # FIX 3: Prevent "NA" from becoming NaN in Publication ProcessingNodes/Results
         df = pd.read_csv(f, header=0, skipinitialspace=True, keep_default_na=False)
         if 'Result' in df.columns:
             df['Result'] = df['Result'].astype(str).str.strip(' \t\n\r"')
@@ -192,27 +252,37 @@ def analyze_publications(run_id, base_dir="output"):
         return
         
     sim_df = pd.concat(sim_data, ignore_index=True)
-    
-    # Map 'TraceID' column: Split "0:3" to just "3"
     sim_df['TraceID'] = sim_df['TraceID'].apply(lambda x: str(x).split(':')[-1] if ':' in str(x) else str(x))
-    
-    # Sort by TraceID and MsgCount to get the final routing decision
     sim_df = sim_df.sort_values(by=['TraceID', 'MsgCount'], ascending=[True, False]).drop_duplicates(subset=['TraceID'], keep='first')
     
-    # 3. Merge Ground Truth with Simulation Data
-    merged_df = pd.merge(sim_df, gt_df, left_on='TraceID', right_on='RequestID', how='inner')
+    # 3. Use 'left' join to preserve all Dropped traffic
+    merged_df = pd.merge(sim_df, gt_df, left_on='TraceID', right_on='RequestID', how='left')
     
     report_path = os.path.join(run_path, "publication_routing_report.txt")
+    drops_path = os.path.join(run_path, "publication_drops_report.txt")
     
-    with open(report_path, "w") as f:
-        f.write("=== FAAS MARKETPLACE: PUBLICATION ROUTING (WORKLOAD ORCHESTRATION) ===\n")
-        f.write("This report evaluates how accurately the DNS++ pub/sub tree routes client\n")
-        f.write("ServiceRequests (Publications) compared to the omniscient Ground Truth.\n")
-        f.write("=" * 175 + "\n\n")
+    with open(report_path, "w") as f_main, open(drops_path, "w") as f_drops:
         
-        header = f"{'ID':<6} | {'Result':<8} | {'GT Provider':<30} | {'Sim Provider':<30} | {'GT Score':<8} | {'Sim Score':<9} | {'U-Stretch':<10} | {'GT Dist':<10} | {'Sim Dist':<10} | {'Dist Gap':<10} | {'Notes'}"
-        f.write(header + "\n")
-        f.write("-" * 175 + "\n")
+        # --- WRITE MAIN REPORT HEADERS ---
+        f_main.write("=== FAAS MARKETPLACE: PUBLICATION ROUTING (DELIVERIES & MATCHES) ===\n")
+        f_main.write("This report evaluates how accurately the DNS++ pub/sub tree routes client\n")
+        f_main.write("ServiceRequests compared to the omniscient Ground Truth.\n")
+        f_main.write("=" * 185 + "\n\n")
+        
+        header = f"{'ID':<6} | {'Topic':<6} | {'Result':<8} | {'GT Provider':<30} | {'Sim Provider':<30} | {'GT Score':<8} | {'Sim Score':<9} | {'U-Stretch':<10} | {'GT Dist':<10} | {'Sim Dist':<10} | {'Dist Gap':<10} | {'Notes'}"
+        f_main.write(header + "\n")
+        f_main.write("-" * 185 + "\n")
+        
+        # --- WRITE DROPS REPORT HEADERS ---
+        f_drops.write("=== FAAS MARKETPLACE: DROPPED PUBLICATIONS (PROACTIVE SHIELDING) ===\n")
+        f_drops.write("This report isolates unresolvable requests and logs the specific reason\n")
+        f_drops.write("the decentralized broker halted their network propagation.\n")
+        f_drops.write("=" * 135 + "\n\n")
+        
+        # Included 'Broker Node' in the drops report header
+        drop_header = f"{'ID':<6} | {'Topic':<6} | {'Broker Node':<35} | {'GT Condition':<25} | {'Broker Drop Reason':<50}"
+        f_drops.write(drop_header + "\n")
+        f_drops.write("-" * 135 + "\n")
         
         total_forwards, total_drops = 0, 0
         exact_provider_matches, perfect_dist_matches = 0, 0
@@ -220,48 +290,51 @@ def analyze_publications(run_id, base_dir="output"):
         
         for _, row in merged_df.iterrows():
             req_id = row['TraceID']
-            result = row['Result']
-            details = row['DecisionDetails']
+            service_id = row.get('ServiceID_x', row.get('ServiceID_y', row.get('ServiceID', 'N/A')))
+            result = str(row['Result'])
+            details = row.get('DecisionDetails', '')
             
-            raw_gt_provider = str(row['OptimalProvider'])
-            # Since keep_default_na=False turns everything into strings, safely extract floats:
-            gt_score_raw = row['Score']
-            gt_score = float(gt_score_raw) if gt_score_raw != '' else -1.0
+            # Safely handle Pandas NaNs injected by the left join
+            raw_gt_provider = str(row.get('OptimalProvider', 'NO_MATCH'))
+            if pd.isna(row.get('OptimalProvider')) or raw_gt_provider == 'nan':
+                raw_gt_provider = 'NO_MATCH'
+                
+            gt_score_raw = row.get('Score', -1.0)
+            gt_score = float(gt_score_raw) if pd.notna(gt_score_raw) and gt_score_raw != '' else -1.0
             
-            gt_dist_raw = row['ExactDistance']
-            gt_dist = float(gt_dist_raw) if gt_dist_raw != '' else -1.0
+            gt_dist_raw = row.get('ExactDistance', -1.0)
+            gt_dist = float(gt_dist_raw) if pd.notna(gt_dist_raw) and gt_dist_raw != '' else -1.0
             
             s_score, s_dist, s_target, s_reason = parse_details(details)
-            
-            stretch_str, dist_gap_str, notes = "", "", ""
             
             is_gt_no_match = "NO_MATCH" in raw_gt_provider
             display_gt_provider = "NO_MATCH" if is_gt_no_match else raw_gt_provider
             sim_provider_str = s_target if s_target else "None"
             
-            if s_score is not None: sim_score_str = f"{s_score:.4f}"
-            elif "INF" in str(details): sim_score_str = "INF"
-            else: sim_score_str = "N/A"
-                
-            gt_score_str = f"{gt_score:.4f}" if gt_score >= 0 else "NO_MATCH"
-            sim_dist_str = f"{s_dist:.3f}" if s_dist is not None else "N/A"
-            gt_dist_str = f"{gt_dist:.3f}" if gt_dist >= 0 else "NO_MATCH"
-            
-            sim_reason_str = f" | Sim Reason: {s_reason}" if s_reason else ""
-            
             if result.startswith('DROP'):
                 total_drops += 1
-                if is_gt_no_match:
-                    stretch_str, dist_gap_str = "0.0000", "0.000"
-                    notes = f"Correct Drop. GT Reason: {raw_gt_provider}{sim_reason_str}"
-                else:
-                    stretch_str, dist_gap_str = "Miss", "Miss"
-                    notes = f"Failed to route. Best was {display_gt_provider}{sim_reason_str}"
+                sim_reason_str = s_reason if s_reason else "Proactive Shielding (No Spatial/SLA Overlap)"
+                
+                # Extract the ProcessingNode (Broker Node) from the trace
+                broker_node = str(row.get('ProcessingNode', 'Unknown'))
+                
+                # Write exclusively to the Drops Dead-Letter Queue with the Broker Node
+                f_drops.write(f"{req_id:<6} | {service_id:<6} | {broker_node:<35} | {display_gt_provider:<25} | {sim_reason_str:<50}\n")
             else:
                 total_forwards += 1
+                stretch_str, dist_gap_str, notes = "", "", ""
+                
+                if s_score is not None: sim_score_str = f"{s_score:.4f}"
+                elif "INF" in str(details): sim_score_str = "INF"
+                else: sim_score_str = "N/A"
+                    
+                gt_score_str = f"{gt_score:.4f}" if gt_score >= 0 else "NO_MATCH"
+                sim_dist_str = f"{s_dist:.3f}" if s_dist is not None else "N/A"
+                gt_dist_str = f"{gt_dist:.3f}" if gt_dist >= 0 else "NO_MATCH"
+                
                 if is_gt_no_match:
                     stretch_str, dist_gap_str = "False+", "False+"
-                    notes = f"Routed to impossible provider. GT Reason: {raw_gt_provider}{sim_reason_str}"
+                    notes = f"Routed to impossible provider. Reason: {sim_reason_str}"
                 else:
                     if s_score is not None:
                         stretch = s_score - gt_score
@@ -283,15 +356,15 @@ def analyze_publications(run_id, base_dir="output"):
                         notes = "Equivalent Tie (Different node, same utility)"
                     else:
                         notes = "Suboptimal Route"
-            
-            res_str = "DROP" if result.startswith('DROP') else "FORWARD"
-            line = f"{req_id:<6} | {res_str:<8} | {display_gt_provider:<30} | {sim_provider_str:<30} | {gt_score_str:<8} | {sim_score_str:<9} | {stretch_str:<10} | {gt_dist_str:<10} | {sim_dist_str:<10} | {dist_gap_str:<10} | {notes}\n"
-            f.write(line)
+                
+                # Write exclusively to the Main Routing Report
+                line = f"{req_id:<6} | {service_id:<6} | {'FORWARD':<8} | {display_gt_provider:<30} | {sim_provider_str:<30} | {gt_score_str:<8} | {sim_score_str:<9} | {stretch_str:<10} | {gt_dist_str:<10} | {sim_dist_str:<10} | {dist_gap_str:<10} | {notes}\n"
+                f_main.write(line)
             
         summary = "\n" + "="*70 + "\n"
         summary += "=== MULTI-OBJECTIVE ORCHESTRATION SUMMARY ===\n"
         summary += f"Total Valid Forwards:    {total_forwards}\n"
-        summary += f"Total Drops:             {total_drops}\n"
+        summary += f"Total Drops:             {total_drops} (See publication_drops_report.txt)\n"
         
         if total_forwards > 0:
             summary += f"\n--- Accuracy Metrics ---\n"
@@ -304,9 +377,10 @@ def analyze_publications(run_id, base_dir="output"):
         
         summary += "="*70 + "\n"
         
-        f.write(summary)
+        f_main.write(summary)
         print(summary)
-        print(f"-> Publication Report generated at:    {report_path}")
+        print(f"-> Publication Deliveries generated at: {report_path}")
+        print(f"-> Publication Drops generated at:      {drops_path}")
 
 # ==========================================
 # COMMAND LINE EXECUTION BLOCK

@@ -21,6 +21,9 @@ public abstract class MetricsPrinter {
 
         // Shared: Memory/State Stats
         printTableStats(data);
+        
+        // Optional Hook: Extended/Tier-by-Tier State Stats
+        printExtendedTableStats(data);
 
         // Shared: Pub Traffic & Cost
         printPublicationTrafficAndCost(data);
@@ -42,6 +45,15 @@ public abstract class MetricsPrinter {
     protected abstract void printProcessingDetails(PerformanceMetricsData data);
     protected abstract void printRoutingEfficiency(PerformanceMetricsData data);
     protected abstract void printAccuracy(PerformanceMetricsData data);
+
+    // --- OPTIONAL EXTENSION HOOKS ---
+    /**
+     * Concrete default implementation to allow subclasses to inject 
+     * granular topology or tier-by-tier table statistics.
+     */
+    protected void printExtendedTableStats(PerformanceMetricsData data) {
+        // Default implementation does nothing.
+    }
 
     // --- SHARED METHODS ---
     private void printTableStats(PerformanceMetricsData data) {

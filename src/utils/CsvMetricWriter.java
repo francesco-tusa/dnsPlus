@@ -289,7 +289,15 @@ public class CsvMetricWriter {
             currentSubSummary = null;
         }
         currentSubTraceId = traceId;
-        if (currentSubSummary == null) { currentSubSummary = new SummaryEntry(); currentSubSummary.id = traceId; }
+
+        if (currentSubSummary == null) {
+            currentSubSummary = new SummaryEntry();
+            currentSubSummary.id = traceId;
+            if (s instanceof marketplace.events.ServiceOffer offer) {
+                currentSubSummary.serviceId = String.valueOf(offer.getOracleServiceId());
+            }
+        }
+
         if (metrics.getOriginalSourceName() != null) currentSubSummary.sourceName = metrics.getOriginalSourceName();
         if (metrics.getOriginalCountry() != null) currentSubSummary.country = metrics.getOriginalCountry();
         if (metrics.getOriginalLongitude() != null) currentSubSummary.longitude = metrics.getOriginalLongitude();
@@ -319,8 +327,16 @@ public class CsvMetricWriter {
             pubTraceCounts.remove(currentPubTraceId);
             currentPubSummary = null;
         }
+
         currentPubTraceId = traceId;
-        if (currentPubSummary == null) { currentPubSummary = new SummaryEntry(); currentPubSummary.id = traceId; }
+        if (currentPubSummary == null) {
+            currentPubSummary = new SummaryEntry();
+            currentPubSummary.id = traceId;
+            if (p instanceof marketplace.events.ServiceRequest req) {
+                currentPubSummary.serviceId = String.valueOf(req.getOracleServiceId());
+            }
+        }
+
         if (metrics.getOriginalSourceName() != null) currentPubSummary.sourceName = metrics.getOriginalSourceName();
         if (metrics.getOriginalCountry() != null) currentPubSummary.country = metrics.getOriginalCountry();
         if (metrics.getOriginalLongitude() != null) currentPubSummary.longitude = metrics.getOriginalLongitude();
@@ -345,7 +361,7 @@ public class CsvMetricWriter {
 
     private BufferedWriter initializeSummaryWriter(String dir, String filename) throws IOException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dir, filename)));
-        writer.write("trace_id,source,country,long,lat,max_row_count\n");
+        writer.write("trace_id,service_id,source,country,long,lat,max_row_count\n");
         writer.flush();
         return writer;
     }
@@ -358,10 +374,12 @@ public class CsvMetricWriter {
         if (writer == null || summary == null) return;
         try {
             int count = (maxCount != null) ? maxCount : 0;
+            String serviceIdStr = (summary.serviceId != null) ? summary.serviceId : "N/A";
             String countryStr = (summary.country != null) ? summary.country : "Unknown";
             String sourceStr = (summary.sourceName != null) ? summary.sourceName : "Unknown";
             StringBuilder sb = new StringBuilder(128);
             sb.append(formatTraceId(summary.id)).append(',')
+              .append('"').append(serviceIdStr).append("\",")
               .append('"').append(sourceStr).append("\",")
               .append('"').append(countryStr).append("\",")
               .append(String.format("%.4f", summary.longitude)).append(',')
@@ -386,7 +404,7 @@ public class CsvMetricWriter {
             }
         } catch (IOException e) { e.printStackTrace(); }
     }
-    private static class SummaryEntry { long id; String sourceName; String country; Double longitude; Double latitude; }
+    private static class SummaryEntry { long id; String serviceId; String sourceName; String country; Double longitude; Double latitude; }
     private static class RotatingFileWriter {
         private final String baseDir; private final String baseFilename; private final String header;
         private BufferedWriter writer; private File currentFile; private int fileIndex = 0;

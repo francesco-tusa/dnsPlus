@@ -11,6 +11,31 @@ public class MarketplaceMetricsPrinter extends RegionMetricsPrinter {
     }
 
     @Override
+    protected void printExtendedTableStats(PerformanceMetricsData rawData) {
+        if (rawData instanceof MarketplacePerformanceMetricsData data) {
+            logger.info("2b. TIER-BY-TIER BROKER STATE (Marketplace Continuum):");
+            logger.info("Level | Brokers | Function Directory Size (Min/Avg/Max) | Spatial Index Size (Min/Avg/Max)");
+            logger.info("---------------------------------------------------------------------------------------------");
+
+            for (Integer level : data.tierSpatialIndexStats.keySet()) {
+                var spatialStats = data.tierSpatialIndexStats.get(level);
+                var functionStats = data.tierFunctionDirectoryStats.get(level);
+                
+                if (spatialStats.getCount() == 0) continue;
+
+                String funcStr = String.format("%d / %.1f / %d", 
+                    functionStats.getMin(), functionStats.getAverage(), functionStats.getMax());
+                String spatStr = String.format("%d / %.1f / %d", 
+                    spatialStats.getMin(), spatialStats.getAverage(), spatialStats.getMax());
+                
+                logger.info(String.format("  %-3d |   %-5d | %-33s | %s", 
+                    level, spatialStats.getCount(), funcStr, spatStr));
+            }
+            logger.info(""); // Add a blank line for visual spacing
+        }
+    }
+
+    @Override
     protected void printAccuracy(PerformanceMetricsData rawData) {
         // Print Level 3 base routing accuracy
         super.printAccuracy(rawData); 

@@ -19,7 +19,6 @@ import marketplace.config.MarketplaceConfig;
  */
 public class MarketplaceRegionStore extends AbstractMultiRegionStore {
 
-    // THE NEW TWO-TIER ROUTING TABLE
     // TreeNode (Interface) -> FunctionDirectory (Topic Resolver) -> RegionQuadTree (Capabilities)
     protected final Map<TreeNode, FunctionDirectory> routingTable = new HashMap<>();
 
@@ -229,7 +228,7 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
     }
 
     /**
-     * NEW: Dual-Key Resolution. Matches strictly against the required Service ID Topic
+     * Dual-Key Resolution. Matches strictly against the required Service ID Topic
      * before evaluating the Spatial QoS criteria.
      */
     public int findMatchesForRequest(ServiceRequest req, Map<TreeNode, List<SimulationSubscription>> resultsBuffer) {
@@ -253,6 +252,19 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
             }
         }
         return opsCounter[0];
+    }
+
+    /**
+     * Determines if the specific Function Topic is currently tracked by this broker,
+     * regardless of whether the spatial/QoS constraints match.
+     */
+    public boolean hasFunctionTopic(ServiceRequest req) {
+        for (FunctionDirectory directory : routingTable.values()) {
+            if (directory.getOfferIndex(req) != null) {
+                return true; // The topic exists on at least one branch
+            }
+        }
+        return false; // Complete Topic Miss
     }
 
     /**
@@ -301,6 +313,19 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
             }
         }
         return result;
+    }
+
+    /**
+     * Calculates the size of the first-tier Function Directory.
+     * This represents the total number of unique functions this broker is routing,
+     * which translates directly to the number of HE match operations required.
+     */
+    public int getFunctionDirectorySize() {
+        int topicCount = 0;
+        for (FunctionDirectory dir : routingTable.values()) {
+            topicCount += dir.getAllOfferIndexes().size();
+        }
+        return topicCount;
     }
 
     @Override

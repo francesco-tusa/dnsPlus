@@ -65,8 +65,19 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
         if (this.matchBuffer.isEmpty()) {
             this.totalFalsePositiveEvents++;
             this.totalProactiveShieldedEvents++;
+            
+            // Differentiate the exact reason for the drop
+            String dropReason = "Reason=[No Spatial/Content Match]"; // Safe legacy fallback
+            if (this.getInputStore() instanceof MarketplaceRegionStore store) {
+                if (store.hasFunctionTopic(req)) {
+                    dropReason = "Reason=[SLA/Spatial Mismatch (Constraints Failed)]";
+                } else {
+                    dropReason = "Reason=[Topic Not Found (Function Unavailable)]";
+                }
+            }
+
             CsvMetricWriter.getInstance().logPublication(
-                    p, this.getName(), "DROP_NO_MATCH_SHIELDED", "No Spatial/Content Match");
+                    p, this.getName(), "DROP_NO_MATCH_SHIELDED", dropReason);
             return null;
         }
 
@@ -124,6 +135,18 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
 
         
         return req.getHops() == 0;
+    }
+
+    /**
+     * Exposes the size of the internal Function Directory for tier-by-tier analytics
+     * without breaking the encapsulation of the underlying storage mechanism.
+     * * @return The number of unique function identifiers currently tracked, or 0 if unsupported.
+     */
+    public int getFunctionDirectorySize() {
+        if (this.getInputStore() instanceof MarketplaceRegionStore store) {
+            return store.getFunctionDirectorySize();
+        }
+        return 0;
     }
 
     @Override

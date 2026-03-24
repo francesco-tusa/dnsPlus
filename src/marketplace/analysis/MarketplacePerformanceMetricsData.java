@@ -1,5 +1,9 @@
 package marketplace.analysis;
 
+import java.util.IntSummaryStatistics;
+import java.util.Map;
+import java.util.TreeMap;
+
 import simulator.simulations.performance.metrics.RegionPerformanceMetricsData;
 
 public class MarketplacePerformanceMetricsData extends RegionPerformanceMetricsData {
@@ -18,6 +22,9 @@ public class MarketplacePerformanceMetricsData extends RegionPerformanceMetricsD
 
     // The accumulated error for deliveries that breached the SLA contract
     public double cumulativeSlaViolationDegradation = 0.0;
+
+    public Map<Integer, IntSummaryStatistics> tierSpatialIndexStats = new TreeMap<>();
+    public Map<Integer, IntSummaryStatistics> tierFunctionDirectoryStats = new TreeMap<>();
     
     public double getAverageUtilityDegradation() {
         if (suboptimalDeliveries == 0) return 0.0;
