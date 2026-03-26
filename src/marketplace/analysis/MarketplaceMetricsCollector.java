@@ -8,8 +8,10 @@ import java.util.Queue;
 
 import marketplace.agents.AbstractMarketplaceBroker;
 import marketplace.agents.MarketplaceProvider;
+import marketplace.events.ServiceOffer;
 import marketplace.events.ServiceRequest;
 import marketplace.optimization.WeightedUtilityStrategy;
+import marketplace.optimization.WeightedUtilityStrategy.EvaluationResult;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
 import simulator.entities.SimulationBroker;
@@ -30,10 +32,9 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
     public PerformanceMetricsData collect(TreeNode root, List<SubscriberWithLocation> subs, List<PublisherWithLocation> pubs) {
         MarketplacePerformanceMetricsData marketData = new MarketplacePerformanceMetricsData();
         
-        // 1. Run standard global collection
         super.populateMetrics(root, subs, pubs, marketData);
 
-        // 2. TIER-BY-TIER TOPOLOGY TRAVERSAL (State Analytics)
+        // 1. TIER-BY-TIER TOPOLOGY TRAVERSAL (State Analytics)
         Queue<TreeNode> queue = new LinkedList<>();
         if (root != null) queue.add(root);
 
@@ -41,7 +42,6 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
             TreeNode curr = queue.poll();
             
             if (curr instanceof SimulationBroker broker) {
-                // Calculate precise topological level (0 = Root, increasing downwards)
                 int level = 0;
                 TreeNode pointer = broker;
                 while (pointer.getParent() != null) {
@@ -49,12 +49,10 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
                     pointer = pointer.getParent();
                 }
                 
-                // Track Spatial Index Size (Total Bounding Boxes / MetricHyperCubes)
                 marketData.tierSpatialIndexStats
                     .computeIfAbsent(level, k -> new IntSummaryStatistics())
                     .accept(broker.getInputSubscriptionCount());
 
-                // Track Function Directory Size (Unique Topics / HE Envelopes)
                 if (broker instanceof AbstractMarketplaceBroker mb) {
                     marketData.tierFunctionDirectoryStats
                         .computeIfAbsent(level, k -> new IntSummaryStatistics())
@@ -64,7 +62,7 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
             if (curr.getChildren() != null) queue.addAll(curr.getChildren());
         }
 
-        // 3. MULTI-OBJECTIVE ORACLE COMPARISON (Routing Accuracy Analytics)
+        // 2. MULTI-OBJECTIVE ORACLE COMPARISON (Routing Accuracy Analytics)
         Map<Long, Double> optimalScores = oracle.getOracleOptimalScores();
         marketData.groundTruthMatches = optimalScores.size();
 
@@ -73,29 +71,41 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
             
             for (ServiceRequest req : provider.getDeliveredRequests()) {
                 Double optimalScore = optimalScores.get(req.getOriginalRequestId());
-                var actualResult = strategy.inspect(provider.getLastAdvertisedOffer(), req);
+                
+                // Retrieve the precise SLA profile for this function
+                ServiceOffer executedOffer = provider.getSpecificOffer(req.getOracleServiceId());
+                
+                if (executedOffer == null) {
+                    marketData.slaViolations++;
+                    marketData.unfeasibleSlaViolations++;
+                    continue;
+                }
+
+                EvaluationResult actualResult = strategy.inspect(executedOffer, req);
 
                 if (optimalScore == null) {
+                    // CATEGORY 1: Pure False Positive. The GT knew no provider could satisfy this SLA, 
+                    // but the broker's HyperCube aggregation falsely advertised a mathematical overlap.
                     marketData.slaViolations++;
                     marketData.unfeasibleSlaViolations++;
                     continue;
                 }
 
                 if (!actualResult.isFeasible()) {
+                    // CATEGORY 2: Misrouting. A valid provider existed elsewhere, but the network 
+                    // delivered it to this node which violates the strict constraints at the endpoint.
                     marketData.slaViolations++;
                     marketData.feasibleSlaViolations++;
 
-                    // Request was misrouted to a node that breaches the SLA bounds
                     marketData.cumulativeDeliveredUtility += actualResult.score();
                     double slaGap = (actualResult.score() - optimalScore) / optimalScore;
                     marketData.cumulativeSlaViolationDegradation += slaGap;
                     continue;
                 }
-
-                // Accumulate standard score for mathematically feasible deliveries
+                
                 marketData.cumulativeDeliveredUtility += actualResult.score();
                 
-                // CATEGORY 3 & 4: Feasible Deliveries (Optimal vs Suboptimal)
+                // CATEGORY 3 & 4: Successful Deliveries (Optimal vs Suboptimal)
                 if (Math.abs(actualResult.score() - optimalScore) < 1e-5) {
                     marketData.optimalDeliveries++;
                 } else {

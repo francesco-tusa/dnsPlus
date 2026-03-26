@@ -37,6 +37,17 @@ public class MarketplaceConfig {
     public final AggregationStrategy activeAggregationStrategy;
     public final RoutingIdentifierFactory routingCryptography;
 
+    // --- MULTI-TENANT CONTINUUM CAPACITIES ---
+    public final int edgeTenantCapacity;
+    public final int fogTenantCapacity;
+    public final int cloudTenantCapacity;
+
+    // --- COLD START PHYSICS ---
+    public final int universalWarmCacheSize;
+    
+    // --- DATASETS ---
+    public final String azureTraceFilePath;
+
     public static synchronized void resetAndOverride(Properties overrides) {
         programmedOverrides = overrides;
         instance = new MarketplaceConfig();
@@ -80,6 +91,15 @@ public class MarketplaceConfig {
 
         String cryptoProp = ConfigParser.parseString(props, "marketplace.routing.cryptography", "plaintext");
         this.routingCryptography = new PlaintextIdentifierFactory();
+
+        // --- NEW MULTI-TENANT PARSING LOGIC ---
+        this.edgeTenantCapacity = ConfigParser.parseInt(props, "marketplace.tenant.capacity.edge", 10);
+        this.fogTenantCapacity = ConfigParser.parseInt(props, "marketplace.tenant.capacity.fog", 100);
+        this.cloudTenantCapacity = ConfigParser.parseInt(props, "marketplace.tenant.capacity.cloud", 5000);
+        
+        this.universalWarmCacheSize = ConfigParser.parseInt(props, "marketplace.physics.warm_cache_size", 100);
+        
+        this.azureTraceFilePath = ConfigParser.parseString(props, "marketplace.workload.traces.file", "resources/azure_marketplace_top1000.csv");
     }
 
     private Properties loadProperties() {

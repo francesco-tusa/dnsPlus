@@ -7,4 +7,8 @@ public class EdgeProviderTier implements ProviderTierStrategy {
     @Override public double generateBaseBandwidth(Random r) { return 20.0 + (r.nextDouble() * 80.0); }
     @Override public double getBaseCost() { return 12.50; } // High perimeter premium
     @Override public double getBaseReliability() { return 0.95; }
+
+    // Edge: Fast local orchestration (e.g., K3s/containerd), but weaker CPU/Memory bus
+    @Override public double getControlPlaneProvisioningMs() { return 50.0; }
+    @Override public double getMemorySpeedMultiplier() { return 3.5; }
 }

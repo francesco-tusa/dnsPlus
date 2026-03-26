@@ -1,72 +1,46 @@
 package marketplace.population;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
-import java.util.logging.Logger;
 
 import marketplace.agents.MarketplaceProvider;
-import marketplace.common.MarketplaceMetricSchema;
-import marketplace.config.MarketplaceConfig;
-import marketplace.population.tiers.CloudProviderTier;
-import marketplace.population.tiers.EdgeProviderTier;
-import marketplace.population.tiers.FogProviderTier;
 import marketplace.population.tiers.ProviderTierStrategy;
 import marketplace.workload.topics.FunctionDistributionStrategy;
 import marketplace.workload.topics.SingleFunctionDistribution;
 import simulator.core.Location;
 import simulator.core.TreeNode;
-import simulator.entities.SimulationBroker;
-import simulator.population.SubscribersPlacementStrategy;
 import simulator.regions.BoundedBroker;
-import simulator.regions.Region;
-import utils.CustomLogger;
-import utils.SimulationRandom;
 
-public class MarketplaceProviderPlacementStrategy implements SubscribersPlacementStrategy {
+public class MarketplaceProviderPlacementStrategy extends AbstractProviderPlacementStrategy {
     
-    private static final Logger logger = CustomLogger.getLogger(MarketplaceProviderPlacementStrategy.class.getName());
-    
-    private final Random random = SimulationRandom.get();
-    private final ProviderProfileGenerator profileGenerator;
-    private final FunctionDistributionStrategy functionDistribution; // Add this field
+    private final FunctionDistributionStrategy functionDistribution;
 
-    // Backwards-Compatible Default Constructor
     public MarketplaceProviderPlacementStrategy() {
-        this(
-            new StandardProviderProfileGenerator(utils.SimulationRandom.get()),
-            new SingleFunctionDistribution() // Inject the fallback default here
-        );
+        this(new StandardProviderProfileGenerator(utils.SimulationRandom.get()), new SingleFunctionDistribution());
     }
 
-    // Constructor Injection from the Factory
-    public MarketplaceProviderPlacementStrategy(
-            ProviderProfileGenerator profileGenerator, 
-            FunctionDistributionStrategy functionDistribution) { // Inject here
-        this.profileGenerator = profileGenerator;
+    public MarketplaceProviderPlacementStrategy(ProviderProfileGenerator profileGenerator, FunctionDistributionStrategy functionDistribution) {
+        super(profileGenerator);
         this.functionDistribution = functionDistribution;
     }
 
     @Override
-    public void generateAndAttach(BoundedBroker rootNode, List<BoundedBroker> leafBrokers, long totalSubscribersToCreate) {
-        logger.info(">>> Generating Legacy Marketplace Providers (Single-Function Uniform)...");
-        MarketplaceConfig config = MarketplaceConfig.get();
-
-        if (config.cloudProviderCount > 0) placeTier(rootNode, "COUNTRY", config.cloudProviderCount, new CloudProviderTier(), "AWS_Cloud");
-        if (config.fogProviderCount > 0)   placeTier(rootNode, "ADMIN1", config.fogProviderCount, new FogProviderTier(), "Telco_Fog");
-        if (config.edgeProviderCount > 0)  placeTier(rootNode, "CITY", config.edgeProviderCount, new EdgeProviderTier(), "Metro_Edge");
+    protected String getStrategyName() {
+        return "Legacy Marketplace Providers (Single-Function Uniform)";
     }
 
-    private void placeTier(BoundedBroker root, String depthTag, int count, ProviderTierStrategy tierStrategy, String providerLabel) {
-        List<TreeNode> candidates = findCandidatesByDepth(root, depthTag);
-        if (candidates.isEmpty()) return;
+    @Override
+    protected void placeTier(BoundedBroker root, String depthTag, int count, ProviderTierStrategy tierStrategy, String providerLabel, int rootOffset) {
+        List<TreeNode> candidates = findCandidatesByDepth(root, depthTag, rootOffset);
+        if (candidates.isEmpty()) {
+            logger.warning("No structural candidates found for tier: " + depthTag);
+            return;
+        }
 
         for (int i = 0; i < count; i++) {
             TreeNode targetNode = candidates.get(random.nextInt(candidates.size()));
             if (!(targetNode instanceof BoundedBroker hostBroker)) continue;
 
-            // 1. Extract Location & Calculate Range (Consumes RNG)
             Location providerLoc = extractLocation(hostBroker);
             double baseRange = calculateCoveringRange(hostBroker, tierStrategy);
             double finalAdaptiveRange = baseRange * (0.75 + (random.nextDouble() * 0.50));
@@ -74,82 +48,11 @@ public class MarketplaceProviderPlacementStrategy implements SubscribersPlacemen
             MarketplaceProvider provider = new MarketplaceProvider(providerLabel + "_" + i + "_" + hostBroker.getName(), providerLoc);
             hostBroker.addChild(provider);
             
-            // 2. Assign Policy (Consumes RNG)
             ProviderProfileGenerator.ProviderPolicy policy = assignPolicyForTier(tierStrategy);
-            
-            // 3. FETCH THE REAL ID FIRST (No longer relies on global config)
             long assignedOracleId = this.functionDistribution.selectProviderFunction();
-            
-            // 4. GENERATE PROFILE WITH REAL ID
             Map<String, Double> qosProfile = profileGenerator.generateProfile(tierStrategy, policy, assignedOracleId);
             
-            // 5. Finalize configuration
             provider.configureService(assignedOracleId, qosProfile, finalAdaptiveRange);
         }
-    }
-
-    private Location extractLocation(BoundedBroker hostBroker) {
-        if (hostBroker.getRegion() != null) {
-            if (hostBroker.getRegion() instanceof Region trueRegion) return trueRegion.getRandomLocation(this.random);
-            else return hostBroker.getRegion().getRandomLocation();
-        }
-        return new Location(0, 0, 0);
-    }
-
-    private double calculateCoveringRange(BoundedBroker broker, ProviderTierStrategy tier) {
-        simulator.regions.SpatialRegion r = broker.getRegion();
-        
-        // Fallback to the tier's static radius if no bounding box exists
-        if (r == null) return tier.getCoverageRadius(); 
-
-        double width = r.getWidth();
-        double height = r.getHeight();
-        double maxDimension = Math.max(width, height);
-        double halfSide = maxDimension / 2.0;
-
-        // Restore the geometric bounding constraints relative to the node's physical dimensions
-        if (tier instanceof marketplace.population.tiers.CloudProviderTier) {
-            return Math.min(halfSide * 1.5, tier.getCoverageRadius());
-        } else if (tier instanceof marketplace.population.tiers.FogProviderTier) {
-            return Math.min(halfSide * 1.2, tier.getCoverageRadius());
-        } else {
-            // EDGE tiers are hyper-localized and ignore parent bounds
-            return tier.getCoverageRadius();
-        }
-    }
-
-    private ProviderProfileGenerator.ProviderPolicy assignPolicyForTier(ProviderTierStrategy tier) {
-        double p = this.random.nextDouble(); 
-        if (tier instanceof CloudProviderTier) return (p < 0.80) ? ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED : ProviderProfileGenerator.ProviderPolicy.BALANCED;
-        if (tier instanceof EdgeProviderTier)  return (p < 0.70) ? ProviderProfileGenerator.ProviderPolicy.COST_OPTIMIZED : ProviderProfileGenerator.ProviderPolicy.BALANCED;
-        
-        // FOG
-        if (p < 0.50) return ProviderProfileGenerator.ProviderPolicy.BALANCED;
-        if (p < 0.80) return ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED;
-        return ProviderProfileGenerator.ProviderPolicy.COST_OPTIMIZED;
-    }
-
-    private List<TreeNode> findCandidatesByDepth(TreeNode node, String depthTag) {
-        List<TreeNode> results = new ArrayList<>();
-        int targetDepth = parseDepth(depthTag);
-        traverseAndCollect(node, 0, targetDepth, results);
-        return results;
-    }
-
-    private void traverseAndCollect(TreeNode node, int currentDepth, int targetDepth, List<TreeNode> results) {
-        if (currentDepth == targetDepth) { results.add(node); return; }
-        if (node instanceof SimulationBroker sb) {
-            for (TreeNode child : sb.getChildren()) traverseAndCollect(child, currentDepth + 1, targetDepth, results);
-        }
-    }
-
-    private int parseDepth(String tag) {
-        return switch (tag.toUpperCase()) {
-            case "CONTINENT" -> 1;
-            case "COUNTRY" -> 2;
-            case "ADMIN1" -> 3;
-            case "CITY" -> 4;
-            default -> 4;
-        };
     }
 }

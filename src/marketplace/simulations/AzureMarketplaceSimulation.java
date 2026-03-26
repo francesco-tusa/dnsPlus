@@ -34,7 +34,10 @@ public class AzureMarketplaceSimulation extends MarketplaceContinuumSimulation {
             logger.info(">>> Initializing Azure Trace Marketplace Simulation...");
 
             // 1. MANDATORY: Bootstrap the Empirical Dataset BEFORE starting the simulation
-            AzureTraceRepository.getInstance().loadTraces("resources/azure_marketplace_top1000.csv");
+            String traceFilePath = MarketplaceConfig.get().azureTraceFilePath;
+
+            // Load traces safely before placement begins
+            AzureTraceRepository.getInstance().loadTraces(traceFilePath);
 
             // 2. Initialize Global Configurations
             SimConfiguration.get(); 

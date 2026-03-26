@@ -216,4 +216,75 @@ public class MetricHyperCube extends Region {
         this.providerWeight = (int) (this.providerWeight + other.providerWeight);
         return physicalChanged || metricChanged;
     }
+
+    /**
+     * Overrides the default spatial toString() to inject multi-dimensional QoS bounds
+     * directly into the Discrete-Event Simulation trace CSVs.
+     */
+    @Override
+    public String toString() {
+        // 1. Get the standard spatial envelope (e.g., "[-142.5591;25.635:-122.8675;45.3266]")
+        String spatialBounds = super.toString(); 
+
+        double[] minVals = this.getMinValues();
+        double[] maxVals = this.getMaxValues();
+
+        // Safety check in case the cube is instantiated purely for spatial routing
+        if (minVals == null || maxVals == null) {
+            return spatialBounds;
+        }
+
+        // 2. Append the QoS payload using the exact token expected by the Python parser
+        StringBuilder sb = new StringBuilder();
+        sb.append(spatialBounds).append(" | QoS[");
+
+        for (int i = 0; i < minVals.length; i++) {
+            // Format output as "Min:Max" for each multidimensional scalar vector
+            sb.append(String.format("%.3f:%.3f", minVals[i], maxVals[i]));
+            
+            if (i < minVals.length - 1) {
+                sb.append(", ");
+            }
+        }
+        sb.append("]");
+
+        return sb.toString();
+    }
+
+    /**
+     * Overrides the telemetry output for the Discrete-Event CSV Metric Writer.
+     * Serializes the Strict Capability Envelope and the Density-Weighted Centroid
+     * to expose the multi-objective probability mass during spatial aggregation.
+     */
+    @Override
+    public String toLogString() {
+        // 1. Fetch the base 2D spatial envelope
+        String spatialBounds = super.toLogString(); 
+
+        // 2. Fetch the Strict Capability Bounds and the Expected Yield (Centroid)
+        double[] capMin = this.getCapabilityMinValues();
+        double[] capMax = this.getCapabilityMaxValues();
+        double[] centroid = this.getQosCenterOfMass();
+
+        // Safety fallback if the cube is utilized purely for 2D spatial evaluation
+        if (capMin == null || capMax == null || centroid == null) {
+            return spatialBounds;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(spatialBounds).append(" | QoS[");
+
+        for (int i = 0; i < capMin.length; i++) {
+            // Format: capMin:capMax (centroid)
+            sb.append(String.format(java.util.Locale.US, "%.3f:%.3f (%.3f)", capMin[i], capMax[i], centroid[i]));
+            
+            if (i < capMin.length - 1) {
+                // Hardcoding the semicolon to prevent CsvMetricWriter from splitting telemetry columns
+                sb.append("; ");
+            }
+        }
+        sb.append("]");
+
+        return sb.toString();
+    }
 }

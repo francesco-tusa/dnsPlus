@@ -1,5 +1,7 @@
 package marketplace.workload;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -17,17 +19,31 @@ public class MarketplaceWorkloadGenerator implements SubscriptionWorkloadGenerat
 
     @Override
     public SimulationSubscription generateSubscription(SubscriberWithLocation subscriber, List<BoundedBroker> leafBrokers) {
-        // 1. If it is a Marketplace Provider, generate its specific Service Offer
+        // Legacy Support: Yields the first item if the legacy singular method is invoked
         if (subscriber instanceof MarketplaceProvider provider) {
-            ServiceOffer offer = provider.createServiceOffer();
-            if (offer != null) {
-                logger.fine("Generated ServiceOffer for " + provider.getName());
-                return offer;
+            List<ServiceOffer> offers = provider.createServiceOffers();
+            if (!offers.isEmpty()) {
+                logger.fine("Generated singular legacy ServiceOffer for " + provider.getName());
+                return offers.get(0);
             }
         }
-        
-        // Return null for regular clients or if not configured (Simulator handles null gracefully)
         return null;
+    }
+
+    @Override
+    public List<SimulationSubscription> generateSubscriptionBatch(SubscriberWithLocation subscriber, List<BoundedBroker> leafBrokers, int count) {
+        // Multi-function support
+        if (subscriber instanceof MarketplaceProvider provider) {
+            List<ServiceOffer> offers = provider.createServiceOffers();
+            if (!offers.isEmpty()) {
+                logger.fine("Generated batch of " + offers.size() + " ServiceOffers for " + provider.getName());
+            }
+            // Return the full array directly into the Orchestrator's WorkloadRepository
+            return new ArrayList<>(offers);
+        }
+        
+        // Return empty list for regular clients or if unconfigured
+        return Collections.emptyList();
     }
 
     @Override

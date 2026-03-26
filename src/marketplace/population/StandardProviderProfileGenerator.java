@@ -27,7 +27,7 @@ public class StandardProviderProfileGenerator implements ProviderProfileGenerato
             case COST_OPTIMIZED -> { 
                 latency += 150.0; 
                 cost *= 0.5; 
-                reliability = Math.max(0.90, reliability - 0.02); // Restored floor bound
+                reliability = Math.max(0.90, reliability - 0.02);
             }
             case BALANCED -> {
                 latency += 25.0;
@@ -37,7 +37,7 @@ public class StandardProviderProfileGenerator implements ProviderProfileGenerato
         return Map.of(
             MarketplaceMetricSchema.METRIC_LATENCY, latency,
             MarketplaceMetricSchema.METRIC_COST, cost,
-            MarketplaceMetricSchema.METRIC_RELIABILITY, Math.min(1.0, reliability), // Ceiling bound preserved
+            MarketplaceMetricSchema.METRIC_RELIABILITY, Math.min(1.0, reliability), 
             MarketplaceMetricSchema.METRIC_BANDWIDTH, tier.generateBaseBandwidth(random)
         );
     }

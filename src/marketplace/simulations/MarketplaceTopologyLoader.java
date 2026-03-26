@@ -28,26 +28,37 @@ public class MarketplaceTopologyLoader extends GeoNamesTopologyLoader {
 
         if (marketConfig != null && worldRoot != null) {
             logger.info(">>> Pruning Topology based on Slice: " + MarketplaceConfig.get().allowedCountries);
-            pruneTopology(worldRoot);
+            
+            // 1. Capture the potentially hoisted root returned by the pruner
+            BoundedBroker effectiveRoot = pruneTopology(worldRoot);
             
             logger.info(">>> Recalculating Population Statistics for Sliced Topology...");
-            recalculatePopulation(worldRoot);
-            logger.info(">>> New Root Population: " + worldRoot.getInternetPopulation());
+            recalculatePopulation(effectiveRoot);
+            logger.info(">>> New Root Population: " + effectiveRoot.getInternetPopulation());
             
             logger.info(">>> Sanitizing broker names to use underscores for log consistency...");
-            sanitizeBrokerNames(worldRoot);
+            sanitizeBrokerNames(effectiveRoot);
+            
+            // 2. Return the new root (which will be the Country if only 1 was selected)
+            return effectiveRoot;
         }
 
         return worldRoot;
     }
 
-    private void pruneTopology(BoundedBroker root) {
+    /**
+     * Prunes unselected countries and empty continents.
+     * Returns the hoisted Country node if it is the only one in the slice, 
+     * otherwise returns the original World root.
+     */
+    private BoundedBroker pruneTopology(BoundedBroker root) {
         List<TreeNode> continents = root.getChildren();
-        if (continents == null || continents.isEmpty()) return;
+        if (continents == null || continents.isEmpty()) return root;
 
         int keptCountries = 0;
         int removedCountries = 0;
         List<TreeNode> emptyContinents = new ArrayList<>();
+        BoundedBroker singleCountryNode = null; // Track the node to potentially hoist
 
         for (TreeNode continent : continents) {
             List<TreeNode> countries = continent.getChildren();
@@ -69,6 +80,7 @@ public class MarketplaceTopologyLoader extends GeoNamesTopologyLoader {
                     removedCountries++;
                 } else {
                     keptCountries++;
+                    singleCountryNode = (BoundedBroker) countryNode;
                     logger.info("  >>> KEEPING Country: " + name + " (Children: " + countryNode.getChildren().size() + ")");
                 }
             }
@@ -89,6 +101,20 @@ public class MarketplaceTopologyLoader extends GeoNamesTopologyLoader {
         }
         
         logger.info(String.format(">>> Pruning Complete. Kept %d Countries. Removed %d Countries.", keptCountries, removedCountries));
+
+       // 4. If exactly one country remains in the slice, hoist it to the root
+        if (keptCountries == 1 && singleCountryNode != null) {
+            logger.info(">>> Single country slice detected. Hoisting '" + singleCountryNode.getName() + "' to be the topology root.");
+            
+            // --- Sever the upward network link ---
+            TreeNode oldParent = singleCountryNode.getParent();
+            if (oldParent != null) {
+                oldParent.removeChild(singleCountryNode); 
+            }
+            return singleCountryNode;
+        }
+
+        return root; // Fallback to World root if processing a multi-country slice
     }
 
     /**
@@ -97,7 +123,6 @@ public class MarketplaceTopologyLoader extends GeoNamesTopologyLoader {
      */
     private long recalculatePopulation(TreeNode node) {
         // Base case: If it's a leaf (City or bottom-most node), we trust its current population.
-        // Because we removed empty continents, any node with 0 children is a TRUE leaf (with valid data).
         if (node.getChildren().isEmpty()) {
             if (node instanceof BoundedBroker) {
                 return ((BoundedBroker) node).getInternetPopulation();

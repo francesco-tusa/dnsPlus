@@ -4,9 +4,12 @@ import simulator.entities.SubscriberWithLocation;
 import simulator.core.Location;
 import simulator.events.SimulationPublication;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Queue;
+import java.util.LinkedList;
 
 import marketplace.common.identifiers.RoutingIdentifierFactory;
 import marketplace.common.identifiers.ServiceIdentifier;
@@ -19,15 +22,23 @@ public class MarketplaceProvider extends SubscriberWithLocation {
     private final RoutingIdentifierFactory cryptographyFactory;
 
     private ServiceOffer lastAdvertisedOffer;
-    private final List<ServiceOffer> activeOffers = new ArrayList<>();
-
-    // State for deferred offer creation
-    private long configuredServiceId;
-    private Map<String, Double> configuredMetrics;
     
-    private double configuredRange; 
-    private boolean isConfigured = false;
+    private final Map<Long, ServiceOffer> activeOffers = new HashMap<>();
 
+    // State for deferred offer creation must support multiple functions
+    private static class DeferredConfig {
+        final long serviceId;
+        final Map<String, Double> metrics;
+        final double range;
+
+        DeferredConfig(long serviceId, Map<String, Double> metrics, double range) {
+            this.serviceId = serviceId;
+            this.metrics = metrics;
+            this.range = range;
+        }
+    }
+    
+    private final Queue<DeferredConfig> pendingConfigs = new LinkedList<>();
     private final List<ServiceRequest> deliveredRequests = new ArrayList<>();
 
     public MarketplaceProvider(String name, Location location) {
@@ -35,64 +46,54 @@ public class MarketplaceProvider extends SubscriberWithLocation {
         this.cryptographyFactory = MarketplaceConfig.get().routingCryptography;
     }
 
-    /**
-     * Configures the service parameters without sending the offer yet.
-     * @param spatialRange The half-width of the square region (from center to edge).
-     */
     public void configureService(long serviceId, Map<String, Double> performanceMetrics, double spatialRange) {
-        this.configuredServiceId = serviceId;
-        this.configuredMetrics = performanceMetrics;
-        this.configuredRange = spatialRange;
-        this.isConfigured = true;
+        this.pendingConfigs.add(new DeferredConfig(serviceId, performanceMetrics, spatialRange));
     }
 
-    /**
-     * 1. MAIN OVERLOAD (Explicit Range)
-     */
     public void advertiseService(long serviceId, Map<String, Double> performanceMetrics, double spatialRange) {
         configureService(serviceId, performanceMetrics, spatialRange);
         
-        ServiceOffer offer = createServiceOffer();
-        if (offer != null) {
+        // Process the entire generated list
+        List<ServiceOffer> offers = createServiceOffers();
+        for (ServiceOffer offer : offers) {
             this.send(offer);
         }
     }
 
-    /**
-     * 2. BACKWARD-COMPATIBLE OVERLOAD (No Range)
-     * Defaults to 0.0 (Exact Point Match / Infinite Fallback).
-     */
     public void advertiseService(long serviceId, Map<String, Double> performanceMetrics) {
         this.advertiseService(serviceId, performanceMetrics, 0.0);
     }
     
     /**
-     * Called by MarketplaceWorkloadGenerator to create the actual Subscription object.
+     * Generates and returns all deferred configurations as discrete offers.
      */
-    public ServiceOffer createServiceOffer() {
-        if (!isConfigured) {
-            return null;
+    public List<ServiceOffer> createServiceOffers() {
+        List<ServiceOffer> generatedOffers = new ArrayList<>();
+
+        while (!pendingConfigs.isEmpty()) {
+            DeferredConfig config = pendingConfigs.poll();
+            
+            ServiceIdentifier routingId = this.cryptographyFactory.createIdentifier(config.serviceId);
+
+            ServiceOffer offer = new ServiceOffer(
+                config.serviceId, 
+                routingId, 
+                config.metrics, 
+                this.getLocation(), 
+                getName(), 
+                config.range
+            );
+
+            // Map the Oracle ID to the Offer for Ground Truth validation later
+            this.activeOffers.put(config.serviceId, offer);
+            this.lastAdvertisedOffer = offer;
+            
+            generatedOffers.add(offer);
         }
 
-        long oracleId = this.configuredServiceId;
-        
-        // 2. Delegate to the locally cached strategy to wrap the Oracle ID
-        ServiceIdentifier routingId = this.cryptographyFactory.createIdentifier(oracleId);
-
-        ServiceOffer offer = new ServiceOffer(
-            oracleId, // Ground Truth Artifact
-            routingId, // Opaque Network Payload
-            configuredMetrics, 
-            this.getLocation(), 
-            getName(), 
-            configuredRange
-        );
-
-        this.activeOffers.add(offer);
-        this.lastAdvertisedOffer = offer;
-
-        return offer;
+        return generatedOffers;
     }
+    
 
     public ServiceOffer getLastAdvertisedOffer() {
         return lastAdvertisedOffer;
@@ -106,14 +107,21 @@ public class MarketplaceProvider extends SubscriberWithLocation {
     }
 
     public List<ServiceOffer> getActiveOffers() {
-        return new ArrayList<>(activeOffers);
+        // Wrap the map values in an ArrayList to satisfy the legacy interface contract
+        return new ArrayList<>(activeOffers.values());
+    }
+
+    /**
+     * Retrieval of specific ServiceOffer for Ground Truth Oracle evaluations.
+     */
+    public ServiceOffer getSpecificOffer(long oracleServiceId) {
+        return activeOffers.get(oracleServiceId);
     }
 
     @Override
     public void receive(SimulationPublication p) {
-        super.receive(p); // Maintains Level 1 truth (counters)
+        super.receive(p); 
         
-        // Ledger: Track exact requests routed to this provider for SLA evaluation
         if (p instanceof ServiceRequest req) {
             deliveredRequests.add(req);
         }

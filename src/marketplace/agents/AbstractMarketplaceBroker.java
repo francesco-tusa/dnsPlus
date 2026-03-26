@@ -22,6 +22,7 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
     protected final Map<TreeNode, List<SimulationSubscription>> matchBuffer = new HashMap<>();
     protected ServiceSelectionStrategy selectionStrategy;
 
+    // Threshold assigned by Utility Strategies to indicate SLA Violations / Unfeasible matches
     protected static final double PENALTY_SCORE = 999.0;
 
     public AbstractMarketplaceBroker(String name, double threshold) {
@@ -47,12 +48,10 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
 
         this.matchBuffer.clear();
 
-        // 1. Dual-Key Spatial & Topic Filter
+        // 1. Dual-Key Spatial & Topic Filter (Pre-Populates Buffer)
         if (this.getInputStore() instanceof MarketplaceRegionStore store) {
-            // Triggers the polymorphic directory resolution
             store.findMatchesForRequest(req, this.matchBuffer);
         } else {
-            // Legacy fallback
             this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
         }
 
@@ -66,8 +65,7 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
             this.totalFalsePositiveEvents++;
             this.totalProactiveShieldedEvents++;
             
-            // Differentiate the exact reason for the drop
-            String dropReason = "Reason=[No Spatial/Content Match]"; // Safe legacy fallback
+            String dropReason = "Reason=[No Spatial/Content Match]";
             if (this.getInputStore() instanceof MarketplaceRegionStore store) {
                 if (store.hasFunctionTopic(req)) {
                     dropReason = "Reason=[SLA/Spatial Mismatch (Constraints Failed)]";
@@ -81,7 +79,7 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
             return null;
         }
 
-        // 2. Strategy Execution 
+        // 2. Multi-Objective Strategy Execution 
         ServiceSelectionStrategy.SelectionResult selection = this.selectionStrategy.selectBestProvider(
                 req, this.matchBuffer);
         TreeNode bestNode = selection.bestNode();
@@ -89,10 +87,11 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
         boolean tracingEnabled = SimConfiguration.get().paths.enableEventTracing;
 
         // 3. Forwarding & Observability 
-        if (bestNode != null) {
+        // The broker must not forward the request if the SLA is breached (Penalty Score)
+        if (bestNode != null && selection.bestScore() < PENALTY_SCORE) {
             String details = "Selected " + bestNode.getName();
 
-            if (tracingEnabled && selection.bestScore() < PENALTY_SCORE) {
+            if (tracingEnabled) {
                 details += String.format(" (Score: %.3f, Dist: %.1f)", selection.bestScore(), selection.distance());
             }
             
@@ -100,23 +99,23 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
                     p, this.getName(), "FORWARDED", details);
             forwardPublicationToNode(p, bestNode);
         } else {
-            // Drop Logic
+            // Drop Logic: The strategy evaluated all available spatial nodes and found 0 feasible SLA matches.
             this.totalFalsePositiveEvents++;
             String logType;
 
             // STATELESS PROVENANCE CHECK: 
-            // Is this broker the topological entry point (Ingress) for this request?
             if (!isIngressNode(req)) {
-                // TRUE DEAD END: An upstream broker promised a match via a Hypercube that this child cannot fulfill.
+                // TRUE DEAD END: An upstream broker mathematically promised a capability via Aggregation, 
+                // but upon reaching this finer-grained topological tier, the truth revealed an SLA breach.
                 this.totalDownwardDeadEndEvents++;
                 logType = "DROP_STRATEGY_DEAD_END";
             } else {
-                // PROACTIVE SHIELDING: We blocked an unresolvable intent right at the edge/entry point.
+                // PROACTIVE SHIELDING: Caught at the edge before wasting network hops.
                 this.totalProactiveShieldedEvents++;
                 logType = "DROP_STRATEGY_SHIELDED";
             }
 
-            String reason = "No suitable provider found via Utility Strategy";
+            String reason = "No suitable provider found via Utility Strategy (SLA Violated)";
             if (tracingEnabled && selection.diagnosis() != null) {
                 reason = selection.diagnosis();
             }
@@ -128,20 +127,10 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
         return null;
     }
 
-    /**
-     * Determines if this broker is the first topological hop for the publication.
-     */
     private boolean isIngressNode(ServiceRequest req) {
-
-        
         return req.getHops() == 0;
     }
 
-    /**
-     * Exposes the size of the internal Function Directory for tier-by-tier analytics
-     * without breaking the encapsulation of the underlying storage mechanism.
-     * * @return The number of unique function identifiers currently tracked, or 0 if unsupported.
-     */
     public int getFunctionDirectorySize() {
         if (this.getInputStore() instanceof MarketplaceRegionStore store) {
             return store.getFunctionDirectorySize();

@@ -7,4 +7,8 @@ public class CloudProviderTier implements ProviderTierStrategy {
     @Override public double generateBaseBandwidth(Random r) { return 800.0 + (r.nextDouble() * 200.0); }
     @Override public double getBaseCost() { return 2.50; } // Base AWS Lambda equivalent
     @Override public double getBaseReliability() { return 0.999; }
+
+    // Cloud: Slow orchestration (Heavy k8s/Firecracker control plane), fast memory bus
+    @Override public double getControlPlaneProvisioningMs() { return 500.0; }
+    @Override public double getMemorySpeedMultiplier() { return 1.2; }
 }

@@ -167,7 +167,7 @@ def analyze_subscriptions(run_id, base_dir="output"):
         f.write("by replaying the chronological ledger of ADDED and EXPANDED events.\n")
         f.write("="*100 + "\n\n")
         
-        # State Machine Dictionary: broker -> service_id -> set(active MetricHyperCubes)
+        # State Machine Dictionary: broker -> service_id -> next_hop -> set(active MetricHyperCubes)
         broker_states = {}
         
         for _, row in df_broker.iterrows():
@@ -175,25 +175,31 @@ def analyze_subscriptions(run_id, base_dir="output"):
             action = row['Result'].strip()
             service_id = str(row.get('ServiceID', 'Unknown'))
             
+            # Extract the interface/next-hop from the traces
+            next_hop = str(row.get('ReceivedFrom', 'Unknown'))
+            
             exs = format_state(row.get('ExistingState', 'None'))
             res = format_state(row.get('ResultingState', 'None'))
             
             if broker not in broker_states:
                 broker_states[broker] = {}
             if service_id not in broker_states[broker]:
-                broker_states[broker][service_id] = set()
+                broker_states[broker][service_id] = {}
+            if next_hop not in broker_states[broker][service_id]:
+                broker_states[broker][service_id][next_hop] = set()
                 
             if action.startswith('ADDED'):
-                broker_states[broker][service_id].add(res)
+                broker_states[broker][service_id][next_hop].add(res)
                 
             elif action.startswith('EXPANDED'):
-                if exs in broker_states[broker][service_id]:
-                    broker_states[broker][service_id].remove(exs)
-                broker_states[broker][service_id].add(res)
+                # State aggregation updates the specific interface's tree
+                if exs in broker_states[broker][service_id][next_hop]:
+                    broker_states[broker][service_id][next_hop].remove(exs)
+                broker_states[broker][service_id][next_hop].add(res)
                 
         for broker in sorted(broker_states.keys()):
             f.write(f"Broker: {broker}\n")
-            f.write("-" * 50 + "\n")
+            f.write("-" * 60 + "\n")
             
             topics = broker_states[broker]
             if not topics:
@@ -202,17 +208,26 @@ def analyze_subscriptions(run_id, base_dir="output"):
                 
             for service_id in sorted(topics.keys(), key=lambda x: int(x) if x.isdigit() else 0):
                 f.write(f"  Topic [Azure Function ID: {service_id}]\n")
-                active_cubes = topics[service_id]
+                interfaces = topics[service_id]
                 
-                if not active_cubes:
+                if not interfaces:
                     f.write("    -> [Empty Spatial Index]\n")
                 else:
-                    for idx, cube in enumerate(active_cubes, 1):
-                        f.write(f"    -> Cube {idx}: {cube}\n")
+                    # Iterate through the network interfaces (next hops)
+                    for hop in sorted(interfaces.keys()):
+                        f.write(f"    -> Interface [Next Hop: {hop}]\n")
+                        active_cubes = interfaces[hop]
+                        
+                        if not active_cubes:
+                            f.write("         -> [Empty]\n")
+                        else:
+                            # Sort cubes alphabetically so they remain readable and deterministic
+                            for idx, cube in enumerate(sorted(list(active_cubes)), 1):
+                                f.write(f"         Cube {idx}: {cube}\n")
+                                
             f.write("\n" + "="*100 + "\n\n")
             
     print(f"-> Final State Report generated at:    {final_state_path}")
-
 
 # ==========================================
 # PUBLICATION ROUTING (DATA PLANE)

@@ -95,39 +95,45 @@ public class ServiceOffer extends SubscriptionWithRegion {
     }
     
     // Purely mathematical generation based on the explicitly provided radius
-    private static Region createMetricRegion(Map<String, Double> metrics, Location loc, double coverageRadius) {        
+    private static Region createMetricRegion(Map<String, Double> metrics, Location loc, double coverageRadius) {
         int dim = MarketplaceMetricSchema.KEYS.length;
         double[] rMinValues = new double[dim];
         double[] rMaxValues = new double[dim];
-        
+
         // NEW: Strict bounds to hold the operational volume
-        double[] cMinValues = new double[dim]; 
+        double[] cMinValues = new double[dim];
         double[] cMaxValues = new double[dim];
-        double[] rawCapabilities = new double[dim]; 
+        double[] rawCapabilities = new double[dim];
 
         // Define the SLA Flexibility (e.g., 10% tolerance for clustering)
-        double SLA_FLEXIBILITY = 0.10; 
+        double SLA_FLEXIBILITY = 0.10;
 
         for (int i = 0; i < dim; i++) {
             String key = MarketplaceMetricSchema.KEYS[i];
             boolean minimize = MarketplaceMetricSchema.DIRECTIONS.get(key);
             double systemMax = MarketplaceMetricSchema.getSystemMax(key);
-            
-            // Missing metrics must default to the WORST case scenario
+
             double value = metrics.getOrDefault(key, minimize ? systemMax : 0.0);
             rawCapabilities[i] = value;
-            
+
             // =========================================================
-            // INJECT VOLUME: Create a mathematical capability band
+            // INJECT VOLUME: Scaled to the specific metric's domain
             // =========================================================
-            double variance = Math.max(value * SLA_FLEXIBILITY, 1.0); // Ensure at least a small absolute volume
+            // Ensure at least a small absolute volume (e.g., 1% of the system maximum)
+            // to prevent R-Tree spatial collapse on exact-match scalars.
+            double minAbsoluteVariance = systemMax * 0.01;
+
+            double variance = Math.max(value * SLA_FLEXIBILITY, minAbsoluteVariance);
+
             cMinValues[i] = Math.max(0.0, value - variance);
-            cMaxValues[i] = value + variance;
-            
+
+            // STRICT CLAMPING: Do not exceed the mathematical limits of the system
+            cMaxValues[i] = Math.min(systemMax, value + variance);
+
             // Smear the routing bounds for the QuadTree
             if (minimize) {
                 rMinValues[i] = value;
-                rMaxValues[i] = systemMax; 
+                rMaxValues[i] = systemMax;
             } else {
                 rMinValues[i] = 0.0;
                 rMaxValues[i] = value;
@@ -135,14 +141,16 @@ public class ServiceOffer extends SubscriptionWithRegion {
         }
 
         simulator.regions.Region physicalScope = new simulator.regions.Region(
-                loc.getX() - coverageRadius, loc.getY() - coverageRadius, 
+                loc.getX() - coverageRadius, loc.getY() - coverageRadius,
                 loc.getX() + coverageRadius, loc.getY() + coverageRadius);
 
         boolean[] flags = new boolean[dim];
-        for(int i=0; i<dim; i++) flags[i] = MarketplaceMetricSchema.DIRECTIONS.get(MarketplaceMetricSchema.KEYS[i]);
+        for (int i = 0; i < dim; i++)
+            flags[i] = MarketplaceMetricSchema.DIRECTIONS.get(MarketplaceMetricSchema.KEYS[i]);
 
         // Pass the new cMin and cMax arrays to the updated constructor
-        return new MetricHyperCube(rMinValues, rMaxValues, cMinValues, cMaxValues, rawCapabilities, flags, physicalScope, loc);
+        return new MetricHyperCube(rMinValues, rMaxValues, cMinValues, cMaxValues, rawCapabilities, flags,
+                physicalScope, loc);
     }
 
     public long getOracleServiceId() { return oracleServiceId; }
