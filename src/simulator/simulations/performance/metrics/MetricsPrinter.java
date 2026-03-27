@@ -36,6 +36,9 @@ public abstract class MetricsPrinter {
         
         // Hook 4: Accuracy (Ground Truth)
         printAccuracy(data);
+
+        // Optional Hook 5: Cryptographic/HE Load ---
+        printCryptographicOverhead(data);
         
         printSeparator();
     }
@@ -47,11 +50,20 @@ public abstract class MetricsPrinter {
     protected abstract void printAccuracy(PerformanceMetricsData data);
 
     // --- OPTIONAL EXTENSION HOOKS ---
+    
     /**
      * Concrete default implementation to allow subclasses to inject 
      * granular topology or tier-by-tier table statistics.
      */
     protected void printExtendedTableStats(PerformanceMetricsData data) {
+        // Default implementation does nothing.
+    }
+
+    /**
+     * Concrete default implementation for outputting theoretical 
+     * cryptographic or Homomorphic Encryption (HE) limits.
+     */
+    protected void printCryptographicOverhead(PerformanceMetricsData data) {
         // Default implementation does nothing.
     }
 

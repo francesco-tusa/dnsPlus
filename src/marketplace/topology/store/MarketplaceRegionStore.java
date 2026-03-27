@@ -231,12 +231,18 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
      * Dual-Key Resolution. Matches strictly against the required Service ID Topic
      * before evaluating the Spatial QoS criteria.
      */
-    public int findMatchesForRequest(ServiceRequest req, Map<TreeNode, List<SimulationSubscription>> resultsBuffer) {
-        int[] opsCounter = new int[1];
+    public int[] findMatchesForRequest(ServiceRequest req, Map<TreeNode, List<SimulationSubscription>> resultsBuffer) {
+        int[] opsCounter = new int[3];
 
         for (Map.Entry<TreeNode, FunctionDirectory> entry : routingTable.entrySet()) {
             TreeNode interfaceNode = entry.getKey();
             FunctionDirectory directory = entry.getValue();
+
+            int uniqueFunctionsOnInterface = directory.getAllOfferIndexes().size();
+            if (uniqueFunctionsOnInterface > 0) {
+                opsCounter[1] += uniqueFunctionsOnInterface; 
+                opsCounter[2] += (int) Math.ceil(Math.log(uniqueFunctionsOnInterface + 1) / Math.log(2));
+            }
 
             // 1. Topic Match (Delegated to the polymorphic directory implementation)
             RegionQuadTree tree = directory.getOfferIndex(req);
@@ -251,7 +257,7 @@ public class MarketplaceRegionStore extends AbstractMultiRegionStore {
                 }
             }
         }
-        return opsCounter[0];
+        return opsCounter;
     }
 
     /**

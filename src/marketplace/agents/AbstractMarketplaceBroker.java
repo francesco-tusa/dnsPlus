@@ -25,6 +25,10 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
     // Threshold assigned by Utility Strategies to indicate SLA Violations / Unfeasible matches
     protected static final double PENALTY_SCORE = 999.0;
 
+    // Telemetry for theoretical HE scaling limits
+    protected long totalIdLinearComputations = 0;
+    protected long totalIdBstComputations = 0;
+
     public AbstractMarketplaceBroker(String name, double threshold) {
         super(name, false, threshold, new StrictPropagationPolicy());
     }
@@ -48,18 +52,26 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
 
         this.matchBuffer.clear();
 
+        int[] ops = new int[3];
+
         // 1. Dual-Key Spatial & Topic Filter (Pre-Populates Buffer)
         if (this.getInputStore() instanceof MarketplaceRegionStore store) {
-            store.findMatchesForRequest(req, this.matchBuffer);
+            ops = store.findMatchesForRequest(req, this.matchBuffer);
         } else {
-            this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
+            ops[0] = this.getInputStore().findMatches(req.getLocation(), this.matchBuffer);
         }
 
         int evaluatedCandidates = 0;
         for (List<SimulationSubscription> candidates : this.matchBuffer.values()) {
             evaluatedCandidates += candidates.size();
         }
-        this.totalMatchingComputations += evaluatedCandidates;
+        
+        // Combine the boundary checks (ops[0]) with the final candidate evaluation.
+        this.totalMatchingComputations += (ops[0] + evaluatedCandidates);
+        
+        // Aggregate the new HE complexity metrics
+        this.totalIdLinearComputations += ops[1];
+        this.totalIdBstComputations += ops[2];
 
         if (this.matchBuffer.isEmpty()) {
             this.totalFalsePositiveEvents++;
@@ -136,6 +148,14 @@ public abstract class AbstractMarketplaceBroker extends SpatialMatchBroker {
             return store.getFunctionDirectorySize();
         }
         return 0;
+    }
+
+    public long getTotalIdLinearComputations() {
+        return this.totalIdLinearComputations;
+    }
+
+    public long getTotalIdBstComputations() {
+        return this.totalIdBstComputations;
     }
 
     @Override

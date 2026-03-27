@@ -31,7 +31,7 @@ public class MarketplaceMetricsPrinter extends RegionMetricsPrinter {
                 logger.info(String.format("  %-3d |   %-5d | %-33s | %s", 
                     level, spatialStats.getCount(), funcStr, spatStr));
             }
-            logger.info(""); // Add a blank line for visual spacing
+            logger.info("");
         }
     }
 
@@ -64,4 +64,16 @@ public class MarketplaceMetricsPrinter extends RegionMetricsPrinter {
             logItem("Average SLA Violation Gap (Magnitude)", String.format("%.2f%% worse than optimal", slaGapPercentage));
         }
     }
+
+    @Override
+    protected void printCryptographicOverhead(PerformanceMetricsData rawData) {
+        if (rawData instanceof MarketplacePerformanceMetricsData data) {
+            logger.info(""); 
+            logger.info("8. CRYPTOGRAPHIC OVERHEAD (Theoretical HE Limits):");
+            logItem("Function ID Evaluations (Linear / O(N))", format(data.totalIdLinearComputations));
+            logItem("Function ID Evaluations (BST / O(log N))", format(data.totalIdBstComputations));
+            logItem("QoS Boundary Evaluations (Spatial/O(MBR))", format(data.totalMatchingComputations));
+        }
+    }
+
 }

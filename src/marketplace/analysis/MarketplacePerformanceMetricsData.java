@@ -25,6 +25,11 @@ public class MarketplacePerformanceMetricsData extends RegionPerformanceMetricsD
 
     public Map<Integer, IntSummaryStatistics> tierSpatialIndexStats = new TreeMap<>();
     public Map<Integer, IntSummaryStatistics> tierFunctionDirectoryStats = new TreeMap<>();
+
+    // Cryptographic Overhead Trackers
+    public long totalIdLinearComputations = 0;
+    public long totalIdBstComputations = 0;
+
     
     public double getAverageUtilityDegradation() {
         if (suboptimalDeliveries == 0) return 0.0;

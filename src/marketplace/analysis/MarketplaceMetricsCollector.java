@@ -57,6 +57,10 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
                     marketData.tierFunctionDirectoryStats
                         .computeIfAbsent(level, k -> new IntSummaryStatistics())
                         .accept(mb.getFunctionDirectorySize());
+                    
+                        // Aggregating the HE tracking variables
+                    marketData.totalIdLinearComputations += mb.getTotalIdLinearComputations();
+                    marketData.totalIdBstComputations += mb.getTotalIdBstComputations();    
                 }
             }
             if (curr.getChildren() != null) queue.addAll(curr.getChildren());
