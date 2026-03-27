@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
+import marketplace.config.MarketplaceConfig;
+
 public class AzureTraceRepository {
     private static final AzureTraceRepository INSTANCE = new AzureTraceRepository();
     
@@ -21,12 +23,21 @@ public class AzureTraceRepository {
     }
 
     public void loadTraces(String csvFilePath) {
+        // Clear previous state in case this is called during a batch reset
+        traceMap.clear();
+        rouletteWheel.clear();
+        
+        // Fetch the dynamic trace limit for the current simulation run
+        int traceLimit = MarketplaceConfig.get().azureTraceLimit;
+        int loadedCount = 0;
+
         try (BufferedReader br = new BufferedReader(new FileReader(csvFilePath))) {
             String line;
             br.readLine(); // Skip header
             long cumulativeInvocations = 0;
             
-            while ((line = br.readLine()) != null) {
+            // Strictly enforce the trace limit bounds
+            while ((line = br.readLine()) != null && loadedCount < traceLimit) {
                 String[] values = line.split(",");
                 long id = Long.parseLong(values[0]);
                 long count = Long.parseLong(values[1]);
@@ -36,6 +47,7 @@ public class AzureTraceRepository {
                 AzureTraceRecord record = new AzureTraceRecord(id, count, duration, memory);
                 traceMap.put(id, record);
                 cumulativeInvocations += count;
+                loadedCount++;
             }
 
             // Build Roulette Wheel
@@ -47,7 +59,7 @@ public class AzureTraceRepository {
             }
             this.totalProbabilityWeight = currentProb; // Should be ~1.0
         } catch (Exception e) {
-            throw new RuntimeException("Trace initialization failed.", e);
+            throw new RuntimeException("Trace initialization failed. Expected File: " + csvFilePath, e);
         }
     }
 
@@ -56,10 +68,7 @@ public class AzureTraceRepository {
     }
 
     public long selectFunctionRouletteWheel(double unscaledRandomValue) {
-        // unscaledRandomValue is assumed to be strictly [0.0, 1.0)
-        // We scale it against the empirical floating-point ceiling
         double scaledRandom = unscaledRandomValue * this.totalProbabilityWeight;
-        
         Map.Entry<Double, Long> entry = rouletteWheel.ceilingEntry(scaledRandom);
         return (entry != null) ? entry.getValue() : rouletteWheel.lastEntry().getValue();
     }

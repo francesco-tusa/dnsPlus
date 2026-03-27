@@ -17,6 +17,6 @@ public class AzureMarketplaceBatchRunner extends AbstractMarketplaceBatchRunner 
         AzureMarketplaceBatchRunner runner = new AzureMarketplaceBatchRunner();
         
         // Define which experiment you want to run for the Azure traces
-        runner.execute(ExperimentType.EDGE_WORKLOAD_SWEEP);
+        runner.execute(ExperimentType.HE_TENANT_CAPACITY_SWEEP);
     }
 }
