@@ -6,9 +6,10 @@ import simulator.regions.SpatialRegion;
 import simulator.regions.SubscriptionWithRegion;
 import simulator.regions.store.RegionSubscriptionStore;
 import marketplace.common.MetricHyperCube;
-import marketplace.config.MarketplaceConfig;
 import marketplace.events.ServiceOffer;
 import marketplace.optimization.BaselineCentralizedStrategy;
+import marketplace.optimization.ServiceSelectionStrategy;
+import marketplace.optimization.TelemetryLoggingStrategy;
 import marketplace.optimization.WeightedUtilityStrategy;
 import marketplace.topology.store.MarketplaceRegionStore;
 
@@ -25,15 +26,20 @@ public class HypercubeMarketplaceBroker extends AbstractMarketplaceBroker {
     }
     
     
-    // Dynamically assigns the routing strategy based on the simulation configuration.
     private void assignSelectionStrategy() {
-        MarketplaceConfig config = MarketplaceConfig.get();
+        marketplace.config.MarketplaceConfig config = marketplace.config.MarketplaceConfig.get();
         
+        ServiceSelectionStrategy baseStrategy;
         if ("BASELINE".equalsIgnoreCase(config.routingStrategy)) {
-            this.selectionStrategy = new BaselineCentralizedStrategy(config.baselineVendorPrefix);
+            baseStrategy = new BaselineCentralizedStrategy(config.baselineVendorPrefix);
         } else {
-            // Default to the FaaS Marketplace Multi-Objective strategy
-            this.selectionStrategy = new WeightedUtilityStrategy();
+            baseStrategy = new WeightedUtilityStrategy();
+        }
+
+        if (config.collectFlTelemetry) {
+            this.selectionStrategy = new TelemetryLoggingStrategy(baseStrategy, this);
+        } else {
+            this.selectionStrategy = baseStrategy;
         }
     }
 

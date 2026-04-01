@@ -49,6 +49,10 @@ public class MarketplaceConfig {
     public final String azureTraceFilePath;
     public final int azureTraceLimit;
 
+    // --- FL Telemetry ---
+    public final boolean collectFlTelemetry;
+
+
     public static synchronized void resetAndOverride(Properties overrides) {
         programmedOverrides = overrides;
         instance = new MarketplaceConfig();
@@ -101,6 +105,7 @@ public class MarketplaceConfig {
         
         this.azureTraceFilePath = ConfigParser.parseString(props, "marketplace.workload.traces.file", "resources/azure_marketplace_top1M.csv");
         this.azureTraceLimit = ConfigParser.parseInt(props, "marketplace.workload.traces.limit", 1000); 
+        this.collectFlTelemetry = ConfigParser.parseBoolean(props, "marketplace.enableTracing", false);
     }
 
     private Properties loadProperties() {
