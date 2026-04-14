@@ -52,6 +52,9 @@ public class AzureProviderPlacementStrategy extends AbstractProviderPlacementStr
         int tenantCapacity = 1;
         boolean isCloudFallback = false;
         
+        // Note: This instanceof check is acceptable here because it explicitly dictates 
+        // capacity limits based on the tier's role in the multi-tenant dataset configuration, 
+        // rather than core physical metrics.
         if (tierStrategy instanceof CloudProviderTier) {
             tenantCapacity = Math.min(this.config.cloudTenantCapacity, cloudFallbackFunctions.size());
             isCloudFallback = true;
@@ -66,13 +69,12 @@ public class AzureProviderPlacementStrategy extends AbstractProviderPlacementStr
             if (!(targetNode instanceof BoundedBroker hostBroker)) continue;
 
             Location providerLoc = extractLocation(hostBroker);
-            double baseRange = calculateCoveringRange(hostBroker, tierStrategy);
-            double finalAdaptiveRange = baseRange * (0.75 + (random.nextDouble() * 0.50));
+            double finalAdaptiveRange = calculateCoveringRange(hostBroker, tierStrategy);
 
             MarketplaceProvider provider = new MarketplaceProvider(providerLabel + "_" + i + "_" + hostBroker.getName(), providerLoc);
             hostBroker.addChild(provider);
             
-            ProviderProfileGenerator.ProviderPolicy policy = assignPolicyForTier(tierStrategy);
+            ProviderProfileGenerator.ProviderPolicy policy = tierStrategy.generateProviderPolicy(this.random);
             Set<Long> localCache = new HashSet<>();
             
             for (int t = 0; t < tenantCapacity; t++) {

@@ -10,16 +10,16 @@ import simulator.simulations.performance.metrics.PerformanceMetricsData;
 import marketplace.analysis.MarketplacePerformanceMetricsData;
 import marketplace.simulations.MarketplaceTopologyConfiguration;
 import marketplace.simulations.MarketplaceTopologyLoader;
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 import marketplace.topology.MarketplaceBrokerFactory;
 import marketplace.config.MarketplaceConfig;
 import marketplace.workload.traces.AzureTraceRepository;
 
 public abstract class AbstractMarketplaceScenario extends AbstractSimulationScenario {
 
-    protected final Supplier<MarketplaceContinuumSimulation> simulationFactory;
+    protected final Supplier<AbstractMarketplaceContinuumSimulation> simulationFactory;
 
-    public AbstractMarketplaceScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+    public AbstractMarketplaceScenario(Supplier<AbstractMarketplaceContinuumSimulation> simulationFactory) {
         this.simulationFactory = simulationFactory;
     }
     
@@ -36,7 +36,7 @@ public abstract class AbstractMarketplaceScenario extends AbstractSimulationScen
         AzureTraceRepository.getInstance().loadTraces(traceFile);
         
         // 2. Fetch a fresh polymorphic instance (Azure or Legacy)
-        MarketplaceContinuumSimulation sim = simulationFactory.get();
+        AbstractMarketplaceContinuumSimulation sim = simulationFactory.get();
         
         // 3. Setup standard topology constraints
         MarketplaceTopologyConfiguration config = new MarketplaceTopologyConfiguration();

@@ -2,12 +2,12 @@ package marketplace.simulations.batch;
 
 import java.util.function.Supplier;
 
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 
 public class EdgeProbabilityScenario extends AbstractMarketplaceScenario {
 
     // Inject the simulation engine (Legacy or Azure) via the constructor
-    public EdgeProbabilityScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+    public EdgeProbabilityScenario(Supplier<AbstractMarketplaceContinuumSimulation> simulationFactory) {
         super(simulationFactory);
     }
 

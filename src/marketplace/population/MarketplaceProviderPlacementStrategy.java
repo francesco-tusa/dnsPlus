@@ -42,13 +42,12 @@ public class MarketplaceProviderPlacementStrategy extends AbstractProviderPlacem
             if (!(targetNode instanceof BoundedBroker hostBroker)) continue;
 
             Location providerLoc = extractLocation(hostBroker);
-            double baseRange = calculateCoveringRange(hostBroker, tierStrategy);
-            double finalAdaptiveRange = baseRange * (0.75 + (random.nextDouble() * 0.50));
+            double finalAdaptiveRange = calculateCoveringRange(hostBroker, tierStrategy);
 
             MarketplaceProvider provider = new MarketplaceProvider(providerLabel + "_" + i + "_" + hostBroker.getName(), providerLoc);
             hostBroker.addChild(provider);
             
-            ProviderProfileGenerator.ProviderPolicy policy = assignPolicyForTier(tierStrategy);
+            ProviderProfileGenerator.ProviderPolicy policy = tierStrategy.generateProviderPolicy(this.random);
             long assignedOracleId = this.functionDistribution.selectProviderFunction();
             Map<String, Double> qosProfile = profileGenerator.generateProfile(tierStrategy, policy, assignedOracleId);
             

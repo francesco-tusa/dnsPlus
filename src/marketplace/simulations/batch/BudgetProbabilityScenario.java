@@ -2,7 +2,7 @@ package marketplace.simulations.batch;
 
 import java.util.function.Supplier;
 
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 
 /**
  * Sweeps the probability of a client request having a strict ($10) budget constraint.
@@ -11,7 +11,7 @@ import marketplace.simulations.MarketplaceContinuumSimulation;
  */
 public class BudgetProbabilityScenario extends AbstractMarketplaceScenario {
 
-    public BudgetProbabilityScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+    public BudgetProbabilityScenario(Supplier<AbstractMarketplaceContinuumSimulation> simulationFactory) {
         super(simulationFactory);
     }
 

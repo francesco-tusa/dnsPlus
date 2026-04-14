@@ -12,6 +12,8 @@ public class AzureClientDemandGenerator implements ClientDemandGenerator {
 
     private final AzureTraceRepository repository;
     private final java.util.Random random;
+    private final double configuredEdgeProb;
+    private final double configuredBudgetProb;
     
     // Maintain a reference to the Cloud physics to establish the worst-case SLA baseline
     private final ProviderTierStrategy baselineCloudPhysics;
@@ -20,6 +22,10 @@ public class AzureClientDemandGenerator implements ClientDemandGenerator {
         this.repository = AzureTraceRepository.getInstance();
         this.random = SimulationRandom.get();
         this.baselineCloudPhysics = new CloudProviderTier();
+
+        marketplace.config.MarketplaceConfig config = marketplace.config.MarketplaceConfig.get();
+        this.configuredEdgeProb = config.edgeWorkloadProbability;
+        this.configuredBudgetProb = config.strictBudgetProbability;
     }
 
     @Override
@@ -30,22 +36,28 @@ public class AzureClientDemandGenerator implements ClientDemandGenerator {
         double memoryMb   = (record != null) ? record.memory()   : 128.0;
         double baseCostEstimator = (memoryMb / 1024.0) * (durationMs / 1000.0) * 16.0;
 
-        // --- Models three types of requests ---
+        // --- DYNAMIC WORKLOAD PROBABILITY DISTRIBUTION ---
+        
+        // 1. Safety Check: Ensure probabilities do not exceed 100%
+        double safeEdgeProb = Math.min(this.configuredEdgeProb, 1.0);
+        double safeBudgetProb = Math.min(this.configuredBudgetProb, 1.0 - safeEdgeProb);
+
         double p = random.nextDouble();
-        boolean isUltraCritical = p < 0.10; // 10% AR/VR, Autonomous Systems
-        boolean isInteractive   = p >= 0.10 && p < 0.40; // 30% Web APIs
+        
+        // 2. Map 'p' to the three slices of the 0.0 -> 1.0 number line
+        boolean isUltraCritical = p < safeEdgeProb; 
+        boolean isInteractive   = p >= safeEdgeProb && p < (1.0 - safeBudgetProb);
+        // The implicit "else" covers p >= (1.0 - safeBudgetProb), which is the Async Batch (Budget) workload.
         
         double strictLatencyBound;
         double maxBudget;
         Map<String, Double> weights;
 
         if (isUltraCritical) {
-            // 1. ULTRA-CRITICAL: Unforgiving Latency, Blank Check Budget
-            strictLatencyBound = 5.0 + durationMs + 10.0; 
-            
-            // BUDGET FIX: Raised to $40.00 to safely clear the Warm Edge Cost ($31.25)
+            // 1. ULTRA-CRITICAL (Corresponds to edgeWorkloadProbability)
+            //strictLatencyBound = 5.0 + durationMs + 10.0;
+            strictLatencyBound = 10.0 + durationMs + 20.0;
             maxBudget = Math.max(40.0, baseCostEstimator * 50.0); 
-            
             weights = Map.of(
                 MarketplaceMetricSchema.METRIC_LATENCY, 0.85, 
                 MarketplaceMetricSchema.METRIC_COST, 0.05,
@@ -54,10 +66,10 @@ public class AzureClientDemandGenerator implements ClientDemandGenerator {
             );
         }
         else if (isInteractive) {
-            // 2. INTERACTIVE: Standard Edge/Fog bounds. 
-            strictLatencyBound = 15.0 + durationMs + 100.0;
+            // 2. INTERACTIVE (The remaining middle percentage)
+            //strictLatencyBound = 15.0 + durationMs + 100.0;
+            strictLatencyBound = 25.0 + durationMs + 150.0;
             maxBudget = Math.max(4.0, baseCostEstimator * 5.0); 
-            
             weights = Map.of(
                 MarketplaceMetricSchema.METRIC_LATENCY, 0.65,
                 MarketplaceMetricSchema.METRIC_COST, 0.15,
@@ -66,13 +78,15 @@ public class AzureClientDemandGenerator implements ClientDemandGenerator {
             );
         } 
         else {
-            // 3. ASYNC BATCH: Cloud Baseline + Cold Start Penalty
-            // POLYMORPHIC ALIGNMENT: Dynamically fetch the Cloud orchestrator penalty
+            // 3. ASYNC BATCH (Corresponds to strictBudgetProbability)
             double controlPlaneProvisioningMs = baselineCloudPhysics.getControlPlaneProvisioningMs();
             double ramColdStartPenalty = controlPlaneProvisioningMs + (memoryMb * baselineCloudPhysics.getMemorySpeedMultiplier());
             
-            strictLatencyBound = 2.0 + durationMs + ramColdStartPenalty + 2000.0;
-            maxBudget = Math.max(0.5, baseCostEstimator * 2.0); // Pennies on the dollar
+            //strictLatencyBound = 2.0 + durationMs + ramColdStartPenalty + 2000.0;
+            //maxBudget = Math.max(0.5, baseCostEstimator * 2.0);
+
+            strictLatencyBound = 5.0 + durationMs + ramColdStartPenalty + 3000.0;
+            maxBudget = Math.max(1.5, baseCostEstimator * 3.5);
             
             weights = Map.of(
                 MarketplaceMetricSchema.METRIC_LATENCY, 0.10,

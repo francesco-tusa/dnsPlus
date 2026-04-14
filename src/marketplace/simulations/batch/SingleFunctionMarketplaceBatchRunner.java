@@ -2,13 +2,13 @@ package marketplace.simulations.batch;
 
 import java.util.function.Supplier;
 
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 import marketplace.simulations.SingleFunctionMarketplaceSimulation;
 
 public class SingleFunctionMarketplaceBatchRunner extends AbstractMarketplaceBatchRunner {
 
     @Override
-    protected Supplier<MarketplaceContinuumSimulation> getSimulationEngineFactory() {
+    protected Supplier<AbstractMarketplaceContinuumSimulation> getSimulationEngineFactory() {
         return () -> new SingleFunctionMarketplaceSimulation();
     }
 

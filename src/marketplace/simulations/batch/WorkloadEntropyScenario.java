@@ -2,11 +2,11 @@ package marketplace.simulations.batch;
 
 import java.util.Properties;
 import java.util.function.Supplier;
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 
 public class WorkloadEntropyScenario extends AbstractMarketplaceScenario {
 
-    public WorkloadEntropyScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+    public WorkloadEntropyScenario(Supplier<AbstractMarketplaceContinuumSimulation> simulationFactory) {
         super(simulationFactory);
     }
 

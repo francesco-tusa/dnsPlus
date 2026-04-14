@@ -2,11 +2,11 @@ package marketplace.simulations.batch;
 
 import java.util.function.Supplier;
 
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 
 public class AggregationThresholdScenario extends AbstractMarketplaceScenario {
 
-    public AggregationThresholdScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+    public AggregationThresholdScenario(Supplier<AbstractMarketplaceContinuumSimulation> simulationFactory) {
         super(simulationFactory);
     }
 

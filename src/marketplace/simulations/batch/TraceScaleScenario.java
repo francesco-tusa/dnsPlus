@@ -2,11 +2,11 @@ package marketplace.simulations.batch;
 
 import java.util.Properties;
 import java.util.function.Supplier;
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 
 public class TraceScaleScenario extends AbstractMarketplaceScenario {
 
-    public TraceScaleScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+    public TraceScaleScenario(Supplier<AbstractMarketplaceContinuumSimulation> simulationFactory) {
         super(simulationFactory);
     }
 

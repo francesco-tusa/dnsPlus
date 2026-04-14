@@ -8,6 +8,7 @@ import simulator.regions.store.RegionSubscriptionStore;
 import marketplace.common.MetricHyperCube;
 import marketplace.events.ServiceOffer;
 import marketplace.optimization.BaselineCentralizedStrategy;
+import marketplace.optimization.EpsilonGreedyUtilityStrategy;
 import marketplace.optimization.ServiceSelectionStrategy;
 import marketplace.optimization.TelemetryLoggingStrategy;
 import marketplace.optimization.WeightedUtilityStrategy;
@@ -30,9 +31,15 @@ public class HypercubeMarketplaceBroker extends AbstractMarketplaceBroker {
         marketplace.config.MarketplaceConfig config = marketplace.config.MarketplaceConfig.get();
         
         ServiceSelectionStrategy baseStrategy;
-        if ("BASELINE".equalsIgnoreCase(config.routingStrategy)) {
+        
+        String strategyName = config.routingStrategy;
+        
+        if ("EPSILON_GREEDY".equalsIgnoreCase(strategyName)) {
+            baseStrategy = new EpsilonGreedyUtilityStrategy();
+        } else if ("BASELINE".equalsIgnoreCase(strategyName)) {
             baseStrategy = new BaselineCentralizedStrategy(config.baselineVendorPrefix);
         } else {
+            // Default Fallback
             baseStrategy = new WeightedUtilityStrategy();
         }
 

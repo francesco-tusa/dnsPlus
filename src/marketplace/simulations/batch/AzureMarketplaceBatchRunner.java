@@ -3,12 +3,12 @@ package marketplace.simulations.batch;
 import java.util.function.Supplier;
 
 import marketplace.simulations.AzureMarketplaceSimulation;
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 
 public class AzureMarketplaceBatchRunner extends AbstractMarketplaceBatchRunner {
 
     @Override
-    protected Supplier<MarketplaceContinuumSimulation> getSimulationEngineFactory() {
+    protected Supplier<AbstractMarketplaceContinuumSimulation> getSimulationEngineFactory() {
         // Inject the Azure-specific workload traces
         return () -> new AzureMarketplaceSimulation();
     }

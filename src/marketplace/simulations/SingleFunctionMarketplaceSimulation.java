@@ -7,7 +7,7 @@ import marketplace.workload.ClientDemandGenerator;
 import marketplace.workload.topics.FunctionDistributionStrategy;
 import simulator.config.SimConfiguration;
 
-public class SingleFunctionMarketplaceSimulation extends MarketplaceContinuumSimulation {
+public class SingleFunctionMarketplaceSimulation extends AbstractMarketplaceContinuumSimulation {
 
     // Define explicit constructor to pass the factory to the superclass
     public SingleFunctionMarketplaceSimulation() {

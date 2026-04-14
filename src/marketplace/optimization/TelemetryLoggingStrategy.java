@@ -20,6 +20,7 @@ import simulator.regions.SubscriptionWithRegion;
 import marketplace.events.ServiceRequest;
 import marketplace.events.ServiceOffer;
 import marketplace.common.MetricHyperCube;
+import marketplace.common.MarketplaceMetricSchema;
 import utils.CustomLogger;
 
 public class TelemetryLoggingStrategy implements ServiceSelectionStrategy {
@@ -31,7 +32,9 @@ public class TelemetryLoggingStrategy implements ServiceSelectionStrategy {
 
     private static String dumpDirectory = "telemetry_dump";
 
-    private final ServiceSelectionStrategy baseStrategy;
+    private final ServiceSelectionStrategy baseStrategy; // The executing strategy (e.g., EpsilonGreedy)
+    private final ServiceSelectionStrategy expertStrategy; // The Ground Truth Expert
+    
     private final TreeNode hostBroker;
     private BufferedWriter writer;
     private boolean isInitialized = false;
@@ -45,6 +48,7 @@ public class TelemetryLoggingStrategy implements ServiceSelectionStrategy {
     public TelemetryLoggingStrategy(ServiceSelectionStrategy baseStrategy, TreeNode hostBroker) {
         this.baseStrategy = baseStrategy;
         this.hostBroker = hostBroker;
+        this.expertStrategy = new WeightedUtilityStrategy(); 
     }
 
     private void lazyInitialize() {
@@ -72,19 +76,22 @@ public class TelemetryLoggingStrategy implements ServiceSelectionStrategy {
 
     @Override
     public SelectionResult selectBestProvider(ServiceRequest req, Map<TreeNode, List<SimulationSubscription>> candidates) {
-        SelectionResult result = baseStrategy.selectBestProvider(req, candidates);
+        // 1. Ask the executing strategy (potentially random) what it wants to do
+        SelectionResult executedResult = baseStrategy.selectBestProvider(req, candidates);
+        
+        // 2. Ask the pure expert strategy what it would have done
+        SelectionResult expertResult = expertStrategy.selectBestProvider(req, candidates);
         
         processedRequestIds.add(req.getOriginalRequestId());
 
         lazyInitialize();
-        logRawTelemetry(req, candidates, result);
+        logRawTelemetry(req, candidates, executedResult, expertResult);
         
-        return result;
+        return executedResult; // strictly returns the executed result to the simulation
     }
 
-    private void logRawTelemetry(ServiceRequest req, Map<TreeNode, List<SimulationSubscription>> candidates, SelectionResult result) {
+    private void logRawTelemetry(ServiceRequest req, Map<TreeNode, List<SimulationSubscription>> candidates, SelectionResult executedResult, SelectionResult expertResult) {
         try {
-            // Build a dynamic, un-padded representation of the routing event
             Map<String, Object> eventLog = new HashMap<>();
 
             // 1. Identifiers
@@ -99,31 +106,49 @@ public class TelemetryLoggingStrategy implements ServiceSelectionStrategy {
             clientState.put("y", req.getLocation().getY());
             clientState.put("weights", req.getWeights());
             clientState.put("constraints", req.getQoSConstraintsLocation().getMetricValues());
-            clientState.put("minimizeFlags", req.getMinimizeFlags()); // Kept as pure booleans
+            clientState.put("minimizeFlags", req.getMinimizeFlags());
             eventLog.put("client", clientState);
 
             // 3. Candidates (Variable Length)
             List<Map<String, Object>> candidateList = new ArrayList<>();
-            int chosenActionIndex = -1;
+            int executedActionIndex = -1;
+            int expertActionIndex = -1;
             int currentIndex = 0;
 
             for (Map.Entry<TreeNode, List<SimulationSubscription>> entry : candidates.entrySet()) {
                 TreeNode candidateNode = entry.getKey();
                 if (candidateNode == req.getSource()) continue;
 
-                if (result.bestNode() != null && candidateNode.equals(result.bestNode())) {
-                    chosenActionIndex = currentIndex;
+                // Track BOTH the Executed choice and the Expert choice
+                if (executedResult.bestNode() != null && candidateNode.equals(executedResult.bestNode())) {
+                    executedActionIndex = currentIndex;
+                }
+                if (expertResult.bestNode() != null && candidateNode.equals(expertResult.bestNode())) {
+                    expertActionIndex = currentIndex;
                 }
 
                 MetricHyperCube mhc = extractMetricHyperCube(entry.getValue().get(0));
                 if (mhc != null) {
                     Map<String, Object> candMap = new HashMap<>();
-                    candMap.put("nodeName", candidateNode.getName()); // Traceability
+                    candMap.put("nodeName", candidateNode.getName());
                     candMap.put("centroidX", mhc.getDensityCentroid().getX());
                     candMap.put("centroidY", mhc.getDensityCentroid().getY());
                     candMap.put("yields", mhc.getQosCenterOfMass());
                     candMap.put("minVals", mhc.getMinValues());
                     candMap.put("maxVals", mhc.getMaxValues());
+                    
+                    // Distance/Latency to the edge of the hypercube (Optimistic SLA bounds)
+                    double optimisticDist = Math.sqrt(mhc.distanceSquared(req.getLocation()));
+                    double optimisticLatency = optimisticDist * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
+                    
+                    // Distance/Latency to the center of mass (Actual Utility scoring)
+                    double barycenterDist = Math.sqrt(req.getLocation().distanceSquared(mhc.getDensityCentroid()));
+                    double barycenterLatency = barycenterDist * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
+                    
+                    candMap.put("optimisticDistance", optimisticDist);
+                    candMap.put("optimisticNetworkLatency", optimisticLatency);
+                    candMap.put("barycenterDistance", barycenterDist);
+                    candMap.put("barycenterNetworkLatency", barycenterLatency);
                     
                     candidateList.add(candMap);
                 }
@@ -133,9 +158,11 @@ public class TelemetryLoggingStrategy implements ServiceSelectionStrategy {
 
             // 4. Oracle Outcome
             Map<String, Object> outcome = new HashMap<>();
-            outcome.put("heuristicActionIndex", chosenActionIndex);
-            outcome.put("heuristicScore", result.bestScore());
-            outcome.put("heuristicDistance", result.distance());
+            // Log BOTH indices to allow for offline RL and counterfactual learning
+            outcome.put("executedActionIndex", executedActionIndex);
+            outcome.put("expertActionIndex", expertActionIndex);
+            outcome.put("executedScore", executedResult.bestScore());
+            outcome.put("expertScore", expertResult.bestScore());
             eventLog.put("oracle", outcome);
 
             // Serialize to a single JSON line and flush

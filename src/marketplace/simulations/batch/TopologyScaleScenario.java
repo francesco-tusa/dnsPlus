@@ -2,11 +2,11 @@ package marketplace.simulations.batch;
 
 import java.util.Properties;
 import java.util.function.Supplier;
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 
 public class TopologyScaleScenario extends AbstractMarketplaceScenario {
 
-    public TopologyScaleScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+    public TopologyScaleScenario(Supplier<AbstractMarketplaceContinuumSimulation> simulationFactory) {
         super(simulationFactory);
     }
 

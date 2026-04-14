@@ -37,6 +37,22 @@ public class MarketplaceConfig {
     public final AggregationStrategy activeAggregationStrategy;
     public final RoutingIdentifierFactory routingCryptography;
 
+    // --- SPATIAL DISTRIBUTION PHYSICS ---
+    public final double edgeRadiusMin;
+    public final double edgeRadiusMax;
+    
+    public final double fogRadiusMean;
+    public final double fogRadiusStdDev;
+    public final double fogRadiusMinClamp;
+    public final double fogRadiusMaxClamp;
+
+    public final double cloudRadiusMean;
+    public final double cloudRadiusStdDev;
+    public final double cloudRadiusMinClamp;
+    public final double cloudRadiusMaxClamp;
+
+    public final boolean enableSpatialClipping;
+
     // --- MULTI-TENANT CONTINUUM CAPACITIES ---
     public final int edgeTenantCapacity;
     public final int fogTenantCapacity;
@@ -44,6 +60,10 @@ public class MarketplaceConfig {
 
     // --- COLD START PHYSICS ---
     public final int universalWarmCacheSize;
+
+    // --- ML DATASET GENERATION VARIANCES ---
+    public final boolean enableQosPolicySkew;
+    public final double mlExplorationRate;
     
     // --- DATASETS ---
     public final String azureTraceFilePath;
@@ -84,6 +104,21 @@ public class MarketplaceConfig {
         this.fogProviderCount = ConfigParser.parseInt(props, "marketplace.providers.fog.count", 50);
         this.edgeProviderCount = ConfigParser.parseInt(props, "marketplace.providers.edge.count", 200);
 
+        this.edgeRadiusMin = ConfigParser.parseDouble(props, "marketplace.tier.edge.radius.min", 0.05);
+        this.edgeRadiusMax = ConfigParser.parseDouble(props, "marketplace.tier.edge.radius.max", 0.45);
+
+        this.fogRadiusMean = ConfigParser.parseDouble(props, "marketplace.tier.fog.radius.mean", 3.0);
+        this.fogRadiusStdDev = ConfigParser.parseDouble(props, "marketplace.tier.fog.radius.stddev", 0.75);
+        this.fogRadiusMinClamp = ConfigParser.parseDouble(props, "marketplace.tier.fog.radius.clamp.min", 1.5);
+        this.fogRadiusMaxClamp = ConfigParser.parseDouble(props, "marketplace.tier.fog.radius.clamp.max", 5.0);
+
+        this.cloudRadiusMean = ConfigParser.parseDouble(props, "marketplace.tier.cloud.radius.mean", 8.0);
+        this.cloudRadiusStdDev = ConfigParser.parseDouble(props, "marketplace.tier.cloud.radius.stddev", 2.0);
+        this.cloudRadiusMinClamp = ConfigParser.parseDouble(props, "marketplace.tier.cloud.radius.clamp.min", 5.0);
+        this.cloudRadiusMaxClamp = ConfigParser.parseDouble(props, "marketplace.tier.cloud.radius.clamp.max", 15.0);
+
+        this.enableSpatialClipping = ConfigParser.parseBoolean(props, "marketplace.topology.spatial_clipping", true);
+
         this.strictBudgetProbability = ConfigParser.parseDouble(props, "marketplace.workload.strict_budget.probability", 0.5);
         this.edgeWorkloadProbability = ConfigParser.parseDouble(props, "marketplace.workload.edge.probability", 0.35);
 
@@ -100,6 +135,9 @@ public class MarketplaceConfig {
         this.edgeTenantCapacity = ConfigParser.parseInt(props, "marketplace.tenant.capacity.edge", 10);
         this.fogTenantCapacity = ConfigParser.parseInt(props, "marketplace.tenant.capacity.fog", 100);
         this.cloudTenantCapacity = ConfigParser.parseInt(props, "marketplace.tenant.capacity.cloud", 5000);
+
+        this.enableQosPolicySkew = ConfigParser.parseBoolean(props, "marketplace.workload.policy.skew_enabled", false);
+        this.mlExplorationRate = ConfigParser.parseDouble(props, "marketplace.ml.exploration_rate", 0.0);
         
         this.universalWarmCacheSize = ConfigParser.parseInt(props, "marketplace.physics.warm_cache_size", 100);
         

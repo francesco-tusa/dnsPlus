@@ -1,15 +1,15 @@
 package marketplace.simulations.batch;
 
 import java.util.function.Supplier;
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 
 public abstract class AbstractMarketplaceBatchRunner {
 
-    protected abstract Supplier<MarketplaceContinuumSimulation> getSimulationEngineFactory();
+    protected abstract Supplier<AbstractMarketplaceContinuumSimulation> getSimulationEngineFactory();
 
     public void execute(ExperimentType activeExperiment) {
         // 1. Fetch the specific simulation engine from the subclass (e.g., AzureMarketplaceSimulation)
-        Supplier<MarketplaceContinuumSimulation> simFactory = getSimulationEngineFactory();
+        Supplier<AbstractMarketplaceContinuumSimulation> simFactory = getSimulationEngineFactory();
 
         // 2. Polymorphic Resolution: The enum handles the mapping natively
         AbstractMarketplaceScenario activeScenario = activeExperiment.createScenario(simFactory);

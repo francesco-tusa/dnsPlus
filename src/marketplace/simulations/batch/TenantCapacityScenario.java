@@ -2,11 +2,11 @@ package marketplace.simulations.batch;
 
 import java.util.Properties;
 import java.util.function.Supplier;
-import marketplace.simulations.MarketplaceContinuumSimulation;
+import marketplace.simulations.AbstractMarketplaceContinuumSimulation;
 
 public class TenantCapacityScenario extends AbstractMarketplaceScenario {
 
-    public TenantCapacityScenario(Supplier<MarketplaceContinuumSimulation> simulationFactory) {
+    public TenantCapacityScenario(Supplier<AbstractMarketplaceContinuumSimulation> simulationFactory) {
         super(simulationFactory);
     }
 

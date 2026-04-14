@@ -1,16 +1,21 @@
 package marketplace.simulations;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+import marketplace.agents.MarketplaceClient;
 import marketplace.analysis.MarketplaceGroundTruthCalculator;
 import marketplace.analysis.MarketplaceMetricsCollector;
 import marketplace.analysis.MarketplaceMetricsPrinter;
 import marketplace.config.MarketplaceConfig;
 import marketplace.config.factories.MarketplaceComponentFactory;
+import marketplace.events.ServiceRequest;
 import marketplace.population.MarketplaceClientPopulationPlacement;
-import marketplace.population.MarketplaceProviderPlacementStrategy;
+import marketplace.workload.ClientDemandGenerator;
+import marketplace.workload.ClientDemandProfile;
 import marketplace.workload.MarketplaceWorkloadGenerator;
+import marketplace.workload.topics.FunctionDistributionStrategy;
 import simulator.config.SimConfiguration;
 import simulator.core.TreeNode;
 import simulator.entities.PublisherWithLocation;
@@ -23,37 +28,21 @@ import simulator.simulations.performance.metrics.MetricsPrinter;
 import simulator.simulations.performance.metrics.PerformanceMetricsData;
 import simulator.simulations.performance.metrics.groundtruth.GroundTruthCalculator;
 import simulator.workload.SubscriptionWorkloadGenerator;
+import simulator.events.PublicationWithLocation;
 import utils.CsvMetricWriter;
 import utils.CustomLogger;
 
-/**
- * Abstract base for all Marketplace Continuum simulations.
- * <p>
- * It wires up the specific Marketplace components:
- * <ul>
- * <li><b>Subscribers:</b> Fixed Providers (Cloud/Fog/Edge)</li>
- * <li><b>Publishers:</b> Population-based Clients</li>
- * <li><b>Routing:</b> Service Matching (QoS + Location)</li>
- * <li><b>Workload:</b> ServiceOffers and ServiceRequests</li>
- * </ul>
- * Subclasses (Concrete Simulations) only need to define the 'main' method 
- * and the specific distribution of Service Requests (generatePublications).
- */
 public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBasedRegionPerformanceSimulation {
 
     protected static final Logger logger = CustomLogger.getLogger(AbstractMarketplaceContinuumSimulation.class.getName());
-
-    // 1. Centralize the Factory instance for all continuum simulations
     protected final MarketplaceComponentFactory componentFactory;
 
-    // Force subclasses to provide the factory
     public AbstractMarketplaceContinuumSimulation(MarketplaceComponentFactory factory) {
         this.componentFactory = factory;
     }
 
-    // ==================================================================================
-    //  MARKETPLACE WIRING (Common to all scenarios)
-    // ==================================================================================
+    protected abstract FunctionDistributionStrategy createDistributionStrategy();
+    protected abstract ClientDemandGenerator createDemandGenerator();
 
     @Override
     protected PublishersPlacementStrategy getPublisherPlacementStrategy() {
@@ -82,8 +71,7 @@ public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBas
 
     @Override
     protected List<BoundedBroker> getInterestHotspots(BoundedBroker root) {
-        // Marketplace doesn't use "Hotspots" because Providers are fixed infrastructure.
-        return null;
+        return null; 
     }
 
     @Override
@@ -91,32 +79,36 @@ public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBas
         return new CsvMetricWriter.MarketplaceTraceStrategy();
     }
 
-    // ==================================================================================
-    //  MARKETPLACE SPECIALIZATION: Deep Client Discovery
-    // ==================================================================================
+    @Override
+    protected List<PublicationWithLocation> generatePublications(List<PublisherWithLocation> publishers) {
+        logger.info(">>> Generating Marketplace Multi-Objective Workload...");
+        List<PublicationWithLocation> requests = new ArrayList<>();
+        ClientDemandGenerator demandGenerator = createDemandGenerator();
+        FunctionDistributionStrategy distribution = createDistributionStrategy();
 
-    /**
-     * Overrides the default leaf-based collection.
-     * In the Marketplace, Providers (Subscribers) exist at Root, Admin1, and Leaf levels.
-     * We must traverse the entire tree to find them.
-     */
+        for (int i = 0; i < publishers.size(); i++) {
+            MarketplaceClient client = (MarketplaceClient) publishers.get(i);
+            long oracleId = distribution.selectClientFunction();
+            ClientDemandProfile profile = demandGenerator.generateDemand(i, oracleId);
+            ServiceRequest req = client.createServiceRequest(oracleId, profile.constraints(), profile.weights());
+            requests.add(req);
+        }
+        return requests;
+    }
+
     @Override
     protected void collectClients(List<BoundedBroker> ignoredLeafs) {
         logger.info(">>> Marketplace Mode: Performing Deep Tree Scan for Providers/Clients...");
-        
         allSubscribers.clear();
         allPublishers.clear();
-        
         if (this.rootNode != null) {
             collectRecursive(this.rootNode);
         }
-        
-        logger.info(">>> Deep Scan Complete. Collected " + allSubscribers.size() + " subscribers (Providers) and " + allPublishers.size() + " publishers (Clients).");
+        logger.info(">>> Deep Scan Complete. Collected " + allSubscribers.size() + " subscribers and " + allPublishers.size() + " publishers.");
     }
 
     private void collectRecursive(TreeNode node) {
         if (node == null || node.getChildren() == null) return;
-
         for (TreeNode child : node.getChildren()) {
             if (child instanceof SubscriberWithLocation) {
                 allSubscribers.add((SubscriberWithLocation) child);
@@ -128,38 +120,24 @@ public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBas
         }
     }
 
-    // ==================================================================================
-    //  LOGGING & DIAGNOSTICS
-    // ==================================================================================
-
     @Override
     protected void logWorkloadConfiguration() {
         MarketplaceConfig config = MarketplaceConfig.get();
-        
-        // Print a specialized banner for the FaaS topology and workload
         printBanner("MARKETPLACE TOPOLOGY & WORKLOAD");
-        
         logConfigItem("Marketplace Slice", config.allowedCountries);
         logConfigItem("Cloud Providers", config.cloudProviderCount);
         logConfigItem("Fog Providers", config.fogProviderCount);
         logConfigItem("Edge Providers", config.edgeProviderCount);
         logConfigItem("Marketplace Clients", SimConfiguration.get().workload.numberOfReplicas);
-        
-        // New FaaS Workload Parameters
         logConfigItem("Edge Workload Probability", String.format("%.2f", config.edgeWorkloadProbability));
         logConfigItem("Strict Budget Probability", String.format("%.2f", config.strictBudgetProbability));
     }
 
     @Override
     protected void logSpecificConfiguration() {
-        // 1. Let the parent classes print their standard network routing configs (Smart Broker, etc.)
         super.logSpecificConfiguration(); 
-        
         MarketplaceConfig config = MarketplaceConfig.get();
-        
-        // 2. Print a specialized banner for the Multi-Objective FaaS logic
         printBanner("MARKETPLACE ROUTING LOGIC");
-        
         logConfigItem("Marketplace Routing Strategy", config.routingStrategy);
         logConfigItem("Aggregation Strategy", config.activeAggregationStrategy.getClass().getSimpleName());
         logConfigItem("Baseline Vendor Target", config.baselineVendorPrefix);
@@ -167,12 +145,9 @@ public abstract class AbstractMarketplaceContinuumSimulation extends GeoNamesBas
 
     @Override
     protected void collectAndPrintMetrics() {
-        // Inject the Oracle into the newly created Collector
         MarketplaceMetricsCollector collector = new MarketplaceMetricsCollector((MarketplaceGroundTruthCalculator) truthCalculator);
-        
         PerformanceMetricsData collected = collector.collect(this.rootNode, allSubscribers, allPublishers);
         this.lastRunMetrics = collected;
-        
         createMetricsPrinter().print(collected);        
     }
 }

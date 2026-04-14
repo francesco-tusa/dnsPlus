@@ -1,21 +1,19 @@
 package marketplace.simulations;
 
-import marketplace.config.MarketplaceConfig;
-import marketplace.config.factories.AzureComponentFactory; // Azure Polymorphic Factory
+import marketplace.config.factories.AzureComponentFactory;
 import marketplace.topology.MarketplaceBrokerFactory;
 import marketplace.workload.ClientDemandGenerator;
 import marketplace.workload.topics.FunctionDistributionStrategy;
-import marketplace.workload.traces.AzureTraceRepository; // Required for trace bootstrapping
+import marketplace.workload.traces.AzureTraceRepository;
+import marketplace.config.MarketplaceConfig;
 import simulator.config.SimConfiguration;
 
-public class AzureMarketplaceSimulation extends MarketplaceContinuumSimulation {
+public class AzureMarketplaceSimulation extends AbstractMarketplaceContinuumSimulation {
 
-    // Define explicit constructor to pass the Azure factory to the superclass
     public AzureMarketplaceSimulation() {
         super(new AzureComponentFactory());
     }
 
-    // Delegate logic directly to the injected factory for clean polymorphism
     @Override
     protected FunctionDistributionStrategy createDistributionStrategy() {
         return componentFactory.createDistributionStrategy();
@@ -26,36 +24,20 @@ public class AzureMarketplaceSimulation extends MarketplaceContinuumSimulation {
         return componentFactory.createDemandGenerator();
     }
 
-    // ==================================================================================
-    //  AZURE TRACE MAIN ENTRY POINT
-    // ==================================================================================
     public static void main(String[] args) {
         try {
-            logger.info(">>> Initializing Azure Trace Marketplace Simulation...");
-
-            // 1. MANDATORY: Bootstrap the Empirical Dataset BEFORE starting the simulation
-            String traceFilePath = MarketplaceConfig.get().azureTraceFilePath;
-
-            // Load traces safely before placement begins
-            AzureTraceRepository.getInstance().loadTraces(traceFilePath);
-
-            // 2. Initialize Global Configurations
+            logger.info(">>> Initializing Generic Azure Trace Marketplace Simulation...");
+            AzureTraceRepository.getInstance().loadTraces(MarketplaceConfig.get().azureTraceFilePath);
+            
             SimConfiguration.get(); 
             MarketplaceConfig.get();
 
-            // 3. Setup Topology Components
             MarketplaceTopologyConfiguration topoConfig = new MarketplaceTopologyConfiguration();
-            MarketplaceBrokerFactory brokerFactory = new MarketplaceBrokerFactory();
-            MarketplaceTopologyLoader loader = new MarketplaceTopologyLoader(topoConfig, brokerFactory);
+            MarketplaceTopologyLoader loader = new MarketplaceTopologyLoader(topoConfig, new MarketplaceBrokerFactory());
             
-            // 4. Instantiate and Run the Azure Engine
             AzureMarketplaceSimulation simulation = new AzureMarketplaceSimulation();
             simulation.run(loader, topoConfig);
-            
-            logger.info(">>> Azure Trace Simulation Complete.");
-
         } catch (Exception e) {
-            logger.severe("Fatal error during Azure simulation execution: " + e.getMessage());
             e.printStackTrace();
         }
     }

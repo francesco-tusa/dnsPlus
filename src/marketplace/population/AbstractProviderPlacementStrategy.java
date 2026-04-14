@@ -64,35 +64,21 @@ public abstract class AbstractProviderPlacementStrategy implements SubscribersPl
     }
 
     protected double calculateCoveringRange(BoundedBroker broker, ProviderTierStrategy tier) {
+        double generatedRadius = tier.generateCoverageRadius(this.random);
+
+        // Bypass check based on properties config
+        if (!config.enableSpatialClipping) {
+            return generatedRadius;
+        }
+
         simulator.regions.SpatialRegion r = broker.getRegion();
-        if (r == null) return tier.getCoverageRadius(); 
+        if (r == null) return generatedRadius; 
 
         double maxDimension = Math.max(r.getWidth(), r.getHeight());
         double halfSide = maxDimension / 2.0;
 
-        if (tier instanceof CloudProviderTier) return Math.min(halfSide * 1.5, tier.getCoverageRadius());
-        else if (tier instanceof FogProviderTier) return Math.min(halfSide * 1.2, tier.getCoverageRadius());
-        else return tier.getCoverageRadius();
-    }
-
-    protected ProviderProfileGenerator.ProviderPolicy assignPolicyForTier(ProviderTierStrategy tier) {
-        double p = this.random.nextDouble(); 
-        
-        if (tier instanceof CloudProviderTier) {
-            return (p < 0.80) ? ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED : ProviderProfileGenerator.ProviderPolicy.BALANCED;
-        }
-        
-        if (tier instanceof EdgeProviderTier) {
-            // 60% chance to hold dedicated warm containers for Ultra-Critical tasks
-            if (p < 0.60) return ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED;
-            if (p < 0.90) return ProviderProfileGenerator.ProviderPolicy.BALANCED;
-            return ProviderProfileGenerator.ProviderPolicy.COST_OPTIMIZED;
-        }
-        
-        // Fog Provider Fallback
-        if (p < 0.50) return ProviderProfileGenerator.ProviderPolicy.BALANCED;
-        if (p < 0.80) return ProviderProfileGenerator.ProviderPolicy.WARM_OPTIMIZED;
-        return ProviderProfileGenerator.ProviderPolicy.COST_OPTIMIZED;
+        // Clean polymorphic clamp using the Tier's specific multiplier
+        return Math.min(halfSide * tier.getRegionClippingMultiplier(), generatedRadius);
     }
 
     private int getStructuralTreeDepth(TreeNode node) {
