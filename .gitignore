@@ -12,3 +12,4 @@ resources/simulation.properties
 resources/simulation.properties
 data_processing/graphs/*
 resources/azurefunctions-dataset2019/*
+FL_Dataset/*
