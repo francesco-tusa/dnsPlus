@@ -9,6 +9,7 @@ import java.util.Queue;
 
 import marketplace.agents.AbstractMarketplaceBroker;
 import marketplace.agents.MarketplaceProvider;
+import marketplace.common.MarketplaceMetricSchema;
 import marketplace.config.MarketplaceConfig;
 import marketplace.events.ServiceOffer;
 import marketplace.events.ServiceRequest;
@@ -118,6 +119,32 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
                 EvaluationResult actualResult = strategy.inspect(executedOffer, req);
                 record.put("deliveredScore", actualResult.score());
 
+                // MORL RAW METRICS EXTRACTION
+                record.put("finalProviderNode", provider.getName());
+                
+                Map<String, Double> yields = executedOffer.getQosMetrics();
+                if (yields != null) {
+                    // 1. Extract and store all base metrics
+                    for (Map.Entry<String, Double> yieldEntry : yields.entrySet()) {
+                        record.put("actual_" + yieldEntry.getKey(), yieldEntry.getValue());
+                    }
+
+                    // 2. Calculate network distance and delay
+                    double distance = Math.sqrt(req.getLocation().distanceSquared(provider.getLocation()));
+                    double netLatency = distance * MarketplaceMetricSchema.DISTANCE_TO_TIME_FACTOR;
+                    
+                    record.put("network_distance", distance);
+                    record.put("network_latency", netLatency);
+
+                    // 3. Safely retrieve the Double before doing arithmetic
+                    Double baseLatency = yields.get(MarketplaceMetricSchema.METRIC_LATENCY);
+                    
+                    // Only perform the addition if baseLatency is not null
+                    if (baseLatency != null) {
+                        record.put("actual_end_to_end_latency", baseLatency + netLatency);
+                    }
+                }
+
                 // Request arrived, but the SLA was violated at the leaf
                 if (!actualResult.isFeasible()) {
                     record.put("status", "FEASIBLE_SLA_VIOLATION");
@@ -142,17 +169,13 @@ public class MarketplaceMetricsCollector extends MetricsCollector {
         }
 
         // RESTORED DEAD END CALCULATION
-        // We know exactly how many feasible requests *should* have arrived. 
-        // Anything missing is a Dead End caused by the aggregation thresholds.
         int totalPossibleFeasible = optimalScores.size() - unfeasibleGroundTruthCount;
         int deadEnds = totalPossibleFeasible - (int)(marketData.optimalDeliveries + marketData.suboptimalDeliveries + marketData.feasibleSlaViolations);
         
-        // Add Dead Ends to the Feasible Violations bucket so the logger prints them accurately
         if (deadEnds > 0) {
             marketData.feasibleSlaViolations += deadEnds;
         }
         
-        // Finalize total violations
         marketData.slaViolations = marketData.feasibleSlaViolations + marketData.unfeasibleSlaViolations;
 
         // 4. DELEGATE FLUSHING TO THE DECENTRALIZED BROKERS
